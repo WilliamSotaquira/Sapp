@@ -89,6 +89,22 @@
             </div>
         </a>
 
+        <!-- Línea de Tiempo Card - NUEVO -->
+        <a href="{{ route('reports.request-timeline') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-teal-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Línea de Tiempo</h3>
+                    <p class="text-gray-600 text-sm mt-1">Análisis temporal de solicitudes y eventos</p>
+                </div>
+                <div class="bg-teal-100 p-3 rounded-full">
+                    <i class="fas fa-history text-teal-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <span class="text-sm text-gray-500">Cronología y métricas de tiempo</span>
+            </div>
+        </a>
+
         <!-- Monthly Trends Card -->
         <a href="{{ route('reports.monthly-trends') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-indigo-500">
             <div class="flex items-center justify-between">
@@ -138,6 +154,12 @@
                         {{ $rate }}%
                     </span>
                 </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600">Solicitudes con Timeline:</span>
+                    <span class="font-semibold text-teal-600">
+                        {{ \App\Models\ServiceRequest::whereNotNull('accepted_at')->orWhereNotNull('resolved_at')->orWhereNotNull('closed_at')->count() }}
+                    </span>
+                </div>
             </div>
         </div>
     </div>
@@ -160,6 +182,42 @@
                 </button>
             </div>
         </form>
+    </div>
+
+    <!-- Nuevas Funcionalidades Section -->
+    <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold mb-4 text-teal-700">
+            <i class="fas fa-star mr-2"></i>Nueva Funcionalidad - Línea de Tiempo
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-teal-50 rounded-lg p-4 border border-teal-200">
+                <h4 class="font-semibold text-teal-800 mb-2">
+                    <i class="fas fa-chart-line mr-2"></i>Análisis Temporal Avanzado
+                </h4>
+                <ul class="text-sm text-teal-700 space-y-1">
+                    <li>• Cronología completa de eventos por solicitud</li>
+                    <li>• Métricas de tiempo y eficiencia</li>
+                    <li>• Distribución de tiempos por estado</li>
+                    <li>• Cumplimiento de tiempos vs SLA</li>
+                </ul>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h4 class="font-semibold text-blue-800 mb-2">
+                    <i class="fas fa-download mr-2"></i>Exportación de Reportes
+                </h4>
+                <ul class="text-sm text-blue-700 space-y-1">
+                    <li>• Exportación a PDF con formato profesional</li>
+                    <li>• Exportación a Excel/CSV para análisis</li>
+                    <li>• Reportes individuales por solicitud</li>
+                    <li>• Filtros por rango de fechas</li>
+                </ul>
+            </div>
+        </div>
+        <div class="mt-4 text-center">
+            <a href="{{ route('reports.request-timeline') }}" class="bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition font-semibold">
+                <i class="fas fa-history mr-2"></i>Explorar Línea de Tiempo
+            </a>
+        </div>
     </div>
 @endsection
 

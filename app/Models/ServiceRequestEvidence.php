@@ -17,6 +17,7 @@ class ServiceRequestEvidence extends Model
 
     protected $fillable = [
         'service_request_id',
+        'user_id', // AÑADIDO
         'title',
         'description',
         'evidence_data',
@@ -48,6 +49,14 @@ class ServiceRequestEvidence extends Model
     public function serviceRequest(): BelongsTo
     {
         return $this->belongsTo(ServiceRequest::class, 'service_request_id');
+    }
+
+    /**
+     * Relación con el usuario - NUEVA RELACIÓN
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
@@ -116,7 +125,7 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
-     * Obtener tamaño formateado del archivo - MÉTODO FALTANTE
+     * Obtener tamaño formateado del archivo
      */
     public function getFormattedFileSize(): string
     {
@@ -177,5 +186,19 @@ class ServiceRequestEvidence extends Model
     public function canBeDeleted(): bool
     {
         return in_array($this->serviceRequest->status, ['ACEPTADA', 'EN_PROCESO']);
+    }
+
+    /**
+     * Obtener descripción resumida para timeline
+     */
+    public function getTimelineDescription(): string
+    {
+        return match($this->evidence_type) {
+            self::TYPE_STEP_BY_STEP => "Paso {$this->step_number}: {$this->description}",
+            self::TYPE_FILE => "Archivo: {$this->file_original_name}",
+            self::TYPE_COMMENT => "Comentario: {$this->description}",
+            self::TYPE_SYSTEM => "Sistema: {$this->description}",
+            default => $this->description
+        };
     }
 }

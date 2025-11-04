@@ -162,7 +162,7 @@ class ServiceRequestController extends Controller
     // =============================================
 
     /**
-     * Aceptar una solicitud de servicio
+     * Aceptar una solicitud de servicio - ACTUALIZADO CON TIMELINE
      */
     public function accept(ServiceRequest $serviceRequest)
     {
@@ -172,7 +172,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update([
             'status' => 'ACEPTADA',
-            'accepted_at' => now(),
+            'accepted_at' => now(), // TIMESTAMP PARA TIMELINE
             'assigned_to' => $serviceRequest->assigned_to ?? auth()->id(),
         ]);
 
@@ -180,7 +180,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Marcar como en proceso
+     * Marcar como en proceso - ACTUALIZADO CON TIMELINE
      */
     public function start(ServiceRequest $serviceRequest)
     {
@@ -190,7 +190,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update([
             'status' => 'EN_PROCESO',
-            'responded_at' => now(),
+            'responded_at' => now(), // TIMESTAMP PARA TIMELINE
         ]);
 
         return redirect()->back()->with('success', 'Solicitud marcada como en proceso.');
@@ -213,7 +213,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Resolver solicitud con validación de evidencias
+     * Resolver solicitud con validación de evidencias - ACTUALIZADO CON TIMELINE
      */
     public function resolveWithEvidence(Request $request, ServiceRequest $serviceRequest)
     {
@@ -237,12 +237,12 @@ class ServiceRequestController extends Controller
 
         try {
             DB::transaction(function () use ($validated, $serviceRequest) {
-                // Actualizar solicitud
+                // Actualizar solicitud con timestamp de resolución
                 $serviceRequest->update([
                     'status' => 'RESUELTA',
                     'resolution_notes' => $validated['resolution_notes'],
                     'actual_resolution_time' => $validated['actual_resolution_time'],
-                    'resolved_at' => now(),
+                    'resolved_at' => now(), // TIMESTAMP PARA TIMELINE
                 ]);
 
                 // Crear evidencia de sistema para la resolución
@@ -271,7 +271,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Resolver solicitud (método original - mantener compatibilidad)
+     * Resolver solicitud (método original - mantener compatibilidad) - ACTUALIZADO CON TIMELINE
      */
     public function resolve(ServiceRequest $serviceRequest, Request $request)
     {
@@ -285,7 +285,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update([
             'status' => 'RESUELTA',
-            'resolved_at' => now(),
+            'resolved_at' => now(), // TIMESTAMP PARA TIMELINE
             'resolution_notes' => $validated['resolution_notes'],
         ]);
 
@@ -293,7 +293,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Cerrar solicitud
+     * Cerrar solicitud - ACTUALIZADO CON TIMELINE
      */
     public function close(ServiceRequest $serviceRequest, Request $request)
     {
@@ -307,7 +307,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update([
             'status' => 'CERRADA',
-            'closed_at' => now(),
+            'closed_at' => now(), // TIMESTAMP PARA TIMELINE
             'satisfaction_score' => $validated['satisfaction_score'],
         ]);
 
@@ -315,7 +315,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Cancelar solicitud
+     * Cancelar solicitud - ACTUALIZADO CON TIMELINE
      */
     public function cancel(ServiceRequest $serviceRequest, Request $request)
     {
@@ -329,7 +329,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update([
             'status' => 'CANCELADA',
-            'closed_at' => now(),
+            'closed_at' => now(), // TIMESTAMP PARA TIMELINE
             'resolution_notes' => $validated['resolution_notes'],
         ]);
 
@@ -371,7 +371,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Pausar una solicitud
+     * Pausar una solicitud - ACTUALIZADO CON TIMELINE
      */
     public function pause(ServiceRequest $serviceRequest, Request $request)
     {
@@ -383,13 +383,14 @@ class ServiceRequestController extends Controller
             'pause_reason' => 'required|string|max:500',
         ]);
 
+        // Usar el método del modelo que ya incluye los timestamps
         $serviceRequest->pause($validated['pause_reason']);
 
         return redirect()->back()->with('success', 'Solicitud pausada exitosamente.');
     }
 
     /**
-     * Reanudar una solicitud
+     * Reanudar una solicitud - ACTUALIZADO CON TIMELINE
      */
     public function resume(ServiceRequest $serviceRequest)
     {
@@ -397,8 +398,43 @@ class ServiceRequestController extends Controller
             return redirect()->back()->with('error', 'La solicitud no está pausada.');
         }
 
+        // Usar el método del modelo que ya incluye los timestamps
         $serviceRequest->resume();
 
         return redirect()->back()->with('success', 'Solicitud reanudada exitosamente.');
+    }
+
+    // =============================================
+    // NUEVOS MÉTODOS PARA TIMELINE
+    // =============================================
+
+    /**
+     * Mostrar línea de tiempo de una solicitud
+     */
+    public function showTimeline(ServiceRequest $serviceRequest)
+    {
+        $serviceRequest->load([
+            'subService.service.family',
+            'sla',
+            'requester',
+            'assignee',
+            'evidences.user',
+            'breachLogs'
+        ]);
+
+        $timelineEvents = $serviceRequest->getTimelineEvents();
+        $timeInStatus = $serviceRequest->getTimeInEachStatus();
+        $totalResolutionTime = $serviceRequest->getTotalResolutionTime();
+        $timeStatistics = $serviceRequest->getTimeStatistics();
+        $timeSummary = $serviceRequest->getTimeSummaryByEventType();
+
+        return view('service-requests.timeline', compact(
+            'serviceRequest',
+            'timelineEvents',
+            'timeInStatus',
+            'totalResolutionTime',
+            'timeStatistics',
+            'timeSummary'
+        ));
     }
 }

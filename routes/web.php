@@ -59,7 +59,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/evidences/{evidence}/download', [ServiceRequestEvidenceController::class, 'download'])
             ->name('service-requests.evidences.download');
 
-        // ← RUTA AÑADIDA PARA VISUALIZAR ARCHIVOS
+        // Ruta para visualizar archivos
         Route::get('/evidences/{evidence}/view', [ServiceRequestEvidenceController::class, 'view'])
             ->name('service-requests.evidences.view');
 
@@ -79,7 +79,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/services/{service}/sub-services', [SubServiceController::class, 'getByService'])->name('services.sub-services');
     Route::get('/sub-services/{subService}/slas', [ServiceRequestController::class, 'getSlas'])->name('sub-services.slas');
 
-    // Rutas de reportes
+    // =============================================
+    // RUTAS PARA REPORTES DE LÍNEA DE TIEMPO
+    // =============================================
+
+    // Reporte de línea de tiempo
+    Route::get('/reports/request-timeline', [ReportController::class, 'requestTimeline'])
+        ->name('reports.request-timeline');
+
+    Route::get('/reports/timeline-detail/{id}', [ReportController::class, 'showTimeline'])
+        ->name('reports.timeline-detail');
+
+    Route::get('/reports/export-timeline/{id}/{format}', [ReportController::class, 'exportTimeline'])
+        ->name('reports.export-timeline');
+
+    // Timeline desde el módulo de ServiceRequests
+    Route::get('/service-requests/{serviceRequest}/timeline', [ServiceRequestController::class, 'showTimeline'])
+        ->name('service-requests.timeline');
+
+    // Rutas de reportes existentes
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('/sla-compliance', [ReportController::class, 'slaCompliance'])->name('sla-compliance');
@@ -95,4 +113,3 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__ . '/auth.php';
- 

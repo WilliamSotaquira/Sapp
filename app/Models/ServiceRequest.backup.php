@@ -452,7 +452,6 @@ class ServiceRequest extends Model
             \Log::warning('Error loading evidences for timeline in request ' . $this->id . ': ' . $e->getMessage());
         }
     }
-
     /**
      * Obtener descripción para evidencias
      */
@@ -502,6 +501,254 @@ class ServiceRequest extends Model
         return $colors[$evidenceType] ?? 'secondary';
     }
 
+    /**
+     * Calcular tiempo en cada estado
+     */
+    public function getTimeInEachStatus()
+    {
+        $times = [];
+        $events = $this->getTimelineEvents();
+
+        for ($i = 0; $i < count($events) - 1; $i++) {
+            $currentEvent = $events[$i];
+            $nextEvent = $events[$i + 1];
+
+            $duration = $currentEvent['timestamp']->diff($nextEvent['timestamp']);
+            $totalMinutes = $duration->i + ($duration->h * 60) + ($duration->days * 24 * 60);
+
+            $times[$currentEvent['status']] = [
+                'duration' => $duration,
+                'total_minutes' => $totalMinutes,
+                'hours' => $duration->h + ($duration->days * 24),
+                'minutes' => $duration->i,
+                'formatted' => $this->formatDuration($duration)
+            ];
+        }
+
+        return $times;
+    }
+
+    /**
+     * Obtener tiempo total de resolución
+     */
+    public function getTotalResolutionTime()
+    {
+        if ($this->created_at && $this->closed_at) {
+            return $this->created_at->diff($this->closed_at);
+        }
+
+        // Si no está cerrada, calcular hasta ahora
+        if ($this->created_at) {
+            return $this->created_at->diff(now());
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Formatear minutos a formato legible
+     */
+    private function formatMinutesToReadable($minutes)
+    {
+        if ($minutes < 60) {
+            return "{$minutes} minuto" . ($minutes > 1 ? 's' : '');
+        } elseif ($minutes < 1440) {
+            $hours = floor($minutes / 60);
+            $mins = $minutes % 60;
+            if ($mins > 0) {
+                return "{$hours} hora" . ($hours > 1 ? 's' : '') . " {$mins} minuto" . ($mins > 1 ? 's' : '');
+            }
+            return "{$hours} hora" . ($hours > 1 ? 's' : '');
+        } else {
+            $days = floor($minutes / 1440);
+            $hours = floor(($minutes % 1440) / 60);
+            if ($hours > 0) {
+                return "{$days} día" . ($days > 1 ? 's' : '') . " {$hours} hora" . ($hours > 1 ? 's' : '');
+            }
+            return "{$days} día" . ($days > 1 ? 's' : '');
+        }
+    }
+
+    /**
+     * Obtener estadísticas de tiempo detalladas
+     */
+    public function getTimeStatistics()
+    {
+        $totalTime = $this->getTotalResolutionTime();
+        $timeInStatus = $this->getTimeInEachStatus();
+
+        $totalMinutes = 0;
+        if ($totalTime) {
+            $totalMinutes = $totalTime->i + ($totalTime->h * 60) + ($totalTime->days * 24 * 60);
+        }
+
+        // Calcular tiempo pausado
+        $pausedMinutes = $this->total_paused_minutes;
+        if ($this->isPaused() && $this->paused_at) {
+            $pausedMinutes += now()->diffInMinutes($this->paused_at);
+        }
+
+        // Calcular tiempo activo
+        $activeMinutes = max(0, $totalMinutes - $pausedMinutes);
+
+        // Calcular eficiencia
+        $efficiency = $totalMinutes > 0 ? ($activeMinutes / $totalMinutes) * 100 : 0;
+
+        return [
+            'total_time' => $totalTime ? $this->formatDuration($totalTime) : 'En progreso',
+            'total_minutes' => $totalMinutes,
+            'active_time' => $this->formatMinutesToReadable($activeMinutes),
+            'active_minutes' => $activeMinutes,
+            'paused_time' => $this->getTotalPausedTimeFormatted(),
+            'paused_minutes' => $pausedMinutes,
+            'efficiency' => round($efficiency, 1) . '%',
+            'efficiency_raw' => $efficiency
+        ];
+    }
+
+    /**
+     * Obtener resumen de tiempos por tipo de evento
+     */
+    public function getTimeSummaryByEventType()
+    {
+        $timeInStatus = $this->getTimeInEachStatus();
+        $summary = [];
+
+        foreach ($timeInStatus as $status => $time) {
+            $summary[] = [
+                'event_type' => $this->getEventTypeLabel($status),
+                'duration' => $time['formatted'],
+                'minutes' => $time['total_minutes'],
+                'percentage' => $this->calculateTimePercentage($time['total_minutes'])
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Obtener etiqueta para tipo de evento
+     */
+    private function getEventTypeLabel($status)
+    {
+        $labels = [
+            'created' => 'Creación',
+            'assigned' => 'Asignación',
+            'accepted' => 'Aceptación',
+            'responded' => 'Respuesta Inicial',
+            'paused' => 'Pausa',
+            'resumed' => 'Reanudación',
+            'resolved' => 'Resolución',
+            'closed' => 'Cierre',
+            'evidence' => 'Evidencias',
+            'breach' => 'Incumplimientos SLA'
+        ];
+
+        return $labels[$status] ?? ucfirst($status);
+    }
+
+    /**
+     * Calcular porcentaje de tiempo
+     */
+    private function calculateTimePercentage($minutes)
+    {
+        $stats = $this->getTimeStatistics();
+        $totalMinutes = $stats['total_minutes'];
+
+        if ($totalMinutes > 0) {
+            return round(($minutes / $totalMinutes) * 100, 1);
+        }
+
+        return 0;
+    }
+
+    // =============================================
+    // MÉTODOS PARA COLORES Y ESTADOS (compatibilidad)
+    // =============================================
+
+    /**
+     * Obtener color del estado
+     */
+    public function getStatusColor()
+    {
+        $colors = [
+            'PENDIENTE' => 'warning',
+            'ASIGNADA' => 'info',
+            'EN_PROCESO' => 'primary',
+            'PAUSADA' => 'secondary',
+            'RESUELTA' => 'success',
+            'CERRADA' => 'dark',
+            'CANCELADA' => 'danger'
+        ];
+
+        return $colors[$this->status] ?? 'secondary';
+    }
+
+    /**
+     * Obtener texto del estado
+     */
+    public function getStatusText()
+    {
+        return $this->status;
+    }
+
+    /**
+     * Obtener color de la prioridad
+     */
+    public function getPriorityColor()
+    {
+        $colors = [
+            'BAJA' => 'success',
+            'MEDIA' => 'warning',
+            'ALTA' => 'danger',
+            'CRITICA' => 'dark'
+        ];
+
+        return $colors[$this->criticality_level] ?? 'secondary';
+    }
+
+    /**
+     * Obtener texto de la prioridad
+     */
+    public function getPriorityText()
+    {
+        return $this->criticality_level;
+    }
+
+    /**
+     * Verificar si la solicitud está vencida
+     */
+    public function isOverdue()
+    {
+        if ($this->closed_at) {
+            return false;
+        }
+
+        $deadline = $this->resolution_deadline;
+        if (!$deadline) {
+            return false;
+        }
+
+        return now()->greaterThan($deadline);
+    }
+
+    /**
+     * Obtener tiempo restante para vencimiento
+     */
+    public function getTimeRemaining()
+    {
+        if ($this->closed_at || !$this->resolution_deadline) {
+            return null;
+        }
+
+        $now = now();
+        if ($now->greaterThan($this->resolution_deadline)) {
+            return 'Vencido';
+        }
+
+        return $this->formatDuration($now->diff($this->resolution_deadline));
+    }
     /**
      * Formatear duración para intervalos de fecha
      */
@@ -689,59 +936,6 @@ class ServiceRequest extends Model
         return 0;
     }
 
-    // =============================================
-    // MÉTODOS PARA COLORES Y ESTADOS (compatibilidad)
-    // =============================================
-
-    /**
-     * Obtener color del estado
-     */
-    public function getStatusColor()
-    {
-        $colors = [
-            'PENDIENTE' => 'warning',
-            'ASIGNADA' => 'info',
-            'EN_PROCESO' => 'primary',
-            'PAUSADA' => 'secondary',
-            'RESUELTA' => 'success',
-            'CERRADA' => 'dark',
-            'CANCELADA' => 'danger'
-        ];
-
-        return $colors[$this->status] ?? 'secondary';
-    }
-
-    /**
-     * Obtener texto del estado
-     */
-    public function getStatusText()
-    {
-        return $this->status;
-    }
-
-    /**
-     * Obtener color de la prioridad
-     */
-    public function getPriorityColor()
-    {
-        $colors = [
-            'BAJA' => 'success',
-            'MEDIA' => 'warning',
-            'ALTA' => 'danger',
-            'CRITICA' => 'dark'
-        ];
-
-        return $colors[$this->criticality_level] ?? 'secondary';
-    }
-
-    /**
-     * Obtener texto de la prioridad
-     */
-    public function getPriorityText()
-    {
-        return $this->criticality_level;
-    }
-
     /**
      * Verificar si la solicitud está vencida
      */
@@ -757,22 +951,5 @@ class ServiceRequest extends Model
         }
 
         return now()->greaterThan($deadline);
-    }
-
-    /**
-     * Obtener tiempo restante para vencimiento
-     */
-    public function getTimeRemaining()
-    {
-        if ($this->closed_at || !$this->resolution_deadline) {
-            return null;
-        }
-
-        $now = now();
-        if ($now->greaterThan($this->resolution_deadline)) {
-            return 'Vencido';
-        }
-
-        return $this->formatDuration($now->diff($this->resolution_deadline));
     }
 }

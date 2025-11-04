@@ -7,9 +7,12 @@ use App\Models\Service;
 use App\Models\SubService;
 use App\Models\ServiceRequest;
 use App\Models\ServiceLevelAgreement;
+use App\Exports\RequestTimelineExport;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportController extends Controller
 {
@@ -20,6 +23,101 @@ class ReportController extends Controller
     {
         return view('reports.index');
     }
+
+    // =============================================
+    // NUEVOS MÉTODOS PARA LÍNEA DE TIEMPO
+    // =============================================
+
+    /**
+     * Reporte de Línea de Tiempo - Listado de solicitudes
+     */
+    public function requestTimeline(Request $request)
+    {
+        $dateRange = $this->getDateRange($request);
+
+        $requests = ServiceRequest::with(['subService', 'requester', 'assignee', 'sla'])
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        return view('reports.request-timeline', compact('requests', 'dateRange'));
+    }
+
+    /**
+     * Mostrar detalle de timeline de una solicitud específica
+     */
+    public function showTimeline($id)
+    {
+        $request = ServiceRequest::with([
+            'subService',
+            'requester',
+            'assignee',
+            'sla',
+            'evidences.user',
+            'breachLogs'
+        ])->findOrFail($id);
+
+        $timelineEvents = $request->getTimelineEvents();
+        $timeInStatus = $request->getTimeInEachStatus();
+        $totalResolutionTime = $request->getTotalResolutionTime();
+        $timeStatistics = $request->getTimeStatistics();
+        $timeSummary = $request->getTimeSummaryByEventType();
+
+        return view('reports.timeline-detail', compact(
+            'request',
+            'timelineEvents',
+            'timeInStatus',
+            'totalResolutionTime',
+            'timeStatistics',
+            'timeSummary'
+        ));
+    }
+
+    /**
+     * Exportar timeline a PDF o Excel
+     */
+    public function exportTimeline($id, $format)
+    {
+        $request = ServiceRequest::with([
+            'subService',
+            'requester',
+            'assignee',
+            'sla',
+            'evidences.user',
+            'breachLogs'
+        ])->findOrFail($id);
+
+        $timelineEvents = $request->getTimelineEvents();
+        $timeInStatus = $request->getTimeInEachStatus();
+        $totalResolutionTime = $request->getTotalResolutionTime();
+        $timeStatistics = $request->getTimeStatistics();
+        $timeSummary = $request->getTimeSummaryByEventType();
+
+        $timestamp = now()->format('Y-m-d_His');
+
+        if ($format === 'pdf') {
+            $pdf = PDF::loadView('reports.exports.timeline-pdf', compact(
+                'request',
+                'timelineEvents',
+                'timeInStatus',
+                'totalResolutionTime',
+                'timeStatistics',
+                'timeSummary'
+            ));
+
+            return $pdf->download("timeline-{$request->ticket_number}-{$timestamp}.pdf");
+        }
+
+        if ($format === 'excel') {
+            return Excel::download(new RequestTimelineExport($request), "timeline-{$request->ticket_number}-{$timestamp}.xlsx");
+        }
+
+        return redirect()->back()->with('error', 'Formato no válido');
+    }
+
+    // =============================================
+    // MÉTODOS EXISTENTES (se mantienen igual)
+    // =============================================
 
     /**
      * SLA Compliance Report
@@ -196,6 +294,10 @@ class ReportController extends Controller
                         compact('servicePerformance', 'dateRange'),
                         "reporte-rendimiento-servicios-{$timestamp}.pdf");
 
+                case 'request-timeline':
+                    // Exportación individual de timeline se maneja en exportTimeline()
+                    return back()->with('info', 'Use la opción de exportación desde el detalle del timeline');
+
                 default:
                     return back()->with('error', 'Tipo de reporte no válido');
             }
@@ -233,6 +335,10 @@ class ReportController extends Controller
                     $data = $this->getServicePerformanceData($dateRange);
                     $csv = $this->formatServicePerformanceForCsv($data);
                     return $this->downloadCsv($csv, "reporte-rendimiento-servicios-{$timestamp}.csv");
+
+                case 'request-timeline':
+                    // Exportación individual de timeline se maneja en exportTimeline()
+                    return back()->with('info', 'Use la opción de exportación desde el detalle del timeline');
 
                 default:
                     return back()->with('error', 'Tipo de reporte no válido');
