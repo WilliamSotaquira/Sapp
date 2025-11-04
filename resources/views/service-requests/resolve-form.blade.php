@@ -43,15 +43,25 @@
         <!-- Evidencias Registradas -->
         <div class="p-6 border-b">
             <h3 class="text-lg font-semibold mb-4">
-                <i class="fas fa-camera mr-2"></i>Evidencias Registradas
+                <i class="fas fa-camera mr-2"></i>Evidencias Válidas para Resolución
                 <span class="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full ml-2">
-                    {{ $serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count() }}
+                    {{ $validEvidencesCount }}
                 </span>
             </h3>
 
-            @if($serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count() > 0)
+            @if($validEvidencesCount > 0)
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                        <span class="text-green-800 font-medium">La solicitud puede ser resuelta</span>
+                    </div>
+                    <p class="text-green-700 text-sm mt-1">
+                        Se han registrado {{ $validEvidencesCount }} evidencias válidas para la resolución.
+                    </p>
+                </div>
+
                 <div class="space-y-3">
-                    @foreach($serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->sortBy('step_number') as $evidence)
+                    @foreach($serviceRequest->evidences as $evidence)
                         <div class="bg-gray-50 border rounded-lg p-4">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
@@ -76,24 +86,21 @@
                                     <p class="text-gray-600 text-sm mb-2">{{ $evidence->description }}</p>
                                     @endif
 
-                                    @if($evidence->hasFile())
+                                    @if($evidence->file_path)
                                     <div class="flex items-center text-sm text-green-600 mt-2">
                                         <i class="fas fa-paperclip mr-1"></i>
-                                        <span>{{ $evidence->file_original_name }}</span>
+                                        <span>{{ $evidence->file_original_name ?? 'Archivo adjunto' }}</span>
+                                        @if($evidence->file_size)
                                         <span class="text-gray-500 ml-2">
-                                            ({{ $evidence->file_size ? number_format($evidence->file_size / 1024, 2) . ' KB' : '0 B' }})
+                                            ({{ number_format($evidence->file_size / 1024, 2) }} KB)
                                         </span>
+                                        @endif
                                     </div>
                                     @endif
                                 </div>
 
                                 <div class="flex space-x-2 ml-4">
-                                    <a href="{{ route('service-requests.evidences.show', [$serviceRequest, $evidence]) }}"
-                                        class="text-blue-600 hover:text-blue-800" title="Ver detalle">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-
-                                    @if($evidence->hasFile())
+                                    @if($evidence->file_path)
                                     <a href="{{ route('service-requests.evidences.download', [$serviceRequest, $evidence]) }}"
                                         class="text-green-600 hover:text-green-800" title="Descargar archivo">
                                         <i class="fas fa-download"></i>
@@ -105,13 +112,18 @@
                     @endforeach
                 </div>
             @else
-                <div class="text-center py-8 bg-gray-50 rounded-lg">
-                    <i class="fas fa-camera text-gray-400 text-4xl mb-3"></i>
-                    <p class="text-gray-500 mb-4">No hay evidencias registradas para esta solicitud.</p>
-                    <a href="{{ route('service-requests.evidences.create', $serviceRequest) }}"
-                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg inline-flex items-center">
-                        <i class="fas fa-plus mr-2"></i>Agregar Evidencia
-                    </a>
+                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                        <span class="text-yellow-800 font-medium">No hay evidencias válidas registradas</span>
+                    </div>
+                    <p class="text-yellow-700 text-sm mt-1">
+                        Tipos de evidencias aceptadas para resolución:
+                    </p>
+                    <ul class="text-yellow-700 text-sm mt-1 list-disc list-inside">
+                        <li>Evidencias Paso a Paso</li>
+                        <li>Archivos Adjuntos</li>
+                    </ul>
                 </div>
             @endif
         </div>
@@ -161,16 +173,20 @@
                         <div class="flex items-center">
                             <i class="fas fa-list-ol text-blue-500 mr-2"></i>
                             <span>Evidencias Paso a Paso: </span>
-                            <span class="font-semibold ml-1">{{ $serviceRequest->stepByStepEvidences->count() }}</span>
+                            <span class="font-semibold ml-1">
+                                {{ $serviceRequest->stepByStepEvidences->count() }}
+                            </span>
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-paperclip text-green-500 mr-2"></i>
                             <span>Archivos Adjuntos: </span>
-                            <span class="font-semibold ml-1">{{ $serviceRequest->fileEvidences->count() }}</span>
+                            <span class="font-semibold ml-1">
+                                {{ $serviceRequest->fileEvidences->count() }}
+                            </span>
                         </div>
                     </div>
 
-                    @if($serviceRequest->stepByStepEvidences->count() == 0 && $serviceRequest->fileEvidences->count() == 0)
+                    @if($validEvidencesCount == 0)
                         <div class="mt-2 p-2 bg-yellow-100 border border-yellow-200 rounded">
                             <p class="text-yellow-800 text-sm">
                                 <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -187,7 +203,7 @@
                         Cancelar
                     </a>
 
-                    @if($serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count() > 0)
+                    @if($validEvidencesCount > 0)
                         <button type="submit"
                             class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
                             <i class="fas fa-check-circle mr-2"></i>

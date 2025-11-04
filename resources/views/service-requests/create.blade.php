@@ -109,6 +109,57 @@
                     @enderror
                 </div>
 
+                <!-- Sección de Rutas Web (Opcional) -->
+                <div class="md:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Rutas Web (Opcional)</h3>
+                        <button type="button" id="toggleWebRoutes"
+                                class="bg-blue-100 text-blue-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Agregar Rutas Web
+                        </button>
+                    </div>
+
+                    <!-- Contenedor de rutas web (inicialmente oculto) -->
+                    <div id="webRoutesSection" class="hidden space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+                        <!-- Rutas Web Múltiples -->
+                        <div>
+                            <label for="web_routes" class="block text-sm font-medium text-gray-700">Rutas Web (URLs)</label>
+                            <textarea name="web_routes" id="web_routes" rows="3"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Ingrese una o varias URLs separadas por comas&#10;Ejemplo: https://ejemplo.com, https://app.ejemplo.com/dashboard">{{ old('web_routes') }}</textarea>
+                            <small class="text-gray-500 text-xs mt-1">
+                                Separe múltiples URLs con comas. La primera URL será considerada como la principal.
+                            </small>
+                            @error('web_routes')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Ruta Web Principal -->
+                        <div>
+                            <label for="main_web_route" class="block text-sm font-medium text-gray-700">Ruta Web Principal</label>
+                            <input type="url" name="main_web_route" id="main_web_route" value="{{ old('main_web_route') }}"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="https://ejemplo.com">
+                            <small class="text-gray-500 text-xs mt-1">
+                                URL principal relacionada con esta solicitud (se llenará automáticamente con la primera URL ingresada).
+                            </small>
+                            @error('main_web_route')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Botón para ocultar la sección -->
+                        <div class="flex justify-end">
+                            <button type="button" id="hideWebRoutes"
+                                    class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-400 transition-colors">
+                                <i class="fas fa-times mr-2"></i>Ocultar Rutas Web
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Nivel de Criticidad -->
                 <div>
                     <label for="criticality_level" class="block text-sm font-medium text-gray-700">Nivel de Criticidad *</label>
@@ -166,6 +217,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const subServiceSelect = document.getElementById('sub_service_id');
     const slaSelect = document.getElementById('sla_id');
     const slaInfo = document.getElementById('sla_info');
+    const toggleWebRoutesBtn = document.getElementById('toggleWebRoutes');
+    const hideWebRoutesBtn = document.getElementById('hideWebRoutes');
+    const webRoutesSection = document.getElementById('webRoutesSection');
+    const webRoutesTextarea = document.getElementById('web_routes');
+    const mainWebRouteInput = document.getElementById('main_web_route');
+
+    // Toggle para mostrar/ocultar la sección de rutas web
+    toggleWebRoutesBtn.addEventListener('click', function() {
+        webRoutesSection.classList.remove('hidden');
+        this.classList.add('hidden');
+    });
+
+    hideWebRoutesBtn.addEventListener('click', function() {
+        webRoutesSection.classList.add('hidden');
+        toggleWebRoutesBtn.classList.remove('hidden');
+
+        // Opcional: Limpiar los campos al ocultar
+        webRoutesTextarea.value = '';
+        mainWebRouteInput.value = '';
+    });
 
     // Filtrar sub-servicios por familia
     familyFilter.addEventListener('change', function() {
@@ -246,6 +317,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Auto-completar la ruta web principal cuando se ingresan rutas web
+    webRoutesTextarea.addEventListener('input', function() {
+        const routesText = this.value.trim();
+
+        if (routesText) {
+            // Tomar la primera URL de la lista (separadas por comas)
+            const firstUrl = routesText.split(',')[0].trim();
+
+            // Si es una URL válida, establecerla como ruta principal
+            if (isValidUrl(firstUrl)) {
+                mainWebRouteInput.value = firstUrl;
+            }
+        } else {
+            mainWebRouteInput.value = '';
+        }
+    });
+
     function formatTime(minutes) {
         if (minutes < 60) {
             return `${minutes} min`;
@@ -257,6 +345,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const days = Math.floor(minutes / 1440);
             const hours = Math.floor((minutes % 1440) / 60);
             return hours > 0 ? `${days}d ${hours}h` : `${days} días`;
+        }
+    }
+
+    function isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
         }
     }
 
