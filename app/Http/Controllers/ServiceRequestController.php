@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ResolveServiceRequestRequest;
 use App\Models\ServiceRequest;
 use App\Models\SubService;
 use App\Models\ServiceLevelAgreement;
@@ -10,6 +11,7 @@ use App\Models\ServiceRequestEvidence;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+
 
 class ServiceRequestController extends Controller
 {
@@ -53,6 +55,8 @@ class ServiceRequestController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
+            'web_routes' => 'nullable|string',
+            'main_web_route' => 'nullable|url',
         ]);
 
         // Generar número de ticket único
@@ -199,17 +203,37 @@ class ServiceRequestController extends Controller
     /**
      * Mostrar formulario para resolver con evidencias
      */
+    // En ServiceRequestController.php - VERIFICA ESTA LÍNEA EXACTA:
+    /**
+     * Mostrar formulario para resolver con evidencias
+     */
+    /**
+     * Mostrar formulario para resolver con evidencias
+     */
     public function showResolveForm(ServiceRequest $serviceRequest)
     {
+        // Validar que la solicitud esté en estado EN_PROCESO
         if ($serviceRequest->status !== 'EN_PROCESO') {
             return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('error', 'La solicitud no está en estado para ser resuelta.');
+                ->with('error', 'La solicitud no está en estado para ser resuelta. Estado actual: ' . $serviceRequest->status);
         }
 
-        // Cargar evidencias paso a paso para la validación
-        $serviceRequest->load(['stepByStepEvidences']);
+        // Cargar las relaciones necesarias
+        $serviceRequest->load([
+            'sla',
+            'evidences' => function ($query) {
+                $query->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])
+                    ->orderBy('step_number')
+                    ->orderBy('created_at');
+            }
+        ]);
 
-        return view('service-requests.resolve', compact('serviceRequest'));
+        // Usar el método que ya tienes para contar evidencias válidas
+        $validEvidencesCount = $serviceRequest->hasAnyEvidenceForResolution()
+            ? $serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count()
+            : 0;
+
+        return view('service-requests.resolve-form', compact('serviceRequest', 'validEvidencesCount'));
     }
 
     /**
@@ -262,7 +286,6 @@ class ServiceRequestController extends Controller
 
             return redirect()->route('service-requests.show', $serviceRequest)
                 ->with('success', 'Solicitud resuelta correctamente con todas las evidencias.');
-
         } catch (\Exception $e) {
             return redirect()->back()
                 ->with('error', 'Error al resolver la solicitud: ' . $e->getMessage())
@@ -273,25 +296,44 @@ class ServiceRequestController extends Controller
     /**
      * Resolver solicitud (método original - mantener compatibilidad) - ACTUALIZADO CON TIMELINE
      */
-    public function resolve(ServiceRequest $serviceRequest, Request $request)
+    /**
+     * Resolver solicitud (método original - mantener compatibilidad) - ACTUALIZADO CON TIMELINE
+     */
+    /**
+     * Resolver solicitud
+     */
+    public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
         if ($serviceRequest->status !== 'EN_PROCESO') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado EN PROCESO.');
+            return redirect()->route('service-requests.show', $serviceRequest)
+                ->with('error', 'La solicitud no puede ser resuelta en su estado actual: ' . $serviceRequest->status);
         }
 
         $validated = $request->validate([
-            'resolution_notes' => 'required|string',
+            'resolution_notes' => 'required|string|min:10',
+            'actual_resolution_time' => 'required|integer|min:1',
         ]);
 
-        $serviceRequest->update([
-            'status' => 'RESUELTA',
-            'resolved_at' => now(), // TIMESTAMP PARA TIMELINE
-            'resolution_notes' => $validated['resolution_notes'],
-        ]);
+        try {
+            $serviceRequest->update([
+                'resolution_notes' => $validated['resolution_notes'],
+                'actual_resolution_time' => $validated['actual_resolution_time'],
+                'resolved_at' => now(),
+                'status' => 'RESUELTA' // ← EXACTAMENTE EN MAYÚSCULAS
+            ]);
 
-        return redirect()->back()->with('success', 'Solicitud resuelta exitosamente.');
+            // Verificar que se actualizó correctamente
+            \Log::info("Solicitud {$serviceRequest->ticket_number} resuelta. Nuevo estado: {$serviceRequest->fresh()->status}");
+
+            return redirect()->route('service-requests.show', $serviceRequest)
+                ->with('success', 'Solicitud resuelta exitosamente.');
+        } catch (\Exception $e) {
+            \Log::error("Error al resolver solicitud: " . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Error al resolver la solicitud: ' . $e->getMessage())
+                ->withInput();
+        }
     }
-
     /**
      * Cerrar solicitud - ACTUALIZADO CON TIMELINE
      */
@@ -317,24 +359,28 @@ class ServiceRequestController extends Controller
     /**
      * Cancelar solicitud - ACTUALIZADO CON TIMELINE
      */
-    public function cancel(ServiceRequest $serviceRequest, Request $request)
-    {
-        if (!in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA'])) {
-            return redirect()->back()->with('error', 'Solo se pueden cancelar solicitudes en estado PENDIENTE o ACEPTADA.');
-        }
+  public function cancel(ServiceRequest $serviceRequest, Request $request)
+{
+    $validStatuses = ['PENDIENTE', 'ACEPTADA'];
+    $currentStatus = strtoupper(trim($serviceRequest->status));
 
-        $validated = $request->validate([
-            'resolution_notes' => 'required|string',
-        ]);
-
-        $serviceRequest->update([
-            'status' => 'CANCELADA',
-            'closed_at' => now(), // TIMESTAMP PARA TIMELINE
-            'resolution_notes' => $validated['resolution_notes'],
-        ]);
-
-        return redirect()->back()->with('success', 'Solicitud cancelada exitosamente.');
+    if (!in_array($currentStatus, $validStatuses)) {
+        return redirect()->back()->with('error', 'Solo se pueden cancelar solicitudes en estado PENDIENTE o ACEPTADA.');
     }
+
+    $validated = $request->validate([
+        'resolution_notes' => 'required|string|min:10',
+    ]);
+
+    $serviceRequest->update([
+        'status' => 'CANCELADA',
+        'resolution_notes' => $validated['resolution_notes'],
+        'closed_at' => now(),
+    ]);
+
+    return redirect()->route('service-requests.show', $serviceRequest)
+        ->with('success', 'Solicitud cancelada exitosamente.');
+}
 
     /**
      * Obtener SLAs aplicables para un sub-servicio (AJAX)
