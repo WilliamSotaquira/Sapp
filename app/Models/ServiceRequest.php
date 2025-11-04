@@ -9,6 +9,7 @@ use App\Models\Managers\ServiceRequestStateManager;
 use App\Models\Managers\ServiceRequestEvidenceManager;
 use App\Models\Managers\ServiceRequestWebRoutesManager;
 use App\Models\Managers\ServiceRequestTimelineManager;
+use Illuminate\Support\Str;
 
 class ServiceRequest extends Model
 {
@@ -193,5 +194,97 @@ class ServiceRequest extends Model
     {
         $currentStatus = strtoupper(trim($this->status));
         return $currentStatus === 'RESUELTA' && $currentStatus !== 'CERRADA';
+    }
+    /**
+     * Generar número de ticket profesional único
+     */
+    public static function generateProfessionalTicketNumber($subServiceId, $criticalityLevel)
+    {
+        try {
+            $subService = SubService::with('service.family')->find($subServiceId);
+
+            if (!$subService || !$subService->service || !$subService->service->family) {
+                throw new \Exception('No se pudo obtener la información del servicio');
+            }
+
+            // Generar códigos
+            $familyCode = self::generateFamilyCode($subService->service->family);
+            $serviceCode = self::generateServiceCode($subService->service);
+            $critCode = self::getCriticalityCode($criticalityLevel);
+
+            $date = now()->format('ymd'); // 241015 para 15/10/2024
+
+            // Buscar último ticket del mismo tipo
+            $pattern = "{$familyCode}-{$serviceCode}{$critCode}-{$date}-%";
+            $lastTicket = self::where('ticket_number', 'like', $pattern)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $sequence = 1;
+            if ($lastTicket) {
+                // Extraer secuencia del último ticket
+                $parts = explode('-', $lastTicket->ticket_number);
+                $lastSequence = (int) end($parts);
+                $sequence = $lastSequence + 1;
+            }
+
+            return sprintf(
+                '%s-%s%s-%s-%03d',
+                $familyCode,
+                $serviceCode,
+                $critCode,
+                $date,
+                $sequence
+            );
+        } catch (\Exception $e) {
+            // Fallback simple si hay error
+            \Log::error('Error generando ticket profesional: ' . $e->getMessage());
+            return 'SR-' . now()->format('Ymd-His') . '-' . Str::random(4);
+        }
+    }
+
+    /**
+     * Generar código de familia (3 caracteres)
+     */
+    private static function generateFamilyCode($family)
+    {
+        // Priorizar código personalizado si existe
+        if (!empty($family->code)) {
+            return strtoupper(substr($family->code, 0, 3));
+        }
+
+        // Generar desde el nombre
+        $name = preg_replace('/[^a-zA-Z0-9]/', '', $family->name);
+        return strtoupper(substr($name, 0, 3));
+    }
+
+    /**
+     * Generar código de servicio (2 caracteres)
+     */
+    private static function generateServiceCode($service)
+    {
+        // Priorizar código personalizado si existe
+        if (!empty($service->code)) {
+            return strtoupper(substr($service->code, 0, 2));
+        }
+
+        // Generar desde el nombre
+        $name = preg_replace('/[^a-zA-Z0-9]/', '', $service->name);
+        return strtoupper(substr($name, 0, 2));
+    }
+
+    /**
+     * Obtener código de criticidad (1 carácter)
+     */
+    private static function getCriticalityCode($criticalityLevel)
+    {
+        $criticalityCodes = [
+            'BAJA' => 'L',  // Low
+            'MEDIA' => 'M', // Medium
+            'ALTA' => 'H',  // High
+            'CRITICA' => 'C' // Critical
+        ];
+
+        return $criticalityCodes[$criticalityLevel] ?? 'U'; // Unknown
     }
 }

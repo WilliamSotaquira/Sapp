@@ -13,11 +13,11 @@
             </div>
             <div class="flex space-x-2">
                 <a href="{{ route('reports.timeline.export', [$request->id, 'pdf']) }}"
-                   class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
+                    class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-file-pdf mr-2"></i>PDF
                 </a>
                 <a href="{{ route('reports.timeline.export', [$request->id, 'excel']) }}"
-                   class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
+                    class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-file-excel mr-2"></i>Excel
                 </a>
             </div>
@@ -49,16 +49,16 @@
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600 font-medium">Estado:</span>
                             @php
-                                $statusColors = [
-                                    'PENDIENTE' => 'bg-yellow-100 text-yellow-800',
-                                    'ASIGNADA' => 'bg-blue-100 text-blue-800',
-                                    'EN_PROCESO' => 'bg-purple-100 text-purple-800',
-                                    'PAUSADA' => 'bg-gray-100 text-gray-800',
-                                    'RESUELTA' => 'bg-green-100 text-green-800',
-                                    'CERRADA' => 'bg-gray-200 text-gray-800',
-                                    'CANCELADA' => 'bg-red-100 text-red-800'
-                                ];
-                                $statusColor = $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800';
+                            $statusColors = [
+                            'PENDIENTE' => 'bg-yellow-100 text-yellow-800',
+                            'ASIGNADA' => 'bg-blue-100 text-blue-800',
+                            'EN_PROCESO' => 'bg-purple-100 text-purple-800',
+                            'PAUSADA' => 'bg-gray-100 text-gray-800',
+                            'RESUELTA' => 'bg-green-100 text-green-800',
+                            'CERRADA' => 'bg-gray-200 text-gray-800',
+                            'CANCELADA' => 'bg-red-100 text-red-800'
+                            ];
+                            $statusColor = $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800';
                             @endphp
                             <span class="{{ $statusColor }} px-3 py-1 rounded-full text-sm font-medium">
                                 <i class="fas fa-{{ getStatusIcon($request->status) }} mr-1"></i>
@@ -68,13 +68,13 @@
                         <div class="flex justify-between items-center">
                             <span class="text-gray-600 font-medium">Prioridad:</span>
                             @php
-                                $priorityColors = [
-                                    'BAJA' => 'bg-green-100 text-green-800',
-                                    'MEDIA' => 'bg-yellow-100 text-yellow-800',
-                                    'ALTA' => 'bg-orange-100 text-orange-800',
-                                    'CRITICA' => 'bg-red-100 text-red-800'
-                                ];
-                                $priorityColor = $priorityColors[$request->criticality_level] ?? 'bg-gray-100 text-gray-800';
+                            $priorityColors = [
+                            'BAJA' => 'bg-green-100 text-green-800',
+                            'MEDIA' => 'bg-yellow-100 text-yellow-800',
+                            'ALTA' => 'bg-orange-100 text-orange-800',
+                            'CRITICA' => 'bg-red-100 text-red-800'
+                            ];
+                            $priorityColor = $priorityColors[$request->criticality_level] ?? 'bg-gray-100 text-gray-800';
                             @endphp
                             <span class="{{ $priorityColor }} px-3 py-1 rounded-full text-sm font-medium">
                                 <i class="fas fa-{{ $request->criticality_level == 'ALTA' ? 'exclamation-triangle' : 'flag' }} mr-1"></i>
@@ -155,88 +155,129 @@
         </div>
 
         <!-- Estadísticas de Tiempo -->
-        <div class="bg-white rounded-lg border border-gray-200 mb-6">
-            <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-800">
-                    <i class="fas fa-chart-bar mr-2 text-blue-500"></i>Estadísticas de Tiempo
-                </h2>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div class="border-r border-gray-200 last:border-r-0">
-                        <div class="text-gray-600 text-sm mb-1">Tiempo Total</div>
-                        <div class="text-2xl font-bold text-blue-600">{{ $timeStatistics['total_time'] }}</div>
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Estadísticas de Tiempo</h3>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Tiempo Total</div>
+                    <div class="text-2xl font-bold text-blue-600">
+                        {{ is_numeric($totalResolutionTime) ? $totalResolutionTime . ' min' : $totalResolutionTime }}
                     </div>
-                    <div class="border-r border-gray-200 last:border-r-0">
-                        <div class="text-gray-600 text-sm mb-1">Tiempo Activo</div>
-                        <div class="text-2xl font-bold text-green-600">{{ $timeStatistics['active_time'] }}</div>
+                </div>
+
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Tiempo Activo</div>
+                    <div class="text-2xl font-bold text-green-600">
+                        @php
+                        $activeTime = 0;
+                        if (!empty($timeInStatus)) {
+                        foreach ($timeInStatus as $status => $minutes) {
+                        if (!in_array($status, ['PAUSADA'])) {
+                        $activeTime += $minutes;
+                        }
+                        }
+                        }
+                        @endphp
+                        {{ $activeTime }} min
                     </div>
-                    <div class="border-r border-gray-200 last:border-r-0">
-                        <div class="text-gray-600 text-sm mb-1">Tiempo Pausado</div>
-                        <div class="text-2xl font-bold text-yellow-600">{{ $timeStatistics['paused_time'] }}</div>
+                </div>
+
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Estados</div>
+                    <div class="text-2xl font-bold text-purple-600">
+                        {{ count($timeInStatus) }}
                     </div>
-                    <div>
-                        <div class="text-gray-600 text-sm mb-1">Eficiencia</div>
-                        <div class="text-2xl font-bold
-                            {{ $timeStatistics['efficiency_raw'] > 80 ? 'text-green-600' :
-                               ($timeStatistics['efficiency_raw'] > 60 ? 'text-yellow-600' : 'text-red-600') }}">
-                            {{ $timeStatistics['efficiency'] }}
-                        </div>
+                </div>
+
+                <div>
+                    <div class="text-gray-600 text-sm mb-1">Eventos</div>
+                    <div class="text-2xl font-bold text-orange-600">
+                        {{ count($timelineEvents) }}
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Distribución de Tiempos -->
-        @if(count($timeSummary) > 0)
-        <div class="bg-white rounded-lg border border-gray-200 mb-6">
-            <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-800">
-                    <i class="fas fa-chart-pie mr-2 text-blue-500"></i>Distribución de Tiempos por Estado
-                </h2>
-            </div>
-            <div class="p-6">
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gray-50 border-b border-gray-200">
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo de Evento</th>
-                                <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Duración</th>
-                                <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Minutos</th>
-                                <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Porcentaje</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            @foreach($timeSummary as $summary)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center space-x-2">
-                                        <i class="fas fa-{{ getEventTypeIcon($summary['event_type']) }} text-gray-400"></i>
-                                        <span class="text-gray-700">{{ $summary['event_type'] }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-center font-semibold text-gray-900">{{ $summary['duration'] }}</td>
-                                <td class="px-4 py-3 text-center text-gray-600">{{ $summary['minutes'] }} min</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="flex-1 bg-gray-200 rounded-full h-4">
-                                            <div class="h-4 rounded-full
-                                                {{ $summary['percentage'] > 50 ? 'bg-green-500' :
-                                                   ($summary['percentage'] > 25 ? 'bg-blue-500' : 'bg-yellow-500') }}"
-                                                style="width: {{ $summary['percentage'] }}%">
-                                            </div>
-                                        </div>
-                                        <span class="text-sm font-medium text-gray-700 w-12">{{ $summary['percentage'] }}%</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+        <!-- Tiempo por Estado -->
+        @if(!empty($timeStatistics) && is_array($timeStatistics))
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Tiempo por Estado</h3>
+
+            <div class="space-y-3">
+                @foreach($timeStatistics as $status => $data)
+                @if(is_array($data) && isset($data['formatted_time']))
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-700">{{ $status }}</span>
+                    <div class="text-right">
+                        <span class="font-semibold">{{ $data['formatted_time'] }}</span>
+                        <span class="text-sm text-gray-500 ml-2">({{ $data['percentage'] ?? '0' }}%)</span>
+                    </div>
                 </div>
+                @endif
+                @endforeach
             </div>
         </div>
         @endif
+
+        <!-- Resumen por Tipo de Evento -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumen por Tipo de Evento</h3>
+
+            @if(!empty($timeSummary) && is_array($timeSummary))
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo de Evento</th>
+                            <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Cantidad</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Último Evento</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @foreach($timeSummary as $eventType => $summary)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center space-x-2">
+                                    @php
+                                    $iconMap = [
+                                    'created' => 'plus-circle',
+                                    'assigned' => 'user-check',
+                                    'accepted' => 'check-circle',
+                                    'responded' => 'reply',
+                                    'paused' => 'pause-circle',
+                                    'resumed' => 'play-circle',
+                                    'resolved' => 'check-double',
+                                    'closed' => 'lock',
+                                    'evidence' => 'file-alt',
+                                    'web_route' => 'link',
+                                    'main_route' => 'star',
+                                    'breach' => 'exclamation-triangle'
+                                    ];
+                                    $icon = $iconMap[$eventType] ?? 'circle';
+                                    @endphp
+                                    <i class="fas fa-{{ $icon }} text-gray-400"></i>
+                                    <span class="text-gray-700">{{ ucfirst(str_replace('_', ' ', $eventType)) }}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center font-semibold text-gray-900">
+                                {{ $summary['count'] ?? 0 }}
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">
+                                {{ $summary['last_time'] ? $summary['last_time']->format('d/m/Y H:i') : 'N/A' }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @else
+            <div class="text-center text-gray-500 py-8">
+                <i class="fas fa-chart-bar text-4xl mb-4"></i>
+                <p>No hay datos de resumen disponibles</p>
+            </div>
+            @endif
+        </div>
 
         <!-- Línea de Tiempo -->
         <div class="bg-white rounded-lg border border-gray-200">
@@ -317,11 +358,11 @@
         <div class="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div class="flex space-x-3">
                 <a href="{{ route('reports.timeline.index') }}"
-                   class="bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    class="bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>Volver al Listado
                 </a>
                 <a href="{{ route('service-requests.show', $request->id) }}"
-                   class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-eye mr-2"></i>Ver Detalles de Solicitud
                 </a>
             </div>
@@ -335,62 +376,62 @@
 
 @php
 function getStatusIcon($status) {
-    $icons = [
-        'PENDIENTE' => 'clock',
-        'ACEPTADA' => 'check-circle',
-        'EN_PROCESO' => 'cogs',
-        'PAUSADA' => 'pause-circle',
-        'RESUELTA' => 'check-double',
-        'CERRADA' => 'lock',
-        'CANCELADA' => 'times-circle'
-    ];
-    return $icons[$status] ?? 'question-circle';
+$icons = [
+'PENDIENTE' => 'clock',
+'ACEPTADA' => 'check-circle',
+'EN_PROCESO' => 'cogs',
+'PAUSADA' => 'pause-circle',
+'RESUELTA' => 'check-double',
+'CERRADA' => 'lock',
+'CANCELADA' => 'times-circle'
+];
+return $icons[$status] ?? 'question-circle';
 }
 
 function getEventTypeIcon($eventType) {
-    $icons = [
-        'Creación' => 'plus-circle',
-        'Asignación' => 'user-check',
-        'Aceptación' => 'check-circle',
-        'Respuesta Inicial' => 'reply',
-        'Pausa' => 'pause-circle',
-        'Reanudación' => 'play-circle',
-        'Resolución' => 'check-double',
-        'Cierre' => 'lock',
-        'Evidencia' => 'file-alt',
-        'Incumplimiento SLA' => 'exclamation-triangle'
-    ];
-    return $icons[$eventType] ?? 'circle';
+$icons = [
+'Creación' => 'plus-circle',
+'Asignación' => 'user-check',
+'Aceptación' => 'check-circle',
+'Respuesta Inicial' => 'reply',
+'Pausa' => 'pause-circle',
+'Reanudación' => 'play-circle',
+'Resolución' => 'check-double',
+'Cierre' => 'lock',
+'Evidencia' => 'file-alt',
+'Incumplimiento SLA' => 'exclamation-triangle'
+];
+return $icons[$eventType] ?? 'circle';
 }
 
 function getEvidenceTypeIcon($evidenceType) {
-    $icons = [
-        'PASO_A_PASO' => 'list-ol',
-        'ARCHIVO' => 'paperclip',
-        'COMENTARIO' => 'comment',
-        'SISTEMA' => 'cog'
-    ];
-    return $icons[$evidenceType] ?? 'file-alt';
+$icons = [
+'PASO_A_PASO' => 'list-ol',
+'ARCHIVO' => 'paperclip',
+'COMENTARIO' => 'comment',
+'SISTEMA' => 'cog'
+];
+return $icons[$evidenceType] ?? 'file-alt';
 }
 
 function getEvidenceTypeLabel($evidenceType) {
-    $labels = [
-        'PASO_A_PASO' => 'Paso a Paso',
-        'ARCHIVO' => 'Archivo',
-        'COMENTARIO' => 'Comentario',
-        'SISTEMA' => 'Sistema'
-    ];
-    return $labels[$evidenceType] ?? $evidenceType;
+$labels = [
+'PASO_A_PASO' => 'Paso a Paso',
+'ARCHIVO' => 'Archivo',
+'COMENTARIO' => 'Comentario',
+'SISTEMA' => 'Sistema'
+];
+return $labels[$evidenceType] ?? $evidenceType;
 }
 
 function getEvidenceTypeColor($evidenceType) {
-    $colors = [
-        'PASO_A_PASO' => 'primary',
-        'ARCHIVO' => 'info',
-        'COMENTARIO' => 'secondary',
-        'SISTEMA' => 'dark'
-    ];
-    return $colors[$evidenceType] ?? 'secondary';
+$colors = [
+'PASO_A_PASO' => 'primary',
+'ARCHIVO' => 'info',
+'COMENTARIO' => 'secondary',
+'SISTEMA' => 'dark'
+];
+return $colors[$evidenceType] ?? 'secondary';
 }
 @endphp
 @endsection

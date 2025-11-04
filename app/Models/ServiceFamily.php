@@ -1,4 +1,5 @@
 <?php
+// app/Models/ServiceFamily.php
 
 namespace App\Models;
 
@@ -10,25 +11,67 @@ class ServiceFamily extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'code', 'description', 'is_active'];
+    protected $fillable = [
+        'name',
+        'code',
+        'description',
+        'is_active',
+        'sort_order'
+    ];
 
+    protected $casts = [
+        'is_active' => 'boolean'
+    ];
+
+    /**
+     * Relación con servicios
+     */
     public function services()
     {
-        return $this->hasMany(Service::class);
+        return $this->hasMany(Service::class, 'service_family_id');
     }
 
     public function serviceLevelAgreements()
     {
-        return $this->hasMany(ServiceLevelAgreement::class);
+        return $this->hasMany(ServiceLevelAgreement::class, 'service_family_id');
     }
 
-    public function activeServices()
+    /**
+     * Scope para familias activas
+     */
+    public function scopeActive($query)
     {
-        return $this->services()->where('is_active', true);
+        return $query->where('is_active', true);
     }
 
-    public function activeSlas()
+    /**
+     * Scope ordenado
+     */
+    public function scopeOrdered($query)
     {
-        return $this->serviceLevelAgreements()->where('is_active', true);
+        return $query->orderBy('sort_order')->orderBy('name');
+    }
+
+    /**
+     * Validar que el código sea único
+     */
+    public static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            if ($model->code) {
+                $model->code = strtoupper(trim($model->code));
+
+                // Verificar unicidad
+                $exists = static::where('code', $model->code)
+                    ->where('id', '!=', $model->id)
+                    ->exists();
+
+                if ($exists) {
+                    throw new \Exception('El código de familia ya está en uso.');
+                }
+            }
+        });
     }
 }

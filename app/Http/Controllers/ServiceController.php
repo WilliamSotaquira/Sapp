@@ -1,159 +1,86 @@
 <?php
+// app/Http\Controllers\ServiceController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Service;
 use App\Models\ServiceFamily;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class ServiceController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(Request $request)
+    public function index()
     {
-        $query = Service::with(['family'])
-            ->withCount(['subServices', 'activeSubServices']);
+        $services = Service::with(['family', 'subServices' => function($query) {
+            $query->where('is_active', true);
+        }])
+        ->withCount(['subServices' => function($query) {
+            $query->where('is_active', true);
+        }])
+        ->active()
+        ->ordered()
+        ->get();
 
-        // Filtro de búsqueda
-        if ($request->has('search') && $request->search != '') {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        // Filtro por familia
-        if ($request->has('family') && $request->family != '') {
-            $query->where('service_family_id', $request->family);
-        }
-
-        // Filtro por estado
-        if ($request->has('status') && $request->status != '') {
-            if ($request->status == 'active') {
-                $query->where('is_active', true);
-            } elseif ($request->status == 'inactive') {
-                $query->where('is_active', false);
-            }
-        }
-
-        // Ordenamiento
-        $sort = $request->get('sort', 'order');
-        $direction = $request->get('direction', 'asc');
-
-        if (in_array($sort, ['name', 'code', 'order', 'created_at'])) {
-            $query->orderBy($sort, $direction);
-        } else {
-            $query->orderBy('order', 'asc')->orderBy('name', 'asc');
-        }
-
-        $services = $query->paginate(10)->withQueryString();
-        $serviceFamilies = ServiceFamily::where('is_active', true)->get();
-
-        return view('services.index', compact('services', 'serviceFamilies'));
+        return view('services.index', compact('services'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        $serviceFamilies = ServiceFamily::where('is_active', true)->get();
+        $serviceFamilies = ServiceFamily::active()->ordered()->get();
         return view('services.create', compact('serviceFamilies'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'service_family_id' => 'required|exists:service_families,id',
-        'name' => 'required|string|max:255',
-        'code' => 'required|string|max:10',
-        'description' => 'nullable|string',
-        'is_active' => 'boolean',
-        'order' => 'integer|min:0',
-    ]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'service_family_id' => 'required|exists:service_families,id',
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:10|unique:services,code',
+            'description' => 'nullable|string',
+            'is_active' => 'sometimes|boolean',
+            'order' => 'sometimes|integer'
+        ]);
 
-    // Validar código único por familia
-    $exists = Service::where('service_family_id', $validated['service_family_id'])
-        ->where('code', $validated['code'])
-        ->exists();
+        $validated['is_active'] = (bool)($request->is_active ?? false);
+        $validated['order'] = $validated['order'] ?? 0;
 
-    if ($exists) {
-        return redirect()->back()
-            ->withInput()
-            ->with('error', 'El código "' . $validated['code'] . '" ya existe para esta familia de servicio.');
+        Service::create($validated);
+
+        return redirect()->route('services.index')
+            ->with('success', 'Servicio creado exitosamente.');
     }
 
-    // Asegurar que is_active sea booleano
-    $validated['is_active'] = (bool)($validated['is_active'] ?? true);
+    public function show(Service $service)
+    {
+        // CORRECCIÓN: Usar where() en lugar de active() en la relación
+        $service->load([
+            'family',
+            'subServices' => function($query) {
+                $query->where('is_active', true)->orderBy('order')->orderBy('name');
+            }
+        ]);
 
-    Service::create($validated);
+        return view('services.show', compact('service'));
+    }
 
-    return redirect()->route('services.index')
-        ->with('success', 'Servicio "' . $validated['name'] . '" creado exitosamente.');
-}
-
-    /**
-     * Display the specified resource.
-     */
-public function show(Service $service)
-{
-    $service->load([
-        'family',
-        'subServices' => function($query) {
-            $query->orderBy('order', 'asc')->orderBy('name', 'asc');
-        },
-        'activeSubServices'
-    ]);
-
-    return view('services.show', compact('service'));
-}
-
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Service $service)
     {
-        $serviceFamilies = ServiceFamily::where('is_active', true)->get();
+        $serviceFamilies = ServiceFamily::active()->ordered()->get();
         return view('services.edit', compact('service', 'serviceFamilies'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Service $service)
     {
         $validated = $request->validate([
             'service_family_id' => 'required|exists:service_families,id',
             'name' => 'required|string|max:255',
-            'code' => [
-                'required',
-                'string',
-                'max:10',
-            ],
+            'code' => 'required|string|max:10|unique:services,code,' . $service->id,
             'description' => 'nullable|string',
-            'is_active' => 'boolean',
-            'order' => 'integer|min:0',
+            'is_active' => 'sometimes|boolean',
+            'order' => 'sometimes|integer'
         ]);
 
-        // Validar código único por familia (excluyendo el actual)
-        $exists = Service::where('service_family_id', $validated['service_family_id'])
-            ->where('code', $validated['code'])
-            ->where('id', '!=', $service->id)
-            ->exists();
-
-        if ($exists) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'El código ya existe para esta familia de servicio.');
-        }
+        $validated['is_active'] = (bool)($request->is_active ?? false);
 
         $service->update($validated);
 
@@ -161,13 +88,10 @@ public function show(Service $service)
             ->with('success', 'Servicio actualizado exitosamente.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Service $service)
     {
         if ($service->subServices()->count() > 0) {
-            return redirect()->route('services.index')
+            return redirect()->back()
                 ->with('error', 'No se puede eliminar el servicio porque tiene sub-servicios asociados.');
         }
 

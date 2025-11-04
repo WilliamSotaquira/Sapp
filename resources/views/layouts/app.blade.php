@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body class="bg-gray-100">
     <!-- Navigation -->
     <nav class="bg-blue-600 text-white shadow-lg">
@@ -48,17 +50,16 @@
     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <!-- Flash Messages -->
         @if(session('success'))
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                {{ session('success') }}
-            </div>
+        <div class="alert-flash bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+            {{ session('success') }}
+        </div>
         @endif
 
         @if(session('error'))
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {{ session('error') }}
-            </div>
+        <div class="alert-flash bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            {{ session('error') }}
+        </div>
         @endif
-
         <!-- Page Header -->
         <div class="mb-6">
             <h1 class="text-2xl font-bold text-gray-900">@yield('title')</h1>
@@ -78,7 +79,7 @@
 
         // Auto-ocultar mensajes flash después de 5 segundos
         setTimeout(() => {
-            const flashMessages = document.querySelectorAll('.bg-green-100, .bg-red-100');
+            const flashMessages = document.querySelectorAll('.alert-flash, .flash-message');
             flashMessages.forEach(msg => {
                 msg.style.transition = 'opacity 0.5s';
                 msg.style.opacity = '0';
@@ -89,4 +90,5 @@
 
     @yield('scripts')
 </body>
+
 </html>

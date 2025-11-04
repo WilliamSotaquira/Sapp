@@ -317,4 +317,113 @@ trait ServiceRequestTimelineManager
 
         return null;
     }
+
+    /**
+     * Obtener tiempo en cada estado
+     */
+    public function getTimeInEachStatus(): array
+    {
+        $times = [];
+
+        // Tiempo en PENDIENTE (creación hasta aceptación o respuesta)
+        $startPending = $this->created_at;
+        $endPending = $this->accepted_at ?: $this->responded_at;
+
+        if ($startPending && $endPending) {
+            $times['PENDIENTE'] = $startPending->diffInMinutes($endPending);
+        }
+
+        // Tiempo en ACEPTADA (aceptación hasta respuesta)
+        if ($this->accepted_at && $this->responded_at) {
+            $times['ACEPTADA'] = $this->accepted_at->diffInMinutes($this->responded_at);
+        }
+
+        // Tiempo en EN_PROCESO (respuesta hasta resolución)
+        if ($this->responded_at && $this->resolved_at) {
+            $times['EN_PROCESO'] = $this->responded_at->diffInMinutes($this->resolved_at);
+        }
+
+        // Tiempo en RESUELTA (resolución hasta cierre o ahora)
+        if ($this->resolved_at) {
+            $endTime = $this->closed_at ?: now();
+            $times['RESUELTA'] = $this->resolved_at->diffInMinutes($endTime);
+        }
+
+        // Tiempo en PAUSADA (si aplica)
+        if ($this->paused_at && $this->resumed_at) {
+            $times['PAUSADA'] = $this->paused_at->diffInMinutes($this->resumed_at);
+        }
+
+        return $times;
+    }
+
+    /**
+     * Obtener estadísticas de tiempo
+     */
+    public function getTimeStatistics(): array
+    {
+        $timeInStatus = $this->getTimeInEachStatus();
+        $totalTime = $this->getTotalResolutionTimeInMinutes();
+
+        if ($totalTime === 0) {
+            return [
+                'total_time' => 0,
+                'total_time_formatted' => '0 min'
+            ];
+        }
+
+        $statistics = [
+            'total_time' => $totalTime,
+            'total_time_formatted' => $this->formatMinutesToReadable($totalTime)
+        ];
+
+        foreach ($timeInStatus as $status => $minutes) {
+            $percentage = ($minutes / $totalTime) * 100;
+            $statistics[$status] = [
+                'minutes' => $minutes,
+                'percentage' => round($percentage, 2),
+                'formatted_time' => $this->formatMinutesToReadable($minutes)
+            ];
+        }
+
+        return $statistics;
+    }
+    /**
+     * Obtener resumen de tiempo por tipo de evento
+     */
+    public function getTimeSummaryByEventType(): array
+    {
+        $events = $this->getTimelineEvents();
+        $summary = [];
+
+        foreach ($events as $event) {
+            $type = $event['status'] ?? 'unknown';
+            if (!isset($summary[$type])) {
+                $summary[$type] = [
+                    'count' => 0,
+                    'last_time' => null,
+                    'events' => []
+                ];
+            }
+
+            $summary[$type]['count']++;
+            $summary[$type]['last_time'] = $event['timestamp'];
+            $summary[$type]['events'][] = $event;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Obtener tiempo total de resolución en minutos
+     */
+    public function getTotalResolutionTimeInMinutes(): int
+    {
+        if (!$this->created_at) {
+            return 0;
+        }
+
+        $endTime = $this->closed_at ?: ($this->resolved_at ?: now());
+        return $this->created_at->diffInMinutes($endTime);
+    }
 }

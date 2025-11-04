@@ -20,13 +20,22 @@ class ServiceRequestController extends Controller
      */
     public function index()
     {
-        $serviceRequests = ServiceRequest::with(['subService.service.family', 'sla', 'requester', 'assignee'])
+        $serviceRequests = ServiceRequest::with(['subService.service.family', 'requester'])
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
-        return view('service-requests.index', compact('serviceRequests'));
+        // Estadísticas para las tarjetas
+        $pendingCount = ServiceRequest::where('status', 'PENDIENTE')->count();
+        $criticalCount = ServiceRequest::where('criticality_level', 'CRITICA')->count();
+        $resolvedCount = ServiceRequest::where('status', 'RESUELTA')->count();
+
+        return view('service-requests.index', compact(
+            'serviceRequests',
+            'pendingCount',
+            'criticalCount',
+            'resolvedCount'
+        ));
     }
-
     /**
      * Show the form for creating a new resource.
      */
@@ -46,6 +55,7 @@ class ServiceRequestController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+    // En App\Http\Controllers\ServiceRequestController
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -59,8 +69,11 @@ class ServiceRequestController extends Controller
             'main_web_route' => 'nullable|url',
         ]);
 
-        // Generar número de ticket único
-        $validated['ticket_number'] = 'SR-' . Str::upper(Str::random(8));
+        // Generar número de ticket profesional
+        $validated['ticket_number'] = ServiceRequest::generateProfessionalTicketNumber(
+            $validated['sub_service_id'],
+            $validated['criticality_level']
+        );
         $validated['requested_by'] = auth()->id();
 
         // Obtener el SLA seleccionado
@@ -73,6 +86,13 @@ class ServiceRequestController extends Controller
         $validated['resolution_deadline'] = $now->copy()->addMinutes($sla->resolution_time_minutes);
 
         $serviceRequest = ServiceRequest::create($validated);
+
+        // Log para debugging
+        \Log::info('Nueva solicitud creada', [
+            'ticket_number' => $serviceRequest->ticket_number,
+            'sub_service_id' => $validated['sub_service_id'],
+            'criticality_level' => $validated['criticality_level']
+        ]);
 
         return redirect()->route('service-requests.show', $serviceRequest)
             ->with('success', 'Solicitud de servicio creada exitosamente. Ticket: ' . $serviceRequest->ticket_number);
@@ -359,28 +379,28 @@ class ServiceRequestController extends Controller
     /**
      * Cancelar solicitud - ACTUALIZADO CON TIMELINE
      */
-  public function cancel(ServiceRequest $serviceRequest, Request $request)
-{
-    $validStatuses = ['PENDIENTE', 'ACEPTADA'];
-    $currentStatus = strtoupper(trim($serviceRequest->status));
+    public function cancel(ServiceRequest $serviceRequest, Request $request)
+    {
+        $validStatuses = ['PENDIENTE', 'ACEPTADA'];
+        $currentStatus = strtoupper(trim($serviceRequest->status));
 
-    if (!in_array($currentStatus, $validStatuses)) {
-        return redirect()->back()->with('error', 'Solo se pueden cancelar solicitudes en estado PENDIENTE o ACEPTADA.');
+        if (!in_array($currentStatus, $validStatuses)) {
+            return redirect()->back()->with('error', 'Solo se pueden cancelar solicitudes en estado PENDIENTE o ACEPTADA.');
+        }
+
+        $validated = $request->validate([
+            'resolution_notes' => 'required|string|min:10',
+        ]);
+
+        $serviceRequest->update([
+            'status' => 'CANCELADA',
+            'resolution_notes' => $validated['resolution_notes'],
+            'closed_at' => now(),
+        ]);
+
+        return redirect()->route('service-requests.show', $serviceRequest)
+            ->with('success', 'Solicitud cancelada exitosamente.');
     }
-
-    $validated = $request->validate([
-        'resolution_notes' => 'required|string|min:10',
-    ]);
-
-    $serviceRequest->update([
-        'status' => 'CANCELADA',
-        'resolution_notes' => $validated['resolution_notes'],
-        'closed_at' => now(),
-    ]);
-
-    return redirect()->route('service-requests.show', $serviceRequest)
-        ->with('success', 'Solicitud cancelada exitosamente.');
-}
 
     /**
      * Obtener SLAs aplicables para un sub-servicio (AJAX)
@@ -388,30 +408,43 @@ class ServiceRequestController extends Controller
     public function getSlas(SubService $subService)
     {
         try {
-            // Cargar las relaciones necesarias
-            $subService->load(['service.family.serviceLevelAgreements']);
+            \Log::info("=== DEPURACIÓN GETSLAS INICIADA ===");
+            \Log::info("SubService ID: " . $subService->id);
+            \Log::info("SubService Name: " . $subService->name);
 
-            // Verificar que existan las relaciones
-            if (!$subService->service) {
-                \Log::error("SubService {$subService->id} no tiene servicio asociado");
-                return response()->json([]);
+            // Cargar relaciones paso a paso para depurar
+            $subService->load(['service']);
+            \Log::info("Service ID: " . ($subService->service ? $subService->service->id : 'NULL'));
+            \Log::info("Service Name: " . ($subService->service ? $subService->service->name : 'NULL'));
+
+            if ($subService->service) {
+                $subService->service->load(['family']);
+                \Log::info("Family ID: " . ($subService->service->family ? $subService->service->family->id : 'NULL'));
+                \Log::info("Family Name: " . ($subService->service->family ? $subService->service->family->name : 'NULL'));
+
+                if ($subService->service->family) {
+                    // Verificar SLAs directamente
+                    $slasCount = $subService->service->family->serviceLevelAgreements()
+                        ->where('is_active', true)
+                        ->count();
+
+                    \Log::info("SLAs activos encontrados: " . $slasCount);
+
+                    $slas = $subService->service->family->serviceLevelAgreements()
+                        ->where('is_active', true)
+                        ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
+
+                    \Log::info("SLAs devueltos: " . $slas->toJson());
+
+                    return response()->json($slas);
+                }
             }
 
-            if (!$subService->service->family) {
-                \Log::error("Service {$subService->service->id} no tiene familia asociada");
-                return response()->json([]);
-            }
-
-            // Obtener SLAs activos de la familia
-            $slas = $subService->service->family->serviceLevelAgreements()
-                ->where('is_active', true)
-                ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
-
-            \Log::info("Found {$slas->count()} SLAs for sub-service {$subService->id}");
-
-            return response()->json($slas);
+            \Log::warning("No se pudo cargar SLAs - relaciones incompletas");
+            return response()->json([]);
         } catch (\Exception $e) {
-            \Log::error('Error loading SLAs for sub-service ' . $subService->id . ': ' . $e->getMessage());
+            \Log::error('Error crítico en getSlas: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
             return response()->json([], 500);
         }
     }

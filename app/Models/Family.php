@@ -1,50 +1,41 @@
 <?php
+// app/Models/Family.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class SubService extends Model
+class Family extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'service_id',
         'name',
         'code',
         'description',
-        'is_active',
-        'cost',
-        'order'
+        'is_active'
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'cost' => 'decimal:2'
+        'is_active' => 'boolean'
     ];
 
-    // Scopes
+    /**
+     * Relación con servicios
+     */
+    public function services()
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    /**
+     * Scope para familias activas
+     */
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
-    }
-
-    public function scopeOrdered($query)
-    {
-        return $query->orderBy('order')->orderBy('name');
-    }
-
-    // Relaciones
-    public function service(): BelongsTo
-    {
-        return $this->belongsTo(Service::class);
-    }
-
-    public function serviceRequests()
-    {
-        return $this->hasMany(ServiceRequest::class);
     }
 
     /**
@@ -58,12 +49,13 @@ class SubService extends Model
             if ($model->code) {
                 $model->code = strtoupper(trim($model->code));
 
+                // Verificar unicidad (excluyendo el propio registro)
                 $exists = static::where('code', $model->code)
                     ->where('id', '!=', $model->id)
                     ->exists();
 
                 if ($exists) {
-                    throw new \Exception('El código de sub-servicio ya está en uso.');
+                    throw new \Exception('El código de familia ya está en uso.');
                 }
             }
         });

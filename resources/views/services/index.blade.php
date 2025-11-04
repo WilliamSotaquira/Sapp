@@ -1,75 +1,64 @@
+{{-- resources/views/services/index.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Servicios')
 
-@section('breadcrumb')
-    <nav class="flex" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-            <li class="inline-flex items-center">
-                <a href="{{ url('/dashboard') }}" class="text-blue-600 hover:text-blue-700">Inicio</a>
-            </li>
-            <li aria-current="page">
-                <div class="flex items-center">
-                    <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                    <span class="text-gray-500">Servicios</span>
-                </div>
-            </li>
-        </ol>
-    </nav>
-@endsection
-
 @section('content')
-    <div class="mb-6 flex justify-between items-center">
-        <h2 class="text-xl font-semibold">Lista de Servicios</h2>
-        <a href="{{ route('services.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center">
+<div class="container mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Servicios</h1>
+            <p class="text-gray-600 mt-1">Gestión de servicios y sus configuraciones</p>
+        </div>
+        <a href="{{ route('services.create') }}"
+           class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
             <i class="fas fa-plus mr-2"></i>Nuevo Servicio
         </a>
     </div>
 
-    <!-- Estadísticas -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4">
+    <!-- Alertas -->
+    @if(session('success'))
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded">
             <div class="flex items-center">
-                <div class="p-2 bg-blue-100 rounded-lg">
-                    <i class="fas fa-cogs text-blue-600 text-lg"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Total Servicios</p>
-                    <p class="text-xl font-semibold text-gray-900">{{ $services->total() }}</p>
-                </div>
+                <i class="fas fa-check-circle mr-2"></i>
+                <span>{{ session('success') }}</span>
             </div>
         </div>
-        <div class="bg-white rounded-lg shadow p-4">
+    @endif
+
+    @if(session('error'))
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
             <div class="flex items-center">
-                <div class="p-2 bg-green-100 rounded-lg">
-                    <i class="fas fa-check-circle text-green-600 text-lg"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Activos</p>
-                    <p class="text-xl font-semibold text-gray-900">{{ \App\Models\Service::where('is_active', true)->count() }}</p>
-                </div>
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <span>{{ session('error') }}</span>
             </div>
         </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-red-100 rounded-lg">
-                    <i class="fas fa-times-circle text-red-600 text-lg"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Inactivos</p>
-                    <p class="text-xl font-semibold text-gray-900">{{ \App\Models\Service::where('is_active', false)->count() }}</p>
-                </div>
+    @endif
+
+    <!-- Filtros y Búsqueda -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+                <input type="text" id="searchInput" placeholder="Buscar servicios..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center">
-                <div class="p-2 bg-purple-100 rounded-lg">
-                    <i class="fas fa-list-alt text-purple-600 text-lg"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-600">Total Sub-Servicios</p>
-                    <p class="text-xl font-semibold text-gray-900">{{ \App\Models\SubService::count() }}</p>
-                </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Familia</label>
+                <select id="familyFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todas las familias</option>
+                    @foreach($services->pluck('family')->unique()->filter() as $family)
+                        <option value="{{ $family->id }}">{{ $family->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+                <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todos los estados</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                </select>
             </div>
         </div>
     </div>
@@ -80,142 +69,220 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Familia</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sub-Servicios</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orden</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="name">
+                            <div class="flex items-center">
+                                <span>Nombre</span>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="code">
+                            <div class="flex items-center">
+                                <span>Código</span>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="family">
+                            <div class="flex items-center">
+                                <span>Familia</span>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Sub-Servicios
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status">
+                            <div class="flex items-center">
+                                <span>Estado</span>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                        </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-gray-200" id="servicesTable">
                     @forelse($services as $service)
-                        <tr class="hover:bg-gray-50 transition duration-150">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center">
-                                    <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                        <i class="fas fa-cog text-green-600"></i>
-                                    </div>
-                                    <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">
-                                            <a href="{{ route('services.show', $service) }}" class="hover:text-blue-600">
-                                                {{ $service->name }}
-                                            </a>
-                                        </div>
-                                        @if($service->description)
-                                            <div class="text-sm text-gray-500">{{ Str::limit($service->description, 50) }}</div>
-                                        @endif
-                                    </div>
+                    <tr class="service-row hover:bg-gray-50 transition duration-150"
+                        data-name="{{ strtolower($service->name) }}"
+                        data-code="{{ strtolower($service->code) }}"
+                        data-family="{{ $service->family ? strtolower($service->family->name) : '' }}"
+                        data-status="{{ $service->is_active ? 'active' : 'inactive' }}">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-cog text-blue-600"></i>
                                 </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {{ $service->code }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    {{ $service->family->name ?? 'N/A' }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div class="flex items-center">
-                                    <span class="font-semibold">{{ $service->sub_services_count }}</span>
-                                    @if($service->sub_services_count > 0)
-                                        <span class="ml-2 text-xs text-gray-500">
-                                            ({{ $service->activeSubServices->count() }} activos)
-                                        </span>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ $service->name }}</div>
+                                    @if($service->description)
+                                    <div class="text-sm text-gray-500">{{ Str::limit($service->description, 60) }}</div>
                                     @endif
                                 </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    {{ $service->order }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                <i class="fas fa-hashtag mr-1"></i>
+                                {{ $service->code }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($service->family)
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
+                                    {{ $service->family->code }}
                                 </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $service->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    @if($service->is_active)
-                                        <i class="fas fa-check-circle mr-1"></i>Activo
-                                    @else
-                                        <i class="fas fa-times-circle mr-1"></i>Inactivo
-                                    @endif
+                                <span class="text-sm text-gray-700">{{ $service->family->name }}</span>
+                            </div>
+                            @else
+                            <span class="text-sm text-gray-400 italic">Sin familia</span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <span class="text-sm text-gray-700 font-medium mr-2">
+                                    {{ $service->sub_services_count ?? 0 }}
                                 </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex items-center space-x-2">
-                                    <a href="{{ route('services.show', $service) }}"
-                                       class="text-blue-600 hover:text-blue-900 p-1 rounded transition duration-150"
-                                       title="Ver detalles">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ route('services.edit', $service) }}"
-                                       class="text-green-600 hover:text-green-900 p-1 rounded transition duration-150"
-                                       title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a href="{{ route('sub-services.create') }}?service={{ $service->id }}"
-                                       class="text-purple-600 hover:text-purple-900 p-1 rounded transition duration-150"
-                                       title="Agregar Sub-Servicio">
-                                        <i class="fas fa-plus-circle"></i>
-                                    </a>
-                                    <form action="{{ route('services.destroy', $service) }}" method="POST" class="inline"
-                                          onsubmit="return confirm('¿Está seguro de que desea eliminar el servicio \"{{ $service->name }}\"?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                                class="text-red-600 hover:text-red-900 p-1 rounded transition duration-150"
-                                                title="Eliminar"
-                                                {{ $service->sub_services_count > 0 ? 'disabled' : '' }}>
-                                            <i class="fas fa-trash {{ $service->sub_services_count > 0 ? 'opacity-50 cursor-not-allowed' : '' }}"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                                @if($service->sub_services_count > 0)
-                                    <div class="text-xs text-red-500 mt-1">No se puede eliminar</div>
+                                <span class="text-sm text-gray-500">sub-servicios</span>
+                                @if(($service->sub_services_count ?? 0) > 0)
+                                <a href="{{ route('services.show', $service) }}"
+                                   class="ml-2 text-blue-500 hover:text-blue-700 text-xs"
+                                   title="Ver sub-servicios">
+                                    <i class="fas fa-list"></i>
+                                </a>
                                 @endif
-                            </td>
-                        </tr>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $service->is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
+                                <i class="fas fa-circle mr-1 text-{{ $service->is_active ? 'green' : 'red' }}-500" style="font-size: 6px;"></i>
+                                {{ $service->is_active ? 'Activo' : 'Inactivo' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center space-x-2">
+                                <a href="{{ route('services.show', $service) }}"
+                                   class="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition duration-200"
+                                   title="Ver detalles">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ route('services.edit', $service) }}"
+                                   class="text-green-500 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition duration-200"
+                                   title="Editar servicio">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form action="{{ route('services.destroy', $service) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition duration-200"
+                                            onclick="return confirm('¿Está seguro de eliminar el servicio \"{{ $service->name }}\"? Esta acción no se puede deshacer.')"
+                                            title="Eliminar servicio">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
                     @empty
-                        <tr>
-                            <td colspan="7" class="px-6 py-8 text-center">
-                                <div class="flex flex-col items-center justify-center text-gray-500">
-                                    <i class="fas fa-cogs text-4xl mb-3 text-gray-300"></i>
-                                    <p class="text-lg font-medium mb-2">No se encontraron servicios</p>
-                                    <p class="text-sm mb-4">Comienza creando tu primer servicio</p>
-                                    <a href="{{ route('services.create') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center">
-                                        <i class="fas fa-plus mr-2"></i>Crear Primer Servicio
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="flex flex-col items-center justify-center text-gray-400">
+                                <i class="fas fa-cogs text-4xl mb-3"></i>
+                                <p class="text-lg font-medium mb-1">No hay servicios registrados</p>
+                                <p class="text-sm">Comienza creando tu primer servicio</p>
+                                <a href="{{ route('services.create') }}"
+                                   class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg inline-flex items-center">
+                                    <i class="fas fa-plus mr-2"></i>Crear Primer Servicio
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <!-- Paginación -->
-    @if($services->hasPages())
-        <div class="mt-6 bg-white px-4 py-3 rounded-lg shadow">
-            {{ $services->links() }}
+        <!-- Información de resultados -->
+        @if($services->count() > 0)
+        <div class="bg-gray-50 px-6 py-3 border-t border-gray-200">
+            <div class="flex justify-between items-center text-sm text-gray-600">
+                <div>
+                    Mostrando <span class="font-medium">{{ $services->count() }}</span> servicios
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="activeCount" class="flex items-center">
+                        <i class="fas fa-circle text-green-500 mr-1" style="font-size: 6px;"></i>
+                        <span class="font-medium">{{ $services->where('is_active', true)->count() }}</span> activos
+                    </span>
+                    <span id="inactiveCount" class="flex items-center">
+                        <i class="fas fa-circle text-red-500 mr-1" style="font-size: 6px;"></i>
+                        <span class="font-medium">{{ $services->where('is_active', false)->count() }}</span> inactivos
+                    </span>
+                </div>
+            </div>
         </div>
-    @endif
-@endsection
+        @endif
+    </div>
+</div>
 
-@section('scripts')
+@push('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Confirmación para eliminar
-        const deleteForms = document.querySelectorAll('form[onsubmit]');
-        deleteForms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                if (!confirm('¿Está seguro de que desea eliminar este registro?')) {
-                    e.preventDefault();
-                }
-            });
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const familyFilter = document.getElementById('familyFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const servicesTable = document.getElementById('servicesTable');
+    const serviceRows = document.querySelectorAll('.service-row');
+
+    function filterServices() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const familyValue = familyFilter.value;
+        const statusValue = statusFilter.value;
+
+        serviceRows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            const code = row.getAttribute('data-code');
+            const family = row.getAttribute('data-family');
+            const status = row.getAttribute('data-status');
+
+            const matchesSearch = name.includes(searchTerm) || code.includes(searchTerm);
+            const matchesFamily = !familyValue || family.includes(familyValue.toLowerCase());
+            const matchesStatus = !statusValue || status === statusValue;
+
+            if (matchesSearch && matchesFamily && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Event listeners para filtros
+    searchInput.addEventListener('input', filterServices);
+    familyFilter.addEventListener('change', filterServices);
+    statusFilter.addEventListener('change', filterServices);
+
+    // Ordenamiento simple
+    document.querySelectorAll('.sortable').forEach(header => {
+        header.addEventListener('click', function() {
+            const sortBy = this.getAttribute('data-sort');
+            // Implementar lógica de ordenamiento aquí si es necesario
+            console.log('Ordenar por:', sortBy);
         });
     });
+});
 </script>
+@endpush
+
+<style>
+.sortable:hover {
+    background-color: #f9fafb;
+}
+
+.service-row {
+    transition: all 0.2s ease-in-out;
+}
+</style>
 @endsection
