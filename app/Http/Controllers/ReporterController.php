@@ -71,7 +71,6 @@ class ReporterController extends Controller
 
     public function destroy(Reporter $reporter)
     {
-        // Verificar que no tenga requerimientos asociados
         if ($reporter->requirements()->exists()) {
             return redirect()->route('reporters.index')
                 ->with('error', 'No se puede eliminar el reportador porque tiene requerimientos asociados.');
@@ -81,53 +80,5 @@ class ReporterController extends Controller
 
         return redirect()->route('reporters.index')
             ->with('success', 'Reportador eliminado exitosamente.');
-    }
-
-     /**
-     * Export reports to PDF - Versión REAL con DomPDF
-     */
-    public function exportPdf(Request $request, $reportType)
-    {
-        try {
-            $dateRange = $this->getDateRange($request);
-            $timestamp = now()->format('Y-m-d');
-
-            switch ($reportType) {
-                case 'sla-compliance':
-                    $slaCompliance = $this->getSlaComplianceData($dateRange);
-                    $pdf = Pdf::loadView('reports.exports.sla-compliance-pdf', compact('slaCompliance', 'dateRange'));
-                    return $pdf->download("reporte-cumplimiento-sla-{$timestamp}.pdf");
-
-                case 'requests-by-status':
-                    $data = $this->getRequestsByStatusData($dateRange);
-                    $totalRequests = $data->sum('count');
-                    $pdf = Pdf::loadView('reports.exports.requests-by-status-pdf', [
-                        'requestsByStatus' => $data,
-                        'totalRequests' => $totalRequests,
-                        'dateRange' => $dateRange
-                    ]);
-                    return $pdf->download("reporte-estados-solicitudes-{$timestamp}.pdf");
-
-                case 'criticality-levels':
-                    $criticalityData = $this->getCriticalityLevelsData($dateRange);
-                    $pdf = Pdf::loadView('reports.exports.criticality-levels-pdf', compact('criticalityData', 'dateRange'));
-                    return $pdf->download("reporte-criticidad-{$timestamp}.pdf");
-
-                case 'service-performance':
-                    $servicePerformance = $this->getServicePerformanceData($dateRange);
-                    $pdf = Pdf::loadView('reports.exports.service-performance-pdf', compact('servicePerformance', 'dateRange'));
-                    return $pdf->download("reporte-rendimiento-servicios-{$timestamp}.pdf");
-
-                case 'monthly-trends':
-                    $trends = $this->getMonthlyTrendsData();
-                    $pdf = Pdf::loadView('reports.exports.monthly-trends-pdf', compact('trends'));
-                    return $pdf->download("reporte-tendencias-mensuales-{$timestamp}.pdf");
-
-                default:
-                    return back()->with('error', 'Tipo de reporte no válido');
-            }
-        } catch (\Exception $e) {
-            return back()->with('error', 'Error al generar PDF: ' . $e->getMessage());
-        }
     }
 }

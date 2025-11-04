@@ -12,11 +12,11 @@
                 <h1 class="text-xl font-bold">Línea de Tiempo - {{ $request->ticket_number }}</h1>
             </div>
             <div class="flex space-x-2">
-                <a href="{{ route('reports.export-timeline', [$request->id, 'pdf']) }}"
+                <a href="{{ route('reports.timeline.export', [$request->id, 'pdf']) }}"
                    class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-file-pdf mr-2"></i>PDF
                 </a>
-                <a href="{{ route('reports.export-timeline', [$request->id, 'excel']) }}"
+                <a href="{{ route('reports.timeline.export', [$request->id, 'excel']) }}"
                    class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-file-excel mr-2"></i>Excel
                 </a>
@@ -316,7 +316,7 @@
         <!-- Footer -->
         <div class="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div class="flex space-x-3">
-                <a href="{{ route('reports.request-timeline') }}"
+                <a href="{{ route('reports.timeline.index') }}"
                    class="bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>Volver al Listado
                 </a>

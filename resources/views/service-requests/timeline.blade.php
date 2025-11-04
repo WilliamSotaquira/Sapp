@@ -14,11 +14,11 @@
                     </h3>
                     <div class="card-tools">
                         <div class="btn-group">
-                            <a href="{{ route('reports.export-timeline', [$serviceRequest->id, 'pdf']) }}"
+                            <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'pdf']) }}"
                                class="btn btn-sm btn-light mr-2">
                                 <i class="fas fa-file-pdf"></i> Exportar PDF
                             </a>
-                            <a href="{{ route('reports.export-timeline', [$serviceRequest->id, 'excel'])"
+                            <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'excel'])"
                                class="btn btn-sm btn-light">
                                 <i class="fas fa-file-excel"></i> Exportar Excel
                             </a>
@@ -438,7 +438,7 @@
                             <a href="{{ route('service-requests.show', $serviceRequest->id) }}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Volver a Detalles
                             </a>
-                            <a href="{{ route('reports.request-timeline') }}" class="btn btn-info ml-2">
+                            <a href="{{ route('reports.timeline.index') }}" class="btn btn-info ml-2">
                                 <i class="fas fa-list"></i> Ver Todas las Solicitudes
                             </a>
                         </div>
