@@ -16,7 +16,7 @@ public function up()
         $table->foreignId('service_family_id')->constrained()->onDelete('cascade');
         $table->string('name');
         $table->enum('criticality_level', ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']);
-        $table->integer('acceptance_time_minutes');
+        $table->integer('acceptance_time_minutes')->default(30);
         $table->integer('response_time_minutes');
         $table->integer('resolution_time_minutes');
         $table->text('conditions')->nullable();

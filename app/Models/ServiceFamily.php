@@ -31,6 +31,14 @@ class ServiceFamily extends Model
         return $this->hasMany(Service::class, 'service_family_id');
     }
 
+    /**
+     * Relación con subservicios a través de servicios
+     */
+    public function subservices()
+    {
+        return $this->hasManyThrough(SubService::class, Service::class, 'service_family_id', 'service_id');
+    }
+
     public function serviceLevelAgreements()
     {
         return $this->hasMany(ServiceLevelAgreement::class, 'service_family_id');

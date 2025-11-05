@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Sistema de Servicios')</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -11,19 +12,19 @@
 
 <body class="bg-gray-100">
     <!-- Navigation -->
-    <nav class="bg-blue-600 text-white shadow-lg">
+    <nav class="bg-red-600 text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-4">
-                    <a href="{{ url('/') }}" class="text-xl font-bold">Sistema SAP</a>
+                    <a href="{{ url('/') }}" class="text-xl font-bold">Sistema Sapp</a>
                     @auth
                     <div class="hidden md:flex space-x-4">
-                        <a href="{{ route('service-families.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">Familias</a>
-                        <a href="{{ route('services.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">Servicios</a>
-                        <a href="{{ route('sub-services.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">Sub-Servicios</a>
-                        <a href="{{ route('slas.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">SLAs</a>
-                        <a href="{{ route('service-requests.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">Solicitudes</a>
-                        <a href="{{ route('reports.index') }}" class="hover:bg-blue-700 px-3 py-2 rounded">Reportes</a>
+                        <a href="{{ route('service-families.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">Familias</a>
+                        <a href="{{ route('services.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">Servicios</a>
+                        <a href="{{ route('sub-services.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">Sub-Servicios</a>
+                        <a href="{{ route('slas.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">SLAs</a>
+                        <a href="{{ route('service-requests.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">Solicitudes</a>
+                        <a href="{{ route('reports.index') }}" class="hover:bg-red-700 px-3 py-2 rounded">Reportes</a>
                     </div>
                     @endauth
                 </div>
@@ -60,6 +61,7 @@
             {{ session('error') }}
         </div>
         @endif
+
         <!-- Page Header -->
         <div class="mb-6">
             <h1 class="text-2xl font-bold text-gray-900">@yield('title')</h1>

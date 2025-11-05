@@ -31,7 +31,7 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h2 class="text-2xl font-bold">{{ $sla->name }}</h2>
-                    <p class="text-blue-100 opacity-90">{{ $sla->serviceFamily->name }}</p>
+                    <p class="text-blue-100 opacity-90">{{ $sla->serviceSubservice->serviceFamily->name ?? 'N/A' }}</p>
                 </div>
                 <div class="flex space-x-2">
                     <a href="{{ route('slas.edit', $sla) }}"
@@ -55,8 +55,17 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Familia de Servicio:</label>
-                            <p class="mt-1 text-sm text-gray-900">{{ $sla->serviceFamily->name }}</p>
-                            <p class="text-xs text-gray-500">{{ $sla->serviceFamily->code }}</p>
+                            <p class="mt-1 text-sm text-gray-900">{{ $sla->serviceSubservice->serviceFamily->name ?? 'N/A' }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Servicio:</label>
+                            <p class="mt-1 text-sm text-gray-900">{{ $sla->serviceSubservice->service->name ?? 'N/A' }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Subservicio:</label>
+                            <p class="mt-1 text-sm text-gray-900">{{ $sla->serviceSubservice->subService->name ?? 'N/A' }}</p>
                         </div>
 
                         <div>
@@ -76,8 +85,8 @@
                                 ];
                             @endphp
                             <div class="mt-1 flex items-center">
-                                <i class="fas {{ $criticalityIcons[$sla->criticality_level] }} text-gray-400 mr-2"></i>
-                                <span class="px-3 py-1 text-sm font-semibold rounded-full border {{ $criticalityColors[$sla->criticality_level] }}">
+                                <i class="fas {{ $criticalityIcons[$sla->criticality_level] ?? 'fa-thermometer' }} text-gray-400 mr-2"></i>
+                                <span class="px-3 py-1 text-sm font-semibold rounded-full border {{ $criticalityColors[$sla->criticality_level] ?? 'bg-gray-100 text-gray-800' }}">
                                     {{ $sla->criticality_level }}
                                 </span>
                             </div>
@@ -98,6 +107,13 @@
                             <p class="text-xs text-gray-500">Hace {{ $sla->created_at->diffForHumans() }}</p>
                         </div>
                     </div>
+
+                    @if($sla->description)
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Descripción:</label>
+                        <p class="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded border">{{ $sla->description }}</p>
+                    </div>
+                    @endif
 
                     @if($sla->conditions)
                     <div class="mt-4">
@@ -144,48 +160,6 @@
             </div>
         </div>
 
-        <!-- Servicios Aplicables -->
-        <div class="p-6 border-b">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Servicios que usan este SLA</h3>
-
-            @php
-                $services = $sla->serviceFamily->services()->with('subServices')->get();
-            @endphp
-
-            @if($services->count() > 0)
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach($services as $service)
-                        <div class="border rounded-lg p-4 hover:shadow-md transition">
-                            <div class="flex justify-between items-start mb-2">
-                                <h4 class="font-semibold text-gray-900">{{ $service->name }}</h4>
-                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ $service->code }}</span>
-                            </div>
-
-                            @if($service->description)
-                                <p class="text-sm text-gray-600 mb-3">{{ Str::limit($service->description, 80) }}</p>
-                            @endif
-
-                            @if($service->subServices->count() > 0)
-                                <div class="mt-2">
-                                    <label class="text-xs font-medium text-gray-500">Sub-servicios:</label>
-                                    <div class="mt-1 space-y-1">
-                                        @foreach($service->subServices as $subService)
-                                            <div class="flex justify-between items-center text-sm">
-                                                <span class="text-gray-700">{{ $subService->name }}</span>
-                                                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ $subService->code }}</span>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <p class="text-gray-500 text-center py-4">No hay servicios configurados para esta familia.</p>
-            @endif
-        </div>
-
         <!-- Solicitudes Recientes -->
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
@@ -202,7 +176,6 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sub-servicio</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitante</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -215,17 +188,14 @@
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <a href="{{ route('service-requests.show', $request) }}"
                                            class="text-blue-600 hover:text-blue-900 font-medium text-sm">
-                                            {{ $request->ticket_number }}
+                                            {{ $request->ticket_number ?? 'N/A' }}
                                         </a>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $request->subService->name }}
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-900">
                                         <div class="max-w-xs truncate">{{ $request->title }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $request->requester->name }}
+                                        {{ $request->requester->name ?? 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         @php
@@ -238,7 +208,7 @@
                                                 'CANCELADA' => 'bg-red-100 text-red-800'
                                             ];
                                         @endphp
-                                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$request->status] }}">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800' }}">
                                             {{ $request->status }}
                                         </span>
                                     </td>
@@ -269,33 +239,6 @@
                     </a>
                 </div>
             @endif
-        </div>
-    </div>
-
-    <!-- Acciones Adicionales -->
-    <div class="mt-6 bg-white shadow-md rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Acciones</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a href="{{ route('slas.edit', $sla) }}"
-               class="bg-blue-600 text-white p-4 rounded-lg hover:bg-blue-700 transition text-center">
-                <i class="fas fa-edit text-2xl mb-2"></i>
-                <p>Editar SLA</p>
-            </a>
-            <a href="{{ route('service-requests.create') }}?sla={{ $sla->id }}"
-               class="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition text-center">
-                <i class="fas fa-plus text-2xl mb-2"></i>
-                <p>Nueva Solicitud</p>
-            </a>
-            <form action="{{ route('slas.destroy', $sla) }}" method="POST"
-                  onsubmit="return confirmDelete('¿Está seguro de que desea eliminar este SLA? Esta acción no se puede deshacer.')">
-                @csrf
-                @method('DELETE')
-                <button type="submit"
-                        class="w-full bg-red-600 text-white p-4 rounded-lg hover:bg-red-700 transition text-center">
-                    <i class="fas fa-trash text-2xl mb-2"></i>
-                    <p>Eliminar SLA</p>
-                </button>
-            </form>
         </div>
     </div>
 @endsection
