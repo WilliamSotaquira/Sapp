@@ -39,52 +39,101 @@ Route::middleware('auth')->group(function () {
     Route::resource('slas', SLAController::class);
     Route::resource('service-requests', ServiceRequestController::class);
 
-    // Rutas adicionales para ServiceRequest
-    Route::prefix('service-requests/{serviceRequest}')->group(function () {
-        Route::post('/accept', [ServiceRequestController::class, 'accept'])->name('service-requests.accept');
-        Route::post('/start', [ServiceRequestController::class, 'start'])->name('service-requests.start');
-        Route::post('/resolve', [ServiceRequestController::class, 'resolve'])->name('service-requests.resolve');
-        Route::post('/close', [ServiceRequestController::class, 'close'])->name('service-requests.close');
-        Route::post('/cancel', [ServiceRequestController::class, 'cancel'])->name('service-requests.cancel');
-        Route::post('/pause', [ServiceRequestController::class, 'pause'])->name('service-requests.pause');
-        Route::post('/resume', [ServiceRequestController::class, 'resume'])->name('service-requests.resume');
+    // =============================================================================
+    // RUTAS PARA CREACIÓN DE SLA DESDE MODAL EN SOLICITUDES DE SERVICIO
+    // =============================================================================
 
-        // Timeline
-        Route::get('/timeline', [ServiceRequestController::class, 'showTimeline'])
-            ->name('service-requests.timeline');
+    // Obtener SLAs por sub-servicio - RUTA TEMPORAL MEJORADA
+    Route::get('/sub-services/{subService}/slas', function ($subServiceId) {
+        try {
+            \Log::info("=== RUTA TEMPORAL MEJORADA - OBTENIENDO SLAS ===");
+            \Log::info("Sub-service ID recibido: " . $subServiceId);
 
-        // Resolución con evidencias
-        Route::get('/resolve-form', [ServiceRequestController::class, 'showResolveForm'])
-            ->name('service-requests.resolve-form');
-        Route::post('/resolve-with-evidence', [ServiceRequestController::class, 'resolveWithEvidence'])
-            ->name('service-requests.resolve-with-evidence');
+            // Validar que el ID sea numérico
+            if (!is_numeric($subServiceId)) {
+                \Log::warning("Sub-service ID no es numérico: " . $subServiceId);
+                return response()->json([], 400);
+            }
 
-        // Evidencias
-        Route::prefix('evidences')->group(function () {
-            Route::get('/create', [ServiceRequestEvidenceController::class, 'create'])
-                ->name('service-requests.evidences.create');
-            Route::post('/', [ServiceRequestEvidenceController::class, 'store'])
-                ->name('service-requests.evidences.store');
-            Route::get('/{evidence}', [ServiceRequestEvidenceController::class, 'show'])
-                ->name('service-requests.evidences.show');
-            Route::delete('/{evidence}', [ServiceRequestEvidenceController::class, 'destroy'])
-                ->name('service-requests.evidences.destroy');
-            Route::get('/{evidence}/download', [ServiceRequestEvidenceController::class, 'download'])
-                ->name('service-requests.evidences.download');
-            Route::get('/{evidence}/view', [ServiceRequestEvidenceController::class, 'view'])
-                ->name('service-requests.evidences.view');
-            Route::get('/json/list', [ServiceRequestEvidenceController::class, 'getEvidences'])
-                ->name('service-requests.evidences.json');
-        });
-    });
+            $subServiceId = (int)$subServiceId;
 
-    // Rutas para AJAX
-    Route::get('/service-families/{serviceFamily}/services', [ServiceFamilyController::class, 'getServices'])
-        ->name('service-families.services');
-    Route::get('/services/{service}/sub-services', [SubServiceController::class, 'getByService'])
-        ->name('services.sub-services');
-    Route::get('/sub-services/{subService}/slas', [ServiceRequestController::class, 'getSlas'])
-        ->name('sub-services.slas');
+            // Verificar que el sub-servicio existe
+            $subService = \App\Models\SubService::find($subServiceId);
+            if (!$subService) {
+                \Log::warning("Sub-service no encontrado con ID: " . $subServiceId);
+                return response()->json([]);
+            }
+
+            \Log::info("Sub-service encontrado: " . $subService->name);
+
+            // Verificar estructura de la tabla
+            if (!\Schema::hasTable('service_level_agreements')) {
+                \Log::error("La tabla service_level_agreements no existe");
+                return response()->json([], 200);
+            }
+
+            $columns = \Schema::getColumnListing('service_level_agreements');
+            \Log::info("Columnas disponibles:", $columns);
+
+            $slas = collect([]);
+
+            // Método 1: Buscar por service_subservice_id
+            if (in_array('service_subservice_id', $columns)) {
+                \Log::info("Buscando SLAs por service_subservice_id para sub_service: " . $subServiceId);
+
+                $serviceSubservices = \App\Models\ServiceSubservice::where('sub_service_id', $subServiceId)->get();
+                \Log::info("ServiceSubservices encontrados: " . $serviceSubservices->count());
+
+                if ($serviceSubservices->isNotEmpty()) {
+                    $serviceSubserviceIds = $serviceSubservices->pluck('id')->toArray();
+                    \Log::info("IDs de ServiceSubservice: ", $serviceSubserviceIds);
+
+                    $slas = \App\Models\ServiceLevelAgreement::whereIn('service_subservice_id', $serviceSubserviceIds)
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
+
+                    \Log::info("SLAs encontrados por service_subservice_id: " . $slas->count());
+                }
+            }
+
+            // Si no se encontraron SLAs, retornar array vacío
+            if ($slas->isEmpty()) {
+                \Log::info("No se encontraron SLAs para el sub-service: " . $subServiceId);
+                return response()->json([]);
+            }
+
+            \Log::info("Total SLAs a retornar: " . $slas->count());
+
+            // Formatear respuesta
+            $formattedSlas = $slas->map(function ($sla) {
+                return [
+                    'id' => $sla->id,
+                    'name' => $sla->name,
+                    'criticality_level' => $sla->criticality_level,
+                    'acceptance_time_minutes' => $sla->acceptance_time_minutes,
+                    'response_time_minutes' => $sla->response_time_minutes,
+                    'resolution_time_minutes' => $sla->resolution_time_minutes
+                ];
+            });
+
+            return response()->json($formattedSlas);
+        } catch (\Exception $e) {
+            \Log::error('Error CRÍTICO en ruta temporal de SLAs: ' . $e->getMessage());
+            \Log::error('Stack trace completo: ' . $e->getTraceAsString());
+            \Log::error('File: ' . $e->getFile() . ' Line: ' . $e->getLine());
+
+            // Retornar error en formato JSON
+            return response()->json([
+                'error' => 'Error interno del servidor',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    })->name('sub-services.slas.get');
+
+    // Crear SLA desde el modal en solicitudes de servicio
+    Route::post('/slas/create-from-modal', [SLAController::class, 'storeFromModal'])
+        ->name('slas.create-from-modal');
 
     // =============================================
     // RUTAS OPTIMIZADAS PARA REPORTES
@@ -167,7 +216,6 @@ Route::middleware('auth')->group(function () {
     })->name('api.services.sub-services');
 
     // Buscar o crear service_subservice
-    // Buscar o crear service_subservice
     Route::post('/api/service-subservices/find-or-create', function (Request $request) {
         try {
             \Log::info("=== INICIANDO FIND-OR-CREATE ===");
@@ -211,8 +259,8 @@ Route::middleware('auth')->group(function () {
 
                 $serviceSubservice = ServiceSubservice::create([
                     'service_family_id' => $validated['service_family_id'],
-                    'service_id' => $validated['service_id'], // Asegurar que service_id se incluya
-                    'sub_service_id' => $validated['sub_service_id'], // Asegurar que sub_service_id se incluya
+                    'service_id' => $validated['service_id'],
+                    'sub_service_id' => $validated['sub_service_id'],
                     'name' => $serviceFamily->name . ' - ' . $service->name . ' - ' . $subService->name,
                     'description' => 'Combinación automática: ' . $serviceFamily->name . ', ' . $service->name . ', ' . $subService->name,
                     'is_active' => true
@@ -237,29 +285,26 @@ Route::middleware('auth')->group(function () {
         }
     })->name('api.service-subservices.find-or-create');
 
-    // Obtener datos de service_subservice por ID - VERSIÓN SIMPLIFICADA
-Route::get('/api/service-subservices/{id}', function ($id) {
-    try {
-        // Buscar directamente sin relaciones complejas
-        $serviceSubservice = \App\Models\ServiceSubservice::find($id);
+    // Obtener datos de service_subservice por ID
+    Route::get('/api/service-subservices/{id}', function ($id) {
+        try {
+            $serviceSubservice = \App\Models\ServiceSubservice::find($id);
 
-        if (!$serviceSubservice) {
-            return response()->json(['error' => 'Service subservice not found'], 404);
+            if (!$serviceSubservice) {
+                return response()->json(['error' => 'Service subservice not found'], 404);
+            }
+
+            return response()->json([
+                'id' => $serviceSubservice->id,
+                'service_family_id' => $serviceSubservice->service_family_id,
+                'service_id' => $serviceSubservice->service_id,
+                'sub_service_id' => $serviceSubservice->sub_service_id
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error en API service-subservices: ' . $e->getMessage());
+            return response()->json(['error' => 'Internal server error'], 500);
         }
-
-        return response()->json([
-            'id' => $serviceSubservice->id,
-            'service_family_id' => $serviceSubservice->service_family_id,
-            'service_id' => $serviceSubservice->service_id,
-            'sub_service_id' => $serviceSubservice->sub_service_id
-        ]);
-
-    } catch (\Exception $e) {
-        \Log::error('Error en API service-subservices: ' . $e->getMessage());
-        return response()->json(['error' => 'Internal server error'], 500);
-    }
-})->name('api.service-subservices.show');
-
+    })->name('api.service-subservices.show');
 });
 
 require __DIR__ . '/auth.php';

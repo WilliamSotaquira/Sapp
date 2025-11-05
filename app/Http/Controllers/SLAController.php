@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceFamily;
 use App\Models\ServiceSubservice;
+use App\Models\SubService; // Import faltante
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log; // Import faltante
 use Illuminate\Validation\Rule;
 
 class SLAController extends Controller
@@ -24,7 +26,6 @@ class SLAController extends Controller
         }
     }
 
-    // En SLAController.php
     public function create()
     {
         try {
@@ -43,7 +44,6 @@ class SLAController extends Controller
                 ->orderBy('name')
                 ->get();
 
-            // Debug: Ver qué datos tenemos
             \Log::info('Service Subservices for create form:', [
                 'count' => $serviceSubservices->count(),
                 'data' => $serviceSubservices->map(fn($item) => [
@@ -66,6 +66,7 @@ class SLAController extends Controller
                 ->with('error', 'Error al cargar el formulario de creación: ' . $e->getMessage());
         }
     }
+
     public function store(Request $request)
     {
         try {
@@ -85,7 +86,6 @@ class SLAController extends Controller
                 'is_active' => 'sometimes|boolean'
             ]);
 
-            // Validar que service_subservice_id exista
             $serviceSubservice = ServiceSubservice::find($validated['service_subservice_id']);
             if (!$serviceSubservice) {
                 return response()->json([
@@ -95,7 +95,6 @@ class SLAController extends Controller
 
             $validated['is_active'] = $request->has('is_active');
 
-            // Calcular minutos automáticamente si no se proporcionan
             if (empty($validated['response_time_minutes'])) {
                 $validated['response_time_minutes'] = $validated['response_time_hours'] * 60;
             }
@@ -133,7 +132,6 @@ class SLAController extends Controller
     public function show(ServiceLevelAgreement $sla)
     {
         try {
-            // Cargar relaciones necesarias
             $sla->load([
                 'serviceSubservice.serviceFamily',
                 'serviceSubservice.service',
@@ -157,7 +155,6 @@ class SLAController extends Controller
             $serviceSubservices = ServiceSubservice::with(['service', 'subService'])->get();
             $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
 
-            // Formatear tiempos para la vista
             $formattedTimes = [
                 'acceptance' => $this->formatTimeDisplay($sla->acceptance_time_minutes),
                 'response' => $this->formatTimeDisplay($sla->response_time_minutes),
@@ -171,6 +168,7 @@ class SLAController extends Controller
                 ->with('error', 'Error al cargar el formulario de edición: ' . $e->getMessage());
         }
     }
+
     public function update(Request $request, ServiceLevelAgreement $sla)
     {
         try {
@@ -185,7 +183,6 @@ class SLAController extends Controller
                 'is_active' => 'sometimes|boolean',
             ]);
 
-            // Validaciones de tiempos
             if ($validated['acceptance_time_minutes'] >= $validated['response_time_minutes']) {
                 return redirect()->back()
                     ->withInput()
@@ -198,7 +195,6 @@ class SLAController extends Controller
                     ->with('error', 'El tiempo de respuesta debe ser menor al tiempo de resolución.');
             }
 
-            // Asegurar que is_active se procese correctamente
             $validated['is_active'] = $request->has('is_active');
 
             $sla->update($validated);
@@ -226,7 +222,6 @@ class SLAController extends Controller
             ->with('success', 'SLA eliminado exitosamente.');
     }
 
-    // En SLAController.php, dentro de la clase
     private function formatTimeDisplay($minutes)
     {
         if (!$minutes) return '--';
@@ -236,5 +231,123 @@ class SLAController extends Controller
         if ($hours > 0) $parts[] = $hours . 'h';
         if ($mins > 0) $parts[] = $mins . 'm';
         return $parts ? implode(' ', $parts) : '0m';
+    }
+
+    /**
+     * Obtener SLAs por sub-servicio - CORREGIDO
+     */
+    public function getSLAsBySubService($subServiceId)
+    {
+        try {
+            Log::info("=== OBTENIENDO SLAS PARA SUB-SERVICE ===");
+            Log::info("Sub-service ID: " . $subServiceId);
+
+            // Verificar que el sub-servicio existe
+            $subServiceModel = SubService::find($subServiceId);
+            if (!$subServiceModel) {
+                Log::warning("Sub-service no encontrado: " . $subServiceId);
+                return response()->json([], 200);
+            }
+
+            // Obtener SLAs activos para este sub-servicio
+            // Usando ServiceLevelAgreement que es el modelo correcto
+            $slas = ServiceLevelAgreement::where('sub_service_id', $subServiceId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
+
+            Log::info("SLAs encontrados: " . $slas->count());
+
+            return response()->json($slas);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener SLAs: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            return response()->json([
+                'error' => 'Error interno del servidor al cargar SLAs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Crear SLA desde el modal en solicitudes de servicio - VERSIÓN COMPATIBLE
+     */
+    public function storeFromModal(Request $request)
+    {
+        try {
+            Log::info('=== CREANDO SLA DESDE MODAL ===');
+            Log::info('Datos recibidos:', $request->all());
+
+            // Validación básica
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'sub_service_id' => 'required|exists:sub_services,id',
+                'criticality_level' => 'required|string|in:Crítico,Alto,Medio,Bajo',
+                'acceptance_time_minutes' => 'required|integer|min:1',
+                'response_time_minutes' => 'required|integer|min:1',
+                'resolution_time_minutes' => 'required|integer|min:1',
+                'description' => 'nullable|string'
+            ]);
+
+            Log::info('Datos validados:', $validated);
+
+            // Buscar service_subservice relacionado
+            $serviceSubservice = ServiceSubservice::where('sub_service_id', $validated['sub_service_id'])->first();
+
+            if (!$serviceSubservice) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró una relación de servicio para este sub-servicio'
+                ], 404);
+            }
+
+            // Preparar datos para crear el SLA
+            $slaData = [
+                'name' => $validated['name'],
+                'service_subservice_id' => $serviceSubservice->id,
+                'service_family_id' => $serviceSubservice->service_family_id,
+                'criticality_level' => $validated['criticality_level'],
+                'acceptance_time_minutes' => $validated['acceptance_time_minutes'],
+                'response_time_minutes' => $validated['response_time_minutes'],
+                'resolution_time_minutes' => $validated['resolution_time_minutes'],
+                'description' => $validated['description'] ?? null,
+                'is_active' => true
+            ];
+
+            // Crear el SLA
+            $sla = ServiceLevelAgreement::create($slaData);
+
+            Log::info('SLA creado exitosamente:', $sla->toArray());
+
+            // Retornar respuesta JSON exitosa
+            return response()->json([
+                'success' => true,
+                'sla' => [
+                    'id' => $sla->id,
+                    'name' => $sla->name,
+                    'criticality_level' => $sla->criticality_level,
+                    'acceptance_time_minutes' => $sla->acceptance_time_minutes,
+                    'response_time_minutes' => $sla->response_time_minutes,
+                    'resolution_time_minutes' => $sla->resolution_time_minutes
+                ],
+                'message' => 'SLA creado exitosamente'
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Error de validación:', $e->errors());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al crear SLA desde modal: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error interno del servidor: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
