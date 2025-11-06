@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use App\Models\Managers\ServiceRequestStateManager;
 use App\Models\Managers\ServiceRequestEvidenceManager;
 use App\Models\Managers\ServiceRequestWebRoutesManager;
@@ -200,52 +201,45 @@ class ServiceRequest extends Model
         $currentStatus = strtoupper(trim($this->status));
         return $currentStatus === 'RESUELTA' && $currentStatus !== 'CERRADA';
     }
-    /**
-     * Generar número de ticket profesional único
-     */
+    // En App\Models\ServiceRequest.php
+
     public static function generateProfessionalTicketNumber($subServiceId, $criticalityLevel)
     {
-        try {
-            $subService = SubService::with('service.family')->find($subServiceId);
+        return DB::transaction(function () use ($subServiceId, $criticalityLevel) {
+            // Obtener el subservicio con sus relaciones
+            $subService = SubService::with(['service.family'])->find($subServiceId);
 
-            if (!$subService || !$subService->service || !$subService->service->family) {
-                throw new \Exception('No se pudo obtener la información del servicio');
+            if (!$subService) {
+                throw new \Exception('Subservicio no encontrado');
             }
 
-            // Generar códigos
-            $familyCode = self::generateFamilyCode($subService->service->family);
-            $serviceCode = self::generateServiceCode($subService->service);
-            $critCode = self::getCriticalityCode($criticalityLevel);
+            // Generar prefijo basado en la familia del servicio
+            $familyPrefix = strtoupper(substr($subService->service->family->name, 0, 3));
+            $subServicePrefix = strtoupper(substr($subService->name, 0, 3));
 
-            $date = now()->format('ymd'); // 241015 para 15/10/2024
+            // Formato: FAM-SUB-FECHA-NUMERO
+            $datePart = date('ymd');
+            $baseTicketNumber = "{$familyPrefix}-{$subServicePrefix}-{$datePart}-";
 
-            // Buscar último ticket del mismo tipo
-            $pattern = "{$familyCode}-{$serviceCode}{$critCode}-{$date}-%";
-            $lastTicket = self::where('ticket_number', 'like', $pattern)
+            // Buscar el último ticket del día con bloqueo para evitar condiciones de carrera
+            $lastTicket = self::where('ticket_number', 'like', $baseTicketNumber . '%')
+                ->lockForUpdate()
                 ->orderBy('created_at', 'desc')
                 ->first();
 
-            $sequence = 1;
+            // Determinar el siguiente número
             if ($lastTicket) {
-                // Extraer secuencia del último ticket
-                $parts = explode('-', $lastTicket->ticket_number);
-                $lastSequence = (int) end($parts);
-                $sequence = $lastSequence + 1;
+                $lastNumber = (int) substr($lastTicket->ticket_number, -3);
+                $nextNumber = $lastNumber + 1;
+            } else {
+                $nextNumber = 1;
             }
 
-            return sprintf(
-                '%s-%s%s-%s-%03d',
-                $familyCode,
-                $serviceCode,
-                $critCode,
-                $date,
-                $sequence
-            );
-        } catch (\Exception $e) {
-            // Fallback simple si hay error
-            \Log::error('Error generando ticket profesional: ' . $e->getMessage());
-            return 'SR-' . now()->format('Ymd-His') . '-' . Str::random(4);
-        }
+            // Formatear el número con ceros a la izquierda
+            $sequentialNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+            return $baseTicketNumber . $sequentialNumber;
+        });
     }
 
     /**

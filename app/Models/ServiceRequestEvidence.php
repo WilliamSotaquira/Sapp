@@ -14,22 +14,21 @@ class ServiceRequestEvidence extends Model
     // ESPECIFICAR EL NOMBRE DE LA TABLA EXPLÍCITAMENTE
     protected $table = 'service_request_evidences';
 
+    // En App\Models\ServiceRequestEvidence.php
     protected $fillable = [
         'service_request_id',
-        'file_name',
-        'file_original_name',
-        'file_path',
-        'file_mime_type',
-        'mime_type',
-        'file_size',
+        'title',
         'description',
         'evidence_type',
-        'uploaded_by',
-        'user_id',
         'step_number',
-        'evidence_data'
+        'evidence_data',
+        'user_id',
+        'file_original_name', // ← Esta SÍ existe
+        'file_path', // ← Esta SÍ existe
+        'file_mime_type', // ← Esta SÍ existe
+        'file_size', // ← Esta SÍ existe
+        // NO incluir: 'uploaded_by', 'file_name', 'mime_type'
     ];
-
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -172,25 +171,22 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
-     * Accessor para compatibilidad con file_name
+     * Accessor para compatibilidad - usar file_original_name como file_name
      */
     public function getFileNameAttribute($value)
     {
-        if (empty($value) && !empty($this->file_original_name)) {
-            return $this->file_original_name;
-        }
-        return $value;
+        // Si alguien accede a file_name, devolver file_original_name
+        return $this->file_original_name;
     }
 
+
     /**
-     * Accessor para compatibilidad con mime_type
+     * Accessor para compatibilidad - usar file_mime_type como mime_type
      */
     public function getMimeTypeAttribute($value)
     {
-        if (empty($value) && !empty($this->file_mime_type)) {
-            return $this->file_mime_type;
-        }
-        return $value;
+        // Si alguien accede a mime_type, devolver file_mime_type
+        return $this->file_mime_type;
     }
 
     /**
@@ -216,6 +212,7 @@ class ServiceRequestEvidence extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
 
     /**
      * Verificar si tiene archivo
@@ -252,7 +249,7 @@ class ServiceRequestEvidence extends Model
      */
     public function getFileExtension()
     {
-        $fileName = $this->file_name ?: $this->file_original_name;
+        $fileName = $this->file_original_name;
         if ($fileName) {
             return pathinfo($fileName, PATHINFO_EXTENSION);
         }
@@ -264,7 +261,7 @@ class ServiceRequestEvidence extends Model
      */
     public function isImage()
     {
-        $mime = $this->mime_type ?: $this->file_mime_type;
+        $mime = $this->file_mime_type;
         return $mime && str_starts_with($mime, 'image/');
     }
 
@@ -300,9 +297,9 @@ class ServiceRequestEvidence extends Model
      */
     public function scopeImages($query)
     {
-        return $query->where(function($q) {
+        return $query->where(function ($q) {
             $q->where('mime_type', 'like', 'image/%')
-              ->orWhere('file_mime_type', 'like', 'image/%');
+                ->orWhere('file_mime_type', 'like', 'image/%');
         });
     }
 
