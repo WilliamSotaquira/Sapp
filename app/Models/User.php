@@ -45,4 +45,29 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    /**
+     * Verificar si el usuario tiene un rol específico
+     */
+    public function hasRole($role)
+    {
+        // Si tienes una columna 'role' en la tabla users
+        if (isset($this->role)) {
+            return $this->role === $role;
+        }
+
+        // Si tienes una relación muchos a muchos con roles
+        if (method_exists($this, 'roles')) {
+            return $this->roles->contains('name', $role);
+        }
+
+        return false;
+    }
+
+    /**
+     * Verificar si el usuario es administrador
+     */
+    public function isAdmin()
+    {
+        return $this->hasRole('admin') || $this->id === 1; // El usuario con ID 1 es admin
+    }
 }

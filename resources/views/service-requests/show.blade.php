@@ -42,6 +42,7 @@
     </div>
     @endif
 
+    <!-- Header -->
     <div class="bg-blue-600 text-white px-6 py-4">
         <div class="flex justify-between items-center">
             <div>
@@ -49,17 +50,21 @@
                 <p class="text-blue-100">{{ $serviceRequest->title }}</p>
             </div>
 
-            <!-- Sección de botones -->
+            <!-- Sección de botones - AGREGAR BOTÓN DE REPORTE -->
             <div class="flex space-x-2">
-                <!-- ACEPTAR -->
-                @if($serviceRequest->status === 'PENDIENTE')
-                <form action="{{ route('service-requests.accept', $serviceRequest) }}" method="POST" class="inline">
-                    @csrf
-                    <button type="submit" class="bg-green-500 hover:bg-green-400 px-4 py-2 rounded">
-                        <i class="fas fa-check mr-2"></i>Aceptar
+                <!-- Botón para generar reporte de timeline -->
+                <div class="relative group">
+                    <button onclick="openReportModal()"
+                        class="bg-teal-500 hover:bg-teal-400 px-4 py-2 rounded flex items-center transition-colors">
+                        <i class="fas fa-chart-line mr-2"></i>Generar Reporte
                     </button>
-                </form>
-                @endif
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block">
+                        <div class="bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                            Descargar línea de tiempo
+                        </div>
+                        <div class="w-3 h-3 bg-black transform rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
+                    </div>
+                </div>
 
                 <!-- INICIAR -->
                 @if($serviceRequest->status === 'ACEPTADA')
@@ -338,8 +343,8 @@
 
             @foreach($timeSlots as $slot)
             <div class="text-center p-4 border rounded-lg
-                {{ $slot['completed_at'] ? 'bg-green-50 border-green-200' :
-                   ($slot['deadline']->isPast() ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200') }}">
+            {{ $slot['completed_at'] ? 'bg-green-50 border-green-200' :
+               ($slot['deadline'] && $slot['deadline']->isPast() ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200') }}">
 
                 <i class="fas {{ $slot['icon'] }} text-gray-500 text-lg mb-2"></i>
 
@@ -352,10 +357,17 @@
                     @else
                     @php
                     $now = now();
+                    $remaining = 0;
+                    $isOverdue = false;
+
+                    // VERIFICAR SI EL DEADLINE EXISTE ANTES DE CALCULAR
+                    if ($slot['deadline']) {
                     $remaining = $slot['deadline']->diffInMinutes($now);
                     $isOverdue = $slot['deadline']->isPast();
+                    }
                     @endphp
 
+                    @if($slot['deadline'])
                     @if($isOverdue)
                     <span class="text-red-600 font-semibold">
                         Vencido hace {{ $remaining }} min
@@ -367,6 +379,11 @@
                     @endif
                     <br>
                     Límite: {{ $slot['deadline']->format('d/m/Y H:i') }}
+                    @else
+                    <span class="text-gray-500">
+                        Sin plazo definido
+                    </span>
+                    @endif
                     @endif
                 </div>
             </div>
@@ -397,15 +414,15 @@
             <!-- Resumen de Evidencias -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div class="text-center p-3 bg-white rounded-lg border">
-                    <div class="text-2xl font-bold text-blue-600">{{ $serviceRequest->stepByStepEvidences->count() }}</div>
+                    <div class="text-2xl font-bold text-blue-600">{{ intval($serviceRequest->stepByStepEvidences->count()) }}</div>
                     <div class="text-sm text-gray-600">Evidencias Paso a Paso</div>
                 </div>
                 <div class="text-center p-3 bg-white rounded-lg border">
-                    <div class="text-2xl font-bold text-green-600">{{ $serviceRequest->fileEvidences->count() }}</div>
+                    <div class="text-2xl font-bold text-green-600">{{ intval($serviceRequest->fileEvidences->count()) }}</div>
                     <div class="text-sm text-gray-600">Archivos Adjuntos</div>
                 </div>
                 <div class="text-center p-3 bg-white rounded-lg border">
-                    <div class="text-2xl font-bold text-purple-600">{{ $serviceRequest->commentEvidences->count() }}</div>
+                    <div class="text-2xl font-bold text-purple-600">{{ intval($serviceRequest->commentEvidences->count()) }}</div>
                     <div class="text-sm text-gray-600">Comentarios</div>
                 </div>
             </div>
@@ -418,10 +435,10 @@
                         <div class="flex-1">
                             <div class="flex items-center mb-2">
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full
-                                        @if($evidence->evidence_type == 'PASO_A_PASO') bg-blue-100 text-blue-800
-                                        @elseif($evidence->evidence_type == 'ARCHIVO') bg-green-100 text-green-800
-                                        @elseif($evidence->evidence_type == 'COMENTARIO') bg-purple-100 text-purple-800
-                                        @else bg-gray-100 text-gray-800 @endif">
+                                @if($evidence->evidence_type == 'PASO_A_PASO') bg-blue-100 text-blue-800
+                                @elseif($evidence->evidence_type == 'ARCHIVO') bg-green-100 text-green-800
+                                @elseif($evidence->evidence_type == 'COMENTARIO') bg-purple-100 text-purple-800
+                                @else bg-gray-100 text-gray-800 @endif">
                                     {{ $evidence->evidence_type }}
                                     @if($evidence->step_number)
                                     - Paso {{ $evidence->step_number }}
@@ -442,7 +459,14 @@
                             <div class="flex items-center text-sm text-green-600">
                                 <i class="fas fa-paperclip mr-1"></i>
                                 <span>{{ $evidence->file_original_name }}</span>
-                                <span class="text-gray-500 ml-2">({{ $evidence->file_size ? number_format($evidence->file_size / 1024 / 1024, 2) . ' MB' : '0 B' }})</span>
+                                <span class="text-gray-500 ml-2">
+                                    @php
+                                    $fileSize = $evidence->file_size && is_numeric($evidence->file_size)
+                                    ? number_format($evidence->file_size / 1024 / 1024, 2) . ' MB'
+                                    : 'Tamaño no disponible';
+                                    @endphp
+                                    ({{ $fileSize }})
+                                </span>
                             </div>
                             @endif
                         </div>
@@ -820,6 +844,74 @@
     </div>
 </div>
 
+<!-- Modal de Reporte de Timeline -->
+<div id="reportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-teal-100">
+                <i class="fas fa-chart-line text-teal-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mt-2">Generar Reporte de Timeline</h3>
+            <p class="text-sm text-gray-500 mt-2">Seleccione el formato para descargar</p>
+
+            <div class="mt-6 space-y-4">
+                <!-- Botón PDF -->
+                <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'pdf']) }}"
+                    target="_blank"
+                    class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg flex items-center justify-center transition-colors">
+                    <i class="fas fa-file-pdf mr-3 text-lg"></i>
+                    <div class="text-left">
+                        <div class="font-semibold">Descargar PDF</div>
+                        <div class="text-xs opacity-90">Formato optimizado para imprimir</div>
+                    </div>
+                </a>
+
+                <!-- Botón Excel -->
+                <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'excel']) }}"
+                    target="_blank"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg flex items-center justify-center transition-colors">
+                    <i class="fas fa-file-excel mr-3 text-lg"></i>
+                    <div class="text-left">
+                        <div class="font-semibold">Descargar Excel</div>
+                        <div class="text-xs opacity-90">Formato para análisis de datos</div>
+                    </div>
+                </a>
+
+                <!-- Botón Timeline Detallado -->
+                <a href="{{ route('reports.timeline.detail', $serviceRequest->id) }}"
+                    target="_blank"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg flex items-center justify-center transition-colors">
+                    <i class="fas fa-eye mr-3 text-lg"></i>
+                    <div class="text-left">
+                        <div class="font-semibold">Ver Timeline Web</div>
+                        <div class="text-xs opacity-90">Ver en el navegador</div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Información adicional -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h4 class="font-medium text-gray-700 text-sm mb-2">Información del Reporte</h4>
+                <ul class="text-xs text-gray-600 text-left space-y-1">
+                    <li>• <strong>Ticket:</strong> {{ $serviceRequest->ticket_number }}</li>
+                    <li>• <strong>Estado:</strong> {{ $serviceRequest->status }}</li>
+                    <li>• <strong>Fecha creación:</strong> {{ $serviceRequest->created_at->format('d/m/Y H:i') }}</li>
+                    @if($serviceRequest->resolved_at)
+                    <li>• <strong>Fecha resolución:</strong> {{ $serviceRequest->resolved_at->format('d/m/Y H:i') }}</li>
+                    @endif
+                </ul>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button type="button" onclick="closeReportModal()"
+                    class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition duration-200">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -987,6 +1079,41 @@
             }
         });
     });
+
+    // Funciones para el modal de reporte
+    function openReportModal() {
+        console.log('📊 Abriendo modal de reporte');
+        const modal = document.getElementById('reportModal');
+        modal.classList.remove('hidden');
+        console.log('Modal reporte después de abrir:', modal.className);
+    }
+
+    function closeReportModal() {
+        console.log('Cerrando modal de reporte');
+        document.getElementById('reportModal').classList.add('hidden');
+    }
+
+    // Cerrar modal de reporte al hacer click fuera
+    document.getElementById('reportModal').addEventListener('click', function(e) {
+        console.log('Click en modal reporte, target:', e.target);
+        if (e.target === this) closeReportModal();
+    });
+
+    // Cerrar con ESC key (actualizar para incluir reportModal)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (!document.getElementById('pauseModal').classList.contains('hidden')) {
+                closePauseModal();
+            } else if (!document.getElementById('closeModal').classList.contains('hidden')) {
+                closeCloseModal();
+            } else if (!document.getElementById('cancelModal').classList.contains('hidden')) {
+                closeCancelModal();
+            } else if (!document.getElementById('reportModal').classList.contains('hidden')) {
+                closeReportModal();
+            }
+        }
+    });
+
 
     // Botón de prueba para el modal de cierre
     console.log('✅ Scripts de modal cargados correctamente');

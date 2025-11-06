@@ -1,204 +1,356 @@
 <?php
-// app/Models/ServiceRequestEvidence.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class ServiceRequestEvidence extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
+    // ESPECIFICAR EL NOMBRE DE LA TABLA EXPLÍCITAMENTE
     protected $table = 'service_request_evidences';
 
     protected $fillable = [
         'service_request_id',
-        'user_id', // AÑADIDO
-        'title',
-        'description',
-        'evidence_data',
-        'evidence_type',
-        'step_number',
-        'file_path',
+        'file_name',
         'file_original_name',
+        'file_path',
         'file_mime_type',
-        'file_size'
+        'mime_type',
+        'file_size',
+        'description',
+        'evidence_type',
+        'uploaded_by',
+        'user_id',
+        'step_number',
+        'evidence_data'
     ];
 
     protected $casts = [
-        'evidence_data' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
-        'file_size' => 'integer'
+        'evidence_data' => 'array',
     ];
 
-    // Tipos de evidencia
-    const TYPE_STEP_BY_STEP = 'PASO_A_PASO';
-    const TYPE_FILE = 'ARCHIVO';
-    const TYPE_COMMENT = 'COMENTARIO';
-    const TYPE_SYSTEM = 'SISTEMA';
+    /**
+     * MÉTODO CORREGIDO: Verificar si la evidencia puede ser eliminada
+     * Sin depender de hasRole()
+     */
+    public function canBeDeleted()
+    {
+        // Obtener el usuario autenticado
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Verificar si es el usuario que subió la evidencia
+        $isUploader = ($this->uploaded_by === $user->id) || ($this->user_id === $user->id);
+
+        // Verificar si está asignado a la solicitud de servicio
+        $isAssigned = $this->serviceRequest && $this->serviceRequest->assigned_to === $user->id;
+
+        // Verificar si es el que creó la solicitud
+        $isRequester = $this->serviceRequest && $this->serviceRequest->requested_by === $user->id;
+
+        // Verificar roles de manera simple (sin hasRole())
+        $isAdmin = $this->isAdminUser($user); // Método alternativo
+
+        // Verificar si la solicitud está en un estado que permite eliminar evidencias
+        $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+        $isEditableStatus = $this->serviceRequest && in_array($this->serviceRequest->status, $allowedStatuses);
+
+        return ($isUploader || $isAssigned || $isRequester || $isAdmin) && $isEditableStatus;
+    }
 
     /**
-     * Relación con la solicitud de servicio
+     * Método alternativo para verificar si es admin
+     * Sin depender de hasRole()
      */
-    public function serviceRequest(): BelongsTo
+    private function isAdminUser($user)
+    {
+        // Opción 1: Verificar por email (si tienes emails de admin)
+        $adminEmails = ['admin@example.com', 'superadmin@example.com'];
+        if (in_array($user->email, $adminEmails)) {
+            return true;
+        }
+
+        // Opción 2: Verificar por un campo específico en la tabla users
+        // Si tienes un campo 'role' o 'is_admin' en la tabla users
+        if (isset($user->role) && $user->role === 'admin') {
+            return true;
+        }
+
+        if (isset($user->is_admin) && $user->is_admin) {
+            return true;
+        }
+
+        // Opción 3: Verificar por ID específico (para desarrollo)
+        $adminIds = [1]; // ID del usuario administrador principal
+        if (in_array($user->id, $adminIds)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Versión simplificada de canBeDeleted
+     */
+    public function canBeDeletedSimple()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$this->serviceRequest) {
+            return false;
+        }
+
+        // Solo el que subió la evidencia puede eliminarla
+        // y solo si la solicitud no está resuelta o cerrada
+        $isUploader = ($this->uploaded_by === $user->id) || ($this->user_id === $user->id);
+        $isNotFinalized = !in_array($this->serviceRequest->status, ['RESUELTA', 'CERRADA', 'CANCELADA']);
+
+        return $isUploader && $isNotFinalized;
+    }
+
+    /**
+     * MÉTODO FALTANTE: Obtener tamaño formateado del archivo
+     */
+    public function getFormattedFileSize()
+    {
+        // Si ya tenemos un file_size formateado en la BD, usarlo
+        if (!empty($this->file_size) && is_string($this->file_size)) {
+            return $this->file_size;
+        }
+
+        // Si file_size es numérico (bytes), formatearlo
+        if (!empty($this->file_size) && is_numeric($this->file_size)) {
+            $bytes = (int) $this->file_size;
+            return $this->formatBytes($bytes);
+        }
+
+        // Si no hay file_size, intentar obtenerlo del archivo físico
+        try {
+            if ($this->hasFile()) {
+                $size = Storage::size($this->file_path);
+                return $this->formatBytes($size);
+            }
+        } catch (\Exception $e) {
+            // Log error si es necesario
+        }
+
+        return 'N/A';
+    }
+
+    /**
+     * Formatear bytes a formato legible
+     */
+    private function formatBytes($bytes, $precision = 2)
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+
+        $bytes /= pow(1024, $pow);
+
+        return round($bytes, $precision) . ' ' . $units[$pow];
+    }
+
+    /**
+     * Accessor para file_size formateado
+     */
+    public function getFormattedFileSizeAttribute()
+    {
+        return $this->getFormattedFileSize();
+    }
+
+    /**
+     * Accessor para compatibilidad con file_name
+     */
+    public function getFileNameAttribute($value)
+    {
+        if (empty($value) && !empty($this->file_original_name)) {
+            return $this->file_original_name;
+        }
+        return $value;
+    }
+
+    /**
+     * Accessor para compatibilidad con mime_type
+     */
+    public function getMimeTypeAttribute($value)
+    {
+        if (empty($value) && !empty($this->file_mime_type)) {
+            return $this->file_mime_type;
+        }
+        return $value;
+    }
+
+    /**
+     * Relación con ServiceRequest
+     */
+    public function serviceRequest()
     {
         return $this->belongsTo(ServiceRequest::class, 'service_request_id');
     }
 
     /**
-     * Relación con el usuario - NUEVA RELACIÓN
+     * Relación con el usuario que subió la evidencia
      */
-    public function user(): BelongsTo
+    public function uploadedBy()
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    /**
+     * Relación alternativa con user_id
+     */
+    public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * Accesor para obtener los datos de evidencia
+     * Verificar si tiene archivo
      */
-    public function getEvidenceDataAttribute($value)
+    public function hasFile()
     {
-        return json_decode($value, true) ?? [];
+        return !empty($this->file_path) && Storage::exists($this->file_path);
     }
 
     /**
-     * Mutador para serializar los datos de evidencia
+     * Obtener URL del archivo
      */
-    public function setEvidenceDataAttribute($value)
+    public function getFileUrl()
     {
-        $this->attributes['evidence_data'] = json_encode($value ?? []);
-    }
-
-    /**
-     * Scope para evidencias paso a paso
-     */
-    public function scopeStepByStep($query)
-    {
-        return $query->where('evidence_type', self::TYPE_STEP_BY_STEP)
-                    ->orderBy('step_number');
-    }
-
-    /**
-     * Scope para archivos adjuntos
-     */
-    public function scopeFiles($query)
-    {
-        return $query->where('evidence_type', self::TYPE_FILE);
-    }
-
-    /**
-     * Scope para comentarios
-     */
-    public function scopeComments($query)
-    {
-        return $query->where('evidence_type', self::TYPE_COMMENT);
-    }
-
-    /**
-     * Scope para eventos del sistema
-     */
-    public function scopeSystem($query)
-    {
-        return $query->where('evidence_type', self::TYPE_SYSTEM);
-    }
-
-    /**
-     * Verificar si tiene archivo adjunto
-     */
-    public function hasFile(): bool
-    {
-        return !empty($this->file_path);
-    }
-
-    /**
-     * Obtener la ruta completa del archivo
-     */
-    public function getFilePath(): ?string
-    {
-        return $this->file_path ? storage_path('app/public/' . $this->file_path) : null;
-    }
-
-    /**
-     * Obtener tamaño formateado del archivo
-     */
-    public function getFormattedFileSize(): string
-    {
-        if (!$this->file_size) return '0 B';
-
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $bytes = $this->file_size;
-
-        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
-            $bytes /= 1024;
+        if ($this->hasFile()) {
+            return Storage::url($this->file_path);
         }
-
-        return round($bytes, 2) . ' ' . $units[$i];
+        return null;
     }
 
     /**
-     * Obtener icono según tipo de evidencia
+     * Obtener ruta completa del archivo
      */
-    public function getEvidenceIcon(): string
+    public function getFilePath()
     {
-        return match($this->evidence_type) {
-            self::TYPE_STEP_BY_STEP => 'fas fa-list-ol',
-            self::TYPE_FILE => 'fas fa-file',
-            self::TYPE_COMMENT => 'fas fa-comment',
-            self::TYPE_SYSTEM => 'fas fa-cog',
-            default => 'fas fa-camera'
-        };
+        if ($this->hasFile()) {
+            return Storage::path($this->file_path);
+        }
+        return null;
     }
 
     /**
-     * Obtener color según tipo de evidencia
+     * Obtener extensión del archivo
      */
-    public function getEvidenceColor(): string
+    public function getFileExtension()
     {
-        return match($this->evidence_type) {
-            self::TYPE_STEP_BY_STEP => 'primary',
-            self::TYPE_FILE => 'success',
-            self::TYPE_COMMENT => 'info',
-            self::TYPE_SYSTEM => 'secondary',
-            default => 'dark'
-        };
+        $fileName = $this->file_name ?: $this->file_original_name;
+        if ($fileName) {
+            return pathinfo($fileName, PATHINFO_EXTENSION);
+        }
+        return null;
     }
 
     /**
-     * Obtener badge HTML para tipo de evidencia
+     * Verificar si es imagen
      */
-    public function getEvidenceBadge(): string
+    public function isImage()
     {
-        $color = $this->getEvidenceColor();
-        $icon = $this->getEvidenceIcon();
-
-        return '<span class="badge bg-' . $color . '"><i class="' . $icon . ' me-1"></i>' . $this->evidence_type . '</span>';
+        $mime = $this->mime_type ?: $this->file_mime_type;
+        return $mime && str_starts_with($mime, 'image/');
     }
 
     /**
-     * Verificar si la evidencia puede ser eliminada
+     * Verificar si es PDF
      */
-    public function canBeDeleted(): bool
+    public function isPdf()
     {
-        return in_array($this->serviceRequest->status, ['ACEPTADA', 'EN_PROCESO']);
+        $mime = $this->mime_type ?: $this->file_mime_type;
+        return $mime === 'application/pdf';
     }
 
     /**
-     * Obtener descripción resumida para timeline
+     * Verificar si es documento
      */
-    public function getTimelineDescription(): string
+    public function isDocument()
     {
-        return match($this->evidence_type) {
-            self::TYPE_STEP_BY_STEP => "Paso {$this->step_number}: {$this->description}",
-            self::TYPE_FILE => "Archivo: {$this->file_original_name}",
-            self::TYPE_COMMENT => "Comentario: {$this->description}",
-            self::TYPE_SYSTEM => "Sistema: {$this->description}",
-            default => $this->description
-        };
+        $mime = $this->mime_type ?: $this->file_mime_type;
+        $documentMimes = [
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        ];
+
+        return in_array($mime, $documentMimes);
+    }
+
+    /**
+     * Scope para evidencias de tipo imagen
+     */
+    public function scopeImages($query)
+    {
+        return $query->where(function($q) {
+            $q->where('mime_type', 'like', 'image/%')
+              ->orWhere('file_mime_type', 'like', 'image/%');
+        });
+    }
+
+    /**
+     * Obtener la URL de la evidencia (para compatibilidad)
+     */
+    public function getUrlAttribute()
+    {
+        return $this->getFileUrl();
+    }
+
+    /**
+     * Verificar si la evidencia es una imagen (para compatibilidad)
+     */
+    public function getIsImageAttribute()
+    {
+        return $this->isImage();
+    }
+
+    /**
+     * Obtener el tipo de archivo amigable
+     */
+    public function getFileTypeAttribute()
+    {
+        if ($this->isImage()) {
+            return 'Imagen';
+        } elseif ($this->isPdf()) {
+            return 'PDF';
+        } elseif ($this->isDocument()) {
+            return 'Documento';
+        } else {
+            return 'Archivo';
+        }
+    }
+
+    /**
+     * Obtener icono según tipo de archivo
+     */
+    public function getFileIconAttribute()
+    {
+        if ($this->isImage()) {
+            return 'fa-image';
+        } elseif ($this->isPdf()) {
+            return 'fa-file-pdf';
+        } elseif ($this->isDocument()) {
+            return 'fa-file-word';
+        } else {
+            return 'fa-file';
+        }
     }
 }

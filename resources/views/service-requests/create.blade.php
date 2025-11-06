@@ -359,7 +359,7 @@
         }
 
         // =============================================
-        // CARGA DINÁMICA DE SLAs (VERSIÓN SIMPLIFICADA)
+        // CARGA DINÁMICA DE SLAs (VERSIÓN CORREGIDA CON /api/)
         // =============================================
         if (subServiceSelect && slaSelect) {
             subServiceSelect.addEventListener('change', function() {
@@ -379,7 +379,8 @@
                 slaSelect.innerHTML = '<option value="">Cargando SLAs...</option>';
                 if (slaInfo) slaInfo.classList.add('hidden');
 
-                fetch(`/sub-services/${subServiceId}/slas`)
+                // ✅ CAMBIO CLAVE: Agregar /api/ al inicio de la URL
+                fetch(`/api/sub-services/${subServiceId}/slas`)
                     .then(response => {
                         console.log('Response status:', response.status, 'OK:', response.ok);
 
@@ -545,6 +546,7 @@
                     });
             });
         }
+
         // =============================================
         // INFORMACIÓN DEL SLA SELECCIONADO
         // =============================================

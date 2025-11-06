@@ -125,7 +125,7 @@ trait ServiceRequestTimelineManager
                 'event' => 'SOLICITUD RESUELTA',
                 'timestamp' => $this->resolved_at,
                 'user' => $this->assignee,
-                'description' => $this->resolution_notes ? "Resuelta: {$this->resolution_notes}" : 'Solicitud marcada como resuelta',
+                'description' => $this->resolution_notes ? "Resuelta: {$this->resolution_notes}" : 'Solicitud marcada como RESUELTA',
                 'status' => 'resolved',
                 'icon' => 'check-double',
                 'color' => 'success'

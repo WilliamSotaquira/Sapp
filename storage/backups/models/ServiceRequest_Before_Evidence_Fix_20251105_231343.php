@@ -100,27 +100,25 @@ class ServiceRequest extends Model
     }
 
     /**
-     * CORRECCIÓN: Relación con ServiceRequestEvidence (tabla service_request_evidences)
+     * CORRECCIÓN: Relación con el modelo Evidence (no ServiceRequestEvidence)
      */
     public function evidences()
     {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id');
+        return $this->hasMany(Evidence::class, 'service_request_id');
     }
 
-    // En tu modelo ServiceRequest
+    // En tu modelo ServiceRequest (o ServiceRequestEvidenceManager)
     public function hasAnyEvidenceForResolution()
     {
         return $this->evidences()
             ->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])
             ->count() > 0;
     }
-
     // Método para obtener evidencias paso a paso
     public function getStepByStepEvidencesAttribute()
     {
         return $this->evidences()->where('evidence_type', 'PASO_A_PASO')->get();
     }
-
     // Método para obtener archivos adjuntos
     public function getFileEvidencesAttribute()
     {

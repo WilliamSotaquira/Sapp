@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
     {
         User::create([
             'name' => 'Administrador',
-            'email' => 'william.sotaquira@gmail.com',
+            'email' => 'wsotaquira@movilidadbogota.gov.co',
             'password' => Hash::make('S_07201*'),
         ]);
     }

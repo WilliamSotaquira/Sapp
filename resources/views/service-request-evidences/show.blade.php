@@ -66,7 +66,7 @@
                     <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
                         <div class="flex items-center space-x-3 mb-4">
                             <div class="flex-shrink-0">
-                                <i class="fas fa-file text-blue-600 text-2xl"></i>
+                                <i class="fas {{ $evidence->file_icon }} text-blue-600 text-2xl"></i>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-gray-900 truncate">
@@ -77,11 +77,55 @@
                                 </p>
                             </div>
                         </div>
-                        <a href="{{ route('service-requests.evidences.download', [$serviceRequest, $evidence]) }}"
-                           class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            <i class="fas fa-download mr-2"></i>
-                            Descargar archivo
-                        </a>
+
+                        <!-- Visualización de Imágenes -->
+                        @if($evidence->isImage())
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Vista Previa:</h4>
+                            <div class="border border-gray-300 rounded-lg overflow-hidden bg-white">
+                                <img
+                                    src="{{ Storage::url($evidence->file_path) }}"
+                                    alt="{{ $evidence->file_original_name }}"
+                                    class="w-full h-auto max-h-96 object-contain cursor-pointer preview-image"
+                                    data-src="{{ Storage::url($evidence->file_path) }}"
+                                >
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1 text-center">
+                                Haz clic en la imagen para ampliar
+                            </p>
+                        </div>
+                        @endif
+
+                        <!-- Visualización de PDF -->
+                        @if($evidence->isPdf())
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Vista Previa PDF:</h4>
+                            <div class="border border-gray-300 rounded-lg bg-white p-4">
+                                <div class="text-center">
+                                    <i class="fas fa-file-pdf text-red-500 text-4xl mb-2"></i>
+                                    <p class="text-sm text-gray-600">Documento PDF</p>
+                                    <p class="text-xs text-gray-500">{{ $evidence->file_original_name }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        <div class="flex space-x-2">
+                            <a href="{{ route('service-requests.evidences.download', [$serviceRequest, $evidence]) }}"
+                                class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-download mr-2"></i>
+                                Descargar
+                            </a>
+
+                            @if($evidence->isImage() || $evidence->isPdf())
+                            <button type="button"
+                                class="view-file-btn inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                data-src="{{ Storage::url($evidence->file_path) }}">
+                                <i class="fas fa-expand mr-2"></i>
+                                Ver
+                            </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
                 @endif
@@ -106,16 +150,16 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <tbody class="divide-y divide-gray-200">
                                 @foreach($evidence->evidence_data as $key => $value)
-                                    @if(!empty($value))
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 capitalize whitespace-nowrap">
-                                            {{ str_replace('_', ' ', $key) }}
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-700">
-                                            {{ $value }}
-                                        </td>
-                                    </tr>
-                                    @endif
+                                @if(!empty($value))
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 capitalize whitespace-nowrap">
+                                        {{ str_replace('_', ' ', $key) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">
+                                        {{ $value }}
+                                    </td>
+                                </tr>
+                                @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -127,21 +171,18 @@
             <!-- Acciones -->
             <div class="flex justify-between items-center pt-6 border-t border-gray-200">
                 <a href="{{ route('service-requests.show', $serviceRequest) }}"
-                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Volver a la solicitud
                 </a>
 
-                @if($evidence->canBeDeleted())
-                <form action="{{ route('service-requests.evidences.destroy', [$serviceRequest, $evidence]) }}"
-                      method="POST" class="inline">
+                @if($evidence->canBeDeletedSimple())
+                <form action="{{ route('service-requests.evidences.destroy', [$serviceRequest, $evidence]) }}" method="POST">
                     @csrf
                     @method('DELETE')
-                    <button type="submit"
-                            onclick="return confirm('¿Está seguro de que desea eliminar esta evidencia? Esta acción no se puede deshacer.')"
-                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onclick="return confirm('¿Estás seguro de eliminar esta evidencia?')">
                         <i class="fas fa-trash mr-2"></i>
-                        Eliminar evidencia
+                        Eliminar Evidencia
                     </button>
                 </form>
                 @endif
@@ -149,4 +190,210 @@
         </div>
     </div>
 </div>
+
+<!-- Scripts incluidos directamente en la página -->
+<script>
+// Esperar a que el DOM esté completamente cargado
+document.addEventListener('DOMContentLoaded', function() {
+    let currentScale = 1;
+    let modal = null;
+    let modalImage = null;
+    let lastFocusedElement = null;
+
+    // Función para crear el modal dinámicamente
+    function createModal() {
+        if (document.getElementById('imageModal')) {
+            return; // El modal ya existe
+        }
+
+        const modalHTML = `
+            <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+                <div class="relative max-w-4xl max-h-full mx-4">
+                    <!-- Botón cerrar -->
+                    <button type="button"
+                        id="closeModalBtn"
+                        class="absolute -top-12 right-0 text-white hover:text-gray-300 focus:outline-none z-10"
+                        aria-label="Cerrar modal">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+
+                    <!-- Contenido del modal -->
+                    <div class="bg-white rounded-lg overflow-hidden max-h-screen">
+                        <img id="modalImage" src="" alt="" class="w-full h-auto max-h-screen object-contain">
+                    </div>
+
+                    <!-- Botones de navegación -->
+                    <div class="flex justify-center items-center mt-4 space-x-4">
+                        <button type="button"
+                            id="zoomOutBtn"
+                            class="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Alejar">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <button type="button"
+                            id="resetZoomBtn"
+                            class="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Restablecer zoom">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button"
+                            id="zoomInBtn"
+                            class="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Acercar">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Referencias a los elementos del modal
+        modal = document.getElementById('imageModal');
+        modalImage = document.getElementById('modalImage');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const zoomInBtn = document.getElementById('zoomInBtn');
+        const zoomOutBtn = document.getElementById('zoomOutBtn');
+        const resetZoomBtn = document.getElementById('resetZoomBtn');
+
+        // Event Listeners del modal
+        closeModalBtn.addEventListener('click', closeModal);
+        zoomInBtn.addEventListener('click', zoomIn);
+        zoomOutBtn.addEventListener('click', zoomOut);
+        resetZoomBtn.addEventListener('click', resetZoom);
+
+        // Cerrar modal con ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+
+        // Cerrar modal haciendo clic fuera de la imagen
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Prevenir que el clic en la imagen cierre el modal
+        modalImage.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    }
+
+    // Función para abrir el modal
+    function openModal(imageSrc) {
+        // Crear el modal si no existe
+        createModal();
+
+        // Guardar el último elemento enfocado
+        lastFocusedElement = document.activeElement;
+
+        // Configurar la imagen
+        modalImage.src = imageSrc;
+        modalImage.alt = 'Vista ampliada de ' + imageSrc.split('/').pop();
+
+        // Mostrar el modal
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+
+        // Resetear zoom
+        currentScale = 1;
+        modalImage.style.transform = `scale(${currentScale})`;
+
+        // Bloquear scroll del body
+        document.body.style.overflow = 'hidden';
+
+        // Enfocar el botón de cerrar para accesibilidad
+        setTimeout(() => {
+            document.getElementById('closeModalBtn').focus();
+        }, 100);
+    }
+
+    // Función para cerrar el modal
+    function closeModal() {
+        if (!modal) return;
+
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+
+        // Restaurar scroll del body
+        document.body.style.overflow = 'auto';
+
+        // Restaurar el foco al último elemento
+        if (lastFocusedElement) {
+            lastFocusedElement.focus();
+        }
+
+        // Limpiar la imagen para liberar memoria
+        modalImage.src = '';
+        modalImage.alt = '';
+    }
+
+    // Función para hacer zoom in
+    function zoomIn() {
+        currentScale += 0.25;
+        modalImage.style.transform = `scale(${currentScale})`;
+    }
+
+    // Función para hacer zoom out
+    function zoomOut() {
+        if (currentScale > 0.5) {
+            currentScale -= 0.25;
+            modalImage.style.transform = `scale(${currentScale})`;
+        }
+    }
+
+    // Función para resetear el zoom
+    function resetZoom() {
+        currentScale = 1;
+        modalImage.style.transform = `scale(${currentScale})`;
+    }
+
+    // Agregar event listeners a las imágenes y botones
+    document.querySelectorAll('.preview-image, .view-file-btn').forEach(element => {
+        element.addEventListener('click', function() {
+            const imageSrc = this.getAttribute('data-src') || this.getAttribute('src');
+            openModal(imageSrc);
+        });
+
+        // Soporte para tecla Enter en botones
+        element.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                const imageSrc = this.getAttribute('data-src') || this.getAttribute('src');
+                openModal(imageSrc);
+            }
+        });
+    });
+});
+</script>
+
+<style>
+#imageModal {
+    backdrop-filter: blur(5px);
+}
+
+#modalImage {
+    transition: transform 0.3s ease;
+    transform-origin: center center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Mejorar accesibilidad del foco */
+button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Prevenir scroll cuando el modal está abierto */
+body.modal-open {
+    overflow: hidden;
+}
+</style>
 @endsection
