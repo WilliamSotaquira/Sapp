@@ -32,10 +32,15 @@
 
 @section('content')
     <div class="bg-white shadow-md rounded-lg p-6">
-        @if($serviceRequest->status !== 'PENDIENTE')
+        @php
+            $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+            $isEditable = in_array($serviceRequest->status, $editableStatuses);
+        @endphp
+
+        @if(!$isEditable)
             <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
                 <i class="fas fa-exclamation-triangle mr-2"></i>
-                Solo se pueden editar solicitudes en estado PENDIENTE. Esta solicitud está en estado <strong>{{ $serviceRequest->status }}</strong>.
+                No se pueden editar solicitudes en estado <strong>{{ $serviceRequest->status }}</strong>. Solo se permiten ediciones en estados: PENDIENTE, ACEPTADA, EN_PROCESO o PAUSADA.
             </div>
         @endif
 
@@ -67,12 +72,13 @@
                                 'PENDIENTE' => 'bg-yellow-100 text-yellow-800',
                                 'ACEPTADA' => 'bg-blue-100 text-blue-800',
                                 'EN_PROCESO' => 'bg-purple-100 text-purple-800',
+                                'PAUSADA' => 'bg-orange-100 text-orange-800',
                                 'RESUELTA' => 'bg-green-100 text-green-800',
                                 'CERRADA' => 'bg-gray-100 text-gray-800',
                                 'CANCELADA' => 'bg-red-100 text-red-800'
                             ];
                         @endphp
-                        <span class="px-3 py-2 text-sm font-semibold rounded-full {{ $statusColors[$serviceRequest->status] }}">
+                        <span class="px-3 py-2 text-sm font-semibold rounded-full {{ $statusColors[$serviceRequest->status] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $serviceRequest->status }}
                         </span>
                     </div>
@@ -99,7 +105,7 @@
                     <label for="sub_service_id" class="block text-sm font-medium text-gray-700">Sub-Servicio *</label>
                     <select name="sub_service_id" id="sub_service_id" required
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>
+                            {{ !$isEditable ? 'disabled' : '' }}>
                         <option value="">Seleccione un sub-servicio</option>
                         @foreach($subServices as $familyName => $familySubServices)
                             <optgroup label="{{ $familyName }}">
@@ -122,7 +128,7 @@
                     <label for="sla_id" class="block text-sm font-medium text-gray-700">Acuerdo de Nivel de Servicio (SLA) *</label>
                     <select name="sla_id" id="sla_id" required
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>
+                            {{ !$isEditable ? 'disabled' : '' }}>
                         <option value="">Seleccione un SLA</option>
                         @foreach(\App\Models\ServiceLevelAgreement::where('is_active', true)->get() as $sla)
                             <option value="{{ $sla->id }}"
@@ -155,7 +161,7 @@
                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
                            placeholder="Describa brevemente la solicitud"
                            required
-                           {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>
+                           {{ !$isEditable ? 'disabled' : '' }}>
                     @error('title')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                     @enderror
@@ -168,7 +174,7 @@
                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
                               placeholder="Describa en detalle el problema o requerimiento"
                               required
-                              {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>{{ old('description', $serviceRequest->description) }}</textarea>
+                              {{ !$isEditable ? 'disabled' : '' }}>{{ old('description', $serviceRequest->description) }}</textarea>
                     @error('description')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                     @enderror
@@ -179,7 +185,7 @@
                     <label for="criticality_level" class="block text-sm font-medium text-gray-700">Nivel de Criticidad *</label>
                     <select name="criticality_level" id="criticality_level" required
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>
+                            {{ !$isEditable ? 'disabled' : '' }}>
                         <option value="">Seleccione criticidad</option>
                         @foreach($criticalityLevels as $level)
                             <option value="{{ $level }}" {{ old('criticality_level', $serviceRequest->criticality_level) == $level ? 'selected' : '' }}>
@@ -197,7 +203,7 @@
                     <label for="assigned_to" class="block text-sm font-medium text-gray-700">Asignar a</label>
                     <select name="assigned_to" id="assigned_to"
                             class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                            {{ $serviceRequest->status !== 'PENDIENTE' ? 'disabled' : '' }}>
+                            {{ !$isEditable ? 'disabled' : '' }}>
                         <option value="">Sin asignar</option>
                         @foreach($users as $user)
                             <option value="{{ $user->id }}" {{ old('assigned_to', $serviceRequest->assigned_to) == $user->id ? 'selected' : '' }}>
@@ -245,7 +251,7 @@
                     <i class="fas fa-arrow-left mr-2"></i>Volver
                 </a>
 
-                @if($serviceRequest->status === 'PENDIENTE')
+                @if($isEditable)
                     <button type="submit"
                             class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                         <i class="fas fa-save mr-2"></i>Actualizar Solicitud
@@ -318,11 +324,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Si el estado no es PENDIENTE, prevenir envío del formulario
-    @if($serviceRequest->status !== 'PENDIENTE')
+    // Si no es editable, prevenir envío del formulario
+    @if(!$isEditable)
     document.getElementById('serviceRequestForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        alert('No se puede editar una solicitud que no está en estado PENDIENTE.');
+        alert('No se puede editar una solicitud en estado: {{ $serviceRequest->status }}');
     });
     @endif
 });

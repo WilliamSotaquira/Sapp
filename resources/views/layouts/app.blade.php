@@ -6,28 +6,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Sistema de Servicios')</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+        --color-clifford: #da373d;
+      }
+    </style>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .nav-item-active {
             background-color: rgba(255, 255, 255, 0.15);
             border-left: 4px solid white;
         }
+
         .mobile-menu {
             transition: all 0.3s ease;
         }
+
         .dropdown-menu {
             display: none;
             position: absolute;
             background-color: #dc2626;
             min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
             z-index: 1000;
             border-radius: 0 0 4px 4px;
         }
+
         .dropdown:hover .dropdown-menu {
             display: block;
         }
+
         @media (max-width: 768px) {
             .dropdown-menu {
                 position: static;
@@ -54,14 +65,14 @@
                     <div class="hidden md:flex space-x-1">
                         <!-- Acciones frecuentes (primero) -->
                         <a href="{{ route('service-requests.index') }}"
-                           class="flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
+                            class="flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
                                   {{ request()->routeIs('service-requests.*') ? 'nav-item-active' : '' }}">
                             <i class="fas fa-tasks mr-2"></i>
                             Solicitudes
                         </a>
 
                         <a href="{{ route('reports.index') }}"
-                           class="flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
+                            class="flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
                                   {{ request()->routeIs('reports.*') ? 'nav-item-active' : '' }}">
                             <i class="fas fa-chart-bar mr-2"></i>
                             Reportes
@@ -77,19 +88,19 @@
                             </button>
                             <div class="dropdown-menu rounded-b mt-1">
                                 <a href="{{ route('service-families.index') }}"
-                                   class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-families.*') ? 'bg-red-700' : '' }}">
+                                    class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-families.*') ? 'bg-red-700' : '' }}">
                                     <i class="fas fa-layer-group mr-2"></i>Familias
                                 </a>
                                 <a href="{{ route('services.index') }}"
-                                   class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('services.*') ? 'bg-red-700' : '' }}">
+                                    class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('services.*') ? 'bg-red-700' : '' }}">
                                     <i class="fas fa-cog mr-2"></i>Servicios
                                 </a>
                                 <a href="{{ route('sub-services.index') }}"
-                                   class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('sub-services.*') ? 'bg-red-700' : '' }}">
+                                    class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('sub-services.*') ? 'bg-red-700' : '' }}">
                                     <i class="fas fa-cogs mr-2"></i>Sub-Servicios
                                 </a>
                                 <a href="{{ route('slas.index') }}"
-                                   class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('slas.*') ? 'bg-red-700' : '' }}">
+                                    class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('slas.*') ? 'bg-red-700' : '' }}">
                                     <i class="fas fa-clock mr-2"></i>SLAs
                                 </a>
                             </div>
@@ -108,7 +119,7 @@
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200"
-                                title="Cerrar sesión">
+                            title="Cerrar sesión">
                             <i class="fas fa-sign-out-alt"></i>
                             <span class="hidden sm:inline ml-1">Salir</span>
                         </button>
@@ -132,13 +143,13 @@
             <div id="mobileMenu" class="mobile-menu md:hidden bg-red-700 mt-2 rounded-lg overflow-hidden hidden">
                 <div class="py-2 space-y-1">
                     <a href="{{ route('service-requests.index') }}"
-                       class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('service-requests.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('service-requests.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-tasks mr-3"></i>
                         Solicitudes
                     </a>
 
                     <a href="{{ route('reports.index') }}"
-                       class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('reports.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('reports.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-chart-bar mr-3"></i>
                         Reportes
                     </a>
@@ -149,25 +160,25 @@
                     </div>
 
                     <a href="{{ route('service-families.index') }}"
-                       class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('service-families.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('service-families.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-layer-group mr-3"></i>
                         Familias
                     </a>
 
                     <a href="{{ route('services.index') }}"
-                       class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('services.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('services.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-cog mr-3"></i>
                         Servicios
                     </a>
 
                     <a href="{{ route('sub-services.index') }}"
-                       class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('sub-services.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('sub-services.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-cogs mr-3"></i>
                         Sub-Servicios
                     </a>
 
                     <a href="{{ route('slas.index') }}"
-                       class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('slas.*') ? 'bg-red-800' : '' }}">
+                        class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('slas.*') ? 'bg-red-800' : '' }}">
                         <i class="fas fa-clock mr-3"></i>
                         SLAs
                     </a>

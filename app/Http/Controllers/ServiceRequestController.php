@@ -124,9 +124,12 @@ class ServiceRequestController extends Controller
      */
     public function edit(ServiceRequest $serviceRequest)
     {
-        if ($serviceRequest->status !== 'PENDIENTE') {
+        // Estados que permiten edición
+        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+
+        if (!in_array($serviceRequest->status, $editableStatuses)) {
             return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden editar solicitudes en estado PENDIENTE.');
+                ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
         $subServices = SubService::with(['service.family'])
@@ -145,9 +148,12 @@ class ServiceRequestController extends Controller
      */
     public function update(Request $request, ServiceRequest $serviceRequest)
     {
-        if ($serviceRequest->status !== 'PENDIENTE') {
+        // Estados que permiten edición (misma lógica que en edit)
+        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+
+        if (!in_array($serviceRequest->status, $editableStatuses)) {
             return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden editar solicitudes en estado PENDIENTE.');
+                ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
         $validated = $request->validate([
