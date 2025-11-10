@@ -14,7 +14,7 @@ class ServiceRequestEvidence extends Model
     // ESPECIFICAR EL NOMBRE DE LA TABLA EXPLÍCITAMENTE
     protected $table = 'service_request_evidences';
 
-    // En App\Models\ServiceRequestEvidence.php
+    // ✅ CORREGIDO: Solo campos que existen en BD
     protected $fillable = [
         'service_request_id',
         'title',
@@ -22,13 +22,14 @@ class ServiceRequestEvidence extends Model
         'evidence_type',
         'step_number',
         'evidence_data',
-        'user_id',
-        'file_original_name', // ← Esta SÍ existe
-        'file_path', // ← Esta SÍ existe
-        'file_mime_type', // ← Esta SÍ existe
-        'file_size', // ← Esta SÍ existe
-        // NO incluir: 'uploaded_by', 'file_name', 'mime_type'
+        'user_id', // ✅ Usuario que SUBE la evidencia
+        'file_original_name',
+        'file_path',
+        'file_mime_type',
+        'file_size',
+        // ❌ NO incluir: 'uploaded_by', 'file_name', 'mime_type'
     ];
+
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -37,7 +38,7 @@ class ServiceRequestEvidence extends Model
 
     /**
      * MÉTODO CORREGIDO: Verificar si la evidencia puede ser eliminada
-     * Sin depender de hasRole()
+     * Usando SOLO user_id (no uploaded_by)
      */
     public function canBeDeleted()
     {
@@ -48,8 +49,16 @@ class ServiceRequestEvidence extends Model
             return false;
         }
 
-        // Verificar si es el usuario que subió la evidencia
-        $isUploader = ($this->uploaded_by === $user->id) || ($this->user_id === $user->id);
+        // ✅ CORRECCIÓN: Usar SOLO user_id (usuario que subió la evidencia)
+        $isUploader = $this->user_id === $user->id;
+
+        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
+        $allowedStatuses = [
+            ServiceRequest::STATUS_PENDING,
+            ServiceRequest::STATUS_ACCEPTED,
+            ServiceRequest::STATUS_IN_PROGRESS,
+            // Si necesitas estado PAUSADA, agregar la constante en ServiceRequest
+        ];
 
         // Verificar si está asignado a la solicitud de servicio
         $isAssigned = $this->serviceRequest && $this->serviceRequest->assigned_to === $user->id;
@@ -58,10 +67,9 @@ class ServiceRequestEvidence extends Model
         $isRequester = $this->serviceRequest && $this->serviceRequest->requested_by === $user->id;
 
         // Verificar roles de manera simple (sin hasRole())
-        $isAdmin = $this->isAdminUser($user); // Método alternativo
+        $isAdmin = $this->isAdminUser($user);
 
         // Verificar si la solicitud está en un estado que permite eliminar evidencias
-        $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
         $isEditableStatus = $this->serviceRequest && in_array($this->serviceRequest->status, $allowedStatuses);
 
         return ($isUploader || $isAssigned || $isRequester || $isAdmin) && $isEditableStatus;
@@ -99,7 +107,7 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
-     * Versión simplificada de canBeDeleted
+     * Versión simplificada de canBeDeleted - CORREGIDA
      */
     public function canBeDeletedSimple()
     {
@@ -109,10 +117,15 @@ class ServiceRequestEvidence extends Model
             return false;
         }
 
-        // Solo el que subió la evidencia puede eliminarla
-        // y solo si la solicitud no está resuelta o cerrada
-        $isUploader = ($this->uploaded_by === $user->id) || ($this->user_id === $user->id);
-        $isNotFinalized = !in_array($this->serviceRequest->status, ['RESUELTA', 'CERRADA', 'CANCELADA']);
+        // ✅ CORRECCIÓN: Solo user_id (quien subió la evidencia)
+        $isUploader = $this->user_id === $user->id;
+
+        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
+        $isNotFinalized = !in_array($this->serviceRequest->status, [
+            ServiceRequest::STATUS_RESOLVED,
+            ServiceRequest::STATUS_CLOSED,
+            ServiceRequest::STATUS_CANCELLED
+        ]);
 
         return $isUploader && $isNotFinalized;
     }
@@ -179,7 +192,6 @@ class ServiceRequestEvidence extends Model
         return $this->file_original_name;
     }
 
-
     /**
      * Accessor para compatibilidad - usar file_mime_type como mime_type
      */
@@ -198,39 +210,115 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
-     * Relación con el usuario que subió la evidencia
-     */
-    public function uploadedBy()
-    {
-        return $this->belongsTo(User::class, 'uploaded_by');
-    }
-
-    /**
-     * Relación alternativa con user_id
+     * ✅ RELACIÓN CORREGIDA - Usuario que SUBIÓ la evidencia
+     * Usando user_id (campo que existe en BD)
      */
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-
     /**
-     * Verificar si tiene archivo
+     * ❌ ELIMINAR relación uploadedBy() - campo uploaded_by no existe en BD
      */
-    public function hasFile()
-    {
-        return !empty($this->file_path) && Storage::exists($this->file_path);
-    }
+    // public function uploadedBy()
+    // {
+    //     return $this->belongsTo(User::class, 'uploaded_by');
+    // }
 
     /**
-     * Obtener URL del archivo
+     * Obtener URL del archivo - VERSIÓN CORREGIDA Y SIMPLIFICADA
      */
     public function getFileUrl()
     {
-        if ($this->hasFile()) {
-            return Storage::url($this->file_path);
+        if (!$this->file_path) {
+            \Log::warning("Evidence {$this->id}: file_path está vacío");
+            return null;
         }
+
+        \Log::info("Evidence {$this->id}: Procesando file_path = '{$this->file_path}'");
+
+        // Si el file_path ya es una URL completa, retornarla
+        if (filter_var($this->file_path, FILTER_VALIDATE_URL)) {
+            \Log::info("Evidence {$this->id}: Es URL completa - {$this->file_path}");
+            return $this->file_path;
+        }
+
+        // PRIMERO: Intentar con Storage::url (para archivos en storage)
+        try {
+            // Si file_path empieza con 'evidences/', asumimos que está en storage
+            if (str_starts_with($this->file_path, 'evidences/')) {
+                $url = Storage::url($this->file_path);
+                \Log::info("Evidence {$this->id}: Storage::url generado - {$url}");
+                return $url;
+            }
+
+            // Si no tiene prefijo, agregar 'evidences/' y probar
+            $storagePath = 'evidences/' . $this->file_path;
+            if (Storage::exists($storagePath)) {
+                $url = Storage::url($storagePath);
+                \Log::info("Evidence {$this->id}: Storage::url con prefijo - {$url}");
+                return $url;
+            }
+
+            // Intentar con la ruta directa
+            if (Storage::exists($this->file_path)) {
+                $url = Storage::url($this->file_path);
+                \Log::info("Evidence {$this->id}: Storage::url directo - {$url}");
+                return $url;
+            }
+        } catch (\Exception $e) {
+            \Log::error("Evidence {$this->id}: Error con Storage::url - " . $e->getMessage());
+        }
+
+        // SEGUNDO: Si Storage::url no funciona, construir URL manualmente
+        try {
+            // Construir URL manual basada en la estructura común
+            $manualUrl = asset('storage/' . $this->file_path);
+            \Log::info("Evidence {$this->id}: URL manual - {$manualUrl}");
+            return $manualUrl;
+        } catch (\Exception $e) {
+            \Log::error("Evidence {$this->id}: Error construyendo URL manual - " . $e->getMessage());
+        }
+
+        \Log::warning("Evidence {$this->id}: No se pudo generar URL para '{$this->file_path}'");
         return null;
+    }
+
+    /**
+     * Verificar si tiene archivo - VERSIÓN MEJORADA
+     */
+    public function hasFile()
+    {
+        if (!$this->file_path) {
+            return false;
+        }
+
+        try {
+            // Verificar si el archivo existe en storage
+            if (Storage::exists($this->file_path)) {
+                return true;
+            }
+
+            // Verificar rutas alternativas comunes
+            $possiblePaths = [
+                $this->file_path,
+                'public/' . $this->file_path,
+                'evidences/' . $this->file_path,
+                'public/evidences/' . $this->file_path,
+            ];
+
+            foreach ($possiblePaths as $path) {
+                if (Storage::exists($path)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error("Error en hasFile() para evidence {$this->id}: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**

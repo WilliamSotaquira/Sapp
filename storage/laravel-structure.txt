@@ -1,0 +1,387 @@
+ESTRUCTURA DEL PROYECTO LARAVEL
+Generado: 11/06/2025 21:46:46
+==================================================
+
+📁 app/
+  📁 Console/
+    📁 Commands/
+      📄 CheckDatabaseCommand.php (1.89 KB)
+      📄 CleanDatabaseCommand.php (1.18 KB)
+  📁 Exports/
+    📄 BaseExport.php (0.24 KB)
+    📄 CriticalityLevelsExport.php (1.55 KB)
+    📄 RequestsByStatusExport.php (1.5 KB)
+    📄 RequestTimelineExport.php (4.92 KB)
+    📄 ServicePerformanceExport.php (2.61 KB)
+    📄 SlaComplianceExport.php (3.26 KB)
+  📁 Http/
+    📁 Controllers/
+      📁 Auth/
+        📄 AuthenticatedSessionController.php (1.01 KB)
+        📄 ConfirmablePasswordController.php (1 KB)
+        📄 EmailVerificationNotificationController.php (0.62 KB)
+        📄 EmailVerificationPromptController.php (0.55 KB)
+        📄 NewPasswordController.php (2.16 KB)
+        📄 PasswordController.php (0.78 KB)
+        📄 PasswordResetLinkController.php (1.28 KB)
+        📄 RegisteredUserController.php (1.3 KB)
+        📄 VerifyEmailController.php (0.78 KB)
+      📁 Backup/
+      📁 Reports/
+        📄 CriticalityReportController.php (1.5 KB)
+        📄 ExportReportController.php (6.04 KB)
+        📄 PerformanceReportController.php (4.86 KB)
+        📄 ReportController.php (0.4 KB)
+        📄 SlaReportController.php (2.32 KB)
+        📄 StatusReportController.php (1.5 KB)
+        📄 TimelineReportController.php (22.92 KB)
+      📄 AlertController.php (2.31 KB)
+      📄 CalendarController.php (3.24 KB)
+      📄 ClassificationController.php (2.63 KB)
+      📄 Controller.php (0.08 KB)
+      📄 DashboardController.php (4.56 KB)
+      📄 EvidenceController.php (3.88 KB)
+      📄 ProfileController.php (1.38 KB)
+      📄 ProjectController.php (3.13 KB)
+      📄 ReporterController.php (2.49 KB)
+      📄 ReportExportController.php (5.12 KB)
+      📄 RequirementController.php (7.61 KB)
+      📄 ServiceController.php (3.18 KB)
+      📄 ServiceFamilyController.php (3.05 KB)
+      📄 ServiceRequestController.php (19.56 KB)
+      📄 ServiceRequestEvidenceController.php (7.67 KB)
+      📄 SLAController.php (13.77 KB)
+      📄 SubServiceController.php (3.21 KB)
+    📁 Requests/
+      📁 Auth/
+        📄 LoginRequest.php (2.18 KB)
+      📄 ExportReportRequest.php (0.54 KB)
+      📄 ProfileUpdateRequest.php (0.73 KB)
+      📄 ReportSummaryRequest.php (0.83 KB)
+      📄 ResolveServiceRequestRequest.php (0.55 KB)
+      📄 SummaryReportRequest.php (0.69 KB)
+    📁 Resources/
+      📄 SlaComplianceResource.php (0.37 KB)
+      📄 SummaryReportResource.php (0.89 KB)
+  📁 Jobs/
+    📄 ExportReportJob.php (0.38 KB)
+    📄 GenerateSummaryReport.php (0.88 KB)
+  📁 Models/
+    📁 Managers/
+      📄 ServiceRequestEvidenceManager.php (3.05 KB)
+      📄 ServiceRequestStateManager.php (3.94 KB)
+      📄 ServiceRequestTimelineManager.php (14.01 KB)
+      📄 ServiceRequestWebRoutesManager.php (5.12 KB)
+    📄 Alert.php (1.35 KB)
+    📄 Classification.php (0.52 KB)
+    📄 Evidence.php (1.17 KB)
+    📄 Family.php (1.34 KB)
+    📄 Project.php (0.94 KB)
+    📄 Reporter.php (0.58 KB)
+    📄 Requirement.php (2.3 KB)
+    📄 Service.php (1.77 KB)
+    📄 ServiceFamily.php (1.88 KB)
+    📄 ServiceLevelAgreement.php (1.19 KB)
+    📄 ServiceRequest.backup.php (27.24 KB)
+    📄 ServiceRequest.php (8.18 KB)
+    📄 ServiceRequestEvidence.php (9.38 KB)
+    📄 ServiceSubservice.php (0.77 KB)
+    📄 SlaBreachLog.php (0.37 KB)
+    📄 SubService.php (1.5 KB)
+    📄 User.php (1.63 KB)
+  📁 Providers/
+    📄 AppServiceProvider.php (5.74 KB)
+  📁 Services/
+    📄 ServiceRequestViewService.php (4.85 KB)
+    📄 TimeFormatService.php (3.59 KB)
+  📁 View/
+    📁 Components/
+      📄 AppLayout.php (0.29 KB)
+      📄 GuestLayout.php (0.29 KB)
+      📄 ServiceRequests.Display.AssignmentInfo.php (0.51 KB)
+      📄 ServiceRequests.Display.EvidencesSection.php (0.51 KB)
+      📄 ServiceRequests.Display.SlaInfo.php (0.49 KB)
+      📄 ServiceRequests.Display.WebRoutesInfo.php (0.5 KB)
+📁 bootstrap/
+  📁 cache/
+    📄 .gitignore (0.01 KB)
+    📄 packages.php (1.32 KB)
+    📄 ser4C89.tmp (21.33 KB)
+    📄 services.php (21.42 KB)
+  📄 app.php (0.51 KB)
+  📄 providers.php (0.06 KB)
+📁 config/
+  📄 app.php (4.19 KB)
+  📄 auth.php (3.93 KB)
+  📄 cache.php (3.6 KB)
+  📄 database.php (6.69 KB)
+  📄 dompdf.php (11.99 KB)
+  📄 filesystems.php (2.44 KB)
+  📄 logging.php (4.23 KB)
+  📄 mail.php (3.53 KB)
+  📄 queue.php (4.01 KB)
+  📄 services.php (1.01 KB)
+  📄 session.php (7.66 KB)
+📁 database/
+  📁 factories/
+    📄 UserFactory.php (1.05 KB)
+  📁 migrations/
+    📄 0001_01_01_000000_create_users_table.php (1.44 KB)
+    📄 0001_01_01_000001_create_cache_table.php (0.83 KB)
+    📄 0001_01_01_000002_create_jobs_table.php (1.77 KB)
+    📄 2025_11_01_234203_create_classifications_table.php (0.67 KB)
+    📄 2025_11_01_234203_create_reporters_table.php (0.56 KB)
+    📄 2025_11_01_234204_create_evidences_table.php (0.66 KB)
+    📄 2025_11_01_234204_create_projects_table.php (0.57 KB)
+    📄 2025_11_01_234204_create_requirements_table.php (0.85 KB)
+    📄 2025_11_01_234207_create_alerts_table.php (0.65 KB)
+    📄 2025_11_02_182148_add_missing_columns_to_classifications_table.php (0.54 KB)
+    📄 2025_11_02_202535_create_service_families_table.php (0.82 KB)
+    📄 2025_11_02_202535_create_service_level_agreements_table.php (1 KB)
+    📄 2025_11_02_202535_create_services_table.php (0.86 KB)
+    📄 2025_11_02_202535_create_sub_services_table.php (0.91 KB)
+    📄 2025_11_02_202536_create_service_requests_table.php (1.63 KB)
+    📄 2025_11_02_202538_create_sla_breach_logs_table.php (0.73 KB)
+    📄 2025_11_03_182400_add_pause_fields_to_service_requests_table.php (1.58 KB)
+    📄 2025_11_03_203004_create_service_request_evidences_table.php (1.69 KB)
+    📄 2025_11_03_211141_add_deleted_at_to_service_request_evidences_table.php (0.68 KB)
+    📄 2025_11_03_233907_add_user_id_to_service_request_evidences_table.php (0.74 KB)
+    📄 2025_11_04_055637_add_web_routes_to_service_requests_table.php (0.62 KB)
+    📄 2025_11_04_141333_add_sort_order_to_service_families_table.php (0.7 KB)
+    📄 2025_11_04_200125_create_service_subservices_table.php (1.07 KB)
+    📄 2025_11_04_200256_update_service_level_agreements_table.php (0.84 KB)
+    📄 2025_11_04_225434_update_code_length_in_service_families_table.php (0.72 KB)
+    📄 2025_11_05_011034_add_description_to_service_level_agreements_table.php (0.64 KB)
+    📄 2025_11_05_011611_add_missing_columns_to_service_level_agreements_table.php (2.7 KB)
+    📄 2025_11_05_011757_complete_missing_columns_in_service_level_agreements_table.php (3.02 KB)
+    📄 2025_11_05_033456_remove_duplicate_sub_service_id_from_sla_final.php (0.97 KB)
+  📁 seeders/
+    📄 CleanDataKeepUsersSeeder.php (1.01 KB)
+    📄 DatabaseSeeder.php (0.58 KB)
+    📄 QuickDataSeeder.php (5.74 KB)
+    📄 SDMSeeder.php (5.28 KB)
+    📄 ServiceFamilySeeder.php (3.75 KB)
+    📄 ServiceFamilySeederManual.php (1.73 KB)
+    📄 ServiceModuleSeeder.php (5.23 KB)
+    📄 ServiceSeeder.php (7.72 KB)
+    📄 ServiceSubserviceSeeder.php (3.95 KB)
+    📄 ServiceSubserviceSeederFixed.php (4.95 KB)
+    📄 SLASeeder.php (1.92 KB)
+    📄 SubServiceSeeder.php (15.1 KB)
+    📄 UserSeeder.php (1.21 KB)
+  📄 .gitignore (0.01 KB)
+  📄 database.sqlite (84 KB)
+📁 public/
+  📄 .htaccess (0.72 KB)
+  📄 favicon.ico
+  📄 index.php (0.53 KB)
+  📄 robots.txt (0.02 KB)
+📁 resources/
+  📁 css/
+    📄 app.css (16.02 KB)
+  📁 js/
+    📁 service-requests/
+      📁 shared/
+        📄 create.js
+        📄 form-validator.js (1.58 KB)
+        📄 sla-manager.js (7 KB)
+        📄 ui-helpers.js (1.54 KB)
+    📄 app.js (0.09 KB)
+    📄 bootstrap.js (0.12 KB)
+  📁 views/
+    📁 alerts/
+      📄 index.blade.php (4.01 KB)
+    📁 auth/
+      📄 confirm-password.blade.php (0.9 KB)
+      📄 forgot-password.blade.php (1.01 KB)
+      📄 login.blade.php (2 KB)
+      📄 register.blade.php (2.25 KB)
+      📄 reset-password.blade.php (1.7 KB)
+      📄 verify-email.blade.php (1.23 KB)
+    📁 calendar/
+      📄 index.blade.php (1.76 KB)
+    📁 classifications/
+      📄 create.blade.php (3.53 KB)
+      📄 index.blade.php (4.67 KB)
+    📁 components/
+      📁 core/
+        📁 feedback/
+          📁 alerts/
+          📄 alerts.blade.php (0.5 KB)
+          📄 auth-session-status.blade.php (0.16 KB)
+        📁 layout/
+          📄 application-logo.blade.php (2.97 KB)
+        📁 navigation/
+          📄 nav-link.blade.php (0.59 KB)
+          📄 responsive-nav-link.blade.php (0.67 KB)
+      📁 modules/
+        📁 service-requests/
+          📁 features/
+            📁 create-request/
+              📄 assignment-fields.blade.php (1.39 KB)
+              📄 basic-fields.blade.php (1.08 KB)
+              📄 description.blade.php (0.23 KB)
+              📄 evidences-section.blade.php (9 KB)
+              📄 service-family-filter.blade.php (0.55 KB)
+              📄 sla-fields.blade.php (1.36 KB)
+              📄 sla-timers.blade.php (2.83 KB)
+              📄 sub-service-select.blade.php (1.05 KB)
+              📄 web-routes.blade.php (1.69 KB)
+            📁 list-requests/
+              📄 breadcrumb.blade.php (1.17 KB)
+            📁 manage-request/
+            📁 view-request/
+              📄 assignment-info.blade.php (0.99 KB)
+              📄 evidences-section.blade.php (2.18 KB)
+              📄 general-info.blade.php (1.67 KB)
+              📄 header.blade.php (4.74 KB)
+              📄 history-timeline.blade.php (2.9 KB)
+              📄 pause-info.blade.php (1.86 KB)
+              📄 resolution-notes.blade.php (0.47 KB)
+              📄 satisfaction-score.blade.php (0.76 KB)
+              📄 scripts.blade.php (3.09 KB)
+              📄 service-details.blade.php (1.38 KB)
+              📄 sla-info.blade.php (1.17 KB)
+              📄 web-routes-info.blade.php (1.69 KB)
+          📁 modals/
+            📄 accept-modal.blade.php (1.95 KB)
+            📄 all.blade.php (0.4 KB)
+            📄 cancel-modal.blade.php (1.95 KB)
+            📄 close-modal.blade.php (1.93 KB)
+            📄 pause-modal.blade.php (1.92 KB)
+            📄 report-modal.blade.php (2.17 KB)
+            📄 sla-create.blade.php (4.69 KB)
+          📁 widgets/
+          📄 _config.blade.php (2.28 KB)
+      📁 shared/
+        📁 export/
+        📁 filters/
+        📁 tables/
+        📁 utilities/
+      📁 ui/
+        📁 buttons/
+          📄 danger-button.blade.php (0.37 KB)
+          📄 primary-button.blade.php (0.39 KB)
+          📄 secondary-button.blade.php (0.38 KB)
+        📁 data-display/
+        📁 forms/
+          📄 input-error.blade.php (0.24 KB)
+          📄 input-label.blade.php (0.14 KB)
+          📄 text-input.blade.php (0.18 KB)
+        📁 overlays/
+          📄 dropdown-link.blade.php (0.21 KB)
+          📄 dropdown.blade.php (1.21 KB)
+          📄 modal.blade.php (3.13 KB)
+    📁 layouts/
+      📄 app.blade.php (10.95 KB)
+      📄 guest.blade.php (4.44 KB)
+      📄 navigation.blade.php (5.01 KB)
+    📁 profile/
+      📁 partials/
+        📄 delete-user-form.blade.php (2.16 KB)
+        📄 update-password-form.blade.php (2.16 KB)
+        📄 update-profile-information-form.blade.php (2.68 KB)
+      📄 edit.blade.php (0.95 KB)
+    📁 projects/
+      📄 create.blade.php (4.96 KB)
+      📄 edit.blade.php (5.35 KB)
+      📄 index.blade.php (5.86 KB)
+      📄 show.blade.php (10.07 KB)
+    📁 reporters/
+      📄 create.blade.php (3.95 KB)
+      📄 index.blade.php (4.27 KB)
+      📄 show.blade.php (6.36 KB)
+    📁 reports/
+      📁 exports/
+        📄 criticality-levels-pdf.blade.php (1.88 KB)
+        📄 monthly-trends-pdf.blade.php (1.85 KB)
+        📄 requests-by-status-pdf.blade.php (1.84 KB)
+        📄 service-performance-pdf.blade.php (2.02 KB)
+        📄 sla-compliance-pdf.blade.php (2.09 KB)
+        📄 timeline-pdf.blade.php (23.42 KB)
+      📄 criticality-levels.blade.php (6.38 KB)
+      📄 index.blade.php (12.08 KB)
+      📄 index.blade.php.backup2 (12.05 KB)
+      📄 monthly-trends.blade.php (7.27 KB)
+      📄 request-timeline.blade.php (6.7 KB)
+      📄 requests-by-status.blade.php (8.8 KB)
+      📄 service-performance.blade.php (7.54 KB)
+      📄 sla-compliance.blade.php (8.35 KB)
+      📄 timeline-by-ticket.blade.php (8.9 KB)
+      📄 timeline-detail.blade.php (21.75 KB)
+    📁 requirements/
+      📄 create.blade.php (9.09 KB)
+      📄 edit.blade.php (11.01 KB)
+      📄 index.blade.php (0.23 KB)
+      📄 show.blade.php (14.55 KB)
+    📁 service-families/
+      📄 create.blade.php (13.7 KB)
+      📄 edit.blade.php (27.15 KB)
+      📄 index.blade.php (5.09 KB)
+      📄 show.blade.php (22.05 KB)
+    📁 service-request-evidences/
+      📄 create.blade.php (12.46 KB)
+      📄 show.blade.php (17.56 KB)
+    📁 service-requests/
+      📁 partials/
+        📄 breadcrumb-create.blade.php (0.8 KB)
+        📄 web-routes-create.blade.php (2.49 KB)
+      📄 create.blade.php (1.92 KB)
+      📄 edit.blade.php (17.09 KB)
+      📄 index.blade.php (14.42 KB)
+      📄 resolve-form.blade.php (12.54 KB)
+      📄 resolve.blade.php (12.25 KB)
+      📄 show.blade.php (4.3 KB)
+      📄 timeline.blade.php (38.81 KB)
+    📁 services/
+      📄 create.blade.php (6.97 KB)
+      📄 edit.blade.php (6.09 KB)
+      📄 index.blade.php (15.12 KB)
+      📄 show.blade.php (8.94 KB)
+    📁 slas/
+      📄 create.blade.php (25.75 KB)
+      📄 edit.blade.php (35.34 KB)
+      📄 index.blade.php (7.7 KB)
+      📄 show.blade.php (13.76 KB)
+    📁 sub-services/
+      📄 create.blade.php (10.7 KB)
+      📄 edit.blade.php (7.73 KB)
+      📄 index.blade.php (12.63 KB)
+      📄 show.blade.php (10.28 KB)
+    📄 dashboard-simple.blade.php (3.96 KB)
+    📄 dashboard-welcome.blade.php (3.31 KB)
+    📄 dashboard.blade.php (21.51 KB)
+    📄 welcome.blade.php (11.79 KB)
+📁 routes/
+  📄 auth.php (2.3 KB)
+  📄 console.php (0.21 KB)
+  📄 web.php (21.46 KB)
+📁 tests/
+  📁 Feature/
+    📁 Auth/
+      📄 AuthenticationTest.php (1.24 KB)
+      📄 EmailVerificationTest.php (1.61 KB)
+      📄 PasswordConfirmationTest.php (1.06 KB)
+      📄 PasswordResetTest.php (1.95 KB)
+      📄 PasswordUpdateTest.php (1.38 KB)
+      📄 RegistrationTest.php (0.73 KB)
+    📄 ExampleTest.php (0.35 KB)
+    📄 ProfileTest.php (2.44 KB)
+  📁 Unit/
+    📄 ExampleTest.php (0.24 KB)
+  📄 TestCase.php (0.14 KB)
+📄 .editorconfig (0.25 KB)
+📄 .env (1.13 KB)
+📄 .env.example (1.06 KB)
+📄 .gitattributes (0.18 KB)
+📄 .gitignore (0.28 KB)
+📄 artisan (0.42 KB)
+📄 composer.json (2.96 KB)
+📄 composer.lock (331.02 KB)
+📄 package.json (0.54 KB)
+📄 phpunit.xml (1.25 KB)
+📄 postcss.config.js (0.09 KB)
+📄 README.md (3.82 KB)
+📄 tailwind.config.js (0.96 KB)
+📄 update-views-final.ps1 (3.08 KB)
+📄 vite.config.js (0.43 KB)

@@ -56,7 +56,7 @@ class AppServiceProvider extends ServiceProvider
         Blade::component('components.modules.service-requests.features.create-request.sla-fields', 'service-requests.form.sla.sla-fields');
         Blade::component('components.modules.service-requests.features.create-request.sla-timers', 'service-requests.form.sla.sla-timers');
 
-        // Modales
+        // Modales - CORREGIR ESTOS ALIASES
         Blade::component('components.modules.service-requests.modals.accept-modal', 'service-requests.modals.accept-modal');
         Blade::component('components.modules.service-requests.modals.cancel-modal', 'service-requests.modals.cancel-modal');
         Blade::component('components.modules.service-requests.modals.close-modal', 'service-requests.modals.close-modal');

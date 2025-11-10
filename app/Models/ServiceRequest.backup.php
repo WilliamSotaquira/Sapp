@@ -4,952 +4,438 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
-class ServiceRequest extends Model
+class ServiceRequestEvidence extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
+    // ESPECIFICAR EL NOMBRE DE LA TABLA EXPLÍCITAMENTE
+    protected $table = 'service_request_evidences';
+
+    // ✅ CORREGIDO: Solo campos que existen en BD
     protected $fillable = [
-        'ticket_number',
-        'sla_id',
-        'sub_service_id',
-        'requested_by',
-        'assigned_to',
+        'service_request_id',
         'title',
         'description',
-        'criticality_level',
-        'status',
-        'acceptance_deadline',
-        'response_deadline',
-        'resolution_deadline',
-        'accepted_at',
-        'responded_at',
-        'resolved_at',
-        'closed_at',
-        'resolution_notes',
-        'satisfaction_score',
-        'is_paused',
-        'pause_reason',
-        'paused_at',
-        'resumed_at',
-        'total_paused_minutes'
+        'evidence_type',
+        'step_number',
+        'evidence_data',
+        'user_id', // ✅ Usuario que SUBE la evidencia
+        'file_original_name',
+        'file_path',
+        'file_mime_type',
+        'file_size',
+        // ❌ NO incluir: 'uploaded_by', 'file_name', 'mime_type'
     ];
 
     protected $casts = [
-        'acceptance_deadline' => 'datetime',
-        'response_deadline' => 'datetime',
-        'resolution_deadline' => 'datetime',
-        'accepted_at' => 'datetime',
-        'responded_at' => 'datetime',
-        'resolved_at' => 'datetime',
-        'closed_at' => 'datetime',
-        'paused_at' => 'datetime',
-        'resumed_at' => 'datetime',
-        'is_paused' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'evidence_data' => 'array',
     ];
 
-    // =============================================
-    // RELACIONES EXISTENTES
-    // =============================================
-
     /**
-     * Relación con Sub-Servicio
+     * MÉTODO CORREGIDO: Verificar si la evidencia puede ser eliminada
+     * Usando SOLO user_id (no uploaded_by)
      */
-    public function subService()
+    public function canBeDeleted()
     {
-        return $this->belongsTo(SubService::class, 'sub_service_id');
-    }
+        // Obtener el usuario autenticado
+        $user = Auth::user();
 
-    /**
-     * Relación con SLA
-     */
-    public function sla()
-    {
-        return $this->belongsTo(ServiceLevelAgreement::class, 'sla_id');
-    }
-
-    /**
-     * Relación con Usuario Solicitante
-     */
-    public function requester()
-    {
-        return $this->belongsTo(User::class, 'requested_by');
-    }
-
-    /**
-     * Relación con Usuario Asignado
-     */
-    public function assignee()
-    {
-        return $this->belongsTo(User::class, 'assigned_to');
-    }
-
-    /**
-     * Relación con Logs de Incumplimiento SLA
-     */
-    public function breachLogs()
-    {
-        return $this->hasMany(SlaBreachLog::class);
-    }
-
-    // =============================================
-    // RELACIONES PARA EVIDENCIAS
-    // =============================================
-
-    /**
-     * Relación con todas las evidencias
-     */
-    public function evidences()
-    {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id');
-    }
-
-    /**
-     * Relación con evidencias paso a paso
-     */
-    public function stepByStepEvidences()
-    {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id')
-            ->where('evidence_type', 'PASO_A_PASO')
-            ->orderBy('step_number');
-    }
-
-    /**
-     * Relación con evidencias de archivo
-     */
-    public function fileEvidences()
-    {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id')
-            ->where('evidence_type', 'ARCHIVO');
-    }
-
-    /**
-     * Relación con evidencias de comentario
-     */
-    public function commentEvidences()
-    {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id')
-            ->where('evidence_type', 'COMENTARIO');
-    }
-
-    /**
-     * Relación con evidencias del sistema
-     */
-    public function systemEvidences()
-    {
-        return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id')
-            ->where('evidence_type', 'SISTEMA');
-    }
-
-    // =============================================
-    // ACCESSORS PARA CONTAR EVIDENCIAS
-    // =============================================
-
-    /**
-     * Contar todas las evidencias
-     */
-    public function getEvidencesCountAttribute()
-    {
-        return $this->evidences()->count();
-    }
-
-    /**
-     * Contar evidencias paso a paso
-     */
-    public function getStepByStepEvidencesCountAttribute()
-    {
-        return $this->stepByStepEvidences()->count();
-    }
-
-    /**
-     * Contar evidencias de archivo
-     */
-    public function getFileEvidencesCountAttribute()
-    {
-        return $this->fileEvidences()->count();
-    }
-
-    /**
-     * Contar evidencias de comentario
-     */
-    public function getCommentEvidencesCountAttribute()
-    {
-        return $this->commentEvidences()->count();
-    }
-
-    // =============================================
-    // MÉTODOS PARA VALIDACIÓN DE EVIDENCIAS
-    // =============================================
-
-    /**
-     * Verificar si puede ser resuelta (tiene evidencias paso a paso)
-     */
-    public function canBeResolved()
-    {
-        return $this->status === 'EN_PROCESO' && $this->stepByStepEvidences()->exists();
-    }
-
-    /**
-     * Verificar si tiene evidencias suficientes para resolver
-     */
-    public function hasRequiredEvidences()
-    {
-        return $this->stepByStepEvidences()->count() > 0;
-    }
-
-    /**
-     * Obtener el siguiente número de paso disponible
-     */
-    public function getNextStepNumber()
-    {
-        $lastStep = $this->stepByStepEvidences()->max('step_number');
-        return $lastStep ? $lastStep + 1 : 1;
-    }
-
-    // =============================================
-    // MÉTODOS PARA GESTIÓN DE ESTADOS Y PAUSAS
-    // =============================================
-
-    /**
-     * Pausar la solicitud
-     */
-    public function pause($reason = null)
-    {
-        $this->update([
-            'is_paused' => true,
-            'status' => 'PAUSADA',
-            'pause_reason' => $reason,
-            'paused_at' => now(),
-        ]);
-    }
-
-    /**
-     * Reanudar la solicitud
-     */
-    public function resume()
-    {
-        $pausedMinutes = 0;
-        if ($this->paused_at) {
-            $pausedMinutes = now()->diffInMinutes($this->paused_at);
+        if (!$user) {
+            return false;
         }
 
-        $this->update([
-            'is_paused' => false,
-            'status' => 'EN_PROCESO',
-            'resumed_at' => now(),
-            'total_paused_minutes' => $this->total_paused_minutes + $pausedMinutes,
-        ]);
-    }
+        // ✅ CORRECCIÓN: Usar SOLO user_id (usuario que subió la evidencia)
+        $isUploader = $this->user_id === $user->id;
 
-    /**
-     * Verificar si está pausada
-     */
-    public function isPaused()
-    {
-        return $this->is_paused && $this->status === 'PAUSADA';
-    }
-
-    /**
-     * Obtener el tiempo total pausado formateado
-     */
-    public function getTotalPausedTimeFormatted()
-    {
-        $minutes = $this->total_paused_minutes;
-
-        if ($this->isPaused() && $this->paused_at) {
-            $minutes += now()->diffInMinutes($this->paused_at);
-        }
-
-        return $this->formatMinutesToReadable($minutes);
-    }
-
-    /**
-     * Calcular fechas límite considerando pausas
-     */
-    public function getAdjustedDeadlines()
-    {
-        $pausedMinutes = $this->total_paused_minutes;
-
-        if ($this->isPaused() && $this->paused_at) {
-            $pausedMinutes += now()->diffInMinutes($this->paused_at);
-        }
-
-        return [
-            'acceptance_deadline' => $this->acceptance_deadline?->addMinutes($pausedMinutes),
-            'response_deadline' => $this->response_deadline?->addMinutes($pausedMinutes),
-            'resolution_deadline' => $this->resolution_deadline?->addMinutes($pausedMinutes),
-        ];
-    }
-
-    // =============================================
-    // MÉTODOS PARA LÍNEA DE TIEMPO (NUEVOS)
-    // =============================================
-
-    /**
-     * Obtener todos los eventos de la línea de tiempo
-     */
-    public function getTimelineEvents()
-    {
-        $events = [];
-
-        // Evento de creación
-        $events[] = [
-            'event' => 'SOLICITUD CREADA',
-            'timestamp' => $this->created_at,
-            'user' => $this->requester,
-            'description' => 'Solicitud registrada en el sistema',
-            'status' => 'created',
-            'icon' => 'plus-circle',
-            'color' => 'primary'
+        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
+        $allowedStatuses = [
+            ServiceRequest::STATUS_PENDING,
+            ServiceRequest::STATUS_ACCEPTED,
+            ServiceRequest::STATUS_IN_PROGRESS,
+            // Si necesitas estado PAUSADA, agregar la constante en ServiceRequest
         ];
 
-        // Evento de asignación (si está asignada)
-        if ($this->assigned_to) {
-            $events[] = [
-                'event' => 'ASIGNADA A TÉCNICO',
-                'timestamp' => $this->updated_at,
-                'user' => $this->assignee,
-                'description' => 'Solicitud asignada al técnico responsable',
-                'status' => 'assigned',
-                'icon' => 'user-check',
-                'color' => 'info'
-            ];
-        }
+        // Verificar si está asignado a la solicitud de servicio
+        $isAssigned = $this->serviceRequest && $this->serviceRequest->assigned_to === $user->id;
 
-        // Evento de aceptación
-        if ($this->accepted_at) {
-            $events[] = [
-                'event' => 'SOLICITUD ACEPTADA',
-                'timestamp' => $this->accepted_at,
-                'user' => $this->assignee,
-                'description' => 'Solicitud aceptada por el técnico asignado',
-                'status' => 'accepted',
-                'icon' => 'check-circle',
-                'color' => 'success'
-            ];
-        }
+        // Verificar si es el que creó la solicitud
+        $isRequester = $this->serviceRequest && $this->serviceRequest->requested_by === $user->id;
 
-        // Evento de respuesta
-        if ($this->responded_at) {
-            $events[] = [
-                'event' => 'RESPUESTA INICIAL',
-                'timestamp' => $this->responded_at,
-                'user' => $this->assignee,
-                'description' => 'Primera respuesta proporcionada al usuario',
-                'status' => 'responded',
-                'icon' => 'reply',
-                'color' => 'info'
-            ];
-        }
+        // Verificar roles de manera simple (sin hasRole())
+        $isAdmin = $this->isAdminUser($user);
 
-        // Evento de pausa
-        if ($this->paused_at) {
-            $events[] = [
-                'event' => 'SOLICITUD PAUSADA',
-                'timestamp' => $this->paused_at,
-                'user' => $this->assignee,
-                'description' => $this->pause_reason ? "Solicitud pausada: {$this->pause_reason}" : 'Solicitud pausada temporalmente',
-                'status' => 'paused',
-                'icon' => 'pause-circle',
-                'color' => 'warning'
-            ];
-        }
+        // Verificar si la solicitud está en un estado que permite eliminar evidencias
+        $isEditableStatus = $this->serviceRequest && in_array($this->serviceRequest->status, $allowedStatuses);
 
-        // Evento de reanudación
-        if ($this->resumed_at) {
-            $events[] = [
-                'event' => 'SOLICITUD REANUDADA',
-                'timestamp' => $this->resumed_at,
-                'user' => $this->assignee,
-                'description' => 'Solicitud reanudada después de pausa',
-                'status' => 'resumed',
-                'icon' => 'play-circle',
-                'color' => 'success'
-            ];
-        }
-
-        // Evento de resolución
-        if ($this->resolved_at) {
-            $events[] = [
-                'event' => 'SOLICITUD RESUELTA',
-                'timestamp' => $this->resolved_at,
-                'user' => $this->assignee,
-                'description' => $this->resolution_notes ? "Resuelta: {$this->resolution_notes}" : 'Solicitud marcada como resuelta',
-                'status' => 'resolved',
-                'icon' => 'check-double',
-                'color' => 'success'
-            ];
-        }
-
-        // Evento de cierre
-        if ($this->closed_at) {
-            $events[] = [
-                'event' => 'SOLICITUD CERRADA',
-                'timestamp' => $this->closed_at,
-                'user' => $this->assignee,
-                'description' => 'Solicitud cerrada y finalizada' . ($this->satisfaction_score ? " - Satisfacción: {$this->satisfaction_score}/5" : ''),
-                'status' => 'closed',
-                'icon' => 'lock',
-                'color' => 'dark'
-            ];
-        }
-
-        // Agregar eventos de evidencias - VERSIÓN SEGURA
-        $this->loadEvidencesForTimeline($events);
-
-        // Agregar eventos de incumplimiento SLA
-        foreach ($this->breachLogs()->orderBy('created_at')->get() as $breach) {
-            $events[] = [
-                'event' => 'INCUMPLIMIENTO SLA',
-                'timestamp' => $breach->created_at,
-                'user' => null,
-                'description' => "Incumplimiento en {$breach->breach_type}: {$breach->description}",
-                'status' => 'breach',
-                'icon' => 'exclamation-triangle',
-                'color' => 'danger'
-            ];
-        }
-
-        // Ordenar eventos por fecha
-        usort($events, function ($a, $b) {
-            return $a['timestamp'] <=> $b['timestamp'];
-        });
-
-        return $events;
+        return ($isUploader || $isAssigned || $isRequester || $isAdmin) && $isEditableStatus;
     }
 
     /**
-     * Método auxiliar para cargar evidencias de forma segura
+     * Método alternativo para verificar si es admin
+     * Sin depender de hasRole()
      */
-    private function loadEvidencesForTimeline(&$events)
+    private function isAdminUser($user)
     {
+        // Opción 1: Verificar por email (si tienes emails de admin)
+        $adminEmails = ['admin@example.com', 'superadmin@example.com'];
+        if (in_array($user->email, $adminEmails)) {
+            return true;
+        }
+
+        // Opción 2: Verificar por un campo específico en la tabla users
+        // Si tienes un campo 'role' o 'is_admin' en la tabla users
+        if (isset($user->role) && $user->role === 'admin') {
+            return true;
+        }
+
+        if (isset($user->is_admin) && $user->is_admin) {
+            return true;
+        }
+
+        // Opción 3: Verificar por ID específico (para desarrollo)
+        $adminIds = [1]; // ID del usuario administrador principal
+        if (in_array($user->id, $adminIds)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Versión simplificada de canBeDeleted - CORREGIDA
+     */
+    public function canBeDeletedSimple()
+    {
+        $user = Auth::user();
+
+        if (!$user || !$this->serviceRequest) {
+            return false;
+        }
+
+        // ✅ CORRECCIÓN: Solo user_id (quien subió la evidencia)
+        $isUploader = $this->user_id === $user->id;
+
+        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
+        $isNotFinalized = !in_array($this->serviceRequest->status, [
+            ServiceRequest::STATUS_RESOLVED,
+            ServiceRequest::STATUS_CLOSED,
+            ServiceRequest::STATUS_CANCELLED
+        ]);
+
+        return $isUploader && $isNotFinalized;
+    }
+
+    /**
+     * MÉTODO FALTANTE: Obtener tamaño formateado del archivo
+     */
+    public function getFormattedFileSize()
+    {
+        // Si ya tenemos un file_size formateado en la BD, usarlo
+        if (!empty($this->file_size) && is_string($this->file_size)) {
+            return $this->file_size;
+        }
+
+        // Si file_size es numérico (bytes), formatearlo
+        if (!empty($this->file_size) && is_numeric($this->file_size)) {
+            $bytes = (int) $this->file_size;
+            return $this->formatBytes($bytes);
+        }
+
+        // Si no hay file_size, intentar obtenerlo del archivo físico
         try {
-            // Verificar si la relación existe y tiene datos
-            if (!$this->relationLoaded('evidences')) {
-                $this->load('evidences.user');
-            }
-
-            if ($this->evidences->isNotEmpty()) {
-                foreach ($this->evidences->sortBy('created_at') as $evidence) {
-                    $user = $evidence->relationLoaded('user') ? $evidence->user : null;
-
-                    $events[] = [
-                        'event' => 'EVIDENCIA AGREGADA',
-                        'timestamp' => $evidence->created_at,
-                        'user' => $user,
-                        'description' => $this->getEvidenceDescription($evidence),
-                        'status' => 'evidence',
-                        'icon' => $this->getEvidenceIcon($evidence->evidence_type),
-                        'color' => $this->getEvidenceColor($evidence->evidence_type),
-                        'evidence_type' => $evidence->evidence_type
-                    ];
-                }
+            if ($this->hasFile()) {
+                $size = Storage::size($this->file_path);
+                return $this->formatBytes($size);
             }
         } catch (\Exception $e) {
-            // Log del error pero continuar sin evidencias
-            \Log::warning('Error loading evidences for timeline in request ' . $this->id . ': ' . $e->getMessage());
-        }
-    }
-    /**
-     * Obtener descripción para evidencias
-     */
-    private function getEvidenceDescription($evidence)
-    {
-        switch ($evidence->evidence_type) {
-            case 'PASO_A_PASO':
-                return "Paso {$evidence->step_number}: {$evidence->description}";
-            case 'ARCHIVO':
-                return "Archivo adjunto: {$evidence->file_name}";
-            case 'COMENTARIO':
-                return "Comentario: {$evidence->description}";
-            case 'SISTEMA':
-                return "Evidencia del sistema: {$evidence->description}";
-            default:
-                return "Evidencia: {$evidence->description}";
-        }
-    }
-
-    /**
-     * Obtener icono para tipo de evidencia
-     */
-    private function getEvidenceIcon($evidenceType)
-    {
-        $icons = [
-            'PASO_A_PASO' => 'list-ol',
-            'ARCHIVO' => 'paperclip',
-            'COMENTARIO' => 'comment',
-            'SISTEMA' => 'cog'
-        ];
-
-        return $icons[$evidenceType] ?? 'file-alt';
-    }
-
-    /**
-     * Obtener color para tipo de evidencia
-     */
-    private function getEvidenceColor($evidenceType)
-    {
-        $colors = [
-            'PASO_A_PASO' => 'primary',
-            'ARCHIVO' => 'info',
-            'COMENTARIO' => 'secondary',
-            'SISTEMA' => 'dark'
-        ];
-
-        return $colors[$evidenceType] ?? 'secondary';
-    }
-
-    /**
-     * Calcular tiempo en cada estado
-     */
-    public function getTimeInEachStatus()
-    {
-        $times = [];
-        $events = $this->getTimelineEvents();
-
-        for ($i = 0; $i < count($events) - 1; $i++) {
-            $currentEvent = $events[$i];
-            $nextEvent = $events[$i + 1];
-
-            $duration = $currentEvent['timestamp']->diff($nextEvent['timestamp']);
-            $totalMinutes = $duration->i + ($duration->h * 60) + ($duration->days * 24 * 60);
-
-            $times[$currentEvent['status']] = [
-                'duration' => $duration,
-                'total_minutes' => $totalMinutes,
-                'hours' => $duration->h + ($duration->days * 24),
-                'minutes' => $duration->i,
-                'formatted' => $this->formatDuration($duration)
-            ];
+            // Log error si es necesario
         }
 
-        return $times;
+        return 'N/A';
     }
 
     /**
-     * Obtener tiempo total de resolución
+     * Formatear bytes a formato legible
      */
-    public function getTotalResolutionTime()
+    private function formatBytes($bytes, $precision = 2)
     {
-        if ($this->created_at && $this->closed_at) {
-            return $this->created_at->diff($this->closed_at);
-        }
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
 
-        // Si no está cerrada, calcular hasta ahora
-        if ($this->created_at) {
-            return $this->created_at->diff(now());
-        }
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
 
-        return null;
-    }
+        $bytes /= pow(1024, $pow);
 
-
-    /**
-     * Formatear minutos a formato legible
-     */
-    private function formatMinutesToReadable($minutes)
-    {
-        if ($minutes < 60) {
-            return "{$minutes} minuto" . ($minutes > 1 ? 's' : '');
-        } elseif ($minutes < 1440) {
-            $hours = floor($minutes / 60);
-            $mins = $minutes % 60;
-            if ($mins > 0) {
-                return "{$hours} hora" . ($hours > 1 ? 's' : '') . " {$mins} minuto" . ($mins > 1 ? 's' : '');
-            }
-            return "{$hours} hora" . ($hours > 1 ? 's' : '');
-        } else {
-            $days = floor($minutes / 1440);
-            $hours = floor(($minutes % 1440) / 60);
-            if ($hours > 0) {
-                return "{$days} día" . ($days > 1 ? 's' : '') . " {$hours} hora" . ($hours > 1 ? 's' : '');
-            }
-            return "{$days} día" . ($days > 1 ? 's' : '');
-        }
+        return round($bytes, $precision) . ' ' . $units[$pow];
     }
 
     /**
-     * Obtener estadísticas de tiempo detalladas
+     * Accessor para file_size formateado
      */
-    public function getTimeStatistics()
+    public function getFormattedFileSizeAttribute()
     {
-        $totalTime = $this->getTotalResolutionTime();
-        $timeInStatus = $this->getTimeInEachStatus();
-
-        $totalMinutes = 0;
-        if ($totalTime) {
-            $totalMinutes = $totalTime->i + ($totalTime->h * 60) + ($totalTime->days * 24 * 60);
-        }
-
-        // Calcular tiempo pausado
-        $pausedMinutes = $this->total_paused_minutes;
-        if ($this->isPaused() && $this->paused_at) {
-            $pausedMinutes += now()->diffInMinutes($this->paused_at);
-        }
-
-        // Calcular tiempo activo
-        $activeMinutes = max(0, $totalMinutes - $pausedMinutes);
-
-        // Calcular eficiencia
-        $efficiency = $totalMinutes > 0 ? ($activeMinutes / $totalMinutes) * 100 : 0;
-
-        return [
-            'total_time' => $totalTime ? $this->formatDuration($totalTime) : 'En progreso',
-            'total_minutes' => $totalMinutes,
-            'active_time' => $this->formatMinutesToReadable($activeMinutes),
-            'active_minutes' => $activeMinutes,
-            'paused_time' => $this->getTotalPausedTimeFormatted(),
-            'paused_minutes' => $pausedMinutes,
-            'efficiency' => round($efficiency, 1) . '%',
-            'efficiency_raw' => $efficiency
-        ];
+        return $this->getFormattedFileSize();
     }
 
     /**
-     * Obtener resumen de tiempos por tipo de evento
+     * Accessor para compatibilidad - usar file_original_name como file_name
      */
-    public function getTimeSummaryByEventType()
+    public function getFileNameAttribute($value)
     {
-        $timeInStatus = $this->getTimeInEachStatus();
-        $summary = [];
-
-        foreach ($timeInStatus as $status => $time) {
-            $summary[] = [
-                'event_type' => $this->getEventTypeLabel($status),
-                'duration' => $time['formatted'],
-                'minutes' => $time['total_minutes'],
-                'percentage' => $this->calculateTimePercentage($time['total_minutes'])
-            ];
-        }
-
-        return $summary;
+        // Si alguien accede a file_name, devolver file_original_name
+        return $this->file_original_name;
     }
 
     /**
-     * Obtener etiqueta para tipo de evento
+     * Accessor para compatibilidad - usar file_mime_type como mime_type
      */
-    private function getEventTypeLabel($status)
+    public function getMimeTypeAttribute($value)
     {
-        $labels = [
-            'created' => 'Creación',
-            'assigned' => 'Asignación',
-            'accepted' => 'Aceptación',
-            'responded' => 'Respuesta Inicial',
-            'paused' => 'Pausa',
-            'resumed' => 'Reanudación',
-            'resolved' => 'Resolución',
-            'closed' => 'Cierre',
-            'evidence' => 'Evidencias',
-            'breach' => 'Incumplimientos SLA'
-        ];
-
-        return $labels[$status] ?? ucfirst($status);
+        // Si alguien accede a mime_type, devolver file_mime_type
+        return $this->file_mime_type;
     }
 
     /**
-     * Calcular porcentaje de tiempo
+     * Relación con ServiceRequest
      */
-    private function calculateTimePercentage($minutes)
+    public function serviceRequest()
     {
-        $stats = $this->getTimeStatistics();
-        $totalMinutes = $stats['total_minutes'];
-
-        if ($totalMinutes > 0) {
-            return round(($minutes / $totalMinutes) * 100, 1);
-        }
-
-        return 0;
-    }
-
-    // =============================================
-    // MÉTODOS PARA COLORES Y ESTADOS (compatibilidad)
-    // =============================================
-
-    /**
-     * Obtener color del estado
-     */
-    public function getStatusColor()
-    {
-        $colors = [
-            'PENDIENTE' => 'warning',
-            'ASIGNADA' => 'info',
-            'EN_PROCESO' => 'primary',
-            'PAUSADA' => 'secondary',
-            'RESUELTA' => 'success',
-            'CERRADA' => 'dark',
-            'CANCELADA' => 'danger'
-        ];
-
-        return $colors[$this->status] ?? 'secondary';
+        return $this->belongsTo(ServiceRequest::class, 'service_request_id');
     }
 
     /**
-     * Obtener texto del estado
+     * ✅ RELACIÓN CORREGIDA - Usuario que SUBIÓ la evidencia
+     * Usando user_id (campo que existe en BD)
      */
-    public function getStatusText()
+    public function user()
     {
-        return $this->status;
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * Obtener color de la prioridad
+     * ❌ ELIMINAR relación uploadedBy() - campo uploaded_by no existe en BD
      */
-    public function getPriorityColor()
-    {
-        $colors = [
-            'BAJA' => 'success',
-            'MEDIA' => 'warning',
-            'ALTA' => 'danger',
-            'CRITICA' => 'dark'
-        ];
-
-        return $colors[$this->criticality_level] ?? 'secondary';
-    }
+    // public function uploadedBy()
+    // {
+    //     return $this->belongsTo(User::class, 'uploaded_by');
+    // }
 
     /**
-     * Obtener texto de la prioridad
+     * Obtener URL del archivo - VERSIÓN CORREGIDA Y SIMPLIFICADA
      */
-    public function getPriorityText()
+    public function getFileUrl()
     {
-        return $this->criticality_level;
-    }
-
-    /**
-     * Verificar si la solicitud está vencida
-     */
-    public function isOverdue()
-    {
-        if ($this->closed_at) {
-            return false;
-        }
-
-        $deadline = $this->resolution_deadline;
-        if (!$deadline) {
-            return false;
-        }
-
-        return now()->greaterThan($deadline);
-    }
-
-    /**
-     * Obtener tiempo restante para vencimiento
-     */
-    public function getTimeRemaining()
-    {
-        if ($this->closed_at || !$this->resolution_deadline) {
+        if (!$this->file_path) {
+            \Log::warning("Evidence {$this->id}: file_path está vacío");
             return null;
         }
 
-        $now = now();
-        if ($now->greaterThan($this->resolution_deadline)) {
-            return 'Vencido';
+        \Log::info("Evidence {$this->id}: Procesando file_path = '{$this->file_path}'");
+
+        // Si el file_path ya es una URL completa, retornarla
+        if (filter_var($this->file_path, FILTER_VALIDATE_URL)) {
+            \Log::info("Evidence {$this->id}: Es URL completa - {$this->file_path}");
+            return $this->file_path;
         }
 
-        return $this->formatDuration($now->diff($this->resolution_deadline));
-    }
-    /**
-     * Formatear duración para intervalos de fecha
-     */
-    public function formatDuration($duration)
-    {
-        if (!$duration) {
-            return '0 minutos';
-        }
-
-        $parts = [];
-
-        if ($duration->days > 0) {
-            $parts[] = $duration->days . ' día' . ($duration->days > 1 ? 's' : '');
-        }
-
-        if ($duration->h > 0) {
-            $parts[] = $duration->h . ' hora' . ($duration->h > 1 ? 's' : '');
-        }
-
-        if ($duration->i > 0) {
-            $parts[] = $duration->i . ' minuto' . ($duration->i > 1 ? 's' : '');
-        }
-
-        return implode(', ', $parts) ?: '0 minutos';
-    }
-
-    /**
-     * Formatear minutos a formato legible
-     */
-    private function formatMinutesToReadable($minutes)
-    {
-        if ($minutes < 60) {
-            return "{$minutes} minuto" . ($minutes > 1 ? 's' : '');
-        } elseif ($minutes < 1440) {
-            $hours = floor($minutes / 60);
-            $mins = $minutes % 60;
-            if ($mins > 0) {
-                return "{$hours} hora" . ($hours > 1 ? 's' : '') . " {$mins} minuto" . ($mins > 1 ? 's' : '');
+        // PRIMERO: Intentar con Storage::url (para archivos en storage)
+        try {
+            // Si file_path empieza con 'evidences/', asumimos que está en storage
+            if (str_starts_with($this->file_path, 'evidences/')) {
+                $url = Storage::url($this->file_path);
+                \Log::info("Evidence {$this->id}: Storage::url generado - {$url}");
+                return $url;
             }
-            return "{$hours} hora" . ($hours > 1 ? 's' : '');
-        } else {
-            $days = floor($minutes / 1440);
-            $hours = floor(($minutes % 1440) / 60);
-            if ($hours > 0) {
-                return "{$days} día" . ($days > 1 ? 's' : '') . " {$hours} hora" . ($hours > 1 ? 's' : '');
+
+            // Si no tiene prefijo, agregar 'evidences/' y probar
+            $storagePath = 'evidences/' . $this->file_path;
+            if (Storage::exists($storagePath)) {
+                $url = Storage::url($storagePath);
+                \Log::info("Evidence {$this->id}: Storage::url con prefijo - {$url}");
+                return $url;
             }
-            return "{$days} día" . ($days > 1 ? 's' : '');
-        }
-    }
 
-    /**
-     * Obtener tiempo total de resolución
-     */
-    public function getTotalResolutionTime()
-    {
-        if ($this->created_at && $this->closed_at) {
-            return $this->created_at->diff($this->closed_at);
+            // Intentar con la ruta directa
+            if (Storage::exists($this->file_path)) {
+                $url = Storage::url($this->file_path);
+                \Log::info("Evidence {$this->id}: Storage::url directo - {$url}");
+                return $url;
+            }
+        } catch (\Exception $e) {
+            \Log::error("Evidence {$this->id}: Error con Storage::url - " . $e->getMessage());
         }
 
-        // Si no está cerrada, calcular hasta ahora
-        if ($this->created_at) {
-            return $this->created_at->diff(now());
+        // SEGUNDO: Si Storage::url no funciona, construir URL manualmente
+        try {
+            // Construir URL manual basada en la estructura común
+            $manualUrl = asset('storage/' . $this->file_path);
+            \Log::info("Evidence {$this->id}: URL manual - {$manualUrl}");
+            return $manualUrl;
+        } catch (\Exception $e) {
+            \Log::error("Evidence {$this->id}: Error construyendo URL manual - " . $e->getMessage());
         }
 
+        \Log::warning("Evidence {$this->id}: No se pudo generar URL para '{$this->file_path}'");
         return null;
     }
 
     /**
-     * Calcular tiempo en cada estado
+     * Verificar si tiene archivo - VERSIÓN MEJORADA
      */
-    public function getTimeInEachStatus()
+    public function hasFile()
     {
-        $times = [];
-        $events = $this->getTimelineEvents();
-
-        for ($i = 0; $i < count($events) - 1; $i++) {
-            $currentEvent = $events[$i];
-            $nextEvent = $events[$i + 1];
-
-            $duration = $currentEvent['timestamp']->diff($nextEvent['timestamp']);
-            $totalMinutes = $duration->i + ($duration->h * 60) + ($duration->days * 24 * 60);
-
-            $times[$currentEvent['status']] = [
-                'duration' => $duration,
-                'total_minutes' => $totalMinutes,
-                'hours' => $duration->h + ($duration->days * 24),
-                'minutes' => $duration->i,
-                'formatted' => $this->formatDuration($duration)
-            ];
-        }
-
-        return $times;
-    }
-
-    /**
-     * Obtener estadísticas de tiempo detalladas
-     */
-    public function getTimeStatistics()
-    {
-        $totalTime = $this->getTotalResolutionTime();
-        $timeInStatus = $this->getTimeInEachStatus();
-
-        $totalMinutes = 0;
-        if ($totalTime) {
-            $totalMinutes = $totalTime->i + ($totalTime->h * 60) + ($totalTime->days * 24 * 60);
-        }
-
-        // Calcular tiempo pausado
-        $pausedMinutes = $this->total_paused_minutes;
-        if ($this->isPaused() && $this->paused_at) {
-            $pausedMinutes += now()->diffInMinutes($this->paused_at);
-        }
-
-        // Calcular tiempo activo
-        $activeMinutes = max(0, $totalMinutes - $pausedMinutes);
-
-        // Calcular eficiencia
-        $efficiency = $totalMinutes > 0 ? ($activeMinutes / $totalMinutes) * 100 : 0;
-
-        return [
-            'total_time' => $totalTime ? $this->formatDuration($totalTime) : 'En progreso',
-            'total_minutes' => $totalMinutes,
-            'active_time' => $this->formatMinutesToReadable($activeMinutes),
-            'active_minutes' => $activeMinutes,
-            'paused_time' => $this->getTotalPausedTimeFormatted(),
-            'paused_minutes' => $pausedMinutes,
-            'efficiency' => round($efficiency, 1) . '%',
-            'efficiency_raw' => $efficiency
-        ];
-    }
-
-    /**
-     * Obtener resumen de tiempos por tipo de evento
-     */
-    public function getTimeSummaryByEventType()
-    {
-        $timeInStatus = $this->getTimeInEachStatus();
-        $summary = [];
-
-        foreach ($timeInStatus as $status => $time) {
-            $summary[] = [
-                'event_type' => $this->getEventTypeLabel($status),
-                'duration' => $time['formatted'],
-                'minutes' => $time['total_minutes'],
-                'percentage' => $this->calculateTimePercentage($time['total_minutes'])
-            ];
-        }
-
-        return $summary;
-    }
-
-    /**
-     * Obtener etiqueta para tipo de evento
-     */
-    private function getEventTypeLabel($status)
-    {
-        $labels = [
-            'created' => 'Creación',
-            'assigned' => 'Asignación',
-            'accepted' => 'Aceptación',
-            'responded' => 'Respuesta Inicial',
-            'paused' => 'Pausa',
-            'resumed' => 'Reanudación',
-            'resolved' => 'Resolución',
-            'closed' => 'Cierre',
-            'evidence' => 'Evidencias',
-            'breach' => 'Incumplimientos SLA'
-        ];
-
-        return $labels[$status] ?? ucfirst($status);
-    }
-
-    /**
-     * Calcular porcentaje de tiempo
-     */
-    private function calculateTimePercentage($minutes)
-    {
-        $stats = $this->getTimeStatistics();
-        $totalMinutes = $stats['total_minutes'];
-
-        if ($totalMinutes > 0) {
-            return round(($minutes / $totalMinutes) * 100, 1);
-        }
-
-        return 0;
-    }
-
-    /**
-     * Verificar si la solicitud está vencida
-     */
-    public function isOverdue()
-    {
-        if ($this->closed_at) {
+        if (!$this->file_path) {
             return false;
         }
 
-        $deadline = $this->resolution_deadline;
-        if (!$deadline) {
+        try {
+            // Verificar si el archivo existe en storage
+            if (Storage::exists($this->file_path)) {
+                return true;
+            }
+
+            // Verificar rutas alternativas comunes
+            $possiblePaths = [
+                $this->file_path,
+                'public/' . $this->file_path,
+                'evidences/' . $this->file_path,
+                'public/evidences/' . $this->file_path,
+            ];
+
+            foreach ($possiblePaths as $path) {
+                if (Storage::exists($path)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error("Error en hasFile() para evidence {$this->id}: " . $e->getMessage());
             return false;
         }
+    }
 
-        return now()->greaterThan($deadline);
+    /**
+     * Obtener ruta completa del archivo
+     */
+    public function getFilePath()
+    {
+        if ($this->hasFile()) {
+            return Storage::path($this->file_path);
+        }
+        return null;
+    }
+
+    /**
+     * Obtener extensión del archivo
+     */
+    public function getFileExtension()
+    {
+        $fileName = $this->file_original_name;
+        if ($fileName) {
+            return pathinfo($fileName, PATHINFO_EXTENSION);
+        }
+        return null;
+    }
+
+    /**
+     * Verificar si es imagen
+     */
+    public function isImage()
+    {
+        $mime = $this->file_mime_type;
+        return $mime && str_starts_with($mime, 'image/');
+    }
+
+    /**
+     * Verificar si es PDF
+     */
+    public function isPdf()
+    {
+        $mime = $this->mime_type ?: $this->file_mime_type;
+        return $mime === 'application/pdf';
+    }
+
+    /**
+     * Verificar si es documento
+     */
+    public function isDocument()
+    {
+        $mime = $this->mime_type ?: $this->file_mime_type;
+        $documentMimes = [
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        ];
+
+        return in_array($mime, $documentMimes);
+    }
+
+    /**
+     * Scope para evidencias de tipo imagen
+     */
+    public function scopeImages($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('mime_type', 'like', 'image/%')
+                ->orWhere('file_mime_type', 'like', 'image/%');
+        });
+    }
+
+    /**
+     * Obtener la URL de la evidencia (para compatibilidad)
+     */
+    public function getUrlAttribute()
+    {
+        return $this->getFileUrl();
+    }
+
+    /**
+     * Verificar si la evidencia es una imagen (para compatibilidad)
+     */
+    public function getIsImageAttribute()
+    {
+        return $this->isImage();
+    }
+
+    /**
+     * Obtener el tipo de archivo amigable
+     */
+    public function getFileTypeAttribute()
+    {
+        if ($this->isImage()) {
+            return 'Imagen';
+        } elseif ($this->isPdf()) {
+            return 'PDF';
+        } elseif ($this->isDocument()) {
+            return 'Documento';
+        } else {
+            return 'Archivo';
+        }
+    }
+
+    /**
+     * Obtener icono según tipo de archivo
+     */
+    public function getFileIconAttribute()
+    {
+        if ($this->isImage()) {
+            return 'fa-image';
+        } elseif ($this->isPdf()) {
+            return 'fa-file-pdf';
+        } elseif ($this->isDocument()) {
+            return 'fa-file-word';
+        } else {
+            return 'fa-file';
+        }
     }
 }

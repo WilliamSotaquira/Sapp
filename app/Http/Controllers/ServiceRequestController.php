@@ -52,47 +52,44 @@ class ServiceRequestController extends Controller
         return view('service-requests.create', compact('subServices', 'users', 'criticalityLevels'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    // En App\Http\Controllers\ServiceRequestController
     public function store(Request $request)
     {
         $validated = $request->validate([
             'sub_service_id' => 'required|exists:sub_services,id',
             'sla_id' => 'required|exists:service_level_agreements,id',
             'assigned_to' => 'nullable|exists:users,id',
+            'requested_by' => 'required|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
             'web_routes' => 'nullable|string',
             'main_web_route' => 'nullable|url',
+            'auto_assign' => 'nullable|boolean', // Agregar validación para auto_assign
         ]);
 
-        // Generar número de ticket profesional
+        // Generar número de ticket
         $validated['ticket_number'] = ServiceRequest::generateProfessionalTicketNumber(
             $validated['sub_service_id'],
             $validated['criticality_level']
         );
-        $validated['requested_by'] = auth()->id();
 
-        // Obtener el SLA seleccionado
+        // LÓGICA DE AUTO-ASIGNACIÓN
+        if ($request->has('auto_assign') && $request->boolean('auto_assign')) {
+            // Si auto_assign está marcado, asignar al usuario autenticado
+            $validated['assigned_to'] = auth()->id();
+        } else {
+            // Si no está marcado, usar el assigned_to del formulario
+            // (ya validado que existe si se proporciona)
+        }
+
+        // Obtener el SLA y calcular fechas límite
         $sla = ServiceLevelAgreement::find($validated['sla_id']);
-
-        // Calcular fechas límite
         $now = now();
         $validated['acceptance_deadline'] = $now->copy()->addMinutes($sla->acceptance_time_minutes);
         $validated['response_deadline'] = $now->copy()->addMinutes($sla->response_time_minutes);
         $validated['resolution_deadline'] = $now->copy()->addMinutes($sla->resolution_time_minutes);
 
         $serviceRequest = ServiceRequest::create($validated);
-
-        // Log para debugging
-        \Log::info('Nueva solicitud creada', [
-            'ticket_number' => $serviceRequest->ticket_number,
-            'sub_service_id' => $validated['sub_service_id'],
-            'criticality_level' => $validated['criticality_level']
-        ]);
 
         return redirect()->route('service-requests.show', $serviceRequest)
             ->with('success', 'Solicitud de servicio creada exitosamente. Ticket: ' . $serviceRequest->ticket_number);
@@ -103,18 +100,21 @@ class ServiceRequestController extends Controller
      */
     public function show(ServiceRequest $serviceRequest)
     {
-        // CARGAR TODAS LAS RELACIONES INCLUYENDO EVIDENCIAS
+        // CARGAR RELACIONES BÁSICAS (las que existen como métodos de relación)
         $serviceRequest->load([
             'subService.service.family',
             'sla',
             'requester',
             'assignee',
             'breachLogs',
-            'evidences', // Cargar todas las evidencias
-            'stepByStepEvidences', // Cargar evidencias paso a paso
-            'fileEvidences', // Cargar evidencias de archivo
-            'commentEvidences' // Cargar evidencias de comentario
+            'evidences.user' // ✅ Esta es la única relación real que existe
         ]);
+
+        // LOS ACCESSORS SE CARGAN AUTOMÁTICAMENTE:
+        // - stepByStepEvidences (accessor)
+        // - fileEvidences (accessor)
+        // - commentEvidences NO EXISTE en tu modelo actual
+        // - systemEvidences NO EXISTE en tu modelo actual
 
         return view('service-requests.show', compact('serviceRequest'));
     }

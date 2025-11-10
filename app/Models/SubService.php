@@ -47,6 +47,23 @@ class SubService extends Model
         return $this->hasMany(ServiceRequest::class);
     }
 
+    public function serviceSubservices()
+    {
+        return $this->hasMany(ServiceSubservice::class);
+    }
+
+    public function slas()
+    {
+        return $this->hasManyThrough(
+            ServiceLevelAgreement::class,
+            ServiceSubservice::class,
+            'sub_service_id', // Foreign key on ServiceSubservice table
+            'service_subservice_id', // Foreign key on SLA table
+            'id', // Local key on SubService table
+            'id' // Local key on ServiceSubservice table
+        )->where('service_level_agreements.is_active', true);
+    }
+
     /**
      * Validar que el código sea único
      */

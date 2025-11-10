@@ -14,13 +14,22 @@ use Illuminate\Support\Str;
 
 class ServiceRequest extends Model
 {
-
     const STATUS_PENDING = 'PENDIENTE';
     const STATUS_ACCEPTED = 'ACEPTADA';
     const STATUS_IN_PROGRESS = 'EN_PROCESO';
     const STATUS_RESOLVED = 'RESUELTA';
     const STATUS_CLOSED = 'CERRADA';
     const STATUS_CANCELLED = 'CANCELADA';
+
+    const TYPE_SYSTEM = 'SISTEMA';
+    const TYPE_STEP_BY_STEP = 'PASO_A_PASO';
+    const TYPE_FILE = 'ARCHIVO';
+
+    // Códigos de criticidad
+    const CRITICALITY_LOW = 'BAJA';
+    const CRITICALITY_MEDIUM = 'MEDIA';
+    const CRITICALITY_HIGH = 'ALTA';
+    const CRITICALITY_CRITICAL = 'CRITICA';
 
     use HasFactory, SoftDeletes;
     use ServiceRequestStateManager,
@@ -69,10 +78,21 @@ class ServiceRequest extends Model
         'is_paused' => 'boolean',
         'web_routes' => 'array',
         'status' => 'string',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
+    ];
+
+    protected $appends = [
+        'step_by_step_evidences',
+        'file_evidences',
+        'is_overdue',
+        'time_remaining',
+        'criticality_level_color',
+        'status_color'
     ];
 
     // =============================================
-    // RELACIONES BÁSICAS - CORREGIDAS
+    // RELACIONES
     // =============================================
 
     public function subService()
@@ -100,58 +120,95 @@ class ServiceRequest extends Model
         return $this->hasMany(SlaBreachLog::class);
     }
 
-    /**
-     * CORRECCIÓN: Relación con ServiceRequestEvidence (tabla service_request_evidences)
-     */
     public function evidences()
     {
         return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id');
     }
 
-    // En tu modelo ServiceRequest
-    public function hasAnyEvidenceForResolution()
+    public function user()
     {
-        return $this->evidences()
-            ->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])
-            ->count() > 0;
+        return $this->belongsTo(User::class);
     }
 
-    // Método para obtener evidencias paso a paso
+    // Relación para solicitudes hijas (si existe jerarquía)
+    public function childRequests()
+    {
+        return $this->hasMany(ServiceRequest::class, 'service_request_id');
+    }
+
+    // Relación para solicitud padre (si existe jerarquía)
+    public function parentRequest()
+    {
+        return $this->belongsTo(ServiceRequest::class, 'service_request_id');
+    }
+
+    // =============================================
+    // ACCESORES
+    // =============================================
+
     public function getStepByStepEvidencesAttribute()
     {
-        return $this->evidences()->where('evidence_type', 'PASO_A_PASO')->get();
+        return $this->evidences()->where('evidence_type', self::TYPE_STEP_BY_STEP)->get();
     }
 
-    // Método para obtener archivos adjuntos
     public function getFileEvidencesAttribute()
     {
-        return $this->evidences()->where('evidence_type', 'ARCHIVO')->get();
+        return $this->evidences()->where('evidence_type', self::TYPE_FILE)->get();
+    }
+
+    public function getIsOverdueAttribute()
+    {
+        return $this->isOverdue();
+    }
+
+    public function getTimeRemainingAttribute()
+    {
+        return $this->getTimeRemaining();
+    }
+
+    public function getCriticalityLevelColorAttribute()
+    {
+        $colors = [
+            self::CRITICALITY_LOW => 'success',
+            self::CRITICALITY_MEDIUM => 'warning',
+            self::CRITICALITY_HIGH => 'orange',
+            self::CRITICALITY_CRITICAL => 'danger'
+        ];
+
+        return $colors[$this->criticality_level] ?? 'secondary';
+    }
+
+    public function getStatusColorAttribute()
+    {
+        $colors = [
+            self::STATUS_PENDING => 'warning',
+            self::STATUS_ACCEPTED => 'info',
+            self::STATUS_IN_PROGRESS => 'primary',
+            self::STATUS_RESOLVED => 'success',
+            self::STATUS_CLOSED => 'secondary',
+            self::STATUS_CANCELLED => 'danger'
+        ];
+
+        return $colors[$this->status] ?? 'secondary';
     }
 
     // =============================================
-    // MÉTODOS BÁSICOS (NO DELEGABLES)
+    // MÉTODOS DE ESTADO
     // =============================================
 
-    /**
-     * Verificar si la solicitud está vencida
-     */
     public function isOverdue()
     {
-        if ($this->closed_at) {
+        if ($this->closed_at || $this->status === self::STATUS_CLOSED) {
             return false;
         }
 
-        $deadline = $this->resolution_deadline;
-        if (!$deadline) {
+        if (!$this->resolution_deadline) {
             return false;
         }
 
-        return now()->greaterThan($deadline);
+        return now()->greaterThan($this->resolution_deadline);
     }
 
-    /**
-     * Obtener tiempo restante para vencimiento
-     */
     public function getTimeRemaining()
     {
         if ($this->closed_at || !$this->resolution_deadline) {
@@ -166,9 +223,78 @@ class ServiceRequest extends Model
         return $this->formatDuration($now->diff($this->resolution_deadline));
     }
 
+    public function isResolved()
+    {
+        return $this->status === self::STATUS_RESOLVED;
+    }
+
+    public function canBeClosed()
+    {
+        return $this->status === self::STATUS_RESOLVED &&
+               $this->status !== self::STATUS_CLOSED;
+    }
+
+    public function isPending()
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isInProgress()
+    {
+        return $this->status === self::STATUS_IN_PROGRESS;
+    }
+
+    public function isAccepted()
+    {
+        return $this->status === self::STATUS_ACCEPTED;
+    }
+
+    public function isClosed()
+    {
+        return $this->status === self::STATUS_CLOSED;
+    }
+
+    public function isCancelled()
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
+    public function isPaused()
+    {
+        return $this->is_paused === true;
+    }
+
+    public function hasAnyEvidenceForResolution()
+    {
+        return $this->evidences()
+            ->whereIn('evidence_type', [self::TYPE_STEP_BY_STEP, self::TYPE_FILE])
+            ->exists();
+    }
+
     /**
-     * Formatear duración para intervalos de fecha
+     * Verificar si tiene evidencias de paso a paso (para resolución)
      */
+    public function hasStepByStepEvidences()
+    {
+        return $this->evidences()
+            ->where('evidence_type', self::TYPE_STEP_BY_STEP)
+            ->exists();
+    }
+
+    /**
+     * Verificar si tiene evidencias de archivo
+     */
+    public function hasFileEvidences()
+    {
+        return $this->evidences()
+            ->where('evidence_type', self::TYPE_FILE)
+            ->exists();
+    }
+
+    // =============================================
+    // MÉTODOS DE UTILIDAD
+    // =============================================
+
     public function formatDuration($duration)
     {
         if (!$duration) {
@@ -192,98 +318,191 @@ class ServiceRequest extends Model
         return implode(', ', $parts) ?: '0 minutos';
     }
 
-    public function isResolved()
+    /**
+     * Obtener tiempo transcurrido desde la creación
+     */
+    public function getElapsedTime()
     {
-        return strtoupper($this->status) === 'RESUELTA';
-    }
-    public function canBeClosed()
-    {
-        $currentStatus = strtoupper(trim($this->status));
-        return $currentStatus === 'RESUELTA' && $currentStatus !== 'CERRADA';
-    }
-    // En App\Models\ServiceRequest.php
-
-    public static function generateProfessionalTicketNumber($subServiceId, $criticalityLevel)
-    {
-        return DB::transaction(function () use ($subServiceId, $criticalityLevel) {
-            // Obtener el subservicio con sus relaciones
-            $subService = SubService::with(['service.family'])->find($subServiceId);
-
-            if (!$subService) {
-                throw new \Exception('Subservicio no encontrado');
-            }
-
-            // Generar prefijo basado en la familia del servicio
-            $familyPrefix = strtoupper(substr($subService->service->family->name, 0, 3));
-            $subServicePrefix = strtoupper(substr($subService->name, 0, 3));
-
-            // Formato: FAM-SUB-FECHA-NUMERO
-            $datePart = date('ymd');
-            $baseTicketNumber = "{$familyPrefix}-{$subServicePrefix}-{$datePart}-";
-
-            // Buscar el último ticket del día con bloqueo para evitar condiciones de carrera
-            $lastTicket = self::where('ticket_number', 'like', $baseTicketNumber . '%')
-                ->lockForUpdate()
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            // Determinar el siguiente número
-            if ($lastTicket) {
-                $lastNumber = (int) substr($lastTicket->ticket_number, -3);
-                $nextNumber = $lastNumber + 1;
-            } else {
-                $nextNumber = 1;
-            }
-
-            // Formatear el número con ceros a la izquierda
-            $sequentialNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-
-            return $baseTicketNumber . $sequentialNumber;
-        });
+        return $this->created_at->diffForHumans();
     }
 
     /**
-     * Generar código de familia (3 caracteres)
+     * Obtener tiempo hasta la resolución
      */
+    public function getResolutionTime()
+    {
+        if (!$this->resolved_at) {
+            return null;
+        }
+
+        return $this->accepted_at ? $this->accepted_at->diffForHumans($this->resolved_at, true) : null;
+    }
+
+    public static function generateProfessionalTicketNumber($subServiceId, $criticalityLevel)
+    {
+        $subService = SubService::with(['service.family'])->find($subServiceId);
+
+        if (!$subService) {
+            throw new \Exception('Subservicio no encontrado');
+        }
+
+        // Generar prefijos
+        $familyPrefix = self::generateFamilyCode($subService->service->family);
+        $subServicePrefix = self::generateServiceCode($subService);
+        $criticalityCode = self::getCriticalityCode($criticalityLevel);
+
+        $datePart = date('ymd');
+        $baseTicketNumber = "{$familyPrefix}-{$subServicePrefix}-{$criticalityCode}-{$datePart}-";
+
+        // Buscar el último ticket del día
+        $lastTicket = self::where('ticket_number', 'like', $baseTicketNumber . '%')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextNumber = $lastTicket ?
+            ((int) substr($lastTicket->ticket_number, -3)) + 1 : 1;
+
+        $sequentialNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+        return $baseTicketNumber . $sequentialNumber;
+    }
+
     private static function generateFamilyCode($family)
     {
-        // Priorizar código personalizado si existe
         if (!empty($family->code)) {
             return strtoupper(substr($family->code, 0, 3));
         }
 
-        // Generar desde el nombre
         $name = preg_replace('/[^a-zA-Z0-9]/', '', $family->name);
         return strtoupper(substr($name, 0, 3));
     }
 
-    /**
-     * Generar código de servicio (2 caracteres)
-     */
     private static function generateServiceCode($service)
     {
-        // Priorizar código personalizado si existe
         if (!empty($service->code)) {
             return strtoupper(substr($service->code, 0, 2));
         }
 
-        // Generar desde el nombre
         $name = preg_replace('/[^a-zA-Z0-9]/', '', $service->name);
         return strtoupper(substr($name, 0, 2));
     }
 
-    /**
-     * Obtener código de criticidad (1 carácter)
-     */
     private static function getCriticalityCode($criticalityLevel)
     {
         $criticalityCodes = [
-            'BAJA' => 'L',  // Low
-            'MEDIA' => 'M', // Medium
-            'ALTA' => 'H',  // High
-            'CRITICA' => 'C' // Critical
+            self::CRITICALITY_LOW => 'L',
+            self::CRITICALITY_MEDIUM => 'M',
+            self::CRITICALITY_HIGH => 'H',
+            self::CRITICALITY_CRITICAL => 'C'
         ];
 
-        return $criticalityCodes[$criticalityLevel] ?? 'U'; // Unknown
+        return $criticalityCodes[$criticalityLevel] ?? 'U';
+    }
+
+    // =============================================
+    // SCOPES
+    // =============================================
+
+    public function scopePending($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeInProgress($query)
+    {
+        return $query->where('status', self::STATUS_IN_PROGRESS);
+    }
+
+    public function scopeResolved($query)
+    {
+        return $query->where('status', self::STATUS_RESOLVED);
+    }
+
+    public function scopeClosed($query)
+    {
+        return $query->where('status', self::STATUS_CLOSED);
+    }
+
+    public function scopeCancelled($query)
+    {
+        return $query->where('status', self::STATUS_CANCELLED);
+    }
+
+    public function scopeOverdue($query)
+    {
+        return $query->where(function($q) {
+            $q->whereNull('closed_at')
+              ->where('resolution_deadline', '<', now())
+              ->whereNotIn('status', [self::STATUS_CLOSED, self::STATUS_CANCELLED]);
+        });
+    }
+
+    public function scopeAssignedTo($query, $userId)
+    {
+        return $query->where('assigned_to', $userId);
+    }
+
+    public function scopeRequestedBy($query, $userId)
+    {
+        return $query->where('requested_by', $userId);
+    }
+
+    public function scopeOfCriticality($query, $criticalityLevel)
+    {
+        return $query->where('criticality_level', $criticalityLevel);
+    }
+
+    public function scopeWithEvidences($query)
+    {
+        return $query->whereHas('evidences');
+    }
+
+    public function scopeWithoutEvidences($query)
+    {
+        return $query->whereDoesntHave('evidences');
+    }
+
+    // =============================================
+    // MÉTODOS DE TIEMPO
+    // =============================================
+
+    public function getTotalPausedTimeInMinutes()
+    {
+        return $this->total_paused_minutes ?? 0;
+    }
+
+    public function calculateEffectiveResolutionTime()
+    {
+        if (!$this->accepted_at || !$this->resolved_at) {
+            return null;
+        }
+
+        $totalMinutes = $this->accepted_at->diffInMinutes($this->resolved_at);
+        return max(0, $totalMinutes - $this->getTotalPausedTimeInMinutes());
+    }
+
+    /**
+     * Obtener el tiempo total de pausa formateado
+     */
+    public function getFormattedPausedTime()
+    {
+        $minutes = $this->getTotalPausedTimeInMinutes();
+
+        if ($minutes === 0) {
+            return '0 minutos';
+        }
+
+        $hours = floor($minutes / 60);
+        $remainingMinutes = $minutes % 60;
+
+        $parts = [];
+        if ($hours > 0) {
+            $parts[] = $hours . ' hora' . ($hours > 1 ? 's' : '');
+        }
+        if ($remainingMinutes > 0) {
+            $parts[] = $remainingMinutes . ' minuto' . ($remainingMinutes > 1 ? 's' : '');
+        }
+
+        return implode(', ', $parts);
     }
 }

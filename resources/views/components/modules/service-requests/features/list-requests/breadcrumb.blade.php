@@ -9,11 +9,20 @@
                 <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-700">Solicitudes</a>
             </div>
         </li>
+        @if(isset($createMode) && $createMode)
         <li aria-current="page">
             <div class="flex items-center">
                 <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                <span class="text-gray-500">Nueva Solicitud</span>
+                <span class="text-gray-500">Crear Nueva</span>
             </div>
         </li>
+        @elseif(isset($serviceRequest))
+        <li aria-current="page">
+            <div class="flex items-center">
+                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                <span class="text-gray-500">{{ $serviceRequest->ticket_number ?? 'Detalles' }}</span>
+            </div>
+        </li>
+        @endif
     </ol>
 </nav>
