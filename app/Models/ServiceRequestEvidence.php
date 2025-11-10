@@ -227,7 +227,7 @@ class ServiceRequestEvidence extends Model
     // }
 
     /**
-     * Obtener URL del archivo - VERSIÓN CORREGIDA Y SIMPLIFICADA
+     * Obtener URL del archivo - VERSIÓN MEJORADA
      */
     public function getFileUrl()
     {
@@ -236,55 +236,46 @@ class ServiceRequestEvidence extends Model
             return null;
         }
 
-        \Log::info("Evidence {$this->id}: Procesando file_path = '{$this->file_path}'");
-
         // Si el file_path ya es una URL completa, retornarla
         if (filter_var($this->file_path, FILTER_VALIDATE_URL)) {
-            \Log::info("Evidence {$this->id}: Es URL completa - {$this->file_path}");
             return $this->file_path;
         }
 
-        // PRIMERO: Intentar con Storage::url (para archivos en storage)
+        // PRIMERO: Intentar con asset() directamente (más confiable)
         try {
-            // Si file_path empieza con 'evidences/', asumimos que está en storage
-            if (str_starts_with($this->file_path, 'evidences/')) {
-                $url = Storage::url($this->file_path);
-                \Log::info("Evidence {$this->id}: Storage::url generado - {$url}");
-                return $url;
-            }
+            // Para archivos en storage público
+            $publicUrl = asset('storage/' . $this->file_path);
 
-            // Si no tiene prefijo, agregar 'evidences/' y probar
-            $storagePath = 'evidences/' . $this->file_path;
-            if (Storage::exists($storagePath)) {
-                $url = Storage::url($storagePath);
-                \Log::info("Evidence {$this->id}: Storage::url con prefijo - {$url}");
-                return $url;
-            }
+            // Verificar si la URL es accesible (opcional, puede ser lento)
+            // return $publicUrl;
 
-            // Intentar con la ruta directa
-            if (Storage::exists($this->file_path)) {
-                $url = Storage::url($this->file_path);
-                \Log::info("Evidence {$this->id}: Storage::url directo - {$url}");
-                return $url;
-            }
+            // Mejor: confiar en que asset() genera la URL correcta
+            \Log::info("Evidence {$this->id}: URL generada con asset() - {$publicUrl}");
+            return $publicUrl;
         } catch (\Exception $e) {
-            \Log::error("Evidence {$this->id}: Error con Storage::url - " . $e->getMessage());
+            \Log::error("Evidence {$this->id}: Error con asset() - " . $e->getMessage());
         }
 
-        // SEGUNDO: Si Storage::url no funciona, construir URL manualmente
+        // SEGUNDO: Intentar con Storage::url como fallback
         try {
-            // Construir URL manual basada en la estructura común
-            $manualUrl = asset('storage/' . $this->file_path);
-            \Log::info("Evidence {$this->id}: URL manual - {$manualUrl}");
-            return $manualUrl;
+            $storageUrl = Storage::url($this->file_path);
+            \Log::info("Evidence {$this->id}: URL generada con Storage::url - {$storageUrl}");
+            return $storageUrl;
         } catch (\Exception $e) {
-            \Log::error("Evidence {$this->id}: Error construyendo URL manual - " . $e->getMessage());
+            \Log::error("Evidence {$this->id}: Error con Storage::url - " . $e->getMessage());
         }
 
         \Log::warning("Evidence {$this->id}: No se pudo generar URL para '{$this->file_path}'");
         return null;
     }
 
+    /**
+     * Accessor para file_url (compatibilidad)
+     */
+    public function getFileUrlAttribute()
+    {
+        return $this->getFileUrl();
+    }
     /**
      * Verificar si tiene archivo - VERSIÓN MEJORADA
      */
@@ -349,7 +340,7 @@ class ServiceRequestEvidence extends Model
      */
     public function isImage()
     {
-        $mime = $this->file_mime_type;
+        $mime = $this->file_mime_type ?: $this->mime_type;
         return $mime && str_starts_with($mime, 'image/');
     }
 
@@ -358,7 +349,7 @@ class ServiceRequestEvidence extends Model
      */
     public function isPdf()
     {
-        $mime = $this->mime_type ?: $this->file_mime_type;
+        $mime = $this->file_mime_type ?: $this->mime_type;
         return $mime === 'application/pdf';
     }
 
@@ -367,7 +358,7 @@ class ServiceRequestEvidence extends Model
      */
     public function isDocument()
     {
-        $mime = $this->mime_type ?: $this->file_mime_type;
+        $mime = $this->file_mime_type ?: $this->mime_type;
         $documentMimes = [
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -379,7 +370,6 @@ class ServiceRequestEvidence extends Model
 
         return in_array($mime, $documentMimes);
     }
-
     /**
      * Scope para evidencias de tipo imagen
      */

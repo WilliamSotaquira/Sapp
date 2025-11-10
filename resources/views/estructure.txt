@@ -1,0 +1,60 @@
+resources/views/
+├── service-requests/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   ├── edit.blade.php
+│   └── show.blade.php
+└── components/
+    └── service-requests/
+        ├── index/              # VISTA INDEX - Nueva estructura modular
+        │   ├── header/
+        │   │   ├── main-header.blade.php
+        │   │   └── filters-badge.blade.php
+        │   ├── stats-cards/
+        │   │   ├── total-stats.blade.php
+        │   │   ├── pending-stats.blade.php
+        │   │   ├── critical-stats.blade.php
+        │   │   ├── resolved-stats.blade.php
+        │   │   └── create-action.blade.php
+        │   ├── filters/
+        │   │   ├── filters-panel.blade.php          ← **ARCHIVO PRINCIPAL CON CÓDIGO COMPLETO**
+        │   │   ├── status-filter.blade.php          ← **CONTENIDO DEL ARCHIVO 1**
+        │   │   ├── criticality-filter.blade.php
+        │   │   └── filter-actions.blade.php
+        │   └── content/
+        │       ├── requests-table.blade.php
+        │       ├── table-header.blade.php
+        │       ├── table-row.blade.php
+        │       ├── table-actions.blade.php
+        │       └── empty-state.blade.php
+        ├── show/               # VISTA SHOW - Existente
+        │   ├── header/
+        │   │   ├── main-header.blade.php
+        │   │   ├── status-badge.blade.php
+        │   │   └── criticality-indicator.blade.php
+        │   ├── info-cards/
+        │   │   ├── service-info.blade.php
+        │   │   ├── assignment-info.blade.php
+        │   │   ├── timelines-info.blade.php
+        │   │   └── sla-info.blade.php
+        │   ├── content/
+        │   │   ├── description-panel.blade.php
+        │   │   ├── web-routes-panel.blade.php
+        │   │   └── actions-panel.blade.php
+        │   ├── evidences/
+        │   │   ├── evidence-gallery.blade.php
+        │   │   ├── evidence-card.blade.php
+        │   │   ├── evidence-preview.blade.php
+        │   │   └── evidence-uploader.blade.php
+        │   └── history/
+        │       ├── history-timeline.blade.php
+        │       ├── history-item.blade.php
+        │       └── status-changes.blade.php
+        ├── forms/             # Para create/edit
+        │   ├── basic-fields.blade.php
+        │   ├── service-selection.blade.php
+        │   └── evidence-fields.blade.php
+        └── list/              # Componentes compartidos
+            ├── filters.blade.php
+            ├── request-card.blade.php
+            └── table-view.blade.php
