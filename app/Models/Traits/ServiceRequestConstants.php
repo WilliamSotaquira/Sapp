@@ -10,6 +10,9 @@ trait ServiceRequestConstants
     const STATUS_RESOLVED = 'RESUELTA';
     const STATUS_CLOSED = 'CERRADA';
     const STATUS_CANCELLED = 'CANCELADA';
+    const STATUS_PAUSED = 'PAUSADA';
+    const STATUS_REOPENED = 'REABIERTO';
+
 
     const TYPE_SYSTEM = 'SISTEMA';
     const TYPE_STEP_BY_STEP = 'PASO_A_PASO';

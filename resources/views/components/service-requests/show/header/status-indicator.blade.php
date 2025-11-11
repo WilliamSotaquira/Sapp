@@ -1,7 +1,6 @@
-<!-- resources/views/components/service-requests/show/header/status-indicator.blade.php -->
 @props(['serviceRequest'])
 
-@if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA']))
+@if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA', 'PAUSADA']))
     @php
         $statusInfo = [
             'ACEPTADA' => [
@@ -15,6 +14,10 @@
             'RESUELTA' => [
                 'icon' => 'check-double',
                 'text' => $serviceRequest->resolved_at ? 'Resuelta el ' . $serviceRequest->resolved_at->format('d/m/Y H:i') : 'Resuelta'
+            ],
+            'PAUSADA' => [
+                'icon' => 'pause',
+                'text' => $serviceRequest->paused_at ? 'Pausada desde ' . $serviceRequest->paused_at->format('d/m/Y H:i') : 'Pausada'
             ]
         ][$serviceRequest->status];
     @endphp

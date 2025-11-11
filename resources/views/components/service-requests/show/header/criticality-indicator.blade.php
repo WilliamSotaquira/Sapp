@@ -1,22 +1,34 @@
+{{-- resources/views/components/service-requests/show/header/criticality-indicator.blade.php --}}
 @props(['criticality'])
 
 @php
-$criticalityColors = [
-    'BAJA' => 'bg-green-500 text-white',
-    'MEDIA' => 'bg-yellow-500 text-white',
-    'ALTA' => 'bg-orange-500 text-white',
-    'CRITICA' => 'bg-red-500 text-white'
-];
+    $criticalityConfig = [
+        'BAJA' => [
+            'color' => 'bg-green-100 text-green-800 border-green-300',
+            'icon' => 'arrow-down',
+            'text' => 'Baja'
+        ],
+        'MEDIA' => [
+            'color' => 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            'icon' => 'minus',
+            'text' => 'Media'
+        ],
+        'ALTA' => [
+            'color' => 'bg-orange-100 text-orange-800 border-orange-300',
+            'icon' => 'exclamation-triangle',
+            'text' => 'Alta'
+        ],
+        'CRITICA' => [
+            'color' => 'bg-red-100 text-red-800 border-red-300',
+            'icon' => 'skull-crossbones',
+            'text' => 'Crítica'
+        ]
+    ];
 
-$criticalityIcons = [
-    'BAJA' => 'fa-flag',
-    'MEDIA' => 'fa-flag',
-    'ALTA' => 'fa-exclamation-triangle',
-    'CRITICA' => 'fa-skull-crossbones'
-];
+    $config = $criticalityConfig[$criticality] ?? $criticalityConfig['MEDIA'];
 @endphp
 
-<span class="px-4 py-2 rounded-full text-sm font-semibold {{ $criticalityColors[$criticality] ?? 'bg-gray-500 text-white' }}">
-    <i class="fas {{ $criticalityIcons[$criticality] ?? 'fa-flag' }} mr-2"></i>
-    {{ $criticality }}
+<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border-2 {{ $config['color'] }}">
+    <i class="fas fa-{{ $config['icon'] }} mr-2"></i>
+    {{ $config['text'] }}
 </span>
