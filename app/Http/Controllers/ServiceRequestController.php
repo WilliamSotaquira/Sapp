@@ -599,108 +599,142 @@ class ServiceRequestController extends Controller
         }
     }
 
-   public function close(Request $request, ServiceRequest $serviceRequest)
-{
-    \Log::info('🔒 Iniciando cierre de solicitud', [
-        'ticket' => $serviceRequest->ticket_number,
-        'user' => auth()->id(),
-        'user_name' => auth()->user()->name
-    ]);
-
-    // Validar estado
-    if ($serviceRequest->status !== 'RESUELTA') {
-        \Log::warning('Intento de cierre con estado incorrecto', [
-            'current_status' => $serviceRequest->status,
-            'required_status' => 'RESUELTA'
-        ]);
-        return redirect()->back()->with('error', 'Solo las solicitudes RESUELTAS pueden ser cerradas.');
-    }
-
-    // Validar que tenga evidencias de tipo ARCHIVO
-    $fileEvidencesCount = $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->count();
-    if ($fileEvidencesCount === 0) {
-        \Log::warning('Intento de cierre sin archivos adjuntos', [
+    public function close(Request $request, ServiceRequest $serviceRequest)
+    {
+        \Log::info('🔒 Iniciando cierre de solicitud', [
             'ticket' => $serviceRequest->ticket_number,
-            'file_evidences_count' => $fileEvidencesCount,
-            'total_evidences' => $serviceRequest->evidences()->count()
+            'user' => auth()->id(),
+            'user_name' => auth()->user()->name,
         ]);
-        return redirect()->back()->with('error', 'No se puede cerrar la solicitud. Debe tener al menos un archivo adjunto como evidencia.');
+
+        // Validar estado
+        if ($serviceRequest->status !== 'RESUELTA') {
+            \Log::warning('Intento de cierre con estado incorrecto', [
+                'current_status' => $serviceRequest->status,
+                'required_status' => 'RESUELTA',
+            ]);
+            return redirect()->back()->with('error', 'Solo las solicitudes RESUELTAS pueden ser cerradas.');
+        }
+
+        // Validar que tenga evidencias de tipo ARCHIVO
+        $fileEvidencesCount = $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->count();
+        if ($fileEvidencesCount === 0) {
+            \Log::warning('Intento de cierre sin archivos adjuntos', [
+                'ticket' => $serviceRequest->ticket_number,
+                'file_evidences_count' => $fileEvidencesCount,
+                'total_evidences' => $serviceRequest->evidences()->count(),
+            ]);
+            return redirect()->back()->with('error', 'No se puede cerrar la solicitud. Debe tener al menos un archivo adjunto como evidencia.');
+        }
+
+        try {
+            DB::transaction(function () use ($serviceRequest, $fileEvidencesCount) {
+                // Cerrar solicitud
+                ServiceRequest::withoutEvents(function () use ($serviceRequest) {
+                    $serviceRequest->update([
+                        'status' => 'CERRADA',
+                        'closed_at' => now(),
+                    ]);
+                });
+
+                \Log::info('Solicitud cerrada en base de datos', [
+                    'file_evidences_count' => $fileEvidencesCount,
+                ]);
+
+                // Registrar evidencia del cierre
+                ServiceRequestEvidence::create([
+                    'service_request_id' => $serviceRequest->id,
+                    'title' => 'Solicitud Cerrada Definitivamente',
+                    'description' => "La solicitud ha sido cerrada con {$fileEvidencesCount} " . ($fileEvidencesCount === 1 ? 'archivo' : 'archivos') . ' adjuntos.',
+                    'evidence_type' => 'SISTEMA',
+                    'created_by' => auth()->id(),
+                    'evidence_data' => [
+                        'action' => 'CLOSED',
+                        'closed_by' => auth()->id(),
+                        'closed_by_name' => auth()->user()->name,
+                        'closed_at' => now()->toISOString(),
+                        'previous_status' => 'RESUELTA',
+                        'new_status' => 'CERRADA',
+                        'ticket_number' => $serviceRequest->ticket_number,
+                        'file_evidences_count' => $fileEvidencesCount,
+                        'files_verified' => true,
+                    ],
+                ]);
+
+                \Log::info('Evidencia de cierre creada');
+            });
+
+            \Log::info('✅ Cierre completado exitosamente', [
+                'file_evidences_count' => $fileEvidencesCount,
+            ]);
+
+            $evidenceText = $fileEvidencesCount === 1 ? 'archivo' : 'archivos';
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('success', "🎉 Solicitud cerrada definitivamente. Se verificaron {$fileEvidencesCount} {$evidenceText} adjuntos.");
+        } catch (\Exception $e) {
+            \Log::error('❌ Error en cierre de solicitud: ' . $e->getMessage(), [
+                'exception' => $e,
+                'ticket' => $serviceRequest->ticket_number,
+                'file_evidences_count' => $fileEvidencesCount,
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Error al cerrar la solicitud: ' . $e->getMessage());
+        }
     }
 
-    try {
-        DB::transaction(function () use ($serviceRequest, $fileEvidencesCount) {
-            // Cerrar solicitud
+    /**
+     * Reabrir solicitud (VERSIÓN CORREGIDA)
+     */
+    public function reopen(Request $request, ServiceRequest $serviceRequest)
+    {
+        \Log::info('=== 🔄 REOPEN METHOD ===');
+
+        $allowedStatuses = ['RESUELTA', 'CERRADA'];
+
+        if (!in_array($serviceRequest->status, $allowedStatuses)) {
+            return redirect()->back()->with('error', 'La solicitud no puede ser reabierta desde el estado actual.');
+        }
+
+        try {
             ServiceRequest::withoutEvents(function () use ($serviceRequest) {
                 $serviceRequest->update([
-                    'status' => 'CERRADA',
-                    'closed_at' => now(),
+                    'status' => 'EN_PROCESO',
+                    'reopened_at' => now(),
+                    // Limpiar campos de finalización
+                    'resolved_at' => null,
+                    'closed_at' => null,
+                    'resolution_notes' => null, // Opcional: limpiar notas anteriores
                 ]);
             });
 
-            \Log::info('Solicitud cerrada en base de datos', [
-                'file_evidences_count' => $fileEvidencesCount
-            ]);
+            \Log::info('🎉 ÉXITO: Solicitud reabierta exitosamente');
 
-            // Registrar evidencia del cierre
+            // Crear evidencia
             ServiceRequestEvidence::create([
                 'service_request_id' => $serviceRequest->id,
-                'title' => 'Solicitud Cerrada Definitivamente',
-                'description' => "La solicitud ha sido cerrada con {$fileEvidencesCount} " . ($fileEvidencesCount === 1 ? 'archivo' : 'archivos') . " adjuntos.",
+                'title' => 'Solicitud Reabierta',
+                'description' => 'La solicitud ha sido reabierta para trabajo adicional.',
                 'evidence_type' => 'SISTEMA',
                 'created_by' => auth()->id(),
                 'evidence_data' => [
-                    'action' => 'CLOSED',
-                    'closed_by' => auth()->id(),
-                    'closed_by_name' => auth()->user()->name,
-                    'closed_at' => now()->toISOString(),
-                    'previous_status' => 'RESUELTA',
-                    'new_status' => 'CERRADA',
-                    'ticket_number' => $serviceRequest->ticket_number,
-                    'file_evidences_count' => $fileEvidencesCount,
-                    'files_verified' => true,
+                    'action' => 'REOPENED',
+                    'reopened_by' => auth()->id(),
+                    'reopened_at' => now()->toISOString(),
+                    'previous_status' => $serviceRequest->status,
+                    'new_status' => 'EN_PROCESO',
                 ],
             ]);
 
-            \Log::info('Evidencia de cierre creada');
-        });
-
-        \Log::info('✅ Cierre completado exitosamente', [
-            'file_evidences_count' => $fileEvidencesCount
-        ]);
-
-        $evidenceText = $fileEvidencesCount === 1 ? 'archivo' : 'archivos';
-        return redirect()->route('service-requests.show', $serviceRequest)
-            ->with('success', "🎉 Solicitud cerrada definitivamente. Se verificaron {$fileEvidencesCount} {$evidenceText} adjuntos.");
-
-    } catch (\Exception $e) {
-        \Log::error('❌ Error en cierre de solicitud: ' . $e->getMessage(), [
-            'exception' => $e,
-            'ticket' => $serviceRequest->ticket_number,
-            'file_evidences_count' => $fileEvidencesCount
-        ]);
-
-        return redirect()->back()->with('error', 'Error al cerrar la solicitud: ' . $e->getMessage());
-    }
-}
-
-    /**
-     * Reabrir solicitud
-     */
-    public function reopen(ServiceRequest $serviceRequest)
-    {
-        $validStatuses = ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'];
-        if (!in_array($serviceRequest->status, $validStatuses)) {
-            return redirect()->back()->with('error', 'Solo se pueden reabrir solicitudes en estado RESUELTA, CERRADA, CANCELADA o RECHAZADA.');
+            return redirect()->route('service-requests.show', $serviceRequest)->with('success', '¡Solicitud reabierta correctamente!');
+        } catch (\Exception $e) {
+            \Log::error('❌ ERROR al reabrir: ' . $e->getMessage());
+            return redirect()
+                ->back()
+                ->with('error', 'Error al reabrir la solicitud: ' . $e->getMessage());
         }
-
-        $serviceRequest->update([
-            'status' => 'PENDIENTE',
-            'closed_at' => null,
-            'resolved_at' => null,
-            'satisfaction_score' => null,
-        ]);
-
-        return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud reabierta exitosamente.');
     }
 
     /**
