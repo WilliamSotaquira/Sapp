@@ -16,7 +16,7 @@ class ServiceRequest extends Model
     use HasFactory, SoftDeletes;
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
-    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes'];
+    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by'];
 
     protected $casts = [
         'acceptance_deadline' => 'datetime',
@@ -31,6 +31,7 @@ class ServiceRequest extends Model
         'is_paused' => 'boolean',
         'web_routes' => 'array',
         'status' => 'string',
+        'rejected_at' => 'datetime',
     ];
 
     protected $appends = ['step_by_step_evidences', 'file_evidences', 'is_overdue', 'time_remaining', 'criticality_level_color', 'status_color'];
@@ -97,12 +98,17 @@ class ServiceRequest extends Model
     {
         return $this->belongsTo(ServiceRequest::class, 'service_request_id');
     }
+    public function rejectedByUser()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
 
     // ==================== MÉTODOS ADICIONALES ====================
 
     /**
      * Corregir inconsistencias
      */
+
     public function fixInconsistency()
     {
         if ($this->status === self::STATUS_IN_PROGRESS && empty($this->assigned_to)) {
@@ -249,5 +255,21 @@ class ServiceRequest extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Scope para solicitudes rechazadas
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'RECHAZADA');
+    }
+
+    /**
+     * Verificar si la solicitud está rechazada
+     */
+    public function isRejected()
+    {
+        return $this->status === 'RECHAZADA';
     }
 }

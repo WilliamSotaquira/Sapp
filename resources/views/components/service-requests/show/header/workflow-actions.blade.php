@@ -16,12 +16,7 @@
             ],
             [
                 'action' => 'reject',
-                'route' => 'service-requests.reject',
-                'color' => 'red',
-                'icon' => 'times-circle',
-                'method' => 'POST',
-                'label' => 'Rechazar Solicitud',
-                'confirm' => '¿Estás seguro de que deseas rechazar esta solicitud?',
+                'component' => 'service-requests.show.header.reject-modal', // Cambiar a modal
                 'condition' => true,
             ],
         ],

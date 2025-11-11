@@ -211,45 +211,60 @@ class ServiceRequestController extends Controller
     /**
      * Rechazar una solicitud de servicio
      */
+    /**
+     * Rechazar solicitud (versión corregida con withoutEvents)
+     */
     public function reject(Request $request, ServiceRequest $serviceRequest)
     {
+        \Log::info('=== 🔍 REJECT METHOD ===');
+        \Log::info('Datos recibidos:', $request->all());
+
+        // Verificar que la solicitud esté en estado PENDIENTE
         if ($serviceRequest->status !== 'PENDIENTE') {
-            return redirect()
-                ->back()
-                ->with('error', 'Esta solicitud ya no puede ser rechazada. Estado actual: ' . $serviceRequest->status);
+            return redirect()->back()->with('error', 'La solicitud debe estar en estado PENDIENTE para ser rechazada.');
         }
 
-        $validated = $request->validate([
-            'rejection_reason' => 'required|string|min:10|max:500',
-        ]);
-
         try {
-            DB::transaction(function () use ($validated, $serviceRequest) {
+            // Validar datos del formulario de rechazo
+            $validated = $request->validate([
+                'rejection_reason' => 'required|string|min:10|max:500',
+            ]);
+
+            // 🎯 Usar withoutEvents para evitar validaciones del trait
+            ServiceRequest::withoutEvents(function () use ($serviceRequest, $validated) {
                 $serviceRequest->update([
                     'status' => 'RECHAZADA',
-                    'resolution_notes' => $validated['rejection_reason'],
-                    'closed_at' => now(),
-                ]);
-
-                ServiceRequestEvidence::create([
-                    'service_request_id' => $serviceRequest->id,
-                    'title' => 'Solicitud Rechazada',
-                    'description' => $validated['rejection_reason'],
-                    'evidence_type' => 'SISTEMA',
-                    'created_by' => auth()->id(),
-                    'evidence_data' => [
-                        'action' => 'REJECTED',
-                        'rejected_by' => auth()->id(),
-                        'rejected_at' => now()->toISOString(),
-                        'rejection_reason' => $validated['rejection_reason'],
-                        'previous_status' => 'PENDIENTE',
-                        'new_status' => 'RECHAZADA',
-                    ],
+                    'rejection_reason' => $validated['rejection_reason'],
+                    'rejected_at' => now(),
+                    'rejected_by' => auth()->id(),
                 ]);
             });
 
-            return redirect()->back()->with('success', 'Solicitud rechazada correctamente.');
+            \Log::info('🎉 ÉXITO: Solicitud rechazada exitosamente');
+
+            // Crear evidencia del rechazo
+            ServiceRequestEvidence::create([
+                'service_request_id' => $serviceRequest->id,
+                'title' => 'Solicitud Rechazada',
+                'description' => $validated['rejection_reason'],
+                'evidence_type' => 'SISTEMA',
+                'created_by' => auth()->id(),
+                'evidence_data' => [
+                    'action' => 'REJECTED',
+                    'rejected_by' => auth()->id(),
+                    'rejected_at' => now()->toISOString(),
+                    'rejection_reason' => $validated['rejection_reason'],
+                    'previous_status' => 'PENDIENTE',
+                    'new_status' => 'RECHAZADA',
+                ],
+            ]);
+
+            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud rechazada correctamente.');
+        } catch (ValidationException $e) {
+            \Log::error('❌ ERROR de validación al rechazar:', $e->errors());
+            return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
+            \Log::error('❌ ERROR al rechazar: ' . $e->getMessage());
             return redirect()
                 ->back()
                 ->with('error', 'Error al rechazar la solicitud: ' . $e->getMessage());
