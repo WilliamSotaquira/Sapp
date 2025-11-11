@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
-
 class ServiceRequestController extends Controller
 {
     /**
@@ -29,12 +28,7 @@ class ServiceRequestController extends Controller
         $criticalCount = ServiceRequest::where('criticality_level', 'CRITICA')->count();
         $resolvedCount = ServiceRequest::where('status', 'RESUELTA')->count();
 
-        return view('service-requests.index', compact(
-            'serviceRequests',
-            'pendingCount',
-            'criticalCount',
-            'resolvedCount'
-        ));
+        return view('service-requests.index', compact('serviceRequests', 'pendingCount', 'criticalCount', 'resolvedCount'));
     }
     /**
      * Show the form for creating a new resource.
@@ -68,10 +62,7 @@ class ServiceRequestController extends Controller
         ]);
 
         // Generar número de ticket
-        $validated['ticket_number'] = ServiceRequest::generateProfessionalTicketNumber(
-            $validated['sub_service_id'],
-            $validated['criticality_level']
-        );
+        $validated['ticket_number'] = ServiceRequest::generateProfessionalTicketNumber($validated['sub_service_id'], $validated['criticality_level']);
 
         // LÓGICA DE AUTO-ASIGNACIÓN
         if ($request->has('auto_assign') && $request->boolean('auto_assign')) {
@@ -91,7 +82,8 @@ class ServiceRequestController extends Controller
 
         $serviceRequest = ServiceRequest::create($validated);
 
-        return redirect()->route('service-requests.show', $serviceRequest)
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
             ->with('success', 'Solicitud de servicio creada exitosamente. Ticket: ' . $serviceRequest->ticket_number);
     }
 
@@ -107,7 +99,7 @@ class ServiceRequestController extends Controller
             'requester',
             'assignee',
             'breachLogs',
-            'evidences.user' // ✅ Esta es la única relación real que existe
+            'evidences.user', // ✅ Esta es la única relación real que existe
         ]);
 
         // LOS ACCESSORS SE CARGAN AUTOMÁTICAMENTE:
@@ -128,7 +120,8 @@ class ServiceRequestController extends Controller
         $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
 
         if (!in_array($serviceRequest->status, $editableStatuses)) {
-            return redirect()->route('service-requests.show', $serviceRequest)
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
                 ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
@@ -152,7 +145,8 @@ class ServiceRequestController extends Controller
         $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
 
         if (!in_array($serviceRequest->status, $editableStatuses)) {
-            return redirect()->route('service-requests.show', $serviceRequest)
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
                 ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
@@ -167,8 +161,7 @@ class ServiceRequestController extends Controller
 
         $serviceRequest->update($validated);
 
-        return redirect()->route('service-requests.show', $serviceRequest)
-            ->with('success', 'Solicitud de servicio actualizada exitosamente.');
+        return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud de servicio actualizada exitosamente.');
     }
 
     /**
@@ -177,62 +170,110 @@ class ServiceRequestController extends Controller
     public function destroy(ServiceRequest $serviceRequest)
     {
         if (!in_array($serviceRequest->status, ['PENDIENTE', 'CANCELADA'])) {
-            return redirect()->route('service-requests.index')
-                ->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA.');
+            return redirect()->route('service-requests.index')->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA.');
         }
 
         $serviceRequest->delete();
 
-        return redirect()->route('service-requests.index')
-            ->with('success', 'Solicitud de servicio eliminada exitosamente.');
+        return redirect()->route('service-requests.index')->with('success', 'Solicitud de servicio eliminada exitosamente.');
     }
 
     // =============================================
     // MÉTODOS PARA FLUJO DE TRABAJO CON EVIDENCIAS
     // =============================================
-
     /**
-     * Aceptar una solicitud de servicio - ACTUALIZADO CON TIMELINE
+     * Aceptar una solicitud de servicio - SOLO CAMBIA ESTADO
      */
     public function accept(ServiceRequest $serviceRequest)
     {
+        // Verificar que la solicitud esté pendiente
         if ($serviceRequest->status !== 'PENDIENTE') {
-            return redirect()->back()->with('error', 'La solicitud ya ha sido procesada.');
+            return redirect()
+                ->back()
+                ->with('error', 'Esta solicitud ya no puede ser aceptada. Estado actual: ' . $serviceRequest->status);
         }
 
-        $serviceRequest->update([
-            'status' => 'ACEPTADA',
-            'accepted_at' => now(), // TIMESTAMP PARA TIMELINE
-            'assigned_to' => $serviceRequest->assigned_to ?? auth()->id(),
-        ]);
+        try {
+            DB::transaction(function () use ($serviceRequest) {
+                // ✅ SOLO CAMBIAR ESTADO, NO MODIFICAR assigned_to
+                $serviceRequest->update([
+                    'status' => 'ACEPTADA',
+                    'accepted_at' => now(),
+                    // assigned_to se mantiene como estaba (puede ser null)
+                ]);
 
-        return redirect()->back()->with('success', 'Solicitud aceptada exitosamente.');
+                // Crear evidencia de sistema para el timeline
+                ServiceRequestEvidence::create([
+                    'service_request_id' => $serviceRequest->id,
+                    'title' => 'Solicitud Aceptada',
+                    'description' => 'La solicitud fue aceptada por ' . auth()->user()->name,
+                    'evidence_type' => 'SISTEMA',
+                    'step_number' => null,
+                    'created_by' => auth()->id(),
+                    'evidence_data' => [
+                        'action' => 'ACCEPTED',
+                        'accepted_by' => auth()->id(),
+                        'accepted_at' => now()->toISOString(),
+                        'previous_status' => 'PENDIENTE',
+                        'new_status' => 'ACEPTADA',
+                    ],
+                ]);
+            });
+
+            return redirect()->back()->with('success', 'Solicitud aceptada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()
+                ->back()
+                ->with('error', 'Error al aceptar la solicitud: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Marcar como en proceso - ACTUALIZADO CON TIMELINE
+     * Iniciar procesamiento de solicitud - Cambiar a EN_PROCESO
      */
     public function start(ServiceRequest $serviceRequest)
     {
+        // Verificar que la solicitud esté aceptada
         if ($serviceRequest->status !== 'ACEPTADA') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado ACEPTADA.');
+            return redirect()->back()->with('error', 'La solicitud debe estar en estado ACEPTADA para iniciar el procesamiento.');
         }
 
-        $serviceRequest->update([
-            'status' => 'EN_PROCESO',
-            'responded_at' => now(), // TIMESTAMP PARA TIMELINE
-        ]);
+        // ✅ SOLO AQUÍ validar que tenga técnico asignado
+        if (!$serviceRequest->assigned_to) {
+            return redirect()->back()->with('error', 'No se puede iniciar el procesamiento sin un técnico asignado. Por favor, asigna un técnico primero.');
+        }
 
-        return redirect()->back()->with('success', 'Solicitud marcada como en proceso.');
+        try {
+            DB::transaction(function () use ($serviceRequest) {
+                $serviceRequest->update([
+                    'status' => 'EN_PROCESO',
+                    'started_at' => now(),
+                ]);
+
+                ServiceRequestEvidence::create([
+                    'service_request_id' => $serviceRequest->id,
+                    'title' => 'Procesamiento Iniciado',
+                    'description' => 'El trabajo en la solicitud ha comenzado - Técnico: ' . ($serviceRequest->assignee->name ?? 'N/A'),
+                    'evidence_type' => 'SISTEMA',
+                    'created_by' => auth()->id(),
+                    'evidence_data' => [
+                        'action' => 'STARTED',
+                        'started_by' => auth()->id(),
+                        'started_at' => now()->toISOString(),
+                        'assigned_technician' => $serviceRequest->assigned_to,
+                        'previous_status' => 'ACEPTADA',
+                        'new_status' => 'EN_PROCESO',
+                    ],
+                ]);
+            });
+
+            return redirect()->back()->with('success', 'Solicitud marcada como en proceso.');
+        } catch (\Exception $e) {
+            return redirect()
+                ->back()
+                ->with('error', 'Error al iniciar el procesamiento: ' . $e->getMessage());
+        }
     }
-
-    /**
-     * Mostrar formulario para resolver con evidencias
-     */
-    // En ServiceRequestController.php - VERIFICA ESTA LÍNEA EXACTA:
-    /**
-     * Mostrar formulario para resolver con evidencias
-     */
     /**
      * Mostrar formulario para resolver con evidencias
      */
@@ -240,7 +281,8 @@ class ServiceRequestController extends Controller
     {
         // Validar que la solicitud esté en estado EN_PROCESO
         if ($serviceRequest->status !== 'EN_PROCESO') {
-            return redirect()->route('service-requests.show', $serviceRequest)
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
                 ->with('error', 'La solicitud no está en estado para ser resuelta. Estado actual: ' . $serviceRequest->status);
         }
 
@@ -248,118 +290,92 @@ class ServiceRequestController extends Controller
         $serviceRequest->load([
             'sla',
             'evidences' => function ($query) {
-                $query->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])
+                $query
+                    ->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])
                     ->orderBy('step_number')
                     ->orderBy('created_at');
-            }
+            },
         ]);
 
         // Usar el método que ya tienes para contar evidencias válidas
-        $validEvidencesCount = $serviceRequest->hasAnyEvidenceForResolution()
-            ? $serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count()
-            : 0;
+        $validEvidencesCount = $serviceRequest->hasAnyEvidenceForResolution() ? $serviceRequest->evidences->whereIn('evidence_type', ['PASO_A_PASO', 'ARCHIVO'])->count() : 0;
 
         return view('service-requests.resolve-form', compact('serviceRequest', 'validEvidencesCount'));
     }
 
     /**
-     * Resolver solicitud con validación de evidencias - ACTUALIZADO CON TIMELINE
+     * Resolver solicitud - Cambiar a RESUELTA
      */
-    public function resolveWithEvidence(Request $request, ServiceRequest $serviceRequest)
+    public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
+        // Verificar que la solicitud esté en proceso
         if ($serviceRequest->status !== 'EN_PROCESO') {
-            return redirect()->back()
-                ->with('error', 'La solicitud debe estar en estado EN PROCESO.');
+            return redirect()->back()->with('error', 'La solicitud debe estar en estado EN PROCESO para ser resuelta.');
         }
 
-        // Validar que tenga al menos una evidencia paso a paso
-        if (!$serviceRequest->stepByStepEvidences()->exists()) {
-            return redirect()->back()
-                ->with('error', 'Debe agregar al menos una evidencia paso a paso antes de resolver la solicitud.')
-                ->withInput();
-        }
+        \Log::info('Iniciando resolución de solicitud', [
+            'ticket' => $serviceRequest->ticket_number,
+            'user' => auth()->id(),
+            'data' => $request->all(),
+        ]);
 
-        // Validar datos de resolución
         $validated = $request->validate([
-            'resolution_notes' => 'required|string|min:10',
+            'resolution_notes' => 'required|string|min:10|max:1000',
             'actual_resolution_time' => 'required|integer|min:1',
         ]);
 
+        \Log::info('Datos validados', $validated);
+
         try {
             DB::transaction(function () use ($validated, $serviceRequest) {
-                // Actualizar solicitud con timestamp de resolución
+                // Actualizar el estado a RESUELTA
                 $serviceRequest->update([
                     'status' => 'RESUELTA',
                     'resolution_notes' => $validated['resolution_notes'],
                     'actual_resolution_time' => $validated['actual_resolution_time'],
-                    'resolved_at' => now(), // TIMESTAMP PARA TIMELINE
+                    'resolved_at' => now(),
                 ]);
 
-                // Crear evidencia de sistema para la resolución
+                \Log::info('Solicitud actualizada', [
+                    'new_status' => 'RESUELTA',
+                    'resolution_time' => $validated['actual_resolution_time'],
+                ]);
+
+                // Crear evidencia de sistema para el timeline
                 ServiceRequestEvidence::create([
                     'service_request_id' => $serviceRequest->id,
-                    'title' => 'Resolución de Solicitud',
+                    'title' => 'Solicitud Resuelta',
                     'description' => $validated['resolution_notes'],
-                    'evidence_type' => ServiceRequestEvidence::TYPE_SYSTEM,
+                    'evidence_type' => 'SISTEMA',
+                    'created_by' => auth()->id(),
                     'evidence_data' => [
-                        'action' => 'RESOLUTION',
-                        'resolution_time' => $validated['actual_resolution_time'],
+                        'action' => 'RESOLVED',
                         'resolved_by' => auth()->id(),
                         'resolved_at' => now()->toISOString(),
+                        'resolution_time' => $validated['actual_resolution_time'],
+                        'previous_status' => 'EN_PROCESO',
+                        'new_status' => 'RESUELTA',
                     ],
                 ]);
+
+                \Log::info('Evidencia de sistema creada');
             });
 
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('success', 'Solicitud resuelta correctamente con todas las evidencias.');
+            \Log::info('Resolución completada exitosamente');
+
+            return redirect()->back()->with('success', 'Solicitud resuelta correctamente. Esperando confirmación del cliente.');
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Error al resolver la solicitud: ' . $e->getMessage())
-                ->withInput();
-        }
-    }
-
-    /**
-     * Resolver solicitud (método original - mantener compatibilidad) - ACTUALIZADO CON TIMELINE
-     */
-    /**
-     * Resolver solicitud (método original - mantener compatibilidad) - ACTUALIZADO CON TIMELINE
-     */
-    /**
-     * Resolver solicitud
-     */
-    public function resolve(Request $request, ServiceRequest $serviceRequest)
-    {
-        if ($serviceRequest->status !== 'EN_PROCESO') {
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('error', 'La solicitud no puede ser resuelta en su estado actual: ' . $serviceRequest->status);
-        }
-
-        $validated = $request->validate([
-            'resolution_notes' => 'required|string|min:10',
-            'actual_resolution_time' => 'required|integer|min:1',
-        ]);
-
-        try {
-            $serviceRequest->update([
-                'resolution_notes' => $validated['resolution_notes'],
-                'actual_resolution_time' => $validated['actual_resolution_time'],
-                'resolved_at' => now(),
-                'status' => 'RESUELTA' // ← EXACTAMENTE EN MAYÚSCULAS
+            \Log::error('Error al resolver la solicitud: ' . $e->getMessage(), [
+                'exception' => $e,
             ]);
 
-            // Verificar que se actualizó correctamente
-            \Log::info("Solicitud {$serviceRequest->ticket_number} resuelta. Nuevo estado: {$serviceRequest->fresh()->status}");
-
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('success', 'Solicitud resuelta exitosamente.');
-        } catch (\Exception $e) {
-            \Log::error("Error al resolver solicitud: " . $e->getMessage());
-            return redirect()->back()
+            return redirect()
+                ->back()
                 ->with('error', 'Error al resolver la solicitud: ' . $e->getMessage())
                 ->withInput();
         }
     }
+
     /**
      * Cerrar solicitud - ACTUALIZADO CON TIMELINE
      */
@@ -404,8 +420,7 @@ class ServiceRequestController extends Controller
             'closed_at' => now(),
         ]);
 
-        return redirect()->route('service-requests.show', $serviceRequest)
-            ->with('success', 'Solicitud cancelada exitosamente.');
+        return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud cancelada exitosamente.');
     }
 
     /**
@@ -414,39 +429,38 @@ class ServiceRequestController extends Controller
     public function getSlas(SubService $subService)
     {
         try {
-            \Log::info("=== DEPURACIÓN GETSLAS INICIADA ===");
-            \Log::info("SubService ID: " . $subService->id);
-            \Log::info("SubService Name: " . $subService->name);
+            \Log::info('=== DEPURACIÓN GETSLAS INICIADA ===');
+            \Log::info('SubService ID: ' . $subService->id);
+            \Log::info('SubService Name: ' . $subService->name);
 
             // Cargar relaciones paso a paso para depurar
             $subService->load(['service']);
-            \Log::info("Service ID: " . ($subService->service ? $subService->service->id : 'NULL'));
-            \Log::info("Service Name: " . ($subService->service ? $subService->service->name : 'NULL'));
+            \Log::info('Service ID: ' . ($subService->service ? $subService->service->id : 'NULL'));
+            \Log::info('Service Name: ' . ($subService->service ? $subService->service->name : 'NULL'));
 
             if ($subService->service) {
                 $subService->service->load(['family']);
-                \Log::info("Family ID: " . ($subService->service->family ? $subService->service->family->id : 'NULL'));
-                \Log::info("Family Name: " . ($subService->service->family ? $subService->service->family->name : 'NULL'));
+                \Log::info('Family ID: ' . ($subService->service->family ? $subService->service->family->id : 'NULL'));
+                \Log::info('Family Name: ' . ($subService->service->family ? $subService->service->family->name : 'NULL'));
 
                 if ($subService->service->family) {
                     // Verificar SLAs directamente
-                    $slasCount = $subService->service->family->serviceLevelAgreements()
-                        ->where('is_active', true)
-                        ->count();
+                    $slasCount = $subService->service->family->serviceLevelAgreements()->where('is_active', true)->count();
 
-                    \Log::info("SLAs activos encontrados: " . $slasCount);
+                    \Log::info('SLAs activos encontrados: ' . $slasCount);
 
-                    $slas = $subService->service->family->serviceLevelAgreements()
+                    $slas = $subService->service->family
+                        ->serviceLevelAgreements()
                         ->where('is_active', true)
                         ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
 
-                    \Log::info("SLAs devueltos: " . $slas->toJson());
+                    \Log::info('SLAs devueltos: ' . $slas->toJson());
 
                     return response()->json($slas);
                 }
             }
 
-            \Log::warning("No se pudo cargar SLAs - relaciones incompletas");
+            \Log::warning('No se pudo cargar SLAs - relaciones incompletas');
             return response()->json([]);
         } catch (\Exception $e) {
             \Log::error('Error crítico en getSlas: ' . $e->getMessage());
@@ -498,14 +512,7 @@ class ServiceRequestController extends Controller
      */
     public function showTimeline(ServiceRequest $serviceRequest)
     {
-        $serviceRequest->load([
-            'subService.service.family',
-            'sla',
-            'requester',
-            'assignee',
-            'evidences.user',
-            'breachLogs'
-        ]);
+        $serviceRequest->load(['subService.service.family', 'sla', 'requester', 'assignee', 'evidences.user', 'breachLogs']);
 
         $timelineEvents = $serviceRequest->getTimelineEvents();
         $timeInStatus = $serviceRequest->getTimeInEachStatus();
@@ -513,13 +520,63 @@ class ServiceRequestController extends Controller
         $timeStatistics = $serviceRequest->getTimeStatistics();
         $timeSummary = $serviceRequest->getTimeSummaryByEventType();
 
-        return view('service-requests.timeline', compact(
-            'serviceRequest',
-            'timelineEvents',
-            'timeInStatus',
-            'totalResolutionTime',
-            'timeStatistics',
-            'timeSummary'
-        ));
+        return view('service-requests.timeline', compact('serviceRequest', 'timelineEvents', 'timeInStatus', 'totalResolutionTime', 'timeStatistics', 'timeSummary'));
     }
+
+public function quickAssign(Request $request, ServiceRequest $service_request)
+{
+    \Log::info('QuickAssign llamado', [
+        'user_id' => auth()->id(),
+        'service_request_id' => $service_request->id,
+        'assigned_to' => $request->assigned_to,
+        'has_permission' => auth()->user()->can('assign-service-requests')
+    ]);
+
+    // Verificar permisos
+    if (!auth()->user()->can('assign-service-requests')) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No tienes permisos para asignar solicitudes'
+        ], 403);
+    }
+
+    $request->validate([
+        'assigned_to' => 'required|exists:users,id'
+    ]);
+
+    try {
+        // Actualizar la asignación
+        $service_request->update([
+            'assigned_to' => $request->assigned_to
+        ]);
+
+        // Opcional: Registrar en el historial
+        if (class_exists('App\Models\ServiceRequestHistory')) {
+            ServiceRequestHistory::create([
+                'service_request_id' => $service_request->id,
+                'user_id' => auth()->id(),
+                'action' => 'ASIGNACIÓN_RÁPIDA',
+                'description' => 'Solicitud asignada a técnico mediante asignación rápida',
+                'details' => [
+                    'assigned_to' => $request->assigned_to,
+                    'assigned_by' => auth()->id()
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Técnico asignado correctamente',
+            'assigned_to' => $service_request->assignee->name
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error en asignación rápida: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al asignar técnico: ' . $e->getMessage()
+        ], 500);
+    }
+}
 }

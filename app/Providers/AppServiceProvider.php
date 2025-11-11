@@ -4,11 +4,27 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Gate; // ✅ AGREGAR ESTA LÍNEA
 
 class AppServiceProvider extends ServiceProvider
 {
     public function boot()
     {
+        // ========== DEFINICIÓN DE GATES/POLÍTICAS ==========
+
+        // ✅ AGREGAR ESTE GATE PARA ASIGNAR SOLICITUDES
+        Gate::define('assign-service-requests', function ($user) {
+            // ✅ PERMITIR TEMPORALMENTE A TODOS LOS USUARIOS
+            return true;
+
+            // ✅ DESPUÉS PUEDES RESTRINGIR POR:
+            // - ID de usuario específico
+            // return in_array($user->id, [1, 2, 3]);
+
+            // - O por cualquier lógica que necesites
+            // return $user->department === 'soporte';
+        });
+
         // ========== ALIASES PARA COMPATIBILIDAD ==========
 
         // Componentes UI básicos
