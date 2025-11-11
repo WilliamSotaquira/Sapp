@@ -25,8 +25,10 @@
 
 @section('content')
     <div class="space-y-6">
-        <!-- Header Principal -->
-        <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" />
+        <!-- Header Principal con botón de edición -->
+        <div class="flex justify-between items-center flex-wrap gap-4">
+            <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" />
+        </div>
 
         <!-- Tarjetas de Información -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -42,21 +44,21 @@
         <!-- Paneles de Contenido -->
         <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
 
-        <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
-        {{-- @if (!empty($serviceRequest->web_routes) && is_array($serviceRequest->web_routes)) --}}
-        {{-- @endif --}}
+        <!-- Panel de Rutas Web (solo si existen) -->
+        @if ($serviceRequest->hasWebRoutes())
+            <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
+        @endif
 
         <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
 
         <!-- Sistema de Evidencias -->
-        <!-- ✅ CORREGIDO: Pasar la relación de evidencias correctamente -->
         <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
 
         <!-- Historial y Timeline -->
         <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" />
     </div>
 
-    <!-- ✅ AGREGAR: Modal de vista previa para evidencias -->
+    <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection
 

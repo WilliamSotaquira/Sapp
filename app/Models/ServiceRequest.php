@@ -68,6 +68,11 @@ class ServiceRequest extends Model
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
+    public function assignedTechnician()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
     public function breachLogs()
     {
         return $this->hasMany(SlaBreachLog::class);
@@ -213,5 +218,36 @@ class ServiceRequest extends Model
         }
 
         $this->attributes['status'] = $value;
+    }
+
+    // En app/Models/ServiceRequest.php
+    public function hasWebRoutes(): bool
+    {
+        $webRoutes = $this->web_routes;
+
+        // Si es null o vacío
+        if (empty($webRoutes)) {
+            return false;
+        }
+
+        // Si es array y tiene elementos
+        if (is_array($webRoutes) && count($webRoutes) > 0) {
+            return true;
+        }
+
+        // Si es string y no está vacío
+        if (is_string($webRoutes) && !empty(trim($webRoutes))) {
+            return true;
+        }
+
+        // Si es JSON string
+        if (is_string($webRoutes)) {
+            $decoded = json_decode($webRoutes, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && count($decoded) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -523,60 +523,117 @@ class ServiceRequestController extends Controller
         return view('service-requests.timeline', compact('serviceRequest', 'timelineEvents', 'timeInStatus', 'totalResolutionTime', 'timeStatistics', 'timeSummary'));
     }
 
-public function quickAssign(Request $request, ServiceRequest $service_request)
-{
-    \Log::info('QuickAssign llamado', [
-        'user_id' => auth()->id(),
-        'service_request_id' => $service_request->id,
-        'assigned_to' => $request->assigned_to,
-        'has_permission' => auth()->user()->can('assign-service-requests')
-    ]);
-
-    // Verificar permisos
-    if (!auth()->user()->can('assign-service-requests')) {
-        return response()->json([
-            'success' => false,
-            'message' => 'No tienes permisos para asignar solicitudes'
-        ], 403);
-    }
-
-    $request->validate([
-        'assigned_to' => 'required|exists:users,id'
-    ]);
-
-    try {
-        // Actualizar la asignación
-        $service_request->update([
-            'assigned_to' => $request->assigned_to
+    public function quickAssign(Request $request, ServiceRequest $service_request)
+    {
+        \Log::info('QuickAssign llamado', [
+            'user_id' => auth()->id(),
+            'service_request_id' => $service_request->id,
+            'assigned_to' => $request->assigned_to,
+            'has_permission' => auth()->user()->can('assign-service-requests'),
         ]);
 
-        // Opcional: Registrar en el historial
-        if (class_exists('App\Models\ServiceRequestHistory')) {
-            ServiceRequestHistory::create([
-                'service_request_id' => $service_request->id,
-                'user_id' => auth()->id(),
-                'action' => 'ASIGNACIÓN_RÁPIDA',
-                'description' => 'Solicitud asignada a técnico mediante asignación rápida',
-                'details' => [
-                    'assigned_to' => $request->assigned_to,
-                    'assigned_by' => auth()->id()
-                ]
-            ]);
+        // Verificar permisos
+        if (!auth()->user()->can('assign-service-requests')) {
+            return response()->json(
+                [
+                    'success' => false,
+                    'message' => 'No tienes permisos para asignar solicitudes',
+                ],
+                403,
+            );
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Técnico asignado correctamente',
-            'assigned_to' => $service_request->assignee->name
+        $request->validate([
+            'assigned_to' => 'required|exists:users,id',
         ]);
 
-    } catch (\Exception $e) {
-        \Log::error('Error en asignación rápida: ' . $e->getMessage());
+        try {
+            // Actualizar la asignación
+            $service_request->update([
+                'assigned_to' => $request->assigned_to,
+            ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Error al asignar técnico: ' . $e->getMessage()
-        ], 500);
+            // Opcional: Registrar en el historial
+            if (class_exists('App\Models\ServiceRequestHistory')) {
+                ServiceRequestHistory::create([
+                    'service_request_id' => $service_request->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'ASIGNACIÓN_RÁPIDA',
+                    'description' => 'Solicitud asignada a técnico mediante asignación rápida',
+                    'details' => [
+                        'assigned_to' => $request->assigned_to,
+                        'assigned_by' => auth()->id(),
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Técnico asignado correctamente',
+                'assigned_to' => $service_request->assignee->name,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error en asignación rápida: ' . $e->getMessage());
+
+            return response()->json(
+                [
+                    'success' => false,
+                    'message' => 'Error al asignar técnico: ' . $e->getMessage(),
+                ],
+                500,
+            );
+        }
+    }
+
+    /**
+     * Descargar reporte PDF de una solicitud específica
+     */
+public function downloadReport(ServiceRequest $serviceRequest)
+{
+    try {
+        // Cargar relaciones básicas con manejo seguro
+        $serviceRequest->load([
+            'requester',
+            'assignedTechnician',
+            'evidences', // Asegurar que se cargue la relación
+            'sla',
+            'subService'
+        ]);
+
+        // Verificar y asegurar que evidences no sea null
+        if (!$serviceRequest->evidences) {
+            $serviceRequest->setRelation('evidences', collect());
+        }
+
+        $data = [
+            'serviceRequest' => $serviceRequest,
+            'title' => "Reporte de Solicitud #{$serviceRequest->ticket_number}",
+            'generated_at' => now()->format('d/m/Y H:i:s'),
+        ];
+
+        // Generar PDF
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.service-request-pdf', $data);
+
+        // Configurar el PDF
+        $pdf->setPaper('a4', 'portrait');
+        $pdf->setOption('margin-top', 15);
+        $pdf->setOption('margin-bottom', 15);
+        $pdf->setOption('margin-left', 10);
+        $pdf->setOption('margin-right', 10);
+
+        $fileName = "reporte-solicitud-{$serviceRequest->ticket_number}.pdf";
+
+        // Descargar el PDF
+        return $pdf->download($fileName);
+
+    } catch (\Exception $e) {
+        \Log::error('Error generando reporte PDF: ' . $e->getMessage());
+        \Log::error('File: ' . $e->getFile());
+        \Log::error('Line: ' . $e->getLine());
+
+        return redirect()->back()
+            ->with('error', 'Error al generar el reporte: ' . $e->getMessage());
     }
 }
+
 }
