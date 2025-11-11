@@ -8,7 +8,19 @@
             Arrastra y suelta archivos aquí o haz clic para seleccionarlos
         </p>
 
-        <!-- ✅ CORREGIDO: Usar la ruta correcta service-requests.evidences.store -->
+        <!-- Mensajes de éxito/error -->
+        @if(session('success'))
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('error') }}
+            </div>
+        @endif
+
         <form action="{{ route('service-requests.evidences.store', $serviceRequest) }}"
               method="POST"
               enctype="multipart/form-data"
@@ -78,37 +90,48 @@ function handleFileSelection(input) {
 
 // Drag and drop functionality
 const uploadArea = document.querySelector('.border-dashed');
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    uploadArea.addEventListener(eventName, preventDefaults, false);
+if (uploadArea) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        uploadArea.classList.add('border-blue-400', 'bg-blue-50');
+    }
+
+    function unhighlight() {
+        uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
+    }
+
+    uploadArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        document.getElementById('evidenceFiles').files = files;
+        handleFileSelection(document.getElementById('evidenceFiles'));
+    }
+}
+
+// Limpiar formulario después de enviar
+document.getElementById('evidenceUploadForm')?.addEventListener('submit', function() {
+    setTimeout(() => {
+        this.reset();
+        document.getElementById('fileList').classList.add('hidden');
+        document.getElementById('uploadButton').classList.add('hidden');
+    }, 1000);
 });
-
-function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-}
-
-['dragenter', 'dragover'].forEach(eventName => {
-    uploadArea.addEventListener(eventName, highlight, false);
-});
-
-['dragleave', 'drop'].forEach(eventName => {
-    uploadArea.addEventListener(eventName, unhighlight, false);
-});
-
-function highlight() {
-    uploadArea.classList.add('border-blue-400', 'bg-blue-50');
-}
-
-function unhighlight() {
-    uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
-}
-
-uploadArea.addEventListener('drop', handleDrop, false);
-
-function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    document.getElementById('evidenceFiles').files = files;
-    handleFileSelection(document.getElementById('evidenceFiles'));
-}
 </script>

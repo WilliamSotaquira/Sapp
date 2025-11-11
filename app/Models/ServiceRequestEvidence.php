@@ -11,24 +11,10 @@ class ServiceRequestEvidence extends Model
 {
     use HasFactory;
 
-    // ESPECIFICAR EL NOMBRE DE LA TABLA EXPLÍCITAMENTE
+    // ✅ CORREGIDO: Nombre exacto de la tabla
     protected $table = 'service_request_evidences';
 
-    // ✅ CORREGIDO: Solo campos que existen en BD
-    protected $fillable = [
-        'service_request_id',
-        'title',
-        'description',
-        'evidence_type',
-        'step_number',
-        'evidence_data',
-        'user_id', // ✅ Usuario que SUBE la evidencia
-        'file_original_name',
-        'file_path',
-        'file_mime_type',
-        'file_size',
-        // ❌ NO incluir: 'uploaded_by', 'file_name', 'mime_type'
-    ];
+    protected $fillable = ['service_request_id', 'title', 'description', 'evidence_type', 'step_number', 'evidence_data', 'user_id', 'file_original_name', 'file_path', 'file_mime_type', 'file_size'];
 
     protected $casts = [
         'created_at' => 'datetime',
@@ -36,170 +22,7 @@ class ServiceRequestEvidence extends Model
         'evidence_data' => 'array',
     ];
 
-    /**
-     * MÉTODO CORREGIDO: Verificar si la evidencia puede ser eliminada
-     * Usando SOLO user_id (no uploaded_by)
-     */
-    public function canBeDeleted()
-    {
-        // Obtener el usuario autenticado
-        $user = Auth::user();
-
-        if (!$user) {
-            return false;
-        }
-
-        // ✅ CORRECCIÓN: Usar SOLO user_id (usuario que subió la evidencia)
-        $isUploader = $this->user_id === $user->id;
-
-        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
-        $allowedStatuses = [
-            ServiceRequest::STATUS_PENDING,
-            ServiceRequest::STATUS_ACCEPTED,
-            ServiceRequest::STATUS_IN_PROGRESS,
-            // Si necesitas estado PAUSADA, agregar la constante en ServiceRequest
-        ];
-
-        // Verificar si está asignado a la solicitud de servicio
-        $isAssigned = $this->serviceRequest && $this->serviceRequest->assigned_to === $user->id;
-
-        // Verificar si es el que creó la solicitud
-        $isRequester = $this->serviceRequest && $this->serviceRequest->requested_by === $user->id;
-
-        // Verificar roles de manera simple (sin hasRole())
-        $isAdmin = $this->isAdminUser($user);
-
-        // Verificar si la solicitud está en un estado que permite eliminar evidencias
-        $isEditableStatus = $this->serviceRequest && in_array($this->serviceRequest->status, $allowedStatuses);
-
-        return ($isUploader || $isAssigned || $isRequester || $isAdmin) && $isEditableStatus;
-    }
-
-    /**
-     * Método alternativo para verificar si es admin
-     * Sin depender de hasRole()
-     */
-    private function isAdminUser($user)
-    {
-        // Opción 1: Verificar por email (si tienes emails de admin)
-        $adminEmails = ['admin@example.com', 'superadmin@example.com'];
-        if (in_array($user->email, $adminEmails)) {
-            return true;
-        }
-
-        // Opción 2: Verificar por un campo específico en la tabla users
-        // Si tienes un campo 'role' o 'is_admin' en la tabla users
-        if (isset($user->role) && $user->role === 'admin') {
-            return true;
-        }
-
-        if (isset($user->is_admin) && $user->is_admin) {
-            return true;
-        }
-
-        // Opción 3: Verificar por ID específico (para desarrollo)
-        $adminIds = [1]; // ID del usuario administrador principal
-        if (in_array($user->id, $adminIds)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Versión simplificada de canBeDeleted - CORREGIDA
-     */
-    public function canBeDeletedSimple()
-    {
-        $user = Auth::user();
-
-        if (!$user || !$this->serviceRequest) {
-            return false;
-        }
-
-        // ✅ CORRECCIÓN: Solo user_id (quien subió la evidencia)
-        $isUploader = $this->user_id === $user->id;
-
-        // ✅ CORRECCIÓN: Usar constantes de ServiceRequest
-        $isNotFinalized = !in_array($this->serviceRequest->status, [
-            ServiceRequest::STATUS_RESOLVED,
-            ServiceRequest::STATUS_CLOSED,
-            ServiceRequest::STATUS_CANCELLED
-        ]);
-
-        return $isUploader && $isNotFinalized;
-    }
-
-    /**
-     * MÉTODO FALTANTE: Obtener tamaño formateado del archivo
-     */
-    public function getFormattedFileSize()
-    {
-        // Si ya tenemos un file_size formateado en la BD, usarlo
-        if (!empty($this->file_size) && is_string($this->file_size)) {
-            return $this->file_size;
-        }
-
-        // Si file_size es numérico (bytes), formatearlo
-        if (!empty($this->file_size) && is_numeric($this->file_size)) {
-            $bytes = (int) $this->file_size;
-            return $this->formatBytes($bytes);
-        }
-
-        // Si no hay file_size, intentar obtenerlo del archivo físico
-        try {
-            if ($this->hasFile()) {
-                $size = Storage::size($this->file_path);
-                return $this->formatBytes($size);
-            }
-        } catch (\Exception $e) {
-            // Log error si es necesario
-        }
-
-        return 'N/A';
-    }
-
-    /**
-     * Formatear bytes a formato legible
-     */
-    private function formatBytes($bytes, $precision = 2)
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-
-        $bytes /= pow(1024, $pow);
-
-        return round($bytes, $precision) . ' ' . $units[$pow];
-    }
-
-    /**
-     * Accessor para file_size formateado
-     */
-    public function getFormattedFileSizeAttribute()
-    {
-        return $this->getFormattedFileSize();
-    }
-
-    /**
-     * Accessor para compatibilidad - usar file_original_name como file_name
-     */
-    public function getFileNameAttribute($value)
-    {
-        // Si alguien accede a file_name, devolver file_original_name
-        return $this->file_original_name;
-    }
-
-    /**
-     * Accessor para compatibilidad - usar file_mime_type como mime_type
-     */
-    public function getMimeTypeAttribute($value)
-    {
-        // Si alguien accede a mime_type, devolver file_mime_type
-        return $this->file_mime_type;
-    }
+    protected $appends = ['file_url', 'is_image', 'file_icon', 'formatted_file_size', 'has_file', 'file_type'];
 
     /**
      * Relación con ServiceRequest
@@ -210,222 +33,141 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
-     * ✅ RELACIÓN CORREGIDA - Usuario que SUBIÓ la evidencia
-     * Usando user_id (campo que existe en BD)
+     * Relación con el usuario que subió la evidencia
      */
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-
     /**
-     * ❌ ELIMINAR relación uploadedBy() - campo uploaded_by no existe en BD
-     */
-    // public function uploadedBy()
-    // {
-    //     return $this->belongsTo(User::class, 'uploaded_by');
-    // }
-
-    /**
-     * Obtener URL del archivo - VERSIÓN MEJORADA
-     */
-    public function getFileUrl()
-    {
-        if (!$this->file_path) {
-            \Log::warning("Evidence {$this->id}: file_path está vacío");
-            return null;
-        }
-
-        // Si el file_path ya es una URL completa, retornarla
-        if (filter_var($this->file_path, FILTER_VALIDATE_URL)) {
-            return $this->file_path;
-        }
-
-        // PRIMERO: Intentar con asset() directamente (más confiable)
-        try {
-            // Para archivos en storage público
-            $publicUrl = asset('storage/' . $this->file_path);
-
-            // Verificar si la URL es accesible (opcional, puede ser lento)
-            // return $publicUrl;
-
-            // Mejor: confiar en que asset() genera la URL correcta
-            \Log::info("Evidence {$this->id}: URL generada con asset() - {$publicUrl}");
-            return $publicUrl;
-        } catch (\Exception $e) {
-            \Log::error("Evidence {$this->id}: Error con asset() - " . $e->getMessage());
-        }
-
-        // SEGUNDO: Intentar con Storage::url como fallback
-        try {
-            $storageUrl = Storage::url($this->file_path);
-            \Log::info("Evidence {$this->id}: URL generada con Storage::url - {$storageUrl}");
-            return $storageUrl;
-        } catch (\Exception $e) {
-            \Log::error("Evidence {$this->id}: Error con Storage::url - " . $e->getMessage());
-        }
-
-        \Log::warning("Evidence {$this->id}: No se pudo generar URL para '{$this->file_path}'");
-        return null;
-    }
-
-    /**
-     * Accessor para file_url (compatibilidad)
+     * Accessor para file_url - VERSIÓN MEJORADA SIN WARNINGS
      */
     public function getFileUrlAttribute()
     {
-        return $this->getFileUrl();
-    }
-    /**
-     * Verificar si tiene archivo - VERSIÓN MEJORADA
-     */
-    public function hasFile()
-    {
-        if (!$this->file_path) {
-            return false;
+        if (empty($this->file_path)) {
+            return null;
         }
-
         try {
-            // Verificar si el archivo existe en storage
-            if (Storage::exists($this->file_path)) {
-                return true;
-            }
-
-            // Verificar rutas alternativas comunes
-            $possiblePaths = [
-                $this->file_path,
-                'public/' . $this->file_path,
-                'evidences/' . $this->file_path,
-                'public/evidences/' . $this->file_path,
-            ];
-
-            foreach ($possiblePaths as $path) {
-                if (Storage::exists($path)) {
-                    return true;
-                }
-            }
-
-            return false;
+            return Storage::disk('public')->url($this->file_path);
         } catch (\Exception $e) {
-            \Log::error("Error en hasFile() para evidence {$this->id}: " . $e->getMessage());
-            return false;
+            return null;
         }
     }
 
     /**
-     * Obtener ruta completa del archivo
-     */
-    public function getFilePath()
-    {
-        if ($this->hasFile()) {
-            return Storage::path($this->file_path);
-        }
-        return null;
-    }
-
-    /**
-     * Obtener extensión del archivo
-     */
-    public function getFileExtension()
-    {
-        $fileName = $this->file_original_name;
-        if ($fileName) {
-            return pathinfo($fileName, PATHINFO_EXTENSION);
-        }
-        return null;
-    }
-
-    /**
-     * Verificar si es imagen
-     */
-    public function isImage()
-    {
-        $mime = $this->file_mime_type ?: $this->mime_type;
-        return $mime && str_starts_with($mime, 'image/');
-    }
-
-    /**
-     * Verificar si es PDF
-     */
-    public function isPdf()
-    {
-        $mime = $this->file_mime_type ?: $this->mime_type;
-        return $mime === 'application/pdf';
-    }
-
-    /**
-     * Verificar si es documento
-     */
-    public function isDocument()
-    {
-        $mime = $this->file_mime_type ?: $this->mime_type;
-        $documentMimes = [
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        ];
-
-        return in_array($mime, $documentMimes);
-    }
-    /**
-     * Scope para evidencias de tipo imagen
-     */
-    public function scopeImages($query)
-    {
-        return $query->where(function ($q) {
-            $q->where('mime_type', 'like', 'image/%')
-                ->orWhere('file_mime_type', 'like', 'image/%');
-        });
-    }
-
-    /**
-     * Obtener la URL de la evidencia (para compatibilidad)
-     */
-    public function getUrlAttribute()
-    {
-        return $this->getFileUrl();
-    }
-
-    /**
-     * Verificar si la evidencia es una imagen (para compatibilidad)
+     * Accessor para verificar si es imagen
      */
     public function getIsImageAttribute()
     {
-        return $this->isImage();
-    }
-
-    /**
-     * Obtener el tipo de archivo amigable
-     */
-    public function getFileTypeAttribute()
-    {
-        if ($this->isImage()) {
-            return 'Imagen';
-        } elseif ($this->isPdf()) {
-            return 'PDF';
-        } elseif ($this->isDocument()) {
-            return 'Documento';
-        } else {
-            return 'Archivo';
+        if (!$this->file_mime_type) {
+            return false;
         }
+
+        $imageMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        return in_array($this->file_mime_type, $imageMimes);
     }
 
     /**
-     * Obtener icono según tipo de archivo
+     * Accessor para el icono del archivo
      */
     public function getFileIconAttribute()
     {
-        if ($this->isImage()) {
-            return 'fa-image';
-        } elseif ($this->isPdf()) {
-            return 'fa-file-pdf';
-        } elseif ($this->isDocument()) {
-            return 'fa-file-word';
-        } else {
-            return 'fa-file';
+        if ($this->is_image) {
+            return 'fa-file-image';
         }
+
+        $mimeIcons = [
+            'application/pdf' => 'fa-file-pdf',
+            'application/msword' => 'fa-file-word',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'fa-file-word',
+            'application/vnd.ms-excel' => 'fa-file-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'fa-file-excel',
+            'application/zip' => 'fa-file-archive',
+            'application/x-rar-compressed' => 'fa-file-archive',
+            'text/plain' => 'fa-file-alt',
+        ];
+
+        return $mimeIcons[$this->file_mime_type] ?? 'fa-file';
+    }
+
+    /**
+     * Accessor para tamaño formateado del archivo
+     */
+    public function getFormattedFileSizeAttribute()
+    {
+        if (!$this->file_size) {
+            return 'N/A';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $size = $this->file_size;
+        $unit = 0;
+
+        while ($size >= 1024 && $unit < count($units) - 1) {
+            $size /= 1024;
+            $unit++;
+        }
+
+        return round($size, 2) . ' ' . $units[$unit];
+    }
+
+    /**
+     * Accessor para verificar si tiene archivo - VERSIÓN MEJORADA
+     */
+    public function getHasFileAttribute()
+    {
+        if (empty($this->file_path)) {
+            return false;
+        }
+        try {
+            return Storage::disk('public')->exists($this->file_path);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Accessor para tipo de archivo amigable
+     */
+    public function getFileTypeAttribute()
+    {
+        if ($this->is_image) {
+            return 'Imagen';
+        }
+
+        $mimeTypes = [
+            'application/pdf' => 'PDF',
+            'application/msword' => 'Documento Word',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'Documento Word',
+            'application/vnd.ms-excel' => 'Excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'Excel',
+            'application/zip' => 'Archivo comprimido',
+            'application/x-rar-compressed' => 'Archivo comprimido',
+            'text/plain' => 'Texto',
+        ];
+
+        return $mimeTypes[$this->file_mime_type] ?? 'Archivo';
+    }
+
+    /**
+     * Verificar si la evidencia puede ser eliminada
+     */
+    public function canBeDeleted()
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // Usuario que subió la evidencia
+        $isUploader = $this->user_id === $user->id;
+
+        // Estados que permiten eliminar evidencias
+        $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+
+        $isEditableStatus = $this->serviceRequest && in_array($this->serviceRequest->status, $allowedStatuses);
+
+        return $isUploader && $isEditableStatus;
     }
 }

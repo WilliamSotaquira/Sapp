@@ -588,52 +588,138 @@ class ServiceRequestController extends Controller
     /**
      * Descargar reporte PDF de una solicitud específica
      */
-public function downloadReport(ServiceRequest $serviceRequest)
-{
-    try {
-        // Cargar relaciones básicas con manejo seguro
-        $serviceRequest->load([
-            'requester',
-            'assignedTechnician',
-            'evidences', // Asegurar que se cargue la relación
-            'sla',
-            'subService'
-        ]);
+    public function downloadReport(ServiceRequest $serviceRequest)
+    {
+        try {
+            // Cargar relaciones básicas con manejo seguro
+            $serviceRequest->load([
+                'requester',
+                'assignedTechnician',
+                'evidences', // Asegurar que se cargue la relación
+                'sla',
+                'subService',
+            ]);
 
-        // Verificar y asegurar que evidences no sea null
-        if (!$serviceRequest->evidences) {
-            $serviceRequest->setRelation('evidences', collect());
+            // Verificar y asegurar que evidences no sea null
+            if (!$serviceRequest->evidences) {
+                $serviceRequest->setRelation('evidences', collect());
+            }
+
+            $data = [
+                'serviceRequest' => $serviceRequest,
+                'title' => "Reporte de Solicitud #{$serviceRequest->ticket_number}",
+                'generated_at' => now()->format('d/m/Y H:i:s'),
+            ];
+
+            // Generar PDF
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.service-request-pdf', $data);
+
+            // Configurar el PDF
+            $pdf->setPaper('a4', 'portrait');
+            $pdf->setOption('margin-top', 15);
+            $pdf->setOption('margin-bottom', 15);
+            $pdf->setOption('margin-left', 10);
+            $pdf->setOption('margin-right', 10);
+
+            $fileName = "reporte-solicitud-{$serviceRequest->ticket_number}.pdf";
+
+            // Descargar el PDF
+            return $pdf->download($fileName);
+        } catch (\Exception $e) {
+            \Log::error('Error generando reporte PDF: ' . $e->getMessage());
+            \Log::error('File: ' . $e->getFile());
+            \Log::error('Line: ' . $e->getLine());
+
+            return redirect()
+                ->back()
+                ->with('error', 'Error al generar el reporte: ' . $e->getMessage());
         }
-
-        $data = [
-            'serviceRequest' => $serviceRequest,
-            'title' => "Reporte de Solicitud #{$serviceRequest->ticket_number}",
-            'generated_at' => now()->format('d/m/Y H:i:s'),
-        ];
-
-        // Generar PDF
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.service-request-pdf', $data);
-
-        // Configurar el PDF
-        $pdf->setPaper('a4', 'portrait');
-        $pdf->setOption('margin-top', 15);
-        $pdf->setOption('margin-bottom', 15);
-        $pdf->setOption('margin-left', 10);
-        $pdf->setOption('margin-right', 10);
-
-        $fileName = "reporte-solicitud-{$serviceRequest->ticket_number}.pdf";
-
-        // Descargar el PDF
-        return $pdf->download($fileName);
-
-    } catch (\Exception $e) {
-        \Log::error('Error generando reporte PDF: ' . $e->getMessage());
-        \Log::error('File: ' . $e->getFile());
-        \Log::error('Line: ' . $e->getLine());
-
-        return redirect()->back()
-            ->with('error', 'Error al generar el reporte: ' . $e->getMessage());
     }
-}
 
+    /**
+     * Almacenar nueva evidencia
+     */
+    // En ServiceRequestController.php - verifica que tengas este método
+    public function storeEvidence(Request $request, ServiceRequest $serviceRequest)
+    {
+        try {
+            \Log::info('=== INICIANDO SUBIDA DE EVIDENCIAS ===');
+
+            $request->validate([
+                'files.*' => 'required|file|max:10240',
+            ]);
+
+            $uploadedFiles = [];
+
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    \Log::info('Procesando archivo:', [
+                        'name' => $file->getClientOriginalName(),
+                        'size' => $file->getSize(),
+                    ]);
+
+                    if (!$file->isValid()) {
+                        \Log::error('Archivo no válido: ' . $file->getClientOriginalName());
+                        continue;
+                    }
+
+                    // Crear carpeta específica para esta solicitud
+                    $folderName = 'service-request-' . $serviceRequest->id;
+                    $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+
+                    // Guardar archivo en storage
+                    $filePath = $file->storeAs("evidences/{$folderName}", $fileName, 'public');
+
+                    \Log::info('Archivo guardado en:', ['path' => $filePath]);
+
+                    // Verificar que el archivo existe
+                    if (!Storage::disk('public')->exists($filePath)) {
+                        \Log::error('El archivo no existe en storage: ' . $filePath);
+                        continue;
+                    }
+
+                    // Crear registro en la base de datos
+                    $evidenceData = [
+                        'service_request_id' => $serviceRequest->id,
+                        'title' => $file->getClientOriginalName(),
+                        'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
+                        'evidence_type' => 'ARCHIVO',
+                        'file_path' => $filePath,
+                        'file_original_name' => $file->getClientOriginalName(),
+                        'file_mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'user_id' => auth()->id(),
+                    ];
+
+                    \Log::info('Creando evidencia en BD:', $evidenceData);
+
+                    $evidence = ServiceRequestEvidence::create($evidenceData);
+                    $evidence->load('user');
+
+                    \Log::info('✅ Evidencia creada con ID: ' . $evidence->id);
+                    $uploadedFiles[] = $evidence;
+                }
+
+                \Log::info('=== SUBIDA COMPLETADA ===', [
+                    'total_files' => count($uploadedFiles),
+                    'service_request_id' => $serviceRequest->id,
+                ]);
+
+                if (count($uploadedFiles) > 0) {
+                    return redirect()
+                        ->back()
+                        ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
+                } else {
+                    return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
+                }
+            }
+
+            return redirect()->back()->with('error', 'No se seleccionaron archivos.');
+        } catch (\Exception $e) {
+            \Log::error('Error en storeEvidence: ' . $e->getMessage());
+            return redirect()
+                ->back()
+                ->with('error', 'Error al subir archivos: ' . $e->getMessage());
+        }
+    }
 }

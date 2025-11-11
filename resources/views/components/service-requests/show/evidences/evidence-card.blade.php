@@ -11,12 +11,12 @@
     ]
 ])
 
-<!-- DEBUG TEMPORAL -->
+<!-- DEBUG TEMPORAL - Mantener para troubleshooting -->
 <div class="hidden debug-info">
     <p>Evidence ID: {{ $evidence->id }}</p>
     <p>File Path: {{ $evidence->file_path }}</p>
     <p>File URL: {{ $evidence->file_url }}</p>
-    <p>Has File: {{ $evidence->hasFile() ? 'YES' : 'NO' }}</p>
+    <p>Has File: {{ $evidence->has_file ? 'YES' : 'NO' }}</p>
     <p>Is Image: {{ $evidence->is_image ? 'YES' : 'NO' }}</p>
     <p>MIME Type: {{ $evidence->file_mime_type }}</p>
 </div>
@@ -37,7 +37,7 @@
 
     <!-- Contenido de la evidencia -->
     <div class="p-4">
-        @if($evidence->evidence_type === 'ARCHIVO' && $evidence->file_path)
+        @if($evidence->evidence_type === 'ARCHIVO' && $evidence->has_file)
             @if($evidence->is_image)
                 <!-- Vista previa de imagen -->
                 <div class="evidence-preview cursor-pointer" onclick="openPreview('{{ $evidence->file_url }}', '{{ $evidence->file_original_name }}')">
@@ -45,7 +45,7 @@
                         src="{{ $evidence->file_url }}"
                         alt="{{ $evidence->title }}"
                         class="evidence-image w-full h-32 object-cover rounded-lg"
-                        onerror="console.error('Error loading image:', this.src); this.style.display='none'; this.nextElementSibling.style.display='block';"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                     >
                     <div class="hidden w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
                         <i class="fas fa-file-image text-gray-400 text-2xl"></i>
@@ -62,18 +62,39 @@
                     </div>
                 </div>
             @endif
+
+            <!-- Botones de acción -->
+            <div class="flex justify-center space-x-2 mt-3">
+                <a href="{{ $evidence->file_url }}"
+                   target="_blank"
+                   class="text-blue-600 hover:text-blue-800 text-xs flex items-center">
+                    <i class="fas fa-eye mr-1"></i> Ver
+                </a>
+                <a href="{{ $evidence->file_url }}"
+                   download="{{ $evidence->file_original_name }}"
+                   class="text-green-600 hover:text-green-800 text-xs flex items-center">
+                    <i class="fas fa-download mr-1"></i> Descargar
+                </a>
+            </div>
+
         @elseif($evidence->evidence_type === 'PASO_A_PASO')
             <!-- Información de paso a paso -->
             <div class="space-y-2">
                 <div class="flex justify-between text-xs">
-                    <span class="text-gray-600">Paso #{{ $evidence->step_number }}</span>
-                    @if($evidence->evidence_data['duration'] ?? false)
+                    <span class="text-gray-600">Paso #{{ $evidence->step_number ?? 'N/A' }}</span>
+                    @if(isset($evidence->evidence_data['duration']))
                     <span class="text-gray-500">{{ $evidence->evidence_data['duration'] }} min</span>
                     @endif
                 </div>
-                @if($evidence->evidence_data['observations'] ?? false)
+                @if(isset($evidence->evidence_data['observations']))
                 <p class="text-xs text-gray-700 bg-gray-50 p-2 rounded">{{ $evidence->evidence_data['observations'] }}</p>
                 @endif
+            </div>
+        @else
+            <!-- Sin archivo disponible -->
+            <div class="text-center py-4">
+                <i class="fas fa-file-exclamation text-gray-400 text-2xl mb-2"></i>
+                <p class="text-xs text-gray-500">Archivo no disponible</p>
             </div>
         @endif
     </div>

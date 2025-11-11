@@ -19,8 +19,7 @@ class ServiceRequestEvidenceController extends Controller
     {
         // Verificar que la solicitud está en estado adecuado para agregar evidencias
         if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO'])) {
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('error', 'No se pueden agregar evidencias en el estado actual de la solicitud.');
+            return redirect()->route('service-requests.show', $serviceRequest)->with('error', 'No se pueden agregar evidencias en el estado actual de la solicitud.');
         }
 
         // Obtener el siguiente número de paso
@@ -30,82 +29,80 @@ class ServiceRequestEvidenceController extends Controller
     }
 
     /**
-     * Almacenar nueva evidencia
+     * Almacenar nueva evidencia - VERSIÓN ACTUALIZADA para nuestro formulario
      */
     public function store(Request $request, ServiceRequest $serviceRequest)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'evidence_type' => 'required|in:PASO_A_PASO,ARCHIVO,COMENTARIO',
-            'description' => 'nullable|string',
-            'step_number' => 'nullable|integer|min:1',
-            'file' => 'nullable|file|max:10240',
-            'evidence_data' => 'nullable|array',
-        ]);
+        \Log::info('🎯 === SERVICE REQUEST EVIDENCE CONTROLLER STORE CALLED ===');
+        \Log::info('Service Request ID: ' . $serviceRequest->id);
+        \Log::info('User ID: ' . auth()->id());
+        \Log::info('Request data:', $request->all());
+        \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
 
         try {
-            DB::transaction(function () use ($validated, $serviceRequest, $request) {
-                // SOLO usar columnas que existen en la tabla
-                $evidenceData = [
-                    'service_request_id' => $serviceRequest->id,
-                    'title' => $validated['title'],
-                    'description' => $validated['description'] ?? null,
-                    'evidence_type' => $validated['evidence_type'],
-                    'step_number' => $validated['step_number'] ?? null,
-                    'user_id' => auth()->id(),
-                ];
+            // Nuestro formulario usa 'files[]' no 'file'
+            $request->validate([
+                'files.*' => 'required|file|max:10240',
+            ]);
 
-                // Manejar archivo si se subió
-                if ($request->hasFile('file')) {
-                    $file = $request->file('file');
-                    $fileName = time() . '_' . Str::random(10) . '_' . $file->getClientOriginalName();
-                    $filePath = $file->storeAs("evidences/service-request-{$serviceRequest->id}", $fileName);
+            \Log::info('✅ Validation passed');
 
-                    // SOLO usar columnas que existen en la tabla
-                    $evidenceData = array_merge($evidenceData, [
-                        'file_original_name' => $file->getClientOriginalName(), // ← Esta SÍ existe
-                        'file_path' => $filePath, // ← Esta SÍ existe
-                        'file_mime_type' => $file->getMimeType(), // ← Esta SÍ existe
-                        'file_size' => $file->getSize(), // ← Esta SÍ existe
-                        // NO incluir 'file_name' - esa columna NO existe
-                        // NO incluir 'mime_type' - esa columna NO existe
-                    ]);
+            $uploadedFiles = [];
 
-                    // Guardar metadata en evidence_data
-                    $evidenceData['evidence_data'] = [
-                        'file_extension' => $file->getClientOriginalExtension(),
-                        'uploaded_at' => now()->toISOString(),
-                        'uploaded_by' => auth()->id(),
-                        'technician' => $request->input('evidence_data.technician'),
-                        'duration' => $request->input('evidence_data.duration'),
-                        'observations' => $request->input('evidence_data.observations'),
+            if ($request->hasFile('files')) {
+                \Log::info('Files count: ' . count($request->file('files')));
+
+                foreach ($request->file('files') as $file) {
+                    \Log::info('Processing file: ' . $file->getClientOriginalName());
+
+                    // Crear carpeta específica para esta solicitud
+                    $folderName = 'service-request-' . $serviceRequest->id;
+                    $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+
+                    // Guardar archivo en storage
+                    $filePath = $file->storeAs("evidences/{$folderName}", $fileName, 'public');
+
+                    \Log::info('📁 File stored at: ' . $filePath);
+
+                    // Crear registro en la base de datos
+                    $evidenceData = [
+                        'service_request_id' => $serviceRequest->id,
+                        'title' => $file->getClientOriginalName(),
+                        'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
+                        'evidence_type' => 'ARCHIVO',
+                        'file_path' => $filePath,
+                        'file_original_name' => $file->getClientOriginalName(),
+                        'file_mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'user_id' => auth()->id(),
                     ];
-                } else {
-                    // Para evidencias sin archivo
-                    $evidenceData['evidence_data'] = [
-                        'technician' => $request->input('evidence_data.technician'),
-                        'duration' => $request->input('evidence_data.duration'),
-                        'observations' => $request->input('evidence_data.observations'),
-                    ];
+
+                    \Log::info('Creating evidence with data:', $evidenceData);
+
+                    $evidence = ServiceRequestEvidence::create($evidenceData);
+                    $evidence->load('user');
+
+                    \Log::info('💾 Evidence created with ID: ' . $evidence->id);
+                    $uploadedFiles[] = $evidence;
                 }
 
-                $evidence = ServiceRequestEvidence::create($evidenceData);
+                \Log::info('🎉 Upload completed: ' . count($uploadedFiles) . ' files');
+                return redirect()
+                    ->back()
+                    ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
+            }
 
-                \Log::info('Evidencia creada exitosamente', [
-                    'evidence_id' => $evidence->id,
-                    'service_request_id' => $serviceRequest->id
-                ]);
-            });
-
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('success', 'Evidencia agregada exitosamente.');
+            \Log::warning('⚠️ No files to process');
+            return redirect()->back()->with('error', 'No se seleccionaron archivos.');
         } catch (\Exception $e) {
-            \Log::error('Error al crear evidencia: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Error al guardar la evidencia: ' . $e->getMessage())
-                ->withInput();
+            \Log::error('❌ STORE EVIDENCE ERROR: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            return redirect()
+                ->back()
+                ->with('error', 'Error al subir archivos: ' . $e->getMessage());
         }
     }
+
     /**
      * Mostrar evidencia específica
      */
@@ -131,10 +128,7 @@ class ServiceRequestEvidenceController extends Controller
             abort(404, 'Archivo no encontrado.');
         }
 
-        return Storage::disk('public')->download(
-            $evidence->file_path,
-            $evidence->file_original_name
-        );
+        return Storage::disk('public')->download($evidence->file_path, $evidence->file_original_name);
     }
 
     /**
@@ -169,8 +163,7 @@ class ServiceRequestEvidenceController extends Controller
 
         // Solo permitir eliminar en estados específicos
         if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO'])) {
-            return redirect()->back()
-                ->with('error', 'No se pueden eliminar evidencias en el estado actual de la solicitud.');
+            return redirect()->back()->with('error', 'No se pueden eliminar evidencias en el estado actual de la solicitud.');
         }
 
         try {
@@ -183,10 +176,10 @@ class ServiceRequestEvidenceController extends Controller
                 $evidence->delete();
             });
 
-            return redirect()->route('service-requests.show', $serviceRequest)
-                ->with('success', 'Evidencia eliminada correctamente.');
+            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Evidencia eliminada correctamente.');
         } catch (\Exception $e) {
-            return redirect()->back()
+            return redirect()
+                ->back()
                 ->with('error', 'Error al eliminar la evidencia: ' . $e->getMessage());
         }
     }
