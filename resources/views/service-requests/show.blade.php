@@ -42,9 +42,9 @@
         <!-- Paneles de Contenido -->
         <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
 
-        @if (!empty($serviceRequest->web_routes) && is_array($serviceRequest->web_routes))
-            <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
-        @endif
+        <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
+        {{-- @if (!empty($serviceRequest->web_routes) && is_array($serviceRequest->web_routes)) --}}
+        {{-- @endif --}}
 
         <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
 

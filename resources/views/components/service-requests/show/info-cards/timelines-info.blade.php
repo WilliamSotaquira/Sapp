@@ -11,7 +11,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="text-center">
                 <div class="text-2xl font-bold text-gray-900 mb-1">
-                    {{ $serviceRequest->created_at->diffForHumans() }}
+                    {{ $serviceRequest->created_at->locale('es')->diffForHumans() }}
                 </div>
                 <p class="text-sm text-gray-600">Creada</p>
                 <p class="text-xs text-gray-500">{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</p>
@@ -20,7 +20,7 @@
             <div class="text-center">
                 <div class="text-2xl font-bold text-gray-900 mb-1">
                     @if($serviceRequest->updated_at->gt($serviceRequest->created_at))
-                    {{ $serviceRequest->updated_at->diffForHumans() }}
+                    {{ $serviceRequest->updated_at->locale('es')->diffForHumans() }}
                     @else
                     -
                     @endif
@@ -32,7 +32,7 @@
             <div class="text-center">
                 <div class="text-2xl font-bold text-gray-900 mb-1">
                     @if($serviceRequest->resolved_at)
-                    {{ $serviceRequest->resolved_at->diffForHumans() }}
+                    {{ $serviceRequest->resolved_at->locale('es')->diffForHumans() }}
                     @else
                     -
                     @endif
