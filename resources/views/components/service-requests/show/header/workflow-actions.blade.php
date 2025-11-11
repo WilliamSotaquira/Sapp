@@ -80,13 +80,9 @@
         'RESUELTA' => [
             [
                 'action' => 'close',
-                'route' => 'service-requests.close',
-                'color' => 'green',
-                'icon' => 'check-double',
-                'method' => 'POST',
-                'label' => 'Cerrar Solicitud',
-                'confirm' => '¿Confirmas el cierre definitivo de esta solicitud?',
+                'component' => 'service-requests.show.header.close-modal',
                 'condition' => true,
+                'description' => 'Cerrar definitivamente la solicitud',
             ],
             [
                 'action' => 'reopen',

@@ -599,27 +599,89 @@ class ServiceRequestController extends Controller
         }
     }
 
-    /**
-     * Cerrar solicitud
-     */
-    public function close(ServiceRequest $serviceRequest, Request $request)
-    {
-        if ($serviceRequest->status !== 'RESUELTA') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado RESUELTA.');
-        }
+   public function close(Request $request, ServiceRequest $serviceRequest)
+{
+    \Log::info('🔒 Iniciando cierre de solicitud', [
+        'ticket' => $serviceRequest->ticket_number,
+        'user' => auth()->id(),
+        'user_name' => auth()->user()->name
+    ]);
 
-        $validated = $request->validate([
-            'satisfaction_score' => 'required|integer|min:1|max:5',
+    // Validar estado
+    if ($serviceRequest->status !== 'RESUELTA') {
+        \Log::warning('Intento de cierre con estado incorrecto', [
+            'current_status' => $serviceRequest->status,
+            'required_status' => 'RESUELTA'
         ]);
-
-        $serviceRequest->update([
-            'status' => 'CERRADA',
-            'closed_at' => now(),
-            'satisfaction_score' => $validated['satisfaction_score'],
-        ]);
-
-        return redirect()->back()->with('success', 'Solicitud cerrada exitosamente.');
+        return redirect()->back()->with('error', 'Solo las solicitudes RESUELTAS pueden ser cerradas.');
     }
+
+    // Validar que tenga evidencias de tipo ARCHIVO
+    $fileEvidencesCount = $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->count();
+    if ($fileEvidencesCount === 0) {
+        \Log::warning('Intento de cierre sin archivos adjuntos', [
+            'ticket' => $serviceRequest->ticket_number,
+            'file_evidences_count' => $fileEvidencesCount,
+            'total_evidences' => $serviceRequest->evidences()->count()
+        ]);
+        return redirect()->back()->with('error', 'No se puede cerrar la solicitud. Debe tener al menos un archivo adjunto como evidencia.');
+    }
+
+    try {
+        DB::transaction(function () use ($serviceRequest, $fileEvidencesCount) {
+            // Cerrar solicitud
+            ServiceRequest::withoutEvents(function () use ($serviceRequest) {
+                $serviceRequest->update([
+                    'status' => 'CERRADA',
+                    'closed_at' => now(),
+                ]);
+            });
+
+            \Log::info('Solicitud cerrada en base de datos', [
+                'file_evidences_count' => $fileEvidencesCount
+            ]);
+
+            // Registrar evidencia del cierre
+            ServiceRequestEvidence::create([
+                'service_request_id' => $serviceRequest->id,
+                'title' => 'Solicitud Cerrada Definitivamente',
+                'description' => "La solicitud ha sido cerrada con {$fileEvidencesCount} " . ($fileEvidencesCount === 1 ? 'archivo' : 'archivos') . " adjuntos.",
+                'evidence_type' => 'SISTEMA',
+                'created_by' => auth()->id(),
+                'evidence_data' => [
+                    'action' => 'CLOSED',
+                    'closed_by' => auth()->id(),
+                    'closed_by_name' => auth()->user()->name,
+                    'closed_at' => now()->toISOString(),
+                    'previous_status' => 'RESUELTA',
+                    'new_status' => 'CERRADA',
+                    'ticket_number' => $serviceRequest->ticket_number,
+                    'file_evidences_count' => $fileEvidencesCount,
+                    'files_verified' => true,
+                ],
+            ]);
+
+            \Log::info('Evidencia de cierre creada');
+        });
+
+        \Log::info('✅ Cierre completado exitosamente', [
+            'file_evidences_count' => $fileEvidencesCount
+        ]);
+
+        $evidenceText = $fileEvidencesCount === 1 ? 'archivo' : 'archivos';
+        return redirect()->route('service-requests.show', $serviceRequest)
+            ->with('success', "🎉 Solicitud cerrada definitivamente. Se verificaron {$fileEvidencesCount} {$evidenceText} adjuntos.");
+
+    } catch (\Exception $e) {
+        \Log::error('❌ Error en cierre de solicitud: ' . $e->getMessage(), [
+            'exception' => $e,
+            'ticket' => $serviceRequest->ticket_number,
+            'file_evidences_count' => $fileEvidencesCount
+        ]);
+
+        return redirect()->back()->with('error', 'Error al cerrar la solicitud: ' . $e->getMessage());
+    }
+}
 
     /**
      * Reabrir solicitud
