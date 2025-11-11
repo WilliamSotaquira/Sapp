@@ -1,7 +1,7 @@
 @props(['serviceRequest', 'showLabels' => true, 'compact' => false, 'disabled' => false])
 
 @php
-    // Configuración centralizada de acciones por estado - ACTUALIZADA con modal para pausa
+    // Configuración centralizada de acciones por estado - ACTUALIZADA con pausa desde múltiples estados
     $workflowConfig = [
         'PENDIENTE' => [
             [
@@ -39,6 +39,11 @@
                 'disabledTooltip' => 'Se requiere técnico asignado para iniciar el proceso',
             ],
             [
+                'action' => 'pause',
+                'component' => 'service-requests.show.header.pause-modal',
+                'condition' => true,
+            ],
+            [
                 'action' => 'reassign',
                 'route' => 'service-requests.reassign',
                 'color' => 'blue',
@@ -51,7 +56,7 @@
         'EN_PROCESO' => [
             [
                 'action' => 'resolve',
-                'component' => 'service-requests.show.header.resolve-form',
+                'component' => 'service-requests.show.header.resolve-modal', // Cambiar a modal
                 'condition' => true,
             ],
             [
@@ -114,13 +119,8 @@
                     <x-dynamic-component :component="$actionItem['component']" :serviceRequest="$serviceRequest" />
                 @else
                     {{-- Botón de acción estándar --}}
-                    <x-service-requests.show.header.action-button
-                        :route="route($actionItem['route'], $serviceRequest)"
-                        :color="$actionItem['color'] ?? 'blue'"
-                        :icon="$actionItem['icon'] ?? 'cog'"
-                        :method="$actionItem['method'] ?? 'POST'"
-                        :confirm="$actionItem['confirm'] ?? null"
-                        :class="$buttonClass">
+                    <x-service-requests.show.header.action-button :route="route($actionItem['route'], $serviceRequest)" :color="$actionItem['color'] ?? 'blue'" :icon="$actionItem['icon'] ?? 'cog'"
+                        :method="$actionItem['method'] ?? 'POST'" :confirm="$actionItem['confirm'] ?? null" :class="$buttonClass">
                         @if ($showLabels)
                             {{ $actionItem['label'] }}
                         @else

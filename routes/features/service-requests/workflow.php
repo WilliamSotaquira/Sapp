@@ -10,22 +10,22 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('service-requests')
     ->name('service-requests.')
     ->group(function () {
-        // ✅ CORREGIDO: Cambiar de POST a PATCH
+        // Aceptar solicitud
         Route::patch('/{service_request}/accept', [ServiceRequestController::class, 'accept'])->name('accept');
 
         // Rechazar solicitud
         Route::post('/{service_request}/reject', [ServiceRequestController::class, 'reject'])->name('reject');
 
-        // ✅ CORREGIDO: Cambiar de POST a PATCH
+        // Iniciar trabajo
         Route::patch('/{service_request}/start', [ServiceRequestController::class, 'start'])->name('start');
+
+        // ✅ CORREGIDO: Ruta para resolver solicitud
+        Route::patch('/{service_request}/resolve', [ServiceRequestController::class, 'resolve'])->name('resolve');
 
         // Mostrar formulario de resolución
         Route::get('/{service_request}/resolve-form', [ServiceRequestController::class, 'showResolveForm'])->name('resolve-form');
 
-        // ✅ MANTENER solo esta ruta para resolver
-        Route::patch('/{service_request}/resolve', [ServiceRequestController::class, 'resolve'])->name('resolve');
-
-        //Reasignar solicitud
+        // Reasignar solicitud (solo una versión)
         Route::get('/{service_request}/reassign', [ServiceRequestController::class, 'reassign'])->name('reassign');
 
         // Enviar reasignación
@@ -49,12 +49,6 @@ Route::prefix('service-requests')
         // Línea de tiempo
         Route::get('/{service_request}/timeline', [ServiceRequestController::class, 'showTimeline'])->name('timeline');
 
-        // En tu archivo workflow.php, agregar si necesitas:
-
-        // ✅ TEMPORAL: Sin middleware de permisos
+        // Asignación rápida
         Route::post('/{service_request}/quick-assign', [ServiceRequestController::class, 'quickAssign'])->name('quick-assign');
-        // ->middleware('can:assign-service-requests'); // COMENTADO TEMPORALMENTE
-
-        // Mostrar formulario de reasignación
-        Route::get('/service-requests/{service_request}/reassign', [ServiceRequestController::class, 'reassign'])->name('service-requests.reassign');
     });

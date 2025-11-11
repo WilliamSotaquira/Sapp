@@ -24,6 +24,7 @@
 @endsection
 
 @section('content')
+
     <div class="space-y-6">
         <!-- Header Principal con botón de edición -->
         <div class="flex justify-between items-center flex-wrap gap-4">
