@@ -55,7 +55,7 @@
         <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
 
         <!-- Historial y Timeline -->
-        <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" />
+        {{-- <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" /> --}}
     </div>
 
     <!-- Modal de vista previa para evidencias -->
