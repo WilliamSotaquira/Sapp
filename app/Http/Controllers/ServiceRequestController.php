@@ -108,7 +108,10 @@ class ServiceRequestController extends Controller
     {
         $serviceRequest->load(['subService.service.family', 'sla', 'requester', 'assignee', 'breachLogs', 'evidences.user']);
 
-        return view('service-requests.show', compact('serviceRequest'));
+        // Obtener todos los usuarios como técnicos potenciales
+        $technicians = User::orderBy('name')->get();
+
+        return view('service-requests.show', compact('serviceRequest', 'technicians'));
     }
 
     /**
@@ -286,30 +289,49 @@ class ServiceRequestController extends Controller
         }
     }
 
-    /**
-     * Iniciar procesamiento de solicitud
-     */
     public function start(ServiceRequest $serviceRequest)
     {
+        \Log::info('🎯 === START METHOD CALLED ===');
+        \Log::info('📦 Request ALL data: ' . json_encode(request()->all()));
+        \Log::info('👤 User ID: ' . auth()->id());
+        \Log::info('🔍 ServiceRequest ID: ' . $serviceRequest->id);
+        \Log::info('🎫 Ticket: ' . $serviceRequest->ticket_number);
+        \Log::info('📊 Status: ' . $serviceRequest->status);
+        \Log::info('👥 Assigned_to: ' . $serviceRequest->assigned_to);
+        \Log::info('🌐 URL: ' . request()->fullUrl());
+        \Log::info('📝 Method: ' . request()->method());
+
+        // Validaciones
         if ($serviceRequest->status !== 'ACEPTADA') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado ACEPTADA para iniciar el procesamiento.');
+            \Log::warning('❌ Validation failed: Status not ACEPTADA');
+            return back()->with('error', 'La solicitud debe estar ACEPTADA para iniciar.');
         }
 
         if (!$serviceRequest->assigned_to) {
-            return redirect()->back()->with('error', 'No se puede iniciar el procesamiento sin un técnico asignado. Por favor, asigna un técnico primero.');
+            \Log::warning('❌ Validation failed: No assigned technician');
+            return back()->with('error', 'Asigna un técnico antes de iniciar.');
         }
 
+        \Log::info('✅ All validations passed - Proceeding with start process...');
+
+        // Procesamiento
         try {
             DB::transaction(function () use ($serviceRequest) {
+                \Log::info('🔄 Starting database transaction');
+
+                $previousStatus = $serviceRequest->status;
+
                 $serviceRequest->update([
                     'status' => 'EN_PROCESO',
                     'started_at' => now(),
                 ]);
 
+                \Log::info('✅ ServiceRequest updated to EN_PROCESO');
+
                 ServiceRequestEvidence::create([
                     'service_request_id' => $serviceRequest->id,
                     'title' => 'Procesamiento Iniciado',
-                    'description' => 'El trabajo en la solicitud ha comenzado - Técnico: ' . ($serviceRequest->assignee->name ?? 'N/A'),
+                    'description' => "Inicio de trabajo - Técnico: {$serviceRequest->assignee->name}",
                     'evidence_type' => 'SISTEMA',
                     'created_by' => auth()->id(),
                     'evidence_data' => [
@@ -317,17 +339,20 @@ class ServiceRequestController extends Controller
                         'started_by' => auth()->id(),
                         'started_at' => now()->toISOString(),
                         'assigned_technician' => $serviceRequest->assigned_to,
-                        'previous_status' => 'ACEPTADA',
+                        'previous_status' => $previousStatus,
                         'new_status' => 'EN_PROCESO',
                     ],
                 ]);
+
+                \Log::info('✅ Evidence created successfully');
             });
 
-            return redirect()->back()->with('success', 'Solicitud marcada como en proceso.');
+            \Log::info('🎉 Process completed successfully for ticket: ' . $serviceRequest->ticket_number);
+            return back()->with('success', 'Solicitud marcada como en proceso.');
         } catch (\Exception $e) {
-            return redirect()
-                ->back()
-                ->with('error', 'Error al iniciar el procesamiento: ' . $e->getMessage());
+            \Log::error("💥 Start processing failed: {$e->getMessage()}");
+            \Log::error("📋 Stack trace: {$e->getTraceAsString()}");
+            return back()->with('error', 'Error al iniciar el procesamiento.');
         }
     }
 
@@ -369,10 +394,6 @@ class ServiceRequestController extends Controller
      */
     public function reassign(ServiceRequest $service_request)
     {
-        if (!auth()->user()->can('assign-service-requests')) {
-            return redirect()->route('service-requests.show', $service_request)->with('error', 'No tienes permisos para reasignar solicitudes.');
-        }
-
         $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
         if (!in_array($service_request->status, $allowedStatuses)) {
             return redirect()
@@ -380,11 +401,8 @@ class ServiceRequestController extends Controller
                 ->with('error', 'No se puede reasignar una solicitud en estado: ' . $service_request->status);
         }
 
-        $technicians = User::where('is_active', true)
-            ->whereHas('roles', function ($query) {
-                $query->whereIn('name', ['tecnico', 'supervisor', 'admin']);
-            })
-            ->get();
+        // Todos los usuarios son técnicos - excluir solo el actual
+        $technicians = User::where('id', '!=', $service_request->assigned_to)->orderBy('name')->get();
 
         return view('service-requests.reassign', compact('service_request', 'technicians'));
     }
@@ -631,86 +649,108 @@ class ServiceRequestController extends Controller
 
     public function close(Request $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('🔒 Iniciando cierre de solicitud', [
-            'ticket' => $serviceRequest->ticket_number,
-            'user' => auth()->id(),
-            'user_name' => auth()->user()->name,
+        \Log::info('Intento de cierre', [
+            'service_request_id' => $serviceRequest->id,
+            'current_status' => $serviceRequest->status,
+            'user_id' => auth()->id(),
+            'closure_type' => $request->has('closure_type') ? $request->closure_type : 'desconocido',
         ]);
 
-        // Validar estado
-        if ($serviceRequest->status !== 'RESUELTA') {
-            \Log::warning('Intento de cierre con estado incorrecto', [
-                'current_status' => $serviceRequest->status,
-                'required_status' => 'RESUELTA',
-            ]);
-            return redirect()->back()->with('error', 'Solo las solicitudes RESUELTAS pueden ser cerradas.');
+        // Determinar el tipo de cierre basado en el estado actual
+        $isVencimiento = $serviceRequest->status === 'PAUSADA';
+        $isCierreNormal = $serviceRequest->status === 'RESUELTA';
+
+        // Validar estados permitidos
+        if (!$isVencimiento && !$isCierreNormal) {
+            return redirect()->route('service-requests.show', $serviceRequest->id)->with('error', 'Solo se pueden cerrar solicitudes RESUELTAS o PAUSADAS por vencimiento.');
         }
 
-        // Validar que tenga evidencias de tipo ARCHIVO
-        $fileEvidencesCount = $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->count();
-        if ($fileEvidencesCount === 0) {
-            \Log::warning('Intento de cierre sin archivos adjuntos', [
-                'ticket' => $serviceRequest->ticket_number,
-                'file_evidences_count' => $fileEvidencesCount,
-                'total_evidences' => $serviceRequest->evidences()->count(),
+        // Validaciones diferentes según el tipo de cierre
+        if ($isVencimiento) {
+            // Cierre por vencimiento requiere motivo
+            $request->validate([
+                'closure_reason' => 'required|string|min:10',
             ]);
-            return redirect()->back()->with('error', 'No se puede cerrar la solicitud. Debe tener al menos un archivo adjunto como evidencia.');
+        } else {
+            // Cierre normal puede tener descripción opcional
+            $request->validate([
+                'resolution_description' => 'sometimes|string|min:0',
+            ]);
         }
 
         try {
-            DB::transaction(function () use ($serviceRequest, $fileEvidencesCount) {
-                // Cerrar solicitud
-                ServiceRequest::withoutEvents(function () use ($serviceRequest) {
-                    $serviceRequest->update([
-                        'status' => 'CERRADA',
-                        'closed_at' => now(),
-                    ]);
-                });
+            \DB::beginTransaction();
 
-                \Log::info('Solicitud cerrada en base de datos', [
-                    'file_evidences_count' => $fileEvidencesCount,
-                ]);
+            $updateData = [
+                'status' => 'CERRADA',
+                'closed_at' => now(),
+                'updated_at' => now(),
+            ];
 
-                // Registrar evidencia del cierre
-                ServiceRequestEvidence::create([
+            // Construir notas según el tipo de cierre
+            $currentNotes = $serviceRequest->resolution_notes ?? '';
+
+            if ($isVencimiento) {
+                $closureDetails = "\n\n=== CIERRE POR VENCIMIENTO ===\n" . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n" . 'Usuario: ID ' . auth()->id() . "\n" . 'Motivo: ' . $request->closure_reason;
+            } else {
+                $closureDetails = "\n\n=== CIERRE NORMAL ===\n" . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n" . 'Usuario: ID ' . auth()->id();
+
+                if ($request->resolution_description) {
+                    $closureDetails .= "\nDescripción: " . $request->resolution_description;
+                }
+            }
+
+            $updateData['resolution_notes'] = trim($currentNotes . $closureDetails);
+
+            // Actualizar la solicitud
+            \DB::table('service_requests')->where('id', $serviceRequest->id)->update($updateData);
+
+            // Registrar en el historial
+            if (class_exists('App\Models\ServiceRequestHistory')) {
+                $actionType = $isVencimiento ? 'CIERRE_POR_VENCIMIENTO' : 'CIERRE_NORMAL';
+                $description = $isVencimiento ? 'Solicitud cerrada por vencimiento del plazo - ' . $request->closure_reason : 'Solicitud cerrada normalmente' . ($request->resolution_description ? ' - ' . $request->resolution_description : '');
+
+                \App\Models\ServiceRequestHistory::create([
                     'service_request_id' => $serviceRequest->id,
-                    'title' => 'Solicitud Cerrada Definitivamente',
-                    'description' => "La solicitud ha sido cerrada con {$fileEvidencesCount} " . ($fileEvidencesCount === 1 ? 'archivo' : 'archivos') . ' adjuntos.',
-                    'evidence_type' => 'SISTEMA',
-                    'created_by' => auth()->id(),
-                    'evidence_data' => [
-                        'action' => 'CLOSED',
-                        'closed_by' => auth()->id(),
-                        'closed_by_name' => auth()->user()->name,
-                        'closed_at' => now()->toISOString(),
-                        'previous_status' => 'RESUELTA',
-                        'new_status' => 'CERRADA',
-                        'ticket_number' => $serviceRequest->ticket_number,
-                        'file_evidences_count' => $fileEvidencesCount,
-                        'files_verified' => true,
-                    ],
+                    'user_id' => auth()->id(),
+                    'action' => $actionType,
+                    'description' => $description,
+                    'details' => json_encode(
+                        [
+                            'closure_reason' => $request->closure_reason ?? null,
+                            'resolution_description' => $request->resolution_description ?? null,
+                            'previous_status' => $serviceRequest->getOriginal('status'),
+                            'closed_by' => auth()->id(),
+                            'closed_at' => now()->toISOString(),
+                            'closure_type' => $isVencimiento ? 'vencimiento' : 'normal',
+                        ],
+                        JSON_UNESCAPED_UNICODE,
+                    ),
                 ]);
+            }
 
-                \Log::info('Evidencia de cierre creada');
-            });
+            \DB::commit();
+            $serviceRequest->refresh();
 
-            \Log::info('✅ Cierre completado exitosamente', [
-                'file_evidences_count' => $fileEvidencesCount,
+            \Log::info('Solicitud cerrada exitosamente', [
+                'service_request_id' => $serviceRequest->id,
+                'new_status' => $serviceRequest->status,
+                'closure_type' => $isVencimiento ? 'vencimiento' : 'normal',
             ]);
 
-            $evidenceText = $fileEvidencesCount === 1 ? 'archivo' : 'archivos';
-            return redirect()
-                ->route('service-requests.show', $serviceRequest)
-                ->with('success', "🎉 Solicitud cerrada definitivamente. Se verificaron {$fileEvidencesCount} {$evidenceText} adjuntos.");
+            $message = $isVencimiento ? 'Solicitud cerrada correctamente por vencimiento' : 'Solicitud cerrada correctamente';
+
+            return redirect()->route('service-requests.show', $serviceRequest->id)->with('success', $message);
         } catch (\Exception $e) {
-            \Log::error('❌ Error en cierre de solicitud: ' . $e->getMessage(), [
-                'exception' => $e,
-                'ticket' => $serviceRequest->ticket_number,
-                'file_evidences_count' => $fileEvidencesCount,
+            \DB::rollBack();
+
+            \Log::error('Error al cerrar solicitud: ' . $e->getMessage(), [
+                'service_request_id' => $serviceRequest->id,
+                'error' => $e->getMessage(),
             ]);
 
             return redirect()
-                ->back()
+                ->route('service-requests.show', $serviceRequest->id)
                 ->with('error', 'Error al cerrar la solicitud: ' . $e->getMessage());
         }
     }

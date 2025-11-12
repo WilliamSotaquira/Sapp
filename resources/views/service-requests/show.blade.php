@@ -28,7 +28,7 @@
     <div class="space-y-6">
         <!-- Header Principal con botón de edición -->
         <div class="flex justify-between items-center flex-wrap gap-4">
-            <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" />
+            <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
         </div>
 
         <!-- Tarjetas de Información -->

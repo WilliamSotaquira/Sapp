@@ -33,7 +33,7 @@ trait ServiceRequestWorkflow
             self::STATUS_PENDING => [self::STATUS_ACCEPTED, self::STATUS_CANCELLED, self::STATUS_PAUSED],
             self::STATUS_ACCEPTED => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED, self::STATUS_PAUSED],
             self::STATUS_IN_PROGRESS => [self::STATUS_RESOLVED, self::STATUS_CANCELLED, self::STATUS_PAUSED],
-            self::STATUS_PAUSED => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED, self::STATUS_RESOLVED],
+            self::STATUS_PAUSED => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED, self::STATUS_RESOLVED, self::STATUS_CLOSED],
             self::STATUS_RESOLVED => [self::STATUS_CLOSED, self::STATUS_REOPENED],
             self::STATUS_CLOSED => [self::STATUS_REOPENED],
             self::STATUS_CANCELLED => [],

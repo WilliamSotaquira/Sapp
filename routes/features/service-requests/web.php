@@ -16,3 +16,6 @@ Route::get('/service-requests/{service_request}/download-report', [ServiceReques
 
 // Agrega esta ruta para subir evidencias
 Route::post('/service-requests/{service_request}/evidences', [ServiceRequestEvidenceController::class, 'store'])->name('service-requests.evidences.store');
+
+// Ruta para cerrar solicitud por vencimiento
+Route::post('/service-requests/{service_request}/close-vencimiento', [ServiceRequestController::class, 'closeByVencimiento'])->name('service-requests.close-vencimiento');

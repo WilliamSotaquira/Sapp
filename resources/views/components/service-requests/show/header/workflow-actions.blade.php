@@ -1,42 +1,47 @@
-@props(['serviceRequest', 'showLabels' => true, 'compact' => false, 'disabled' => false])
+@props([
+    'serviceRequest',
+    'showLabels' => true,
+    'compact' => false,
+    'disabled' => false,
+    'technicians' => collect(),
+])
 
 @php
-    // Configuración centralizada de acciones por estado - ACTUALIZADA con pausa desde múltiples estados
     $workflowConfig = [
         'PENDIENTE' => [
             [
-                'action' => 'accept',
-                'route' => 'service-requests.accept',
-                'color' => 'emerald',
-                'icon' => 'handshake',
-                'method' => 'PATCH',
-                'label' => 'Aceptar Solicitud',
-                'confirm' => '¿Estás seguro de que deseas aceptar esta solicitud? Serás asignado como responsable.',
+                'action' => $serviceRequest->assigned_to ? 'accept' : 'assign-technician',
+                'route' => $serviceRequest->assigned_to ? 'accept-modal' : 'assign-technician-modal', // Cambiar a modal
+                'color' => $serviceRequest->assigned_to ? 'emerald' : 'blue',
+                'icon' => $serviceRequest->assigned_to ? 'handshake' : 'user-plus',
+                'method' => $serviceRequest->assigned_to ? 'MODAL' : 'MODAL', // Ambos usan modal
+                'label' => $serviceRequest->assigned_to ? 'Aceptar Solicitud' : 'Asignar Técnico Primero',
                 'condition' => true,
+                'modal_id' => $serviceRequest->assigned_to
+                    ? 'accept-modal-' . $serviceRequest->id
+                    : 'assign-technician-modal-' . $serviceRequest->id,
             ],
             [
                 'action' => 'reject',
-                'component' => 'service-requests.show.header.reject-modal', // Cambiar a modal
+                'route' => 'reject-modal', // Cambiar a modal
+                'color' => 'red',
+                'icon' => 'times-circle',
+                'method' => 'MODAL', // Cambiar a MODAL
+                'label' => 'Rechazar Solicitud',
                 'condition' => true,
+                'modal_id' => 'reject-modal-' . $serviceRequest->id, // Agregar modal_id
             ],
         ],
         'ACEPTADA' => [
             [
                 'action' => 'start',
-                'route' => 'service-requests.start',
+                'route' => 'start-modal', // Cambiar a modal
                 'color' => 'cyan',
                 'icon' => 'play',
-                'method' => 'PATCH',
-                'label' => 'Iniciar Proceso',
-                'confirm' => '¿Estás listo para comenzar a trabajar en esta solicitud?',
-                'condition' => $serviceRequest->assigned_to,
-                'disabledMessage' => 'Asigna un técnico antes de iniciar el proceso',
-                'disabledTooltip' => 'Se requiere técnico asignado para iniciar el proceso',
-            ],
-            [
-                'action' => 'pause',
-                'component' => 'service-requests.show.header.pause-modal',
-                'condition' => true,
+                'method' => 'MODAL', // Cambiar a MODAL
+                'label' => 'Iniciar Servicio',
+                'condition' => !empty($serviceRequest->assigned_to) && $serviceRequest->assigned_to > 0,
+                'modal_id' => 'start-modal-' . $serviceRequest->id, // Agregar modal_id
             ],
             [
                 'action' => 'reassign',
@@ -51,42 +56,77 @@
         'EN_PROCESO' => [
             [
                 'action' => 'resolve',
-                'component' => 'service-requests.show.header.resolve-modal', // Cambiar a modal
-                'condition' => true,
+                'route' => 'resolve-modal',
+                'color' => 'green',
+                'icon' => 'check-circle',
+                'method' => 'MODAL',
+                'label' => 'Resolver Solicitud',
+                'condition' => $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() > 0,
+                'modal_id' => 'resolve-modal-' . $serviceRequest->id,
             ],
             [
                 'action' => 'pause',
-                'component' => 'service-requests.show.header.pause-modal',
+                'route' => 'pause-modal',
+                'color' => 'yellow',
+                'icon' => 'pause',
+                'method' => 'MODAL',
+                'label' => 'Pausar Trabajo',
                 'condition' => true,
+                'modal_id' => 'pause-modal-' . $serviceRequest->id,
             ],
         ],
         'PAUSADA' => [
             [
                 'action' => 'resume',
-                'route' => 'service-requests.resume',
+                'route' => 'resume-modal', // Cambiar a modal
                 'color' => 'cyan',
                 'icon' => 'play',
-                'method' => 'POST',
+                'method' => 'MODAL', // Cambiar a MODAL
                 'label' => 'Reanudar Trabajo',
-                'confirm' => '¿Deseas reanudar el trabajo en esta solicitud?',
                 'condition' => true,
+                'modal_id' => 'resume-modal-' . $serviceRequest->id,
+            ],
+            [
+                'action' => 'close-vencimiento',
+                'route' => 'vencimiento-modal',
+                'color' => 'red',
+                'icon' => 'clock',
+                'method' => 'MODAL',
+                'label' => 'Cerrar por Vencimiento',
+                'condition' => true,
+                'modal_id' => 'vencimiento-modal-' . $serviceRequest->id,
             ],
         ],
         'RESUELTA' => [
             [
                 'action' => 'close',
-                'component' => 'service-requests.show.header.close-modal',
+                'route' => 'close-modal', // Cambiar a modal
+                'color' => 'purple',
+                'icon' => 'lock',
+                'method' => 'MODAL', // Cambiar a MODAL
+                'label' => 'Cerrar Solicitud',
                 'condition' => true,
-                'description' => 'Cerrar definitivamente la solicitud',
+                'modal_id' => 'close-modal-' . $serviceRequest->id,
             ],
             [
                 'action' => 'reopen',
-                'route' => 'service-requests.reopen',
+                'route' => 'reopen-modal', // Cambiar a modal
                 'color' => 'orange',
                 'icon' => 'undo',
-                'method' => 'POST',
+                'method' => 'MODAL', // Cambiar a MODAL
                 'label' => 'Reabrir Solicitud',
-                'confirm' => '¿Deseas reabrir esta solicitud para más trabajo?',
+                'condition' => true,
+                'modal_id' => 'reopen-modal-' . $serviceRequest->id,
+            ],
+        ],
+        'CERRADA' => [
+            [
+                'action' => 'download-pdf',
+                'route' => 'service-requests.download-report',
+                'color' => 'blue',
+                'icon' => 'download',
+                'method' => 'GET',
+                'label' => 'Descargar PDF',
                 'condition' => true,
             ],
         ],
@@ -94,63 +134,132 @@
 
     $currentStatus = $serviceRequest->status;
     $actions = $workflowConfig[$currentStatus] ?? [];
-
-    // Clases para modo compacto
-    $containerClass = $compact ? 'flex flex-col gap-1' : 'flex flex-wrap gap-2';
-    $buttonClass = $compact ? 'w-full justify-center' : '';
-
 @endphp
 
 @if (count($actions) > 0 && !$disabled)
-    <div class="{{ $containerClass }}" role="group" aria-label="Acciones de flujo de trabajo">
+    <div class="{{ $compact ? 'flex flex-col gap-2' : 'grid gap-3 md:grid-cols-2' }}">
         @foreach ($actions as $actionItem)
-            @if ($actionItem['condition'] ?? true)
-                @if (isset($actionItem['component']))
-                    {{-- Componente personalizado --}}
-                    <x-dynamic-component :component="$actionItem['component']" :serviceRequest="$serviceRequest" />
-                @else
-                    {{-- Botón de acción estándar --}}
-                    <x-service-requests.show.header.action-button :route="route($actionItem['route'], $serviceRequest)" :color="$actionItem['color'] ?? 'blue'" :icon="$actionItem['icon'] ?? 'cog'"
-                        :method="$actionItem['method'] ?? 'POST'" :confirm="$actionItem['confirm'] ?? null" :class="$buttonClass">
+            @if ($actionItem['condition'])
+                <div class="{{ $compact ? '' : 'bg-white p-4 rounded-lg border border-gray-200 shadow-sm' }}">
+                    {{-- BOTONES QUE ABREN MODALES --}}
+                    @if ($actionItem['method'] === 'MODAL')
+                        <button type="button"
+                            onclick="document.getElementById('{{ $actionItem['modal_id'] }}').classList.remove('hidden')"
+                            class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm py-2' : '' }}">
+                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                            @if ($showLabels)
+                                {{ $actionItem['label'] }}
+                            @endif
+                        </button>
+
+                        {{-- BOTONES CON GET (LINKS) --}}
+                    @elseif($actionItem['method'] === 'GET')
+                        <a href="{{ route($actionItem['route'], $serviceRequest) }}"
+                            class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 no-underline {{ $compact ? 'text-sm py-2' : '' }}">
+                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                            @if ($showLabels)
+                                {{ $actionItem['label'] }}
+                            @endif
+                        </a>
+
+                        {{-- BOTONES CON FORMULARIOS (POST, PATCH) --}}
+                    @else
+                        <form action="{{ route($actionItem['route'], $serviceRequest) }}" method="POST"
+                            class="inline w-full">
+                            @csrf
+                            @if ($actionItem['method'] === 'PATCH')
+                                @method('PATCH')
+                            @endif
+
+                            <button type="submit"
+                                class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm py-2' : '' }}"
+                                onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')">
+                                <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                                @if ($showLabels)
+                                    {{ $actionItem['label'] }}
+                                @endif
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            @else
+                <div class="{{ $compact ? '' : 'bg-gray-50 p-4 rounded-lg border border-gray-200' }}">
+                    <button type="button" disabled
+                        class="inline-flex items-center justify-center w-full px-4 py-3 bg-gray-400 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest cursor-not-allowed {{ $compact ? 'text-sm py-2' : '' }}"
+                        title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}">
+                        <!-- ✅ MODIFICACIÓN 4: Mensaje específico para evidencias -->
+                        <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                         @if ($showLabels)
                             {{ $actionItem['label'] }}
-                        @else
-                            <span class="sr-only">{{ $actionItem['label'] }}</span>
                         @endif
-                    </x-service-requests.show.header.action-button>
-                @endif
-            @else
-                {{-- Botón deshabilitado --}}
-                <button type="button"
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-400 bg-gray-100 cursor-not-allowed {{ $compact ? 'w-full justify-center' : '' }}"
-                    disabled title="{{ $actionItem['disabledTooltip'] ?? 'Acción no disponible' }}"
-                    aria-describedby="disabled-reason-{{ $actionItem['action'] }}">
-                    <i class="fas fa-{{ $actionItem['icon'] ?? 'ban' }} mr-2 text-gray-400" aria-hidden="true"></i>
-                    @if ($showLabels)
-                        {{ $actionItem['label'] }}
-                    @else
-                        <span class="sr-only">{{ $actionItem['label'] }}</span>
-                    @endif
-                </button>
-
-                @if (isset($actionItem['disabledMessage']) && !$compact)
-                    <div id="disabled-reason-{{ $actionItem['action'] }}"
-                        class="w-full text-xs text-red-600 mt-1 flex items-center">
-                        <i class="fas fa-exclamation-circle mr-1" aria-hidden="true"></i>
-                        {{ $actionItem['disabledMessage'] }}
-                    </div>
-                @endif
+                    </button>
+                </div>
             @endif
         @endforeach
     </div>
 @elseif($disabled)
-    <div class="text-sm text-gray-500 italic py-2">
-        <i class="fas fa-lock mr-2" aria-hidden="true"></i>
-        Las acciones no están disponibles en este momento
+    <div class="bg-gray-100 border border-gray-300 rounded-lg p-4 text-center">
+        <p class="text-gray-600">
+            <i class="fas fa-lock mr-2"></i>
+            Las acciones no están disponibles en este momento
+        </p>
     </div>
 @else
-    <div class="text-sm text-gray-500 italic py-2">
-        <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
-        No hay acciones disponibles para este estado
+    <div class="bg-blue-50 border border-blue-300 rounded-lg p-4 text-center">
+        <p class="text-blue-700">
+            <i class="fas fa-check-circle mr-2"></i>
+            No hay acciones disponibles para el estado: <strong>{{ $currentStatus }}</strong>
+        </p>
     </div>
+@endif
+
+@if (!$disabled)
+    @if ($currentStatus === 'PAUSADA')
+        @include('components.service-requests.show.header.vencimiento-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+        @include('components.service-requests.show.header.resume-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    @if ($currentStatus === 'PENDIENTE' && !$serviceRequest->assigned_to)
+        @include('components.service-requests.show.header.assign-technician-modal', [
+            'serviceRequest' => $serviceRequest,
+            'technicians' => $technicians,
+        ])
+    @endif
+    @if ($currentStatus === 'PENDIENTE' && $serviceRequest->assigned_to)
+        @include('components.service-requests.show.header.accept-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    @if ($currentStatus === 'PENDIENTE')
+        @include('components.service-requests.show.header.reject-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    {{-- ✅ AGREGAR START-MODAL --}}
+    @if ($currentStatus === 'ACEPTADA')
+        @include('components.service-requests.show.header.start-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    @if ($currentStatus === 'EN_PROCESO')
+        @include('components.service-requests.show.header.pause-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+        {{-- ✅ AGREGAR RESOLVE-MODAL --}}
+        @include('components.service-requests.show.header.resolve-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    @if ($currentStatus === 'RESUELTA')
+        @include('components.service-requests.show.header.reopen-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+        {{-- ✅ AGREGAR CLOSE-MODAL --}}
+        @include('components.service-requests.show.header.close-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
 @endif

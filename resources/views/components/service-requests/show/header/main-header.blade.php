@@ -1,5 +1,11 @@
 @props(['serviceRequest'])
 
+{{-- SOLUCIÓN DEFINITIVA - Obtener técnicos directamente --}}
+@php
+    use App\Models\User;
+    $technicians = User::orderBy('name')->get();
+@endphp
+
 <!-- Header Principal -->
 <div class="bg-gradient-to-r from-blue-600 to-indigo-700 shadow-xl rounded-2xl overflow-hidden mb-8">
     <div class="px-8 py-6 text-white">
@@ -24,6 +30,7 @@
                 <!-- Componente unificado de acciones -->
                 <x-service-requests.show.header.workflow-actions
                     :serviceRequest="$serviceRequest"
+                    :technicians="$technicians"
                     :showLabels="true"
                     :compact="false"
                 />
