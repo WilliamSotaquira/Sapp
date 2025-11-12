@@ -1,29 +1,41 @@
 {{-- resources/views/components/service-requests/forms/basic-fields.blade.php --}}
 @props([
-'serviceRequest' => null,
-'services' => [], // Lista de servicios para el select
-'subServices' => [], // Lista de subservicios
-'errors' => null,
-'mode' => 'create' // 'create' or 'edit'
+    'serviceRequest' => null,
+    'subServices' => [], // Lista de subservicios
+    'errors' => null,
+    'mode' => 'create', // 'create' or 'edit'
 ])
 
 <div class="space-y-6">
+
+    {{-- En tu formulario, muestra todos los errores --}}
+    @if ($errors->any())
+        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h3 class="text-lg font-medium text-red-800 mb-2">Errores de validación:</h3>
+            <ul class="list-disc list-inside text-red-700">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
+    <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
+    <input type="hidden" name="requested_by" id="requested_by" value="{{ auth()->id() }}">
+    <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
+
     <!-- Campo Título -->
     <div>
         <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
             Título de la Solicitud <span class="text-red-500">*</span>
         </label>
-        <input
-            type="text"
-            name="title"
-            id="title"
-            value="{{ old('title', $serviceRequest->title ?? '') }}"
+        <input type="text" name="title" id="title" value="{{ old('title', $serviceRequest->title ?? '') }}"
             placeholder="Ingrese un título descriptivo para la solicitud"
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('title') border-red-500 @enderror"
-            required
-            maxlength="255">
+            required maxlength="255">
         @error('title')
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
         <p class="mt-1 text-sm text-gray-500">Máximo 255 caracteres</p>
     </div>
@@ -33,116 +45,151 @@
         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
             Descripción Detallada <span class="text-red-500">*</span>
         </label>
-        <textarea
-            name="description"
-            id="description"
-            rows="6"
+        <textarea name="description" id="description" rows="6"
             placeholder="Describa en detalle el problema o requerimiento..."
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('description') border-red-500 @enderror"
             required>{{ old('description', $serviceRequest->description ?? '') }}</textarea>
         @error('description')
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
         <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
     </div>
 
-    <!-- Selección de Servicio y Subservicio -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Servicio -->
-        <div>
-            <label for="service_id" class="block text-sm font-medium text-gray-700 mb-2">
-                Servicio <span class="text-red-500">*</span>
-            </label>
-            <select
-                name="service_id"
-                id="service_id"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('service_id') border-red-500 @enderror"
-                required
-                onchange="updateSubServices(this.value)">
-                <option value="">Seleccione un servicio</option>
-                @foreach($services as $service)
-                <option value="{{ $service->id }}"
-                    {{ old('service_id', $serviceRequest->subService->service_id ?? '') == $service->id ? 'selected' : '' }}>
-                    {{ $service->name }}
-                </option>
-                @endforeach
-            </select>
-            @error('service_id')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-            @enderror
-        </div>
+    <!-- SELECCIÓN DIRECTA: Subservicio AGRUPADO -->
+    <div>
+        <label for="sub_service_id" class="block text-sm font-medium text-gray-700 mb-2">
+            Subservicio <span class="text-red-500">*</span>
+        </label>
+        <select name="sub_service_id" id="sub_service_id"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror"
+            required>
+            <option value="">Seleccione un subservicio</option>
 
-        <!-- Subservicio -->
-        <div>
-            <label for="sub_service_id" class="block text-sm font-medium text-gray-700 mb-2">
-                Subservicio <span class="text-red-500">*</span>
-            </label>
-            <select
-                name="sub_service_id"
-                id="sub_service_id"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror"
-                required
-                {{ empty($subServices) ? 'disabled' : '' }}>
-                <option value="">Seleccione un subservicio</option>
-                @foreach($subServices as $subService)
-                <option value="{{ $subService->id }}"
-                    {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
-                    {{ $subService->name }}
-                </option>
-                @endforeach
-            </select>
-            @error('sub_service_id')
+            {{-- Agrupar subservicios por Familia y Servicio --}}
+            @php
+                // Agrupar los subservicios
+                $groupedSubServices = [];
+                foreach ($subServices as $subService) {
+                    $familyName = $subService->service->family->name ?? 'Sin Familia';
+                    $serviceName = $subService->service->name ?? 'Sin Servicio';
+                    $groupKey = $familyName . '|' . $serviceName;
+
+                    if (!isset($groupedSubServices[$groupKey])) {
+                        $groupedSubServices[$groupKey] = [
+                            'family_name' => $familyName,
+                            'service_name' => $serviceName,
+                            'subservices' => [],
+                        ];
+                    }
+                    $groupedSubServices[$groupKey]['subservices'][] = $subService;
+                }
+            @endphp
+
+            {{-- Generar opciones agrupadas --}}
+            @foreach ($groupedSubServices as $group)
+                <optgroup label="{{ $group['family_name'] }} - {{ $group['service_name'] }}">
+                    @foreach ($group['subservices'] as $subService)
+                        @php
+                            // Obtener el nivel de criticidad de la relación slas
+                            $criticalityLevel = 'MEDIA'; // Valor por defecto
+                            $slaId = '1'; // Valor por defecto
+
+                            if ($subService->relationLoaded('slas') && $subService->slas->isNotEmpty()) {
+                                $sla = $subService->slas->first();
+                                $criticalityLevel = $sla->criticality_level ?? 'MEDIA';
+                                $slaId = $sla->id ?? '1';
+                            }
+                        @endphp
+
+                        <option value="{{ $subService->id }}"
+                            data-service-id="{{ $subService->service_id }}"
+                            data-service-name="{{ $subService->service->name }}"
+                            data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
+                            data-family-id="{{ $subService->service->family->id ?? '' }}"
+                            data-criticality-level="{{ $criticalityLevel }}"
+                            data-sla-id="{{ $slaId }}"
+                            {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
+                            {{ $subService->name }}
+                        </option>
+                    @endforeach
+                </optgroup>
+            @endforeach
+        </select>
+        @error('sub_service_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-            @enderror
+        @enderror
+    </div>
+
+    <!-- Información automática de Familia y Servicio -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Familia</label>
+            <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
+                <span id="family-display" class="text-gray-500">Seleccione un subservicio</span>
+            </div>
+            <input type="hidden" name="family_id" id="family_id" value="{{ old('family_id', '') }}">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Servicio</label>
+            <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
+                <span id="service-display" class="text-gray-500">Seleccione un subservicio</span>
+            </div>
+            <input type="hidden" name="service_id" id="service_id" value="{{ old('service_id', '') }}">
         </div>
     </div>
 
-    <!-- Nivel de Criticidad -->
+    <!-- Nivel de Criticidad - Agregar CRITICA como opción -->
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">
             Nivel de Criticidad <span class="text-red-500">*</span>
         </label>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            @foreach(['BAJA', 'MEDIA', 'ALTA', 'URGENTE'] as $level)
-            <label class="relative flex cursor-pointer">
-                <input
-                    type="radio"
-                    name="criticality_level"
-                    value="{{ $level }}"
-                    {{ old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA') == $level ? 'checked' : '' }}
-                    class="sr-only peer"
-                    required>
-                <div class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md">
-                    <div class="flex flex-col items-center space-y-2">
-                        @switch($level)
-                        @case('BAJA')
-                        <i class="fas fa-arrow-down text-green-500 text-lg"></i>
-                        <span class="font-medium text-gray-700">Baja</span>
-                        <span class="text-xs text-gray-500">Impacto mínimo</span>
-                        @break
-                        @case('MEDIA')
-                        <i class="fas fa-minus text-yellow-500 text-lg"></i>
-                        <span class="font-medium text-gray-700">Media</span>
-                        <span class="text-xs text-gray-500">Impacto moderado</span>
-                        @break
-                        @case('ALTA')
-                        <i class="fas fa-arrow-up text-orange-500 text-lg"></i>
-                        <span class="font-medium text-gray-700">Alta</span>
-                        <span class="text-xs text-gray-500">Impacto significativo</span>
-                        @break
-                        @case('URGENTE')
-                        <i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>
-                        <span class="font-medium text-gray-700">Urgente</span>
-                        <span class="text-xs text-gray-500">Impacto crítico</span>
-                        @break
-                        @endswitch
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="criticality-level-container">
+            @foreach (['BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA'] as $level)
+                <label class="relative flex cursor-pointer criticality-level-option">
+                    <input type="radio" name="criticality_level" value="{{ $level }}"
+                        {{ old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA') == $level ? 'checked' : '' }}
+                        class="sr-only peer" required>
+                    <div
+                        class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md">
+                        <div class="flex flex-col items-center space-y-2">
+                            @switch($level)
+                                @case('BAJA')
+                                    <i class="fas fa-arrow-down text-green-500 text-lg"></i>
+                                    <span class="font-medium text-gray-700">Baja</span>
+                                    <span class="text-xs text-gray-500">Impacto mínimo</span>
+                                @break
+
+                                @case('MEDIA')
+                                    <i class="fas fa-minus text-yellow-500 text-lg"></i>
+                                    <span class="font-medium text-gray-700">Media</span>
+                                    <span class="text-xs text-gray-500">Impacto moderado</span>
+                                @break
+
+                                @case('ALTA')
+                                    <i class="fas fa-arrow-up text-orange-500 text-lg"></i>
+                                    <span class="font-medium text-gray-700">Alta</span>
+                                    <span class="text-xs text-gray-500">Impacto significativo</span>
+                                @break
+
+                                @case('URGENTE')
+                                    <i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>
+                                    <span class="font-medium text-gray-700">Urgente</span>
+                                    <span class="text-xs text-gray-500">Impacto crítico</span>
+                                @break
+
+                                @case('CRITICA')
+                                    <i class="fas fa-skull-crossbones text-red-700 text-lg"></i>
+                                    <span class="font-medium text-gray-700">Crítica</span>
+                                    <span class="text-xs text-gray-500">Impacto extremo</span>
+                                @break
+                            @endswitch
+                        </div>
                     </div>
-                </div>
-            </label>
+                </label>
             @endforeach
         </div>
         @error('criticality_level')
-        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </div>
 
@@ -153,85 +200,144 @@
         </label>
         <div id="web-routes-container">
             @php
-            $existingRoutes = old('web_routes', $serviceRequest->web_routes ?? []);
-            if (is_string($existingRoutes)) {
-            $existingRoutes = json_decode($existingRoutes, true) ?? [];
-            }
+                $existingRoutes = old('web_routes', $serviceRequest->web_routes ?? []);
+                if (is_string($existingRoutes)) {
+                    $existingRoutes = json_decode($existingRoutes, true) ?? [];
+                }
+                // Asegurar que siempre haya al menos un input vacío
+                if (empty($existingRoutes)) {
+                    $existingRoutes = [''];
+                }
             @endphp
 
-            @if(!empty($existingRoutes))
-            @foreach($existingRoutes as $index => $route)
-            <div class="flex space-x-2 mb-2 route-input-group">
-                <input
-                    type="url"
-                    name="web_routes[]"
-                    value="{{ $route }}"
-                    placeholder="https://ejemplo.com/ruta"
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                @if($index > 0)
-                <button type="button" onclick="removeRoute(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200">
-                    <i class="fas fa-times"></i>
-                </button>
-                @endif
-            </div>
+            @foreach ($existingRoutes as $index => $route)
+                <div class="flex space-x-2 mb-2 route-input-group">
+                    <input type="text" name="web_routes_temp[]" value="{{ $route }}"
+                        placeholder="https://ejemplo.com/ruta o /ruta-interna"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input">
+                    @if ($index > 0 || !empty($route))
+                        <button type="button" onclick="removeRoute(this)"
+                            class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 remove-route-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    @endif
+                </div>
             @endforeach
-            @else
-            <div class="flex space-x-2 mb-2 route-input-group">
-                <input
-                    type="url"
-                    name="web_routes[]"
-                    placeholder="https://ejemplo.com/ruta"
-                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-            </div>
-            @endif
         </div>
-        <button type="button" onclick="addRoute()" class="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 text-sm">
+        <button type="button" onclick="addRoute()"
+            class="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 text-sm">
             <i class="fas fa-plus mr-2"></i>Agregar otra ruta
         </button>
-        <p class="mt-1 text-sm text-gray-500">Agregue URLs relacionadas con la solicitud (máximo 5)</p>
+        <p class="mt-1 text-sm text-gray-500">
+            Agregue URLs completas (https://...) o rutas internas (/admin, /dashboard). Máximo 5 rutas.
+        </p>
+        <div id="web-routes-error" class="mt-1 hidden">
+            <p class="text-sm text-red-600"></p>
+        </div>
     </div>
 </div>
 
-@push('scripts')
-<script>
-    // Actualizar subservicios cuando cambia el servicio
-    function updateSubServices(serviceId) {
-        const subServiceSelect = document.getElementById('sub_service_id');
+<style>
+    /* Asegurar que los estilos de Tailwind se apliquen a los radios seleccionados */
+    input[name="criticality_level"]:checked+div {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+</style>
 
-        if (!serviceId) {
-            subServiceSelect.innerHTML = '<option value="">Seleccione un subservicio</option>';
-            subServiceSelect.disabled = true;
+<script>
+    // Función para actualizar todos los campos automáticamente
+    function updateFormFields() {
+        console.log('🔄 Actualizando campos del formulario...');
+
+        const select = document.getElementById('sub_service_id');
+        if (!select) {
+            console.error('❌ No se encontró el select sub_service_id');
             return;
         }
 
-        // Habilitar loading
-        subServiceSelect.disabled = true;
-        subServiceSelect.innerHTML = '<option value="">Cargando subservicios...</option>';
+        const selectedOption = select.options[select.selectedIndex];
 
-        // Hacer petición AJAX para obtener subservicios
-        fetch(`/api/services/${serviceId}/subservices`)
-            .then(response => response.json())
-            .then(data => {
-                let options = '<option value="">Seleccione un subservicio</option>';
-                data.forEach(subService => {
-                    options += `<option value="${subService.id}">${subService.name}</option>`;
-                });
-                subServiceSelect.innerHTML = options;
-                subServiceSelect.disabled = false;
+        // Campos críticos
+        const serviceIdInput = document.getElementById('service_id');
+        const familyIdInput = document.getElementById('family_id');
+        const slaIdInput = document.getElementById('sla_id');
+        const familyDisplay = document.getElementById('family-display');
+        const serviceDisplay = document.getElementById('service-display');
 
-                // Restaurar valor anterior si existe
-                const oldValue = "{{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') }}";
-                if (oldValue) {
-                    subServiceSelect.value = oldValue;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                subServiceSelect.innerHTML = '<option value="">Error al cargar subservicios</option>';
-            });
+        if (!selectedOption || !selectedOption.value) {
+            console.log('📭 No hay selección - estableciendo valores por defecto');
+            if (serviceIdInput) serviceIdInput.value = '';
+            if (familyIdInput) familyIdInput.value = '';
+            if (slaIdInput) slaIdInput.value = '1';
+            if (familyDisplay) {
+                familyDisplay.textContent = 'Seleccione un subservicio';
+                familyDisplay.className = 'text-gray-500';
+            }
+            if (serviceDisplay) {
+                serviceDisplay.textContent = 'Seleccione un subservicio';
+                serviceDisplay.className = 'text-gray-500';
+            }
+            setCriticalityLevel('MEDIA');
+            return;
+        }
+
+        // Obtener datos de los atributos data
+        const serviceId = selectedOption.getAttribute('data-service-id') || '';
+        const familyId = selectedOption.getAttribute('data-family-id') || '';
+        const serviceName = selectedOption.getAttribute('data-service-name') || 'Servicio';
+        const familyName = selectedOption.getAttribute('data-family-name') || 'Familia';
+        const criticalityLevel = selectedOption.getAttribute('data-criticality-level') || 'MEDIA';
+        const slaId = selectedOption.getAttribute('data-sla-id') || '1';
+
+        console.log('📋 Datos extraídos:', {
+            serviceId, familyId, serviceName, familyName, criticalityLevel, slaId
+        });
+
+        // ESTABLECER VALORES
+        if (serviceIdInput) serviceIdInput.value = serviceId;
+        if (familyIdInput) familyIdInput.value = familyId;
+        if (slaIdInput) slaIdInput.value = slaId;
+        if (familyDisplay) {
+            familyDisplay.textContent = familyName;
+            familyDisplay.className = 'text-gray-700 font-medium';
+        }
+        if (serviceDisplay) {
+            serviceDisplay.textContent = serviceName;
+            serviceDisplay.className = 'text-gray-700 font-medium';
+        }
+
+        console.log('✅ Campos establecidos:', {
+            service_id: serviceIdInput?.value,
+            family_id: familyIdInput?.value,
+            sla_id: slaIdInput?.value
+        });
+
+        setCriticalityLevel(criticalityLevel);
     }
 
-    // Manejo de rutas web dinámicas
+    function setCriticalityLevel(level) {
+        console.log('🎯 Configurando criticidad:', level);
+        const radio = document.querySelector(`input[name="criticality_level"][value="${level}"]`);
+        if (radio) {
+            radio.checked = true;
+            // Forzar actualización de estilos
+            document.querySelectorAll('input[name="criticality_level"]').forEach(r => {
+                r.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        } else {
+            console.warn('⚠️ No se encontró el radio para:', level);
+            // Fallback a MEDIA
+            const mediaRadio = document.querySelector('input[name="criticality_level"][value="MEDIA"]');
+            if (mediaRadio) {
+                mediaRadio.checked = true;
+                mediaRadio.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+
+    // Funciones para rutas web
     function addRoute() {
         const container = document.getElementById('web-routes-container');
         const inputGroups = container.getElementsByClassName('route-input-group');
@@ -244,30 +350,102 @@
         const newInput = document.createElement('div');
         newInput.className = 'flex space-x-2 mb-2 route-input-group';
         newInput.innerHTML = `
-        <input
-            type="url"
-            name="web_routes[]"
-            placeholder="https://ejemplo.com/ruta"
-            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-        >
-        <button type="button" onclick="removeRoute(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200">
-            <i class="fas fa-times"></i>
-        </button>
-    `;
+            <input
+                type="text"
+                name="web_routes_temp[]"
+                placeholder="https://ejemplo.com/ruta o /ruta-interna"
+                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input"
+            >
+            <button type="button" onclick="removeRoute(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
         container.appendChild(newInput);
     }
 
     function removeRoute(button) {
         const inputGroup = button.closest('.route-input-group');
-        inputGroup.remove();
+        if (inputGroup) {
+            inputGroup.remove();
+        }
     }
 
-    // Inicializar subservicios si ya hay un servicio seleccionado
-    document.addEventListener('DOMContentLoaded', function() {
-        const serviceId = document.getElementById('service_id').value;
-        if (serviceId) {
-            updateSubServices(serviceId);
+    // Preparar rutas web como JSON antes de enviar
+    function prepareWebRoutes() {
+        console.log('🌐 Preparando web_routes...');
+        const tempInputs = document.querySelectorAll('input[name="web_routes_temp[]"]');
+        const routes = [];
+
+        tempInputs.forEach(input => {
+            const value = input.value.trim();
+            if (value) routes.push(value);
+        });
+
+        const webRoutesInput = document.getElementById('web_routes_json');
+        if (webRoutesInput) {
+            webRoutesInput.value = JSON.stringify(routes);
+            console.log('✅ web_routes establecido:', webRoutesInput.value);
         }
+
+        return routes;
+    }
+
+    // INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 DOM Cargado - Inicializando formulario...');
+
+        // Configurar event listener para el select
+        const subServiceSelect = document.getElementById('sub_service_id');
+        if (subServiceSelect) {
+            subServiceSelect.addEventListener('change', updateFormFields);
+            console.log('✅ Event listener agregado al select');
+        }
+
+        // Ejecutar inmediatamente para establecer valores iniciales
+        setTimeout(updateFormFields, 100);
+
+        // Configurar envío del formulario
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                console.log('📤 Enviando formulario...');
+
+                // Preparar rutas web
+                prepareWebRoutes();
+
+                // Verificación final
+                const finalCheck = {
+                    service_id: document.getElementById('service_id')?.value,
+                    family_id: document.getElementById('family_id')?.value,
+                    sla_id: document.getElementById('sla_id')?.value,
+                    requested_by: document.getElementById('requested_by')?.value,
+                    web_routes: document.getElementById('web_routes_json')?.value
+                };
+
+                console.log('🔍 Verificación final:', finalCheck);
+
+                if (!finalCheck.service_id || !finalCheck.family_id) {
+                    e.preventDefault();
+                    alert('❌ Error: Faltan datos requeridos. Por favor, seleccione un subservicio válido.');
+                    return false;
+                }
+
+                console.log('✅ Formulario listo para enviar');
+            });
+        }
+
+        console.log('🎉 Inicialización completada');
     });
+
+    // Exponer función globalmente para debugging
+    window.debugForm = function() {
+        const fields = ['service_id', 'family_id', 'sla_id', 'requested_by', 'web_routes_json'];
+        const values = {};
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            values[id] = el ? el.value : 'NO EXISTE';
+        });
+        console.log('🔍 Estado del formulario:', values);
+        return values;
+    };
 </script>
-@endpush

@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ResolveServiceRequestRequest;
 use App\Models\ServiceRequest;
 use App\Models\SubService;
-use App\Models\ServiceLevelAgreement;
 use App\Models\User;
+use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceRequestEvidence;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -38,52 +38,67 @@ class ServiceRequestController extends Controller
      */
     public function create()
     {
-        $subServices = SubService::with(['service.family'])
+        $subServices = SubService::with(['service.family', 'slas'])
             ->where('is_active', true)
-            ->get()
-            ->groupBy('service.family.name');
+            ->get();
 
         $users = User::all();
-        $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
+        $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'URGENTE'];
 
         return view('service-requests.create', compact('subServices', 'users', 'criticalityLevels'));
     }
 
+    /**
+     * Store a newly created resource in storage.
+     */
     public function store(Request $request)
     {
+        \Log::info('=== INICIANDO STORE ===');
+        \Log::info('Datos RAW:', $request->all());
+
         $validated = $request->validate([
-            'sub_service_id' => 'required|exists:sub_services,id',
-            'sla_id' => 'required|exists:service_level_agreements,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'requested_by' => 'required|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
-            'web_routes' => 'nullable|string',
-            'main_web_route' => 'nullable|url',
-            'auto_assign' => 'nullable|boolean',
+            'sub_service_id' => 'required|exists:sub_services,id',
+            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,URGENTE,CRITICA',
+            'service_id' => 'required|exists:services,id',
+            'family_id' => 'required|exists:service_families,id',
+            'sla_id' => 'required|exists:service_level_agreements,id',
+            'requested_by' => 'required|exists:users,id',
+            'web_routes' => 'required|string',
         ]);
 
-        // Generar número de ticket
-        $validated['ticket_number'] = ServiceRequest::generateProfessionalTicketNumber($validated['sub_service_id'], $validated['criticality_level']);
+        \Log::info('Datos validados:', $validated);
 
-        // LÓGICA DE AUTO-ASIGNACIÓN
-        if ($request->has('auto_assign') && $request->boolean('auto_assign')) {
-            $validated['assigned_to'] = auth()->id();
+        // Procesar web_routes
+        if (!empty($validated['web_routes'])) {
+            $validated['web_routes'] = json_decode($validated['web_routes'], true) ?? [];
         }
 
-        // Obtener el SLA y calcular fechas límite
-        $sla = ServiceLevelAgreement::find($validated['sla_id']);
-        $now = now();
-        $validated['acceptance_deadline'] = $now->copy()->addMinutes($sla->acceptance_time_minutes);
-        $validated['response_deadline'] = $now->copy()->addMinutes($sla->response_time_minutes);
-        $validated['resolution_deadline'] = $now->copy()->addMinutes($sla->resolution_time_minutes);
+        // NOTA: ticket_number se generará AUTOMÁTICAMENTE en el modelo
+        // NO lo agregues manualmente aquí
 
-        $serviceRequest = ServiceRequest::create($validated);
+        \Log::info('Datos finales para crear (sin ticket_number):', $validated);
 
-        return redirect()
-            ->route('service-requests.show', $serviceRequest)
-            ->with('success', 'Solicitud de servicio creada exitosamente. Ticket: ' . $serviceRequest->ticket_number);
+        try {
+            $serviceRequest = ServiceRequest::create($validated);
+            \Log::info('✅ Solicitud creada:', [
+                'id' => $serviceRequest->id,
+                'ticket_number' => $serviceRequest->ticket_number,
+                'status' => $serviceRequest->status,
+            ]);
+
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('success', "Solicitud creada exitosamente! Ticket: {$serviceRequest->ticket_number}");
+        } catch (\Exception $e) {
+            \Log::error('❌ Error al crear solicitud: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            return back()
+                ->withInput()
+                ->with('error', 'Error al crear la solicitud: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -43,6 +43,19 @@ class ServiceRequest extends Model
     {
         parent::boot();
 
+        // Generar ticket_number automáticamente al crear
+        static::creating(function ($model) {
+            if (empty($model->ticket_number)) {
+                try {
+                    $model->ticket_number = static::generateProfessionalTicketNumber($model->sub_service_id, $model->criticality_level);
+                } catch (\Exception $e) {
+                    // Fallback si hay error
+                    $model->ticket_number = 'SR-' . now()->format('Ymd-His') . '-' . strtoupper(substr(uniqid(), -4));
+                    \Log::error('Error generando ticket profesional: ' . $e->getMessage());
+                }
+            }
+        });
+
         static::saving(function ($model) {
             $model->validateWorkflowRules();
         });
