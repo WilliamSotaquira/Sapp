@@ -998,14 +998,29 @@ class ServiceRequestController extends Controller
                 // Solo procesar evidencias que tienen file_path y no son del tipo SISTEMA
                 if ($evidence->file_path && $evidence->evidence_type !== 'SISTEMA') {
                     try {
-                        // Intentar diferentes rutas posibles
-                        $possiblePaths = [storage_path('app/public/' . $evidence->file_path), storage_path('app/' . $evidence->file_path), public_path('storage/' . $evidence->file_path), public_path($evidence->file_path)];
+                        // Buscar el archivo en diferentes ubicaciones posibles
+                        $possiblePaths = [
+                            storage_path('app/public/' . $evidence->file_path),
+                            storage_path('app/public/evidences/' . basename($evidence->file_path)), // Nueva ruta
+                            storage_path('app/' . $evidence->file_path),
+                            public_path('storage/' . $evidence->file_path),
+                            public_path($evidence->file_path),
+                        ];
 
                         $filePath = null;
                         foreach ($possiblePaths as $path) {
                             if (file_exists($path)) {
                                 $filePath = $path;
                                 break;
+                            }
+                        }
+
+                        // Si no se encuentra, buscar por nombre de archivo en la carpeta evidences
+                        if (!$filePath) {
+                            $fileName = basename($evidence->file_path);
+                            $evidencePath = storage_path('app/public/evidences/' . $fileName);
+                            if (file_exists($evidencePath)) {
+                                $filePath = $evidencePath;
                             }
                         }
 
@@ -1042,6 +1057,7 @@ class ServiceRequestController extends Controller
                             $evidence->is_image = false;
                             $evidence->file_found = false;
                             Log::warning("Archivo no encontrado: {$evidence->file_path}");
+                            Log::warning('Buscando en: ' . storage_path('app/public/evidences/' . basename($evidence->file_path)));
                         }
                     } catch (\Exception $e) {
                         $evidence->base64_content = null;
@@ -1063,8 +1079,9 @@ class ServiceRequestController extends Controller
             $totalEvidences = $serviceRequest->evidences->count();
             $fileEvidences = $serviceRequest->evidences->where('file_path', '!=', null)->count();
             $imageEvidences = $serviceRequest->evidences->where('is_image', true)->count();
+            $foundEvidences = $serviceRequest->evidences->where('file_found', true)->count();
 
-            Log::info("PDF Generation - Total: {$totalEvidences}, Con archivos: {$fileEvidences}, Imágenes: {$imageEvidences}");
+            Log::info("PDF Generation - Total: {$totalEvidences}, Con archivos: {$fileEvidences}, Imágenes: {$imageEvidences}, Encontrados: {$foundEvidences}");
 
             $data = [
                 'serviceRequest' => $serviceRequest,
@@ -1096,7 +1113,6 @@ class ServiceRequestController extends Controller
                 ->with('error', 'Error al generar el reporte: ' . $e->getMessage());
         }
     }
-
     /**
      * Almacenar nueva evidencia
      */
@@ -1123,42 +1139,82 @@ class ServiceRequestController extends Controller
                         continue;
                     }
 
-                    $folderName = 'service-request-' . $serviceRequest->id;
-                    $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+                    // Generar nombre único con servicios.code + Fecha + Hora + Microtime
+                    $serviceCode = $serviceRequest->code ?? 'SR' . $serviceRequest->id;
+                    $timestamp = now()->format('Ymd-His');
+                    $microtime = substr(str_replace('.', '', microtime(true)), -6);
+                    $extension = $file->getClientOriginalExtension();
 
-                    $filePath = $file->storeAs("evidences/{$folderName}", $fileName, 'public');
+                    // Limpiar el código de servicio
+                    $cleanServiceCode = preg_replace('/[^a-zA-Z0-9]/', '-', $serviceCode);
+                    $cleanServiceCode = substr($cleanServiceCode, 0, 20);
 
-                    Log::info('Archivo guardado en:', ['path' => $filePath]);
+                    // Formato con guiones: ServicioCode-Fecha-Hora-Microtime
+                    $fileName = "{$cleanServiceCode}-{$timestamp}-{$microtime}.{$extension}";
 
+                    // Verificar y crear directorio si no existe
+                    $directory = 'evidences';
+                    if (!Storage::disk('public')->exists($directory)) {
+                        Storage::disk('public')->makeDirectory($directory);
+                        Log::info('Directorio creado: ' . $directory);
+                    }
+
+                    // Guardar archivo con verificación
+                    try {
+                        $filePath = $file->storeAs($directory, $fileName, 'public');
+                        Log::info('Archivo guardado en:', ['path' => $filePath]);
+                    } catch (\Exception $storageException) {
+                        Log::error('Error al guardar archivo: ' . $storageException->getMessage());
+                        continue;
+                    }
+
+                    // Verificar que el archivo se guardó correctamente
                     if (!Storage::disk('public')->exists($filePath)) {
-                        Log::error('El archivo no existe en storage: ' . $filePath);
+                        Log::error('El archivo no existe en storage después de guardar: ' . $filePath);
+                        continue;
+                    }
+
+                    // Verificar tamaño del archivo guardado
+                    $storedFileSize = Storage::disk('public')->size($filePath);
+                    Log::info('Archivo guardado - Tamaño original: ' . $file->getSize() . ', Tamaño guardado: ' . $storedFileSize);
+
+                    if ($storedFileSize === 0) {
+                        Log::error('El archivo se guardó con tamaño 0: ' . $filePath);
+                        Storage::disk('public')->delete($filePath);
                         continue;
                     }
 
                     $evidenceData = [
                         'service_request_id' => $serviceRequest->id,
-                        'title' => $file->getClientOriginalName(),
+                        'title' => $fileName,
                         'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
                         'evidence_type' => 'ARCHIVO',
                         'file_path' => $filePath,
                         'file_original_name' => $file->getClientOriginalName(),
                         'file_mime_type' => $file->getMimeType(),
-                        'file_size' => $file->getSize(),
+                        'file_size' => $storedFileSize, // Usar el tamaño real del archivo guardado
                         'user_id' => auth()->id(),
                     ];
 
                     Log::info('Creando evidencia en BD:', $evidenceData);
 
-                    $evidence = ServiceRequestEvidence::create($evidenceData);
-                    $evidence->load('user');
-
-                    Log::info('✅ Evidencia creada con ID: ' . $evidence->id);
-                    $uploadedFiles[] = $evidence;
+                    try {
+                        $evidence = ServiceRequestEvidence::create($evidenceData);
+                        $evidence->load('user');
+                        Log::info('✅ Evidencia creada con ID: ' . $evidence->id);
+                        $uploadedFiles[] = $evidence;
+                    } catch (\Exception $dbException) {
+                        Log::error('Error al crear registro en BD: ' . $dbException->getMessage());
+                        // Eliminar archivo si falla la BD
+                        Storage::disk('public')->delete($filePath);
+                        continue;
+                    }
                 }
 
                 Log::info('=== SUBIDA COMPLETADA ===', [
                     'total_files' => count($uploadedFiles),
                     'service_request_id' => $serviceRequest->id,
+                    'service_code' => $serviceRequest->code ?? 'SR' . $serviceRequest->id,
                 ]);
 
                 if (count($uploadedFiles) > 0) {
@@ -1173,6 +1229,7 @@ class ServiceRequestController extends Controller
             return redirect()->back()->with('error', 'No se seleccionaron archivos.');
         } catch (\Exception $e) {
             Log::error('Error en storeEvidence: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return redirect()
                 ->back()
                 ->with('error', 'Error al subir archivos: ' . $e->getMessage());

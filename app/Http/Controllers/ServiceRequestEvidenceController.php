@@ -55,41 +55,90 @@ class ServiceRequestEvidenceController extends Controller
                 foreach ($request->file('files') as $file) {
                     \Log::info('Processing file: ' . $file->getClientOriginalName());
 
-                    // Crear carpeta específica para esta solicitud
-                    $folderName = 'service-request-' . $serviceRequest->id;
-                    $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+                    if (!$file->isValid()) {
+                        \Log::error('❌ Archivo no válido: ' . $file->getClientOriginalName());
+                        continue;
+                    }
 
-                    // Guardar archivo en storage
-                    $filePath = $file->storeAs("evidences/{$folderName}", $fileName, 'public');
+                    // **NUEVO SISTEMA DE NOMBRES** - Sin carpeta por registro
+                    $serviceCode = $serviceRequest->code ?? 'SR' . $serviceRequest->id;
+                    $timestamp = now()->format('Ymd-His');
+                    $microtime = substr(str_replace('.', '', microtime(true)), -6);
+                    $extension = $file->getClientOriginalExtension();
+
+                    // Limpiar el código de servicio
+                    $cleanServiceCode = preg_replace('/[^a-zA-Z0-9]/', '-', $serviceCode);
+                    $cleanServiceCode = substr($cleanServiceCode, 0, 20);
+
+                    // Formato con guiones: ServicioCode-Fecha-Hora-Microtime
+                    $fileName = "{$cleanServiceCode}-{$timestamp}-{$microtime}.{$extension}";
+
+                    // **VERIFICAR Y CREAR DIRECTORIO SI NO EXISTE**
+                    $directory = 'evidences';
+                    if (!Storage::disk('public')->exists($directory)) {
+                        Storage::disk('public')->makeDirectory($directory);
+                        \Log::info('📁 Directorio creado: ' . $directory);
+                    }
+
+                    // **GUARDAR EN CARPETA GENERAL 'evidences'** - Sin subcarpetas por registro
+                    $filePath = $file->storeAs($directory, $fileName, 'public');
 
                     \Log::info('📁 File stored at: ' . $filePath);
+
+                    // Verificar que el archivo se guardó correctamente
+                    if (!Storage::disk('public')->exists($filePath)) {
+                        \Log::error('❌ El archivo no existe en storage después de guardar: ' . $filePath);
+                        continue;
+                    }
+
+                    // Verificar tamaño del archivo guardado
+                    $storedFileSize = Storage::disk('public')->size($filePath);
+                    \Log::info('📊 Archivo guardado - Tamaño original: ' . $file->getSize() . ', Tamaño guardado: ' . $storedFileSize);
+
+                    if ($storedFileSize === 0) {
+                        \Log::error('❌ El archivo se guardó con tamaño 0: ' . $filePath);
+                        Storage::disk('public')->delete($filePath);
+                        continue;
+                    }
 
                     // Crear registro en la base de datos
                     $evidenceData = [
                         'service_request_id' => $serviceRequest->id,
-                        'title' => $file->getClientOriginalName(),
+                        'title' => $fileName,
                         'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
                         'evidence_type' => 'ARCHIVO',
                         'file_path' => $filePath,
                         'file_original_name' => $file->getClientOriginalName(),
                         'file_mime_type' => $file->getMimeType(),
-                        'file_size' => $file->getSize(),
+                        'file_size' => $storedFileSize, // Usar el tamaño real guardado
                         'user_id' => auth()->id(),
                     ];
 
                     \Log::info('Creating evidence with data:', $evidenceData);
 
-                    $evidence = ServiceRequestEvidence::create($evidenceData);
-                    $evidence->load('user');
+                    try {
+                        $evidence = ServiceRequestEvidence::create($evidenceData);
+                        $evidence->load('user');
 
-                    \Log::info('💾 Evidence created with ID: ' . $evidence->id);
-                    $uploadedFiles[] = $evidence;
+                        \Log::info('💾 Evidence created with ID: ' . $evidence->id);
+                        $uploadedFiles[] = $evidence;
+                    } catch (\Exception $dbException) {
+                        \Log::error('❌ Error al crear registro en BD: ' . $dbException->getMessage());
+                        // Eliminar archivo si falla la BD
+                        Storage::disk('public')->delete($filePath);
+                        continue;
+                    }
                 }
 
                 \Log::info('🎉 Upload completed: ' . count($uploadedFiles) . ' files');
-                return redirect()
-                    ->back()
-                    ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
+
+                if (count($uploadedFiles) > 0) {
+                    return redirect()
+                        ->back()
+                        ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
+                } else {
+                    return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
+                }
             }
 
             \Log::warning('⚠️ No files to process');
