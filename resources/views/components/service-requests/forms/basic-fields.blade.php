@@ -2,7 +2,7 @@
 @props([
     'serviceRequest' => null,
     'subServices' => [], // Lista de subservicios
-    'users' => [], // Lista de usuarios para seleccionar solicitante
+    'requesters' => [], // Lista de solicitantes para seleccionar solicitante
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
 ])
@@ -27,23 +27,22 @@
 
     <!-- SELECTOR DE SOLICITANTE - SIEMPRE DISPONIBLE -->
     <div>
-        <label for="requested_by" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="requester_id" class="block text-sm font-medium text-gray-700 mb-2">
             Solicitante <span class="text-red-500">*</span>
         </label>
 
-        @if($mode === 'create')
+        @if ($mode === 'create')
+            <input type="hidden" name="requested_by" id="requested_by"
+                value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
             {{-- En modo creación, siempre mostrar selector --}}
-            <select name="requested_by" id="requested_by"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('requested_by') border-red-500 @enderror"
+            <select name="requester_id" id="requester_id"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('requester_id') border-red-500 @enderror"
                 required>
                 <option value="">Seleccione un solicitante</option>
-                @foreach($users as $user)
-                    <option value="{{ $user->id }}"
-                        {{ old('requested_by', auth()->id()) == $user->id ? 'selected' : '' }}>
-                        {{ $user->name }} - {{ $user->email }}
-                        @if($user->department)
-                            ({{ $user->department->name }})
-                        @endif
+                @foreach ($requesters as $requester)
+                    <option value="{{ $requester->id }}" {{ old('requester_id', $requester->id) ? 'selected' : '' }}>
+                        {{ $requester->name }} - {{ $requester->email }}
+                        ({{ $requester->department }})
                     </option>
                 @endforeach
             </select>
@@ -57,10 +56,10 @@
             @endphp
 
             <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
-                @if($requester)
+                @if ($requester)
                     <span class="text-gray-700 font-medium">
                         {{ $requester->name }} - {{ $requester->email }}
-                        @if($requester->department)
+                        @if ($requester->department)
                             ({{ $requester->department->name }})
                         @endif
                     </span>
@@ -118,19 +117,19 @@
 
         <!-- Campo de búsqueda -->
         <div class="relative mb-2">
-            <input type="text"
-                   id="sub_service_search"
-                   placeholder="Buscar subservicio..."
-                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror">
+            <input type="text" id="sub_service_search" placeholder="Buscar subservicio..."
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror">
             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
             </div>
         </div>
 
         <!-- Contenedor de resultados -->
-        <div id="sub_service_results" class="hidden max-h-80 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-lg z-10">
+        <div id="sub_service_results"
+            class="hidden max-h-80 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-lg z-10">
             <!-- Los resultados se cargarán aquí dinámicamente -->
         </div>
 
@@ -169,14 +168,12 @@
                                 $slaId = $sla->id ?? '1';
                             }
                         @endphp
-                        <option value="{{ $subService->id }}"
-                                data-service-id="{{ $subService->service_id }}"
-                                data-service-name="{{ $subService->service->name }}"
-                                data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
-                                data-family-id="{{ $subService->service->family->id ?? '' }}"
-                                data-criticality-level="{{ $criticalityLevel }}"
-                                data-sla-id="{{ $slaId }}"
-                                {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
+                        <option value="{{ $subService->id }}" data-service-id="{{ $subService->service_id }}"
+                            data-service-name="{{ $subService->service->name }}"
+                            data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
+                            data-family-id="{{ $subService->service->family->id ?? '' }}"
+                            data-criticality-level="{{ $criticalityLevel }}" data-sla-id="{{ $slaId }}"
+                            {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
                             {{ $subService->name }}
                         </option>
                     @endforeach
@@ -195,7 +192,9 @@
                 </div>
                 <button type="button" id="clear_selection" class="text-red-500 hover:text-red-700">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12">
+                        </path>
                     </svg>
                 </button>
             </div>
@@ -541,7 +540,9 @@
                     if (next && next.dataset.id) {
                         current.classList.remove('highlighted', 'bg-blue-100');
                         next.classList.add('highlighted', 'bg-blue-100');
-                        next.scrollIntoView({ block: 'nearest' });
+                        next.scrollIntoView({
+                            block: 'nearest'
+                        });
                     }
                 } else {
                     const first = visibleResults[0];
@@ -559,12 +560,16 @@
                         if (prevPrev && prevPrev.dataset.id) {
                             current.classList.remove('highlighted', 'bg-blue-100');
                             prevPrev.classList.add('highlighted', 'bg-blue-100');
-                            prevPrev.scrollIntoView({ block: 'nearest' });
+                            prevPrev.scrollIntoView({
+                                block: 'nearest'
+                            });
                         }
                     } else if (prev && prev.dataset.id) {
                         current.classList.remove('highlighted', 'bg-blue-100');
                         prev.classList.add('highlighted', 'bg-blue-100');
-                        prev.scrollIntoView({ block: 'nearest' });
+                        prev.scrollIntoView({
+                            block: 'nearest'
+                        });
                     }
                 }
             } else if (event.key === 'Enter') {
@@ -630,7 +635,12 @@
         const slaId = selectedOption.getAttribute('data-sla-id') || '1';
 
         console.log('📋 Datos extraídos:', {
-            serviceId, familyId, serviceName, familyName, criticalityLevel, slaId
+            serviceId,
+            familyId,
+            serviceName,
+            familyName,
+            criticalityLevel,
+            slaId
         });
 
         // ESTABLECER VALORES
@@ -662,7 +672,9 @@
             radio.checked = true;
             // Forzar actualización de estilos
             document.querySelectorAll('input[name="criticality_level"]').forEach(r => {
-                r.dispatchEvent(new Event('change', { bubbles: true }));
+                r.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
             });
         } else {
             console.warn('⚠️ No se encontró el radio para:', level);
@@ -670,7 +682,9 @@
             const mediaRadio = document.querySelector('input[name="criticality_level"][value="MEDIA"]');
             if (mediaRadio) {
                 mediaRadio.checked = true;
-                mediaRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                mediaRadio.dispatchEvent(new Event('change', {
+                    bubbles: true
+                }));
             }
         }
     }
@@ -757,7 +771,9 @@
 
                 if (!finalCheck.service_id || !finalCheck.family_id) {
                     e.preventDefault();
-                    alert('❌ Error: Faltan datos requeridos. Por favor, seleccione un subservicio válido.');
+                    alert(
+                        '❌ Error: Faltan datos requeridos. Por favor, seleccione un subservicio válido.'
+                        );
                     return false;
                 }
 

@@ -28,7 +28,7 @@
 @if($method === 'MODAL')
     {{-- 👈 NUEVO: Botón que abre modal --}}
     <button type="button"
-            class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }}"
+            class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }} max-w-40"
             onclick="openModal('{{ $modal_id }}')"
             {{ $attributes->except('class') }}>
         <i class="fas fa-{{ $icon }} mr-2"></i>
@@ -37,7 +37,7 @@
 @elseif($onclick)
     {{-- Botón con onclick personalizado --}}
     <button type="button"
-            class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }}"
+            class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }} max-w-40"
             onclick="{{ $onclick }}"
             {{ $attributes->except('class') }}>
         <i class="fas fa-{{ $icon }} mr-2"></i>
@@ -46,7 +46,7 @@
 @elseif($method === 'GET')
     {{-- Enlace GET --}}
     <a href="{{ $route }}"
-       class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }}"
+       class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 shadow-sm border-2 {{ $colorClasses }} {{ $compactClass }} {{ $attributes->get('class') }} max-w-40"
        @if($confirm) onclick="return handleConfirmation('{{ $confirm }}', event)" @endif
        {{ $attributes->except('class') }}>
         <i class="fas fa-{{ $icon }} mr-2"></i>
