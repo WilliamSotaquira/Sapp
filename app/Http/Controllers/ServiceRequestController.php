@@ -49,8 +49,9 @@ class ServiceRequestController extends Controller
         $pendingCount = ServiceRequest::where('status', 'PENDIENTE')->count();
         $criticalCount = ServiceRequest::where('criticality_level', 'CRITICA')->count();
         $resolvedCount = ServiceRequest::where('status', 'RESUELTA')->count();
+        $closedCount = ServiceRequest::where('status', 'CERRADA')->count();
 
-        return view('service-requests.index', compact('serviceRequests', 'pendingCount', 'criticalCount', 'resolvedCount'));
+        return view('service-requests.index', compact('serviceRequests', 'pendingCount', 'criticalCount', 'resolvedCount', 'closedCount'));
     }
 
     /**

@@ -2,6 +2,7 @@
 @props([
     'serviceRequest' => null,
     'subServices' => [], // Lista de subservicios
+    'users' => [], // Lista de usuarios para seleccionar solicitante
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
 ])
@@ -22,9 +23,63 @@
 
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
     <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
-    <input type="hidden" name="requested_by" id="requested_by" value="{{ auth()->id() }}">
     <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
 
+    <!-- SELECTOR DE SOLICITANTE - SIEMPRE DISPONIBLE -->
+    <div>
+        <label for="requested_by" class="block text-sm font-medium text-gray-700 mb-2">
+            Solicitante <span class="text-red-500">*</span>
+        </label>
+
+        @if($mode === 'create')
+            {{-- En modo creación, siempre mostrar selector --}}
+            <select name="requested_by" id="requested_by"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('requested_by') border-red-500 @enderror"
+                required>
+                <option value="">Seleccione un solicitante</option>
+                @foreach($users as $user)
+                    <option value="{{ $user->id }}"
+                        {{ old('requested_by', auth()->id()) == $user->id ? 'selected' : '' }}>
+                        {{ $user->name }} - {{ $user->email }}
+                        @if($user->department)
+                            ({{ $user->department->name }})
+                        @endif
+                    </option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-sm text-gray-500">
+                Seleccione la persona que realiza la solicitud
+            </p>
+        @else
+            {{-- En modo edición, mostrar información del solicitante actual --}}
+            @php
+                $requester = $serviceRequest->requestedBy ?? auth()->user();
+            @endphp
+
+            <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
+                @if($requester)
+                    <span class="text-gray-700 font-medium">
+                        {{ $requester->name }} - {{ $requester->email }}
+                        @if($requester->department)
+                            ({{ $requester->department->name }})
+                        @endif
+                    </span>
+                    <input type="hidden" name="requested_by" value="{{ $requester->id }}">
+                @else
+                    <span class="text-gray-500">No se pudo cargar la información del solicitante</span>
+                @endif
+            </div>
+            <p class="mt-1 text-sm text-gray-500">
+                Solicitante de la solicitud (no editable en modo edición)
+            </p>
+        @endif
+
+        @error('requested_by')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <!-- Resto del formulario permanece igual -->
     <!-- Campo Título -->
     <div>
         <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
