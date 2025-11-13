@@ -1,30 +1,32 @@
-@props(['request'])
+@props(['request', 'compact' => false])
 
-<div class="flex items-center space-x-2">
+<div class="flex items-center gap-1">
     <a href="{{ route('service-requests.show', $request) }}"
-        class="text-blue-600 hover:text-blue-900 transition duration-150 p-2 rounded-lg bg-blue-50 hover:bg-blue-100"
-        title="Ver detalles">
-        <i class="fas fa-eye"></i>
+       class="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors duration-150"
+       title="Ver detalles"
+       aria-label="Ver detalles de la solicitud {{ $request->ticket_number }}">
+        <i class="fas fa-eye {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
     </a>
 
-    @if(in_array($request->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA']))
-    <a href="{{ route('service-requests.edit', $request) }}"
-        class="text-green-600 hover:text-green-900 transition duration-150 p-2 rounded-lg bg-green-50 hover:bg-green-100"
-        title="Editar">
-        <i class="fas fa-edit"></i>
-    </a>
-    @endif
-
-    @if(in_array($request->status, ['PENDIENTE', 'CANCELADA']))
-    <form action="{{ route('service-requests.destroy', $request) }}" method="POST" class="inline">
-        @csrf
-        @method('DELETE')
-        <button type="submit"
-            class="text-red-600 hover:text-red-900 transition duration-150 p-2 rounded-lg bg-red-50 hover:bg-red-100"
-            title="Eliminar"
-            onclick="return confirm('¿Está seguro de que desea eliminar esta solicitud?')">
-            <i class="fas fa-trash"></i>
+    @if($request->status === 'PENDIENTE')
+        <button class="text-green-600 hover:text-green-800 p-1 rounded transition-colors duration-150"
+                title="Aceptar solicitud"
+                aria-label="Aceptar solicitud {{ $request->ticket_number }}">
+            <i class="fas fa-check {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
         </button>
-    </form>
     @endif
+
+    @if(in_array($request->status, ['ACEPTADA', 'EN_PROCESO']))
+        <button class="text-purple-600 hover:text-purple-800 p-1 rounded transition-colors duration-150"
+                title="Marcar en progreso"
+                aria-label="Marcar en progreso solicitud {{ $request->ticket_number }}">
+            <i class="fas fa-cog {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+        </button>
+    @endif
+
+    <button class="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors duration-150"
+            title="Más opciones"
+            aria-label="Más opciones para solicitud {{ $request->ticket_number }}">
+        <i class="fas fa-ellipsis-h {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+    </button>
 </div>

@@ -1,31 +1,96 @@
 @props(['serviceRequests'])
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center justify-between">
-            <span class="flex items-center">
-                <i class="fas fa-list text-blue-600 mr-3"></i>
-                Lista de Solicitudes
-            </span>
-            <span class="text-sm font-normal text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
-                {{ $serviceRequests->total() }} resultados
-            </span>
-        </h3>
-    </div>
-    <div class="p-6">
-        @if($serviceRequests->count() > 0)
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <x-service-requests.index.content.table-header />
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @foreach($serviceRequests as $request)
-                    <x-service-requests.index.content.table-row :request="$request" />
-                    @endforeach
-                </tbody>
-            </table>
+<div class="bg-white rounded-lg shadow-sm border border-gray-200" role="region" aria-labelledby="requests-table-title">
+    <!-- Header Compacto -->
+    <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 id="requests-table-title" class="text-base font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-tasks text-blue-500 mr-2 text-sm"></i>
+                Solicitudes de Servicio
+                <span class="ml-2 text-sm font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                    {{ $serviceRequests->total() }}
+                </span>
+            </h3>
+
+            <!-- Estado Resumido -->
+            <div class="flex items-center gap-3 text-xs">
+                <span class="flex items-center text-yellow-600">
+                    <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1"></span>
+                    {{ $pendingCount ?? 0 }}
+                </span>
+                <span class="flex items-center text-red-600">
+                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></span>
+                    {{ $criticalCount ?? 0 }}
+                </span>
+                <span class="flex items-center text-green-600">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></span>
+                    {{ $resolvedCount ?? 0 }}
+                </span>
+            </div>
         </div>
+    </div>
+
+    <!-- Contenido Compacto -->
+    <div class="p-4">
+        @if ($serviceRequests->count() > 0)
+            <div class="overflow-x-auto">
+                <!-- Tabla Compacta -->
+                <table class="min-w-full text-sm" aria-describedby="table-instructions">
+                    <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
+                        <tr>
+                            <th class="px-3 py-2 text-left font-medium">Ticket</th>
+                            <th class="px-3 py-2 text-left font-medium">Solicitud</th>
+                            <th class="px-3 py-2 text-left font-medium">Servicio</th>
+                            <th class="px-3 py-2 text-left font-medium">Prioridad</th>
+                            <th class="px-3 py-2 text-left font-medium">Estado</th>
+                            <th class="px-3 py-2 text-left font-medium">Solicitante</th>
+                            <th class="px-3 py-2 text-left font-medium">Fecha</th>
+                            <th class="px-3 py-2 text-left font-medium">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-gray-200">
+                        @foreach ($serviceRequests as $request)
+                            <x-service-requests.index.content.table-row :request="$request" />
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         @else
-        <x-service-requests.index.content.empty-state />
+            <!-- Estado Vacío Compacto -->
+            <div class="text-center py-8">
+                <i class="fas fa-inbox text-gray-300 text-3xl mb-3"></i>
+                <p class="text-gray-500 text-sm">No se encontraron solicitudes</p>
+            </div>
         @endif
     </div>
+
+    <!-- Footer Compacto -->
+    @if ($serviceRequests->hasPages())
+        <div class="bg-gray-50 px-4 py-2 border-t border-gray-200">
+            <div class="flex items-center justify-between text-xs text-gray-500">
+                <span>Página {{ $serviceRequests->currentPage() }} de {{ $serviceRequests->lastPage() }}</span>
+                <span>Actualizado: {{ now()->format('H:i') }}</span>
+            </div>
+        </div>
+    @endif
 </div>
+
+<style>
+    /* Mejoras de densidad */
+    .min-w-full th,
+    .min-w-full td {
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Estados de enfoque para accesibilidad */
+    tr:focus {
+        outline: 2px solid #3b82f6;
+        background-color: #eff6ff;
+    }
+
+    /* Hover sutil */
+    tr:hover {
+        background-color: #f9fafb;
+    }
+</style>

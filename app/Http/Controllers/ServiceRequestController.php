@@ -19,11 +19,31 @@ class ServiceRequestController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $serviceRequests = ServiceRequest::with(['subService.service.family', 'requester'])
-            ->latest()
-            ->paginate(15);
+        $query = ServiceRequest::with(['subService.service.family', 'requester']);
+
+        // Filtro de búsqueda
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('ticket_number', 'LIKE', "%{$search}%")
+                    ->orWhere('title', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Filtro de estado
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        // Filtro de criticidad
+        if ($request->has('criticality') && $request->criticality != '') {
+            $query->where('criticality_level', $request->criticality);
+        }
+
+        $serviceRequests = $query->latest()->paginate(15);
 
         // Estadísticas para las tarjetas
         $pendingCount = ServiceRequest::where('status', 'PENDIENTE')->count();
