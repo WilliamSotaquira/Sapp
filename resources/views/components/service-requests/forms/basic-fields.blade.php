@@ -55,17 +55,33 @@
         <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
     </div>
 
-    <!-- SELECCIÓN DIRECTA: Subservicio AGRUPADO -->
+    <!-- COMPONENTE REDISEÑADO: Búsqueda en tiempo real para Subservicios AGRUPADOS -->
     <div>
-        <label for="sub_service_id" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="sub_service_search" class="block text-sm font-medium text-gray-700 mb-2">
             Subservicio <span class="text-red-500">*</span>
         </label>
-        <select name="sub_service_id" id="sub_service_id"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror"
-            required>
-            <option value="">Seleccione un subservicio</option>
 
-            {{-- Agrupar subservicios por Familia y Servicio --}}
+        <!-- Campo de búsqueda -->
+        <div class="relative mb-2">
+            <input type="text"
+                   id="sub_service_search"
+                   placeholder="Buscar subservicio..."
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror">
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Contenedor de resultados -->
+        <div id="sub_service_results" class="hidden max-h-80 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-lg z-10">
+            <!-- Los resultados se cargarán aquí dinámicamente -->
+        </div>
+
+        <!-- Campo oculto para almacenar el valor seleccionado -->
+        <select name="sub_service_id" id="sub_service_id" class="hidden" required>
+            <option value="">Seleccione un subservicio</option>
             @php
                 // Agrupar los subservicios
                 $groupedSubServices = [];
@@ -85,14 +101,12 @@
                 }
             @endphp
 
-            {{-- Generar opciones agrupadas --}}
             @foreach ($groupedSubServices as $group)
                 <optgroup label="{{ $group['family_name'] }} - {{ $group['service_name'] }}">
                     @foreach ($group['subservices'] as $subService)
                         @php
-                            // Obtener el nivel de criticidad de la relación slas
-                            $criticalityLevel = 'MEDIA'; // Valor por defecto
-                            $slaId = '1'; // Valor por defecto
+                            $criticalityLevel = 'MEDIA';
+                            $slaId = '1';
 
                             if ($subService->relationLoaded('slas') && $subService->slas->isNotEmpty()) {
                                 $sla = $subService->slas->first();
@@ -100,21 +114,38 @@
                                 $slaId = $sla->id ?? '1';
                             }
                         @endphp
-
                         <option value="{{ $subService->id }}"
-                            data-service-id="{{ $subService->service_id }}"
-                            data-service-name="{{ $subService->service->name }}"
-                            data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
-                            data-family-id="{{ $subService->service->family->id ?? '' }}"
-                            data-criticality-level="{{ $criticalityLevel }}"
-                            data-sla-id="{{ $slaId }}"
-                            {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
+                                data-service-id="{{ $subService->service_id }}"
+                                data-service-name="{{ $subService->service->name }}"
+                                data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
+                                data-family-id="{{ $subService->service->family->id ?? '' }}"
+                                data-criticality-level="{{ $criticalityLevel }}"
+                                data-sla-id="{{ $slaId }}"
+                                {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
                             {{ $subService->name }}
                         </option>
                     @endforeach
                 </optgroup>
             @endforeach
         </select>
+
+        <!-- Elemento para mostrar la selección actual -->
+        <div id="selected_subservice" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="font-medium" id="selected_name"></span>
+                    <div class="text-sm text-gray-600">
+                        <span id="selected_family"></span> - <span id="selected_service"></span>
+                    </div>
+                </div>
+                <button type="button" id="clear_selection" class="text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         @error('sub_service_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
@@ -244,9 +275,261 @@
         background-color: #eff6ff;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
+
+    /* Estilos para elementos destacados en la búsqueda */
+    .highlighted {
+        background-color: #dbeafe !important;
+    }
 </style>
 
 <script>
+    // =============================================
+    // FUNCIONALIDAD DE BÚSQUEDA EN TIEMPO REAL
+    // =============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('sub_service_search');
+        const resultsContainer = document.getElementById('sub_service_results');
+        const hiddenSelect = document.getElementById('sub_service_id');
+        const selectedDisplay = document.getElementById('selected_subservice');
+        const selectedName = document.getElementById('selected_name');
+        const selectedFamily = document.getElementById('selected_family');
+        const selectedService = document.getElementById('selected_service');
+        const clearButton = document.getElementById('clear_selection');
+
+        // Cargar datos de las opciones
+        const optionsData = [];
+        const optgroups = hiddenSelect.querySelectorAll('optgroup');
+
+        optgroups.forEach(optgroup => {
+            const groupLabel = optgroup.getAttribute('label');
+            const [familyName, serviceName] = groupLabel.split(' - ');
+
+            optgroup.querySelectorAll('option').forEach(option => {
+                if (option.value) {
+                    optionsData.push({
+                        id: option.value,
+                        name: option.textContent,
+                        familyName: familyName,
+                        serviceName: serviceName,
+                        serviceId: option.getAttribute('data-service-id'),
+                        familyId: option.getAttribute('data-family-id'),
+                        criticalityLevel: option.getAttribute('data-criticality-level'),
+                        slaId: option.getAttribute('data-sla-id'),
+                        element: option
+                    });
+                }
+            });
+        });
+
+        // Mostrar selección actual si existe
+        const selectedOption = hiddenSelect.querySelector('option[selected]');
+        if (selectedOption && selectedOption.value) {
+            showSelectedSubservice(
+                selectedOption.value,
+                selectedOption.textContent,
+                selectedOption.getAttribute('data-family-name'),
+                selectedOption.getAttribute('data-service-name')
+            );
+        }
+
+        // Función para filtrar opciones
+        function filterOptions(searchTerm) {
+            const normalizedTerm = searchTerm.toLowerCase().trim();
+
+            if (normalizedTerm === '') {
+                return [];
+            }
+
+            // Filtrar opciones que coincidan con el término de búsqueda
+            return optionsData.filter(option =>
+                option.name.toLowerCase().includes(normalizedTerm) ||
+                option.familyName.toLowerCase().includes(normalizedTerm) ||
+                option.serviceName.toLowerCase().includes(normalizedTerm)
+            );
+        }
+
+        // Función para mostrar resultados
+        function displayResults(results) {
+            resultsContainer.innerHTML = '';
+
+            if (results.length === 0) {
+                const noResults = document.createElement('div');
+                noResults.className = 'p-3 text-gray-500 text-center';
+                noResults.textContent = 'No se encontraron resultados';
+                resultsContainer.appendChild(noResults);
+            } else {
+                // Agrupar resultados por familia y servicio
+                const groupedResults = {};
+
+                results.forEach(result => {
+                    const groupKey = `${result.familyName}|${result.serviceName}`;
+
+                    if (!groupedResults[groupKey]) {
+                        groupedResults[groupKey] = {
+                            familyName: result.familyName,
+                            serviceName: result.serviceName,
+                            items: []
+                        };
+                    }
+
+                    groupedResults[groupKey].items.push(result);
+                });
+
+                // Crear elementos para cada grupo
+                Object.values(groupedResults).forEach(group => {
+                    const groupHeader = document.createElement('div');
+                    groupHeader.className = 'p-2 bg-gray-100 font-medium text-gray-700 border-b';
+                    groupHeader.textContent = `${group.familyName} - ${group.serviceName}`;
+                    resultsContainer.appendChild(groupHeader);
+
+                    group.items.forEach(item => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'p-3 hover:bg-blue-50 cursor-pointer border-b';
+                        resultItem.dataset.id = item.id;
+
+                        resultItem.innerHTML = `
+                            <div class="font-medium">${item.name}</div>
+                            <div class="text-sm text-gray-600">${item.familyName} - ${item.serviceName}</div>
+                        `;
+
+                        resultItem.addEventListener('click', function() {
+                            selectSubservice(item);
+                        });
+
+                        resultsContainer.appendChild(resultItem);
+                    });
+                });
+            }
+
+            resultsContainer.classList.remove('hidden');
+        }
+
+        // Función para seleccionar un subservicio
+        function selectSubservice(subservice) {
+            // Actualizar el select oculto
+            hiddenSelect.value = subservice.id;
+
+            // Mostrar la selección
+            showSelectedSubservice(
+                subservice.id,
+                subservice.name,
+                subservice.familyName,
+                subservice.serviceName
+            );
+
+            // Actualizar todos los campos del formulario
+            updateFormFields();
+
+            // Limpiar búsqueda y ocultar resultados
+            searchInput.value = '';
+            resultsContainer.classList.add('hidden');
+        }
+
+        // Función para mostrar la selección actual
+        function showSelectedSubservice(id, name, family, service) {
+            selectedName.textContent = name;
+            selectedFamily.textContent = family;
+            selectedService.textContent = service;
+            selectedDisplay.classList.remove('hidden');
+        }
+
+        // Función para limpiar la selección
+        function clearSelection() {
+            hiddenSelect.value = '';
+            selectedDisplay.classList.add('hidden');
+            searchInput.value = '';
+            resultsContainer.classList.add('hidden');
+            updateFormFields();
+        }
+
+        // Event listeners para búsqueda
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value;
+
+            if (searchTerm.length >= 2) {
+                const results = filterOptions(searchTerm);
+                displayResults(results);
+            } else {
+                resultsContainer.classList.add('hidden');
+            }
+        });
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.length >= 2) {
+                const results = filterOptions(this.value);
+                displayResults(results);
+            }
+        });
+
+        clearButton.addEventListener('click', clearSelection);
+
+        // Cerrar resultados al hacer clic fuera
+        document.addEventListener('click', function(event) {
+            if (!searchInput.contains(event.target) && !resultsContainer.contains(event.target)) {
+                resultsContainer.classList.add('hidden');
+            }
+        });
+
+        // Permitir navegación con teclado
+        searchInput.addEventListener('keydown', function(event) {
+            const visibleResults = resultsContainer.querySelectorAll('div[data-id]');
+
+            if (visibleResults.length === 0) return;
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (resultsContainer.querySelector('.highlighted')) {
+                    const current = resultsContainer.querySelector('.highlighted');
+                    const next = current.nextElementSibling;
+
+                    if (next && next.dataset.id) {
+                        current.classList.remove('highlighted', 'bg-blue-100');
+                        next.classList.add('highlighted', 'bg-blue-100');
+                        next.scrollIntoView({ block: 'nearest' });
+                    }
+                } else {
+                    const first = visibleResults[0];
+                    first.classList.add('highlighted', 'bg-blue-100');
+                }
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (resultsContainer.querySelector('.highlighted')) {
+                    const current = resultsContainer.querySelector('.highlighted');
+                    const prev = current.previousElementSibling;
+
+                    // Si el elemento anterior es un encabezado de grupo, buscar el anterior
+                    if (prev && !prev.dataset.id) {
+                        const prevPrev = prev.previousElementSibling;
+                        if (prevPrev && prevPrev.dataset.id) {
+                            current.classList.remove('highlighted', 'bg-blue-100');
+                            prevPrev.classList.add('highlighted', 'bg-blue-100');
+                            prevPrev.scrollIntoView({ block: 'nearest' });
+                        }
+                    } else if (prev && prev.dataset.id) {
+                        current.classList.remove('highlighted', 'bg-blue-100');
+                        prev.classList.add('highlighted', 'bg-blue-100');
+                        prev.scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                const highlighted = resultsContainer.querySelector('.highlighted');
+                if (highlighted) {
+                    const id = highlighted.dataset.id;
+                    const subservice = optionsData.find(opt => opt.id === id);
+                    if (subservice) {
+                        selectSubservice(subservice);
+                    }
+                }
+            }
+        });
+    });
+
+    // =============================================
+    // FUNCIONALIDAD EXISTENTE DEL FORMULARIO
+    // =============================================
+
     // Función para actualizar todos los campos automáticamente
     function updateFormFields() {
         console.log('🔄 Actualizando campos del formulario...');
@@ -393,13 +676,6 @@
     // INICIALIZACIÓN
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 DOM Cargado - Inicializando formulario...');
-
-        // Configurar event listener para el select
-        const subServiceSelect = document.getElementById('sub_service_id');
-        if (subServiceSelect) {
-            subServiceSelect.addEventListener('change', updateFormFields);
-            console.log('✅ Event listener agregado al select');
-        }
 
         // Ejecutar inmediatamente para establecer valores iniciales
         setTimeout(updateFormFields, 100);
