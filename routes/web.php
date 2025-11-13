@@ -48,6 +48,9 @@ Route::middleware('auth')->group(function () {
     // Gestión de usuarios
     require __DIR__ . '/features/user-management/web.php';
 
+    // Gestión de solicitantes
+    require __DIR__ . '/features/requester-management/web.php';
+
     // =========================================================================
     // APIS PARA FORMULARIOS WEB
     // =========================================================================

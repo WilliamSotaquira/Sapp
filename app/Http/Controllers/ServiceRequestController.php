@@ -63,10 +63,13 @@ class ServiceRequestController extends Controller
             ->where('is_active', true)
             ->get();
 
-        $users = User::all();
+        // CAMBIO: Usar Requesters en lugar de Users
+        $requesters = \App\Models\Requester::active()->orderBy('name')->get();
+
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'URGENTE'];
 
-        return view('service-requests.create', compact('subServices', 'users', 'criticalityLevels'));
+        // CAMBIO: Pasar $requesters en lugar de $users
+        return view('service-requests.create', compact('subServices', 'requesters', 'criticalityLevels'));
     }
 
     /**
@@ -78,6 +81,7 @@ class ServiceRequestController extends Controller
         \Log::info('Datos RAW:', $request->all());
 
         $validated = $request->validate([
+            'requester_id' => 'required|exists:requesters,id', // NUEVO: Campo requerido
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'sub_service_id' => 'required|exists:sub_services,id',
@@ -106,6 +110,7 @@ class ServiceRequestController extends Controller
             \Log::info('✅ Solicitud creada:', [
                 'id' => $serviceRequest->id,
                 'ticket_number' => $serviceRequest->ticket_number,
+                'requester_id' => $serviceRequest->requester_id, // NUEVO: Log del solicitante
                 'status' => $serviceRequest->status,
             ]);
 
@@ -121,7 +126,6 @@ class ServiceRequestController extends Controller
                 ->with('error', 'Error al crear la solicitud: ' . $e->getMessage());
         }
     }
-
     /**
      * Display the specified resource.
      */

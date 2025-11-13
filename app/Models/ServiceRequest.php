@@ -16,7 +16,7 @@ class ServiceRequest extends Model
     use HasFactory, SoftDeletes;
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
-    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by'];
+    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
 
     protected $casts = [
         'acceptance_deadline' => 'datetime',
@@ -74,7 +74,7 @@ class ServiceRequest extends Model
 
     public function requester()
     {
-        return $this->belongsTo(User::class, 'requested_by');
+        return $this->belongsTo(Requester::class);
     }
 
     public function assignee()
@@ -114,6 +114,12 @@ class ServiceRequest extends Model
     public function rejectedByUser()
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    // Esta relación se encuentra repetirda, eliminar una de las dos
+    public function requestedBy()
+    {
+        return $this->belongsTo(User::class, 'requested_by');
     }
 
     // ==================== MÉTODOS ADICIONALES ====================

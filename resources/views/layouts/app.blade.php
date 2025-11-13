@@ -94,6 +94,11 @@
                                     <i class="fas fa-chevron-down ml-1 text-xs"></i>
                                 </button>
                                 <div class="dropdown-menu rounded-b mt-1">
+                                    {{-- Solicitantes --}}
+                                    <a href="{{ route('requester-management.requesters.index') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('requester-management.*') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-users mr-2"></i>Solicitantes
+                                    </a>
                                     <a href="{{ route('service-families.index') }}"
                                         class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-families.*') ? 'bg-red-700' : '' }}">
                                         <i class="fas fa-layer-group mr-2"></i>Familias
