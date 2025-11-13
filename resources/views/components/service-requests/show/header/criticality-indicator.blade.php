@@ -18,6 +18,11 @@
             'icon' => 'exclamation-triangle',
             'text' => 'Alta'
         ],
+        'URGENTE' => [
+            'color' => 'bg-red-100 text-red-800 border-red-300',
+            'icon' => 'exclamation-circle',
+            'text' => 'Urgente'
+        ],
         'CRITICA' => [
             'color' => 'bg-red-100 text-red-800 border-red-300',
             'icon' => 'skull-crossbones',

@@ -66,6 +66,11 @@ class ViewServiceProvider extends ServiceProvider
                     'icon' => 'fa-exclamation-triangle',
                     'label' => 'Alta'
                 ],
+                'URGENTE' => [
+                    'color' => 'bg-red-500 text-white',
+                    'icon' => 'fa-exclamation-circle',
+                    'label' => 'Urgente'
+                ],
                 'CRITICA' => [
                     'color' => 'bg-red-500 text-white',
                     'icon' => 'fa-skull-crossbones',
