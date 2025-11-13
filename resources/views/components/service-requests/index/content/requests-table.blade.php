@@ -39,8 +39,8 @@
                     <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
                         <tr>
                             <th class="px-3 py-2 text-left font-medium">Ticket</th>
-                            <th class="px-3 py-2 text-left font-medium">Solicitud</th>
-                            <th class="px-3 py-2 text-left font-medium">Servicio</th>
+                            <th class="px-3 py-2 text-left font-medium w-1/5">Solicitud</th>
+                            <th class="px-3 py-2 text-left font-medium w-1/5">Servicio</th>
                             <th class="px-3 py-2 text-left font-medium">Prioridad</th>
                             <th class="px-3 py-2 text-left font-medium">Estado</th>
                             <th class="px-3 py-2 text-left font-medium">Solicitante</th>

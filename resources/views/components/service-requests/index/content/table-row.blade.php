@@ -8,20 +8,20 @@
     <!-- Ticket -->
     <td class="px-3 py-2 whitespace-nowrap">
         <a href="{{ route('service-requests.show', $request) }}"
-           class="font-mono text-blue-600 hover:text-blue-800 font-medium text-xs">
+           class="font-mono text-gray-600 hover:text-gray-800 font-semibold text-xs">
             #{{ $request->ticket_number }}
         </a>
     </td>
 
     <!-- Título y Descripción -->
     <td class="px-3 py-2">
-        <div class="font-medium text-gray-900 text-xs">{{ Str::limit($request->title, 40) }}</div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ Str::limit($request->description, 50) }}</div>
+        <div class="font-medium text-gray-900 text-xs">{{ Str::limit($request->title, 65) }}</div>
+        <div class="text-xs text-gray-500 mt-0.5">{{ Str::limit($request->description, 60) }}</div>
     </td>
 
     <!-- Servicio -->
-    <td class="px-3 py-2 whitespace-nowrap">
-        <div class="text-xs text-gray-900">{{ $request->subService->name ?? 'N/A' }}</div>
+    <td class="px-3 py-2">
+        <div class="font-medium text-xs text-gray-900">{{ $request->subService->name ?? 'N/A' }}</div>
         <div class="text-xs text-gray-500">{{ $request->subService->service->family->name ?? '' }}</div>
     </td>
 
@@ -38,7 +38,7 @@
     <!-- Solicitante -->
     <td class="px-3 py-2 whitespace-nowrap">
         <div class="flex items-center space-x-2">
-            <div class="w-5 h-5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+            <div class="w-5 h-5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold whitespace-nowrap">
                 {{ substr($request->requester->name ?? 'N', 0, 1) }}
             </div>
             <div class="text-xs text-gray-900 truncate max-w-[80px]">
