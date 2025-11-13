@@ -140,12 +140,12 @@
     <div class="{{ $compact ? 'flex flex-col gap-2' : 'grid gap-3 md:grid-cols-2' }}">
         @foreach ($actions as $actionItem)
             @if ($actionItem['condition'])
-                <div class="{{ $compact ? '' : 'bg-white p-4 rounded-lg border border-gray-200 shadow-sm' }}">
+                <div class="{{ $compact ? '' : 'rounded-full border-2 border border-slate-300 shadow-sm' }}">
                     {{-- BOTONES QUE ABREN MODALES --}}
                     @if ($actionItem['method'] === 'MODAL')
                         <button type="button"
                             onclick="document.getElementById('{{ $actionItem['modal_id'] }}').classList.remove('hidden')"
-                            class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm py-2' : '' }}">
+                            class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-full border-2 font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm' : '' }} leading-tight">
                             <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                             @if ($showLabels)
                                 {{ $actionItem['label'] }}
@@ -155,7 +155,7 @@
                         {{-- BOTONES CON GET (LINKS) --}}
                     @elseif($actionItem['method'] === 'GET')
                         <a href="{{ route($actionItem['route'], $serviceRequest) }}"
-                            class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 no-underline {{ $compact ? 'text-sm py-2' : '' }}">
+                            class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-full border-2 font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 no-underline {{ $compact ? 'text-sm' : '' }} leading-tight">
                             <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                             @if ($showLabels)
                                 {{ $actionItem['label'] }}
@@ -172,7 +172,7 @@
                             @endif
 
                             <button type="submit"
-                                class="inline-flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm py-2' : '' }}"
+                                class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-lg font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm' : '' }} leading-tight"
                                 onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')">
                                 <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                                 @if ($showLabels)
@@ -183,11 +183,10 @@
                     @endif
                 </div>
             @else
-                <div class="{{ $compact ? '' : 'bg-gray-50 p-4 rounded-lg border border-gray-200' }}">
+                <div class="{{ $compact ? '' : 'bg-gray-50 rounded-2xl border border-gray-200' }}">
                     <button type="button" disabled
-                        class="inline-flex items-center justify-center w-full px-4 py-3 bg-gray-400 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest cursor-not-allowed {{ $compact ? 'text-sm py-2' : '' }}"
+                        class="inline-flex items-center justify-center w-full px-6 py-2 bg-gray-400 border border-transparent text-sm font-semibold text-white cursor-not-allowed {{ $compact ? 'text-sm' : '' }} leading-tight rounded-2xl"
                         title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}">
-                        <!-- ✅ MODIFICACIÓN 4: Mensaje específico para evidencias -->
                         <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                         @if ($showLabels)
                             {{ $actionItem['label'] }}
@@ -198,14 +197,14 @@
         @endforeach
     </div>
 @elseif($disabled)
-    <div class="bg-gray-100 border border-gray-300 rounded-lg p-4 text-center">
+    <div class="bg-gray-100 border border-gray-300 rounded-2xl text-center">
         <p class="text-gray-600">
             <i class="fas fa-lock mr-2"></i>
             Las acciones no están disponibles en este momento
         </p>
     </div>
 @else
-    <div class="bg-blue-50 border border-blue-300 rounded-lg p-4 text-center">
+    <div class="bg-blue-50 border border-blue-300 rounded-2xl text-center">
         <p class="text-blue-700">
             <i class="fas fa-check-circle mr-2"></i>
             No hay acciones disponibles para el estado: <strong>{{ $currentStatus }}</strong>

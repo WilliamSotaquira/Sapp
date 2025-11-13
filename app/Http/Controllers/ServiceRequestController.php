@@ -993,6 +993,79 @@ class ServiceRequestController extends Controller
                 $serviceRequest->setRelation('evidences', collect());
             }
 
+            // Preprocesar archivos para Base64 (incluyendo imágenes y otros archivos)
+            $evidencesWithBase64 = $serviceRequest->evidences->map(function ($evidence) {
+                // Solo procesar evidencias que tienen file_path y no son del tipo SISTEMA
+                if ($evidence->file_path && $evidence->evidence_type !== 'SISTEMA') {
+                    try {
+                        // Intentar diferentes rutas posibles
+                        $possiblePaths = [storage_path('app/public/' . $evidence->file_path), storage_path('app/' . $evidence->file_path), public_path('storage/' . $evidence->file_path), public_path($evidence->file_path)];
+
+                        $filePath = null;
+                        foreach ($possiblePaths as $path) {
+                            if (file_exists($path)) {
+                                $filePath = $path;
+                                break;
+                            }
+                        }
+
+                        if ($filePath && file_exists($filePath)) {
+                            // Verificar si es una imagen por la extensión
+                            $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                            $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+
+                            if (in_array($extension, $imageExtensions)) {
+                                // Es una imagen - convertir a Base64
+                                $imageData = base64_encode(file_get_contents($filePath));
+
+                                $mimeTypes = [
+                                    'jpg' => 'image/jpeg',
+                                    'jpeg' => 'image/jpeg',
+                                    'png' => 'image/png',
+                                    'gif' => 'image/gif',
+                                    'bmp' => 'image/bmp',
+                                    'webp' => 'image/webp',
+                                ];
+
+                                $mimeType = $mimeTypes[$extension] ?? 'image/jpeg';
+                                $evidence->base64_content = "data:$mimeType;base64,$imageData";
+                                $evidence->is_image = true;
+                                $evidence->file_found = true;
+                            } else {
+                                // No es una imagen - marcar como archivo disponible
+                                $evidence->is_image = false;
+                                $evidence->file_found = true;
+                                $evidence->base64_content = null;
+                            }
+                        } else {
+                            $evidence->base64_content = null;
+                            $evidence->is_image = false;
+                            $evidence->file_found = false;
+                            Log::warning("Archivo no encontrado: {$evidence->file_path}");
+                        }
+                    } catch (\Exception $e) {
+                        $evidence->base64_content = null;
+                        $evidence->is_image = false;
+                        $evidence->file_found = false;
+                        Log::error("Error procesando archivo {$evidence->file_path}: " . $e->getMessage());
+                    }
+                } else {
+                    $evidence->base64_content = null;
+                    $evidence->is_image = false;
+                    $evidence->file_found = false;
+                }
+                return $evidence;
+            });
+
+            $serviceRequest->setRelation('evidences', $evidencesWithBase64);
+
+            // Log para debugging
+            $totalEvidences = $serviceRequest->evidences->count();
+            $fileEvidences = $serviceRequest->evidences->where('file_path', '!=', null)->count();
+            $imageEvidences = $serviceRequest->evidences->where('is_image', true)->count();
+
+            Log::info("PDF Generation - Total: {$totalEvidences}, Con archivos: {$fileEvidences}, Imágenes: {$imageEvidences}");
+
             $data = [
                 'serviceRequest' => $serviceRequest,
                 'title' => "Reporte de Solicitud #{$serviceRequest->ticket_number}",
@@ -1006,6 +1079,8 @@ class ServiceRequestController extends Controller
             $pdf->setOption('margin-bottom', 15);
             $pdf->setOption('margin-left', 10);
             $pdf->setOption('margin-right', 10);
+            $pdf->setOption('isHtml5ParserEnabled', true);
+            $pdf->setOption('isRemoteEnabled', false);
 
             $fileName = "reporte-solicitud-{$serviceRequest->ticket_number}.pdf";
 
@@ -1014,6 +1089,7 @@ class ServiceRequestController extends Controller
             Log::error('Error generando reporte PDF: ' . $e->getMessage());
             Log::error('File: ' . $e->getFile());
             Log::error('Line: ' . $e->getLine());
+            Log::error('Trace: ' . $e->getTraceAsString());
 
             return redirect()
                 ->back()

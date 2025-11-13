@@ -28,7 +28,7 @@
     $config = $criticalityConfig[$criticality] ?? $criticalityConfig['MEDIA'];
 @endphp
 
-<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border-2 {{ $config['color'] }}">
+<span class="inline-flex max-h-7 items-center px-4 py-1 rounded-full text-xs font-semibold border-2 {{ $config['color'] }} leading-none">
     <i class="fas fa-{{ $config['icon'] }} mr-2"></i>
     {{ $config['text'] }}
 </span>

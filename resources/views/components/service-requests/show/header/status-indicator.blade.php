@@ -22,7 +22,7 @@
         ][$serviceRequest->status];
     @endphp
 
-    <div class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold flex items-center border border-white/30">
+    <div class="bg-white/20 backdrop-blur-sm px-4 py-2 border-2 rounded-full text-sm font-semibold flex items-center border border-white/30 leading-tight">
         <i class="fas fa-{{ $statusInfo['icon'] }} mr-2"></i>
         <span>{{ $statusInfo['text'] }}</span>
     </div>
