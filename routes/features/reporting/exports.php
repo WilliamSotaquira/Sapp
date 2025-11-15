@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Reports\ReportController as ReportsController;
 use App\Http\Controllers\Reports\TimelineReportController;
+use App\Http\Controllers\Reports\TimeRangeReportController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -47,5 +48,16 @@ Route::prefix('reports')->name('reports.')->group(function () {
         // Procesar búsqueda por ticket - CORREGIDO (usar POST)
         Route::post('/download-by-ticket', [TimelineReportController::class, 'downloadTimelineByTicket'])
             ->name('download-by-ticket');
+    });
+
+    // =========================================================================
+    // REPORTE POR RANGO DE TIEMPO - NUEVA FUNCIONALIDAD
+    // =========================================================================
+    Route::prefix('time-range')->name('time-range.')->group(function () {
+        // Mostrar formulario del reporte
+        Route::get('/', [TimeRangeReportController::class, 'index'])->name('index');
+
+        // Generar reporte (PDF, Excel o ZIP con evidencias)
+        Route::post('/generate', [TimeRangeReportController::class, 'generate'])->name('generate');
     });
 });

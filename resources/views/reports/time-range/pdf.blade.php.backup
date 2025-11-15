@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte por Rango de Tiempo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', 'Helvetica', 'Arial', sans-serif;
+            font-size: 10px;
+            line-height: 1.4;
+            color: #333;
+            background: #fff;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .report-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .info-item {
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-icon {
+            font-size: 20px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2c3e50;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 9px;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 8px 6px;
+            text-align: left;
+            border: 1px solid #dee2e6;
+            font-size: 8px;
+            text-transform: uppercase;
+        }
+
+        .table td {
+            padding: 6px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+
+        .table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .table tbody tr:hover {
+            background: #e3f2fd;
+        }
+
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 7px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-pendiente { background: #fff3cd; color: #856404; }
+        .status-en-progreso { background: #cce5ff; color: #004085; }
+        .status-resuelta { background: #d4edda; color: #155724; }
+        .status-cerrada { background: #e2e3e5; color: #383d41; }
+        .status-rechazada { background: #f8d7da; color: #721c24; }
+        .status-pausada { background: #ffeaa7; color: #6c757d; }
+
+        .criticality-badge {
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 7px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .criticality-baja { background: #d4edda; color: #155724; }
+        .criticality-media { background: #fff3cd; color: #856404; }
+        .criticality-alta { background: #f8d7da; color: #721c24; }
+        .criticality-critica { background: #d1ecf1; color: #0c5460; }
+
+        .family-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .family-header {
+            background: linear-gradient(45deg, #2c3e50, #3498db);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .family-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .family-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .family-stat {
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .family-stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .family-stat-label {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 6px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-muted { color: #6c757d; }
+        .text-primary { color: #007bff; }
+        .text-success { color: #28a745; }
+        .text-warning { color: #ffc107; }
+        .text-danger { color: #dc3545; }
+
+        .mb-10 { margin-bottom: 10px; }
+        .mb-15 { margin-bottom: 15px; }
+        .mb-20 { margin-bottom: 20px; }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 8px 20px;
+            font-size: 8px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @media print {
+            .page-break {
+                page-break-before: always;
+            }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>📊 Reporte por Rango de Tiempo</h1>
+        <p>Análisis detallado de solicitudes de servicio agrupadas por familia</p>
+    </div>
+
+    <!-- Información del reporte -->
+    <div class="report-info">
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Periodo</div>
+                <div class="info-value">
+                    {{ $dateRange['start']->format('d/m/Y') }} - {{ $dateRange['end']->format('d/m/Y') }}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Total Solicitudes</div>
+                <div class="info-value">{{ $statistics['total_requests'] }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Generado</div>
+                <div class="info-value">{{ now()->format('d/m/Y H:i') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas generales -->
+    <div class="section">
+        <div class="section-title">📈 Estadísticas Generales</div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-icon text-primary">📋</span>
+                <span class="stat-value">{{ $statistics['total_requests'] }}</span>
+                <span class="stat-label">Total Solicitudes</span>
+            </div>
+
+            <div class="stat-card">
+                <span class="stat-icon text-success">✅</span>
+                <span class="stat-value">{{ $statistics['resolved_count'] }}</span>
+                <span class="stat-label">Resueltas</span>
+            </div>
+
+            <div class="stat-card">
+                <span class="stat-icon text-danger">⚠️</span>
+                <span class="stat-value">{{ $statistics['overdue_count'] }}</span>
+                <span class="stat-label">Vencidas</span>
+            </div>
+
+            <div class="stat-card">
+                <span class="stat-icon text-warning">⏱️</span>
+                <span class="stat-value">{{ round($statistics['avg_resolution_time'] / 60, 1) }}h</span>
+                <span class="stat-label">Tiempo Prom.</span>
+            </div>
+        </div>
+
+        <!-- Distribución por estado -->
+        <div class="mb-20">
+            <h4 style="font-size: 12px; margin-bottom: 10px;">Distribución por Estado</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Cantidad</th>
+                        <th>Porcentaje</th>
+                        <th>Progreso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($statistics['by_status'] as $status => $data)
+                    <tr>
+                        <td>
+                            <span class="status-badge status-{{ strtolower(str_replace(' ', '-', $status)) }}">
+                                {{ $status }}
+                            </span>
+                        </td>
+                        <td class="text-center">{{ $data['count'] }}</td>
+                        <td class="text-center">{{ $data['percentage'] }}%</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ $data['percentage'] }}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay datos disponibles</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Distribución por criticidad -->
+        <div class="mb-20">
+            <h4 style="font-size: 12px; margin-bottom: 10px;">Distribución por Criticidad</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Criticidad</th>
+                        <th>Cantidad</th>
+                        <th>Porcentaje</th>
+                        <th>Progreso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($statistics['by_criticality'] as $criticality => $data)
+                    <tr>
+                        <td>
+                            <span class="criticality-badge criticality-{{ strtolower($criticality) }}">
+                                {{ $criticality }}
+                            </span>
+                        </td>
+                        <td class="text-center">{{ $data['count'] }}</td>
+                        <td class="text-center">{{ $data['percentage'] }}%</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ $data['percentage'] }}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay datos disponibles</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if($groupedData->count() > 0)
+        <div class="page-break"></div>
+
+        <!-- Análisis por familia de servicios -->
+        <div class="section">
+            <div class="section-title">🏢 Análisis por Familia de Servicios</div>
+
+            @foreach($groupedData as $familyName => $familyRequests)
+            <div class="family-section">
+                <div class="family-header">
+                    <div class="family-title">{{ $familyName }}</div>
+                    <div style="font-size: 10px; opacity: 0.9;">
+                        {{ $familyRequests->count() }} solicitudes
+                        ({{ round(($familyRequests->count() / $statistics['total_requests']) * 100, 1) }}% del total)
+                    </div>
+                </div>
+
+                <div class="family-stats">
+                    <div class="family-stat">
+                        <div class="family-stat-value">{{ $familyRequests->count() }}</div>
+                        <div class="family-stat-label">Total</div>
+                    </div>
+                    <div class="family-stat">
+                        <div class="family-stat-value">{{ $familyRequests->where('status', 'RESUELTA')->count() }}</div>
+                        <div class="family-stat-label">Resueltas</div>
+                    </div>
+                    <div class="family-stat">
+                        <div class="family-stat-value">
+                            @php
+                            $overdue = $familyRequests->filter(function($req) {
+                                return $req->resolution_deadline &&
+                                       $req->resolution_deadline < now() &&
+                                       !in_array($req->status, ['RESUELTA', 'CERRADA']);
+                            })->count();
+                            @endphp
+                            {{ $overdue }}
+                        </div>
+                        <div class="family-stat-label">Vencidas</div>
+                    </div>
+                    <div class="family-stat">
+                        <div class="family-stat-value">
+                            @php
+                            $resolved = $familyRequests->filter(function($req) {
+                                return $req->resolved_at && $req->created_at;
+                            });
+                            $avgTime = $resolved->count() > 0
+                                ? $resolved->avg(function($req) { return $req->created_at->diffInMinutes($req->resolved_at); })
+                                : 0;
+                            @endphp
+                            {{ round($avgTime / 60, 1) }}h
+                        </div>
+                        <div class="family-stat-label">Tiempo Prom.</div>
+                    </div>
+                </div>
+
+                <!-- Top 5 solicitudes de esta familia -->
+                <h5 style="font-size: 11px; margin-bottom: 8px;">Solicitudes de {{ $familyName }}</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Título</th>
+                            <th>Solicitante</th>
+                            <th>Estado</th>
+                            <th>Criticidad</th>
+                            <th>Creado</th>
+                            <th>Evidencias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($familyRequests->take(10) as $request)
+                        <tr>
+                            <td>{{ $request->ticket_number }}</td>
+                            <td style="max-width: 120px;">{{ Str::limit($request->title, 40) }}</td>
+                            <td>{{ $request->requester->name ?? 'N/A' }}</td>
+                            <td>
+                                <span class="status-badge status-{{ strtolower(str_replace(' ', '-', $request->status)) }}">
+                                    {{ $request->status }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="criticality-badge criticality-{{ strtolower($request->criticality_level) }}">
+                                    {{ $request->criticality_level }}
+                                </span>
+                            </td>
+                            <td>{{ $request->created_at->format('d/m/Y') }}</td>
+                            <td class="text-center">{{ $request->evidences->count() }}</td>
+                        </tr>
+                        @endforeach
+
+                        @if($familyRequests->count() > 10)
+                        <tr>
+                            <td colspan="7" class="text-center text-muted" style="font-style: italic;">
+                                ... y {{ $familyRequests->count() - 10 }} solicitudes más
+                            </td>
+                        </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
+            @endforeach
+        </div>
+    @else
+        <div class="no-data">
+            <h3>No hay solicitudes en el rango seleccionado</h3>
+            <p>Intente seleccionar un rango de fechas diferente o ajustar los filtros.</p>
+        </div>
+    @endif
+
+    @if($evidences->count() > 0)
+        <div class="page-break"></div>
+
+        <!-- Resumen de evidencias -->
+        <div class="section">
+            <div class="section-title">📎 Resumen de Evidencias</div>
+
+            <div class="stats-grid mb-20">
+                <div class="stat-card">
+                    <span class="stat-icon">📎</span>
+                    <span class="stat-value">{{ $evidences->count() }}</span>
+                    <span class="stat-label">Total Evidencias</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">🖼️</span>
+                    <span class="stat-value">{{ $evidences->where('is_image', true)->count() }}</span>
+                    <span class="stat-label">Imágenes</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">📄</span>
+                    <span class="stat-value">{{ $evidences->where('file_mime_type', 'like', 'application/%')->count() }}</span>
+                    <span class="stat-label">Documentos</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">💾</span>
+                    <span class="stat-value">
+                        @php
+                        $totalSize = $evidences->sum('file_size');
+                        $sizeInMB = round($totalSize / 1048576, 1);
+                        @endphp
+                        {{ $sizeInMB }} MB
+                    </span>
+                    <span class="stat-label">Tamaño Total</span>
+                </div>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Solicitud</th>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Archivo</th>
+                        <th>Tamaño</th>
+                        <th>Subido por</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($evidences->take(20) as $evidence)
+                    <tr>
+                        <td>{{ $evidence->serviceRequest->ticket_number ?? 'N/A' }}</td>
+                        <td style="max-width: 100px;">{{ Str::limit($evidence->title, 30) }}</td>
+                        <td>{{ $evidence->evidence_type }}</td>
+                        <td style="max-width: 100px;">
+                            {{ $evidence->file_original_name ? Str::limit($evidence->file_original_name, 25) : 'Sin archivo' }}
+                        </td>
+                        <td>{{ $evidence->formatted_file_size ?? 'N/A' }}</td>
+                        <td>{{ $evidence->uploadedBy->name ?? 'Sistema' }}</td>
+                        <td>{{ $evidence->created_at->format('d/m/Y') }}</td>
+                    </tr>
+                    @endforeach
+
+                    @if($evidences->count() > 20)
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="font-style: italic;">
+                            ... y {{ $evidences->count() - 20 }} evidencias más (disponibles en descarga ZIP)
+                        </td>
+                    </tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    <!-- Footer -->
+    <div class="footer">
+        <div>Sistema de Gestión de Solicitudes - Reporte generado el {{ now()->format('d/m/Y H:i:s') }}</div>
+        <div>Página <span class="pagenum"></span></div>
+    </div>
+</body>
+</html>

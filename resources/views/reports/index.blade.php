@@ -40,6 +40,36 @@
             <span class="text-sm text-gray-500">Búsqueda rápida por número</span>
         </div>
     </a>
+
+    <!-- Time Range Report Card - NUEVO -->
+    <a href="{{ route('reports.time-range.index') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-teal-500">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Reporte por Rango de Tiempo</h3>
+                <p class="text-gray-600 text-sm mt-1">Análisis detallado por periodo con evidencias incluidas</p>
+            </div>
+            <div class="bg-teal-100 p-3 rounded-full">
+                <i class="fas fa-calendar-alt text-teal-600 text-xl"></i>
+            </div>
+        </div>
+        <div class="mt-4">
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-500">Incluye ZIP con evidencias</span>
+                <div class="flex space-x-1">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <i class="fas fa-file-pdf mr-1"></i>PDF
+                    </span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-file-excel mr-1"></i>Excel
+                    </span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <i class="fas fa-file-archive mr-1"></i>ZIP
+                    </span>
+                </div>
+            </div>
+        </div>
+    </a>
+
     <!-- SLA Compliance Card -->
     <a href="{{ route('reports.sla-compliance') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-blue-500">
         <div class="flex items-center justify-between">
