@@ -41,12 +41,18 @@ class RequestTimelineExport implements FromCollection, WithHeadings, WithMapping
     {
         $timeInStatus = $this->getTimeInStatusForEvent($event);
 
+        // Obtener el status/type del evento de manera segura
+        $eventStatus = $event['status'] ?? $event['type'] ?? 'unknown';
+
+        // Obtener el nombre del evento
+        $eventName = $event['event'] ?? $event['title'] ?? 'Evento';
+
         return [
-            $event['event'],
+            $eventName,
             $event['timestamp']->format('d/m/Y H:i:s'),
-            $event['user'] ? $event['user']->name : 'Sistema',
-            $event['description'],
-            $this->getEventTypeLabel($event['status']),
+            $event['user'] ? (is_object($event['user']) ? $event['user']->name : $event['user']) : 'Sistema',
+            $event['description'] ?? 'Sin descripción',
+            $this->getEventTypeLabel($eventStatus),
             $timeInStatus,
             $event['icon'] ?? 'N/A'
         ];
@@ -54,23 +60,31 @@ class RequestTimelineExport implements FromCollection, WithHeadings, WithMapping
 
     private function getTimeInStatusForEvent($event)
     {
+        $eventStatus = $event['status'] ?? $event['type'] ?? 'unknown';
         $timeInStatus = $this->request->getTimeInEachStatus();
-        return $timeInStatus[$event['status']]['formatted'] ?? 'N/A';
+        return $timeInStatus[$eventStatus]['formatted'] ?? 'N/A';
     }
 
     private function getEventTypeLabel($status)
     {
         $labels = [
             'created' => 'Creación',
+            'creation' => 'Creación',
             'assigned' => 'Asignación',
             'accepted' => 'Aceptación',
+            'acceptance' => 'Aceptación',
             'responded' => 'Respuesta Inicial',
+            'response' => 'Respuesta Inicial',
             'paused' => 'Pausa',
+            'pause' => 'Pausa',
             'resumed' => 'Reanudación',
             'resolved' => 'Resolución',
+            'resolution' => 'Resolución',
             'closed' => 'Cierre',
+            'closure' => 'Cierre',
             'evidence' => 'Evidencia',
-            'breach' => 'Incumplimiento SLA'
+            'breach' => 'Incumplimiento SLA',
+            'unknown' => 'Evento del Sistema'
         ];
 
         return $labels[$status] ?? ucfirst($status);

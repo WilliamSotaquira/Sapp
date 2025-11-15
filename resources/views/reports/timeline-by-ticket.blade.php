@@ -43,7 +43,7 @@
                     id="ticket_number"
                     name="ticket_number"
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                    placeholder="Ej: SRV-2024-00123 o NF-PUM-251105-002"
+                    placeholder="Ej: INF-PU-M-251115-001 o COM-RE-U-251113-001"
                     required
                     autofocus
                     value="{{ old('ticket_number', request('ticket_number')) }}"
@@ -64,8 +64,11 @@
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                 >
                     <option value="pdf" {{ request('format') == 'pdf' ? 'selected' : '' }}>PDF (Recomendado)</option>
-                    <option value="excel" {{ request('format') == 'excel' ? 'selected' : '' }}>Excel (.xlsx)</option>
+                    <option value="excel" {{ request('format') == 'excel' ? 'selected' : '' }}>Excel (.xlsx - con respaldo CSV)</option>
                 </select>
+                <p class="mt-1 text-xs text-gray-500">
+                    Si Excel falla, se generará automáticamente un archivo CSV
+                </p>
             </div>
 
             <!-- Botones de acción -->
@@ -92,6 +95,27 @@
         <!-- Mensajes de resultado -->
         <div id="resultMessage" class="mt-6 hidden"></div>
 
+        <!-- Mostrar mensajes de sesión -->
+        @if(session('info'))
+            <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                    <span class="text-blue-800 font-semibold">Información</span>
+                </div>
+                <p class="text-blue-700 mt-1">{{ session('info') }}</p>
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+                    <span class="text-red-800 font-semibold">Error</span>
+                </div>
+                <p class="text-red-700 mt-1">{{ session('error') }}</p>
+            </div>
+        @endif
+
         <!-- Mostrar errores si los hay -->
         @if($errors->any())
             <div class="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -116,9 +140,21 @@
             <ul class="text-sm text-blue-700 space-y-1">
                 <li>• Revisa el correo de confirmación de tu solicitud</li>
                 <li>• Consulta en el listado de "Solicitudes de Servicio"</li>
-                <li>• El formato puede ser: <code>SRV-AAAA-NNNNN</code> o <code>NF-PUM-251105-002</code></li>
+                <li>• El formato puede ser: <code>INF-PU-M-251115-001</code>, <code>COM-RE-U-251113-001</code> o <code>SUP-MI-M-251113-005</code></li>
                 <li>• También puedes usar el ID numérico de la solicitud</li>
             </ul>
+
+            @if(isset($sampleTickets) && $sampleTickets->count() > 0)
+            <div class="mt-3 p-3 bg-blue-100 rounded">
+                <p class="text-xs text-blue-600 font-medium">💡 Algunos tickets disponibles para pruebas:</p>
+                <ul class="text-xs text-blue-600 mt-1">
+                    @foreach($sampleTickets as $ticket)
+                    <li>• <code class="cursor-pointer hover:bg-blue-200 px-1 rounded" onclick="document.getElementById('ticket_number').value='{{ $ticket->ticket_number }}'">{{ $ticket->ticket_number }}</code> - {{ Str::limit($ticket->title, 40) }}</li>
+                    @endforeach
+                </ul>
+                <p class="text-xs text-blue-500 mt-1 italic">💡 Haz clic en un ticket para copiarlo al campo de búsqueda</p>
+            </div>
+            @endif
         </div>
     </div>
 </div>
@@ -141,21 +177,48 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        if (!format || (format !== 'pdf' && format !== 'excel')) {
+            showResult('Por favor selecciona un formato válido', 'error');
+            return;
+        }
+
         // Mostrar loading
         showResult('<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando solicitud...</div>', 'loading');
 
-        // Construir la URL de descarga
-        const downloadUrl = `{{ route('reports.timeline.download-by-ticket', ['ticket' => 'TICKET_PLACEHOLDER', 'format' => 'FORMAT_PLACEHOLDER']) }}`
-            .replace('TICKET_PLACEHOLDER', encodeURIComponent(ticketNumber))
-            .replace('FORMAT_PLACEHOLDER', format);
+        // Debug: mostrar lo que se va a enviar
+        console.log('Enviando:', { ticket_number: ticketNumber, format: format });
 
-        // Crear un enlace temporal para la descarga
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Crear un formulario temporal para enviar la petición POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route('reports.timeline.download-by-ticket') }}';
+        form.target = '_blank';
+
+        // Añadir token CSRF
+        const csrfField = document.createElement('input');
+        csrfField.type = 'hidden';
+        csrfField.name = '_token';
+        csrfField.value = '{{ csrf_token() }}';
+        form.appendChild(csrfField);
+
+        // Añadir número de ticket
+        const ticketField = document.createElement('input');
+        ticketField.type = 'hidden';
+        ticketField.name = 'ticket_number';
+        ticketField.value = ticketNumber;
+        form.appendChild(ticketField);
+
+        // Añadir formato (aunque no se use en el controlador actual)
+        const formatField = document.createElement('input');
+        formatField.type = 'hidden';
+        formatField.name = 'format';
+        formatField.value = format;
+        form.appendChild(formatField);
+
+        // Enviar formulario
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
 
         // Mostrar mensaje de éxito después de un breve delay
         setTimeout(() => {
@@ -165,8 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-check-circle text-green-500 mr-2"></i>
                         <span class="text-green-800 font-semibold">Descarga iniciada</span>
                     </div>
-                    <p class="text-green-700 mt-1">Timeline de <strong>${ticketNumber}</strong> se está descargando en formato ${format.toUpperCase()}</p>
-                    <p class="text-green-600 text-sm mt-2">Si la descarga no inicia automáticamente, <a href="${downloadUrl}" class="underline font-semibold">haz clic aquí</a></p>
+                    <p class="text-green-700 mt-1">Timeline de <strong>${ticketNumber}</strong> se está procesando para descarga en formato ${format.toUpperCase()}</p>
+                    <p class="text-green-600 text-sm mt-2">La descarga iniciará automáticamente en una nueva ventana</p>
                 </div>
             `, 'success');
         }, 1000);

@@ -69,7 +69,7 @@
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Tiempo Promedio Resolución</p>
                         <p class="text-2xl font-semibold text-gray-900">
-                            {{ round($servicePerformance->avg('avg_resolution_time'), 1) }} min
+                            {{ round($servicePerformance->avg('avg_resolution_hours') * 60, 1) }} min
                         </p>
                     </div>
                 </div>
@@ -78,12 +78,12 @@
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
                     <div class="p-3 bg-purple-100 rounded-lg">
-                        <i class="fas fa-star text-purple-600 text-xl"></i>
+                        <i class="fas fa-check-circle text-purple-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">Satisfacción Promedio</p>
+                        <p class="text-sm font-medium text-gray-600">Solicitudes Resueltas</p>
                         <p class="text-2xl font-semibold text-gray-900">
-                            {{ round($servicePerformance->avg('avg_satisfaction'), 1) }}/5
+                            {{ $servicePerformance->sum('resolved_count') }}
                         </p>
                     </div>
                 </div>
@@ -96,39 +96,37 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Familia de Servicio</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Servicios</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Servicio</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Solicitudes</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo Resolución (min)</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Satisfacción</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiempo Resolución (horas)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solicitudes Resueltas</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @foreach($servicePerformance as $performance)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                                {{ $performance['family'] }}
+                                {{ $performance->family_name }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-gray-900">
-                                {{ $performance['services_count'] }}
+                                {{ $performance->service_name }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-gray-900">
-                                {{ $performance['total_requests'] }}
+                                {{ $performance->total_requests }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="font-semibold {{ $performance['avg_resolution_time'] < 240 ? 'text-green-600' : ($performance['avg_resolution_time'] < 480 ? 'text-yellow-600' : 'text-red-600') }}">
-                                    {{ $performance['avg_resolution_time'] }} min
+                                <span class="font-semibold {{ $performance->avg_resolution_hours < 4 ? 'text-green-600' : ($performance->avg_resolution_hours < 8 ? 'text-yellow-600' : 'text-red-600') }}">
+                                    {{ round($performance->avg_resolution_hours, 1) }} hrs
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <span class="font-semibold {{ $performance['avg_satisfaction'] >= 4 ? 'text-green-600' : ($performance['avg_satisfaction'] >= 3 ? 'text-yellow-600' : 'text-red-600') }}">
-                                        {{ $performance['avg_satisfaction'] }}/5
+                                    <span class="font-semibold text-blue-600">
+                                        {{ $performance->resolved_count }}
                                     </span>
-                                    <div class="ml-2 flex">
-                                        @for($i = 1; $i <= 5; $i++)
-                                            <i class="fas fa-star {{ $i <= $performance['avg_satisfaction'] ? 'text-yellow-400' : 'text-gray-300' }} text-sm"></i>
-                                        @endfor
-                                    </div>
+                                    <span class="ml-1 text-sm text-gray-500">
+                                        ({{ round(($performance->resolved_count / $performance->total_requests) * 100, 1) }}%)
+                                    </span>
                                 </div>
                             </td>
                         </tr>

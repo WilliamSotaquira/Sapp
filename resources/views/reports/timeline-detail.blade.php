@@ -162,7 +162,7 @@
                 <div class="border-r border-gray-200 last:border-r-0">
                     <div class="text-gray-600 text-sm mb-1">Tiempo Total</div>
                     <div class="text-2xl font-bold text-blue-600">
-                        {{ is_numeric($totalResolutionTime) ? $totalResolutionTime . ' min' : $totalResolutionTime }}
+                        {{ $totalResolutionTime && isset($totalResolutionTime['formatted']) ? $totalResolutionTime['formatted'] : 'N/A' }}
                     </div>
                 </div>
 
@@ -172,49 +172,51 @@
                         @php
                         $activeTime = 0;
                         if (!empty($timeInStatus)) {
-                        foreach ($timeInStatus as $status => $minutes) {
-                        if (!in_array($status, ['PAUSADA'])) {
-                        $activeTime += $minutes;
-                        }
-                        }
+                            foreach ($timeInStatus as $status => $data) {
+                                if (!in_array($status, ['PAUSADA']) && isset($data['minutes'])) {
+                                    $activeTime += $data['minutes'];
+                                }
+                            }
                         }
                         @endphp
-                        {{ $activeTime }} min
+                        @if($activeTime > 0)
+                            {{ $activeTime < 60 ? $activeTime . ' min' : (round($activeTime / 60, 1) . 'h') }}
+                        @else
+                            N/A
+                        @endif
                     </div>
                 </div>
 
                 <div class="border-r border-gray-200 last:border-r-0">
                     <div class="text-gray-600 text-sm mb-1">Estados</div>
                     <div class="text-2xl font-bold text-purple-600">
-                        {{ count($timeInStatus) }}
+                        {{ $timeInStatus ? (is_countable($timeInStatus) ? count($timeInStatus) : 0) : 0 }}
                     </div>
                 </div>
 
                 <div>
                     <div class="text-gray-600 text-sm mb-1">Eventos</div>
                     <div class="text-2xl font-bold text-orange-600">
-                        {{ count($timelineEvents) }}
+                        {{ $timelineEvents ? (is_countable($timelineEvents) ? count($timelineEvents) : 0) : 0 }}
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Tiempo por Estado -->
-        @if(!empty($timeStatistics) && is_array($timeStatistics))
+        @if(!empty($timeInStatus) && (is_countable($timeInStatus) ? count($timeInStatus) > 0 : false))
         <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Tiempo por Estado</h3>
 
             <div class="space-y-3">
-                @foreach($timeStatistics as $status => $data)
-                @if(is_array($data) && isset($data['formatted_time']))
+                @foreach($timeInStatus as $status => $data)
                 <div class="flex justify-between items-center">
                     <span class="text-gray-700">{{ $status }}</span>
                     <div class="text-right">
-                        <span class="font-semibold">{{ $data['formatted_time'] }}</span>
+                        <span class="font-semibold">{{ $data['formatted'] ?? 'N/A' }}</span>
                         <span class="text-sm text-gray-500 ml-2">({{ $data['percentage'] ?? '0' }}%)</span>
                     </div>
                 </div>
-                @endif
                 @endforeach
             </div>
         </div>
@@ -222,54 +224,37 @@
 
         <!-- Resumen por Tipo de Evento -->
         <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumen por Tipo de Evento</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumen de Timeline</h3>
 
             @if(!empty($timeSummary) && is_array($timeSummary))
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-gray-50">
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Tipo de Evento</th>
-                            <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Cantidad</th>
-                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Último Evento</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        @foreach($timeSummary as $eventType => $summary)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-3">
-                                <div class="flex items-center space-x-2">
-                                    @php
-                                    $iconMap = [
-                                    'created' => 'plus-circle',
-                                    'assigned' => 'user-check',
-                                    'accepted' => 'check-circle',
-                                    'responded' => 'reply',
-                                    'paused' => 'pause-circle',
-                                    'resumed' => 'play-circle',
-                                    'resolved' => 'check-double',
-                                    'closed' => 'lock',
-                                    'evidence' => 'file-alt',
-                                    'web_route' => 'link',
-                                    'main_route' => 'star',
-                                    'breach' => 'exclamation-triangle'
-                                    ];
-                                    $icon = $iconMap[$eventType] ?? 'circle';
-                                    @endphp
-                                    <i class="fas fa-{{ $icon }} text-gray-400"></i>
-                                    <span class="text-gray-700">{{ ucfirst(str_replace('_', ' ', $eventType)) }}</span>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-center font-semibold text-gray-900">
-                                {{ $summary['count'] ?? 0 }}
-                            </td>
-                            <td class="px-4 py-3 text-gray-600">
-                                {{ $summary['last_time'] ? $summary['last_time']->format('d/m/Y H:i') : 'N/A' }}
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Total Eventos</div>
+                    <div class="text-2xl font-bold text-blue-600">
+                        {{ $timeSummary['total_events'] ?? 0 }}
+                    </div>
+                </div>
+
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Evidencias</div>
+                    <div class="text-2xl font-bold text-purple-600">
+                        {{ $timeSummary['evidence_events'] ?? 0 }}
+                    </div>
+                </div>
+
+                <div class="border-r border-gray-200 last:border-r-0">
+                    <div class="text-gray-600 text-sm mb-1">Cambios Estado</div>
+                    <div class="text-2xl font-bold text-green-600">
+                        {{ $timeSummary['status_changes'] ?? 0 }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="text-gray-600 text-sm mb-1">Duración Timeline</div>
+                    <div class="text-2xl font-bold text-orange-600">
+                        {{ $timeSummary['timeline_duration']['formatted'] ?? 'N/A' }}
+                    </div>
+                </div>
             </div>
             @else
             <div class="text-center text-gray-500 py-8">
@@ -285,7 +270,7 @@
                 <h2 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-stream mr-2 text-blue-500"></i>Línea de Tiempo de Eventos
                     <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium ml-2">
-                        {{ count($timelineEvents) }} eventos
+                        {{ $timelineEvents ? (is_countable($timelineEvents) ? count($timelineEvents) : 0) : 0 }} eventos
                     </span>
                 </h2>
             </div>
@@ -304,7 +289,7 @@
                                     <!-- Header -->
                                     <div class="flex justify-between items-start mb-3">
                                         <div class="flex-1">
-                                            <h3 class="font-semibold text-gray-900 mb-1">{{ $event['event'] }}</h3>
+                                            <h3 class="font-semibold text-gray-900 mb-1">{{ $event['title'] }}</h3>
                                             <div class="flex items-center text-sm text-gray-500">
                                                 <i class="fas fa-clock mr-1"></i>
                                                 {{ $event['timestamp']->format('d/m/Y H:i:s') }}
@@ -312,12 +297,10 @@
                                                 {{ $event['timestamp']->diffForHumans() }}
                                             </div>
                                         </div>
-                                        @if(isset($timeInStatus[$event['status']]))
-                                        <div class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-sm">
-                                            <i class="fas fa-hourglass-half mr-1"></i>
-                                            {{ $timeInStatus[$event['status']]['formatted'] }}
+                                        <div class="bg-{{ $event['color'] ?? 'gray' }}-100 text-{{ $event['color'] ?? 'gray' }}-700 px-2 py-1 rounded text-sm">
+                                            <i class="fas fa-{{ $event['icon'] ?? 'circle' }} mr-1"></i>
+                                            {{ ucfirst($event['type']) }}
                                         </div>
-                                        @endif
                                     </div>
 
                                     <!-- Body -->
@@ -330,7 +313,7 @@
                                             <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                                                 <i class="fas fa-user text-blue-600 text-xs"></i>
                                             </div>
-                                            <span class="text-sm text-gray-600">{{ $event['user']->name }}</span>
+                                            <span class="text-sm text-gray-600">{{ $event['user'] }}</span>
                                         </div>
                                         @endif
 
