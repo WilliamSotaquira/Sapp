@@ -3,11 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ResolveServiceRequestRequest;
+use App\Http\Requests\StoreServiceRequestRequest;
+use App\Http\Requests\UpdateServiceRequestRequest;
+use App\Http\Requests\RejectServiceRequestRequest;
+use App\Http\Requests\PauseServiceRequestRequest;
+use App\Http\Requests\UploadEvidenceRequest;
 use App\Models\ServiceRequest;
 use App\Models\SubService;
 use App\Models\User;
 use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceRequestEvidence;
+use App\Services\ServiceRequestService;
+use App\Services\ServiceRequestWorkflowService;
+use App\Services\EvidenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -16,42 +24,40 @@ use Illuminate\Support\Facades\Log;
 
 class ServiceRequestController extends Controller
 {
+    protected ServiceRequestService $serviceRequestService;
+    protected ServiceRequestWorkflowService $workflowService;
+    protected EvidenceService $evidenceService;
+
+    public function __construct(
+        ServiceRequestService $serviceRequestService,
+        ServiceRequestWorkflowService $workflowService,
+        EvidenceService $evidenceService
+    ) {
+        $this->serviceRequestService = $serviceRequestService;
+        $this->workflowService = $workflowService;
+        $this->evidenceService = $evidenceService;
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $query = ServiceRequest::with(['subService.service.family', 'requester']);
+        // Preparar filtros
+        $filters = [
+            'search' => $request->get('search'),
+            'status' => $request->get('status'),
+            'criticality' => $request->get('criticality'),
+        ];
 
-        // Filtro de búsqueda
-        if ($request->has('search') && $request->search != '') {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('ticket_number', 'LIKE', "%{$search}%")
-                    ->orWhere('title', 'LIKE', "%{$search}%")
-                    ->orWhere('description', 'LIKE', "%{$search}%");
-            });
-        }
+        // Obtener datos usando el service
+        $serviceRequests = $this->serviceRequestService->getFilteredServiceRequests($filters, 15);
+        $stats = $this->serviceRequestService->getDashboardStats();
 
-        // Filtro de estado
-        if ($request->has('status') && $request->status != '') {
-            $query->where('status', $request->status);
-        }
-
-        // Filtro de criticidad
-        if ($request->has('criticality') && $request->criticality != '') {
-            $query->where('criticality_level', $request->criticality);
-        }
-
-        $serviceRequests = $query->latest()->paginate(15);
-
-        // Estadísticas para las tarjetas
-        $pendingCount = ServiceRequest::where('status', 'PENDIENTE')->count();
-        $criticalCount = ServiceRequest::where('criticality_level', 'CRITICA')->count();
-        $resolvedCount = ServiceRequest::where('status', 'RESUELTA')->count();
-        $closedCount = ServiceRequest::where('status', 'CERRADA')->count();
-
-        return view('service-requests.index', compact('serviceRequests', 'pendingCount', 'criticalCount', 'resolvedCount', 'closedCount'));
+        return view('service-requests.index', array_merge(
+            compact('serviceRequests'),
+            $stats
+        ));
     }
 
     /**
@@ -59,68 +65,23 @@ class ServiceRequestController extends Controller
      */
     public function create()
     {
-        $subServices = SubService::with(['service.family', 'slas'])
-            ->where('is_active', true)
-            ->get();
+        $data = $this->serviceRequestService->getCreateFormData();
 
-        // CAMBIO: Usar Requesters en lugar de Users
-        $requesters = \App\Models\Requester::active()->orderBy('name')->get();
-
-        $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'URGENTE'];
-
-        // CAMBIO: Pasar $requesters en lugar de $users
-        return view('service-requests.create', compact('subServices', 'requesters', 'criticalityLevels'));
+        return view('service-requests.create', $data);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreServiceRequestRequest $request)
     {
-        \Log::info('=== INICIANDO STORE ===');
-        \Log::info('Datos RAW:', $request->all());
-
-        $validated = $request->validate([
-            'requester_id' => 'required|exists:requesters,id', // NUEVO: Campo requerido
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'sub_service_id' => 'required|exists:sub_services,id',
-            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,URGENTE,CRITICA',
-            'service_id' => 'required|exists:services,id',
-            'family_id' => 'required|exists:service_families,id',
-            'sla_id' => 'required|exists:service_level_agreements,id',
-            'requested_by' => 'required|exists:users,id',
-            'web_routes' => 'required|string',
-        ]);
-
-        \Log::info('Datos validados:', $validated);
-
-        // Procesar web_routes
-        if (!empty($validated['web_routes'])) {
-            $validated['web_routes'] = json_decode($validated['web_routes'], true) ?? [];
-        }
-
-        // NOTA: ticket_number se generará AUTOMÁTICAMENTE en el modelo
-        // NO lo agregues manualmente aquí
-
-        \Log::info('Datos finales para crear (sin ticket_number):', $validated);
-
         try {
-            $serviceRequest = ServiceRequest::create($validated);
-            \Log::info('✅ Solicitud creada:', [
-                'id' => $serviceRequest->id,
-                'ticket_number' => $serviceRequest->ticket_number,
-                'requester_id' => $serviceRequest->requester_id, // NUEVO: Log del solicitante
-                'status' => $serviceRequest->status,
-            ]);
+            $serviceRequest = $this->serviceRequestService->createServiceRequest($request->validated());
 
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
                 ->with('success', "Solicitud creada exitosamente! Ticket: {$serviceRequest->ticket_number}");
         } catch (\Exception $e) {
-            \Log::error('❌ Error al crear solicitud: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-
             return back()
                 ->withInput()
                 ->with('error', 'Error al crear la solicitud: ' . $e->getMessage());
@@ -131,7 +92,7 @@ class ServiceRequestController extends Controller
      */
     public function show(ServiceRequest $serviceRequest)
     {
-        $serviceRequest->load(['subService.service.family', 'sla', 'requester', 'assignee', 'breachLogs', 'evidences.user']);
+        $serviceRequest = $this->serviceRequestService->loadServiceRequestForShow($serviceRequest);
 
         // Obtener todos los usuarios como técnicos potenciales
         $technicians = User::orderBy('name')->get();
@@ -152,21 +113,15 @@ class ServiceRequestController extends Controller
                 ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
-        $subServices = SubService::with(['service.family'])
-            ->where('is_active', true)
-            ->get()
-            ->groupBy('service.family.name');
+        $data = $this->serviceRequestService->getEditFormData();
 
-        $users = User::all();
-        $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
-
-        return view('service-requests.edit', compact('serviceRequest', 'subServices', 'users', 'criticalityLevels'));
+        return view('service-requests.edit', compact('serviceRequest') + $data);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, ServiceRequest $serviceRequest)
+    public function update(UpdateServiceRequestRequest $request, ServiceRequest $serviceRequest)
     {
         $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
 
@@ -176,18 +131,17 @@ class ServiceRequestController extends Controller
                 ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
-        $validated = $request->validate([
-            'sub_service_id' => 'required|exists:sub_services,id',
-            'sla_id' => 'required|exists:service_level_agreements,id',
-            'assigned_to' => 'nullable|exists:users,id',
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
-        ]);
+        try {
+            $this->serviceRequestService->updateServiceRequest($serviceRequest, $request->validated());
 
-        $serviceRequest->update($validated);
-
-        return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud de servicio actualizada exitosamente.');
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('success', 'Solicitud de servicio actualizada exitosamente.');
+        } catch (\Exception $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Error al actualizar la solicitud: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -196,12 +150,22 @@ class ServiceRequestController extends Controller
     public function destroy(ServiceRequest $serviceRequest)
     {
         if (!in_array($serviceRequest->status, ['PENDIENTE', 'CANCELADA'])) {
-            return redirect()->route('service-requests.index')->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA.');
+            return redirect()
+                ->route('service-requests.index')
+                ->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA.');
         }
 
-        $serviceRequest->delete();
+        try {
+            $this->serviceRequestService->deleteServiceRequest($serviceRequest);
 
-        return redirect()->route('service-requests.index')->with('success', 'Solicitud de servicio eliminada exitosamente.');
+            return redirect()
+                ->route('service-requests.index')
+                ->with('success', 'Solicitud de servicio eliminada exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()
+                ->route('service-requests.index')
+                ->with('error', 'Error al eliminar la solicitud: ' . $e->getMessage());
+        }
     }
 
     // =============================================
@@ -213,205 +177,51 @@ class ServiceRequestController extends Controller
      */
     public function accept(ServiceRequest $serviceRequest)
     {
-        if ($serviceRequest->status !== 'PENDIENTE') {
-            return redirect()
-                ->back()
-                ->with('error', 'Esta solicitud ya no puede ser aceptada. Estado actual: ' . $serviceRequest->status);
-        }
+        $result = $this->workflowService->acceptRequest($serviceRequest);
 
-        try {
-            DB::transaction(function () use ($serviceRequest) {
-                $serviceRequest->update([
-                    'status' => 'ACEPTADA',
-                    'accepted_at' => now(),
-                ]);
-
-                ServiceRequestEvidence::create([
-                    'service_request_id' => $serviceRequest->id,
-                    'title' => 'Solicitud Aceptada',
-                    'description' => 'La solicitud fue aceptada por ' . auth()->user()->name,
-                    'evidence_type' => 'SISTEMA',
-                    'step_number' => null,
-                    'created_by' => auth()->id(),
-                    'evidence_data' => [
-                        'action' => 'ACCEPTED',
-                        'accepted_by' => auth()->id(),
-                        'accepted_at' => now()->toISOString(),
-                        'previous_status' => 'PENDIENTE',
-                        'new_status' => 'ACEPTADA',
-                    ],
-                ]);
-            });
-
-            return redirect()->back()->with('success', 'Solicitud aceptada correctamente.');
-        } catch (\Exception $e) {
-            return redirect()
-                ->back()
-                ->with('error', 'Error al aceptar la solicitud: ' . $e->getMessage());
-        }
+        return redirect()->back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
     /**
      * Rechazar una solicitud de servicio
      */
-    /**
-     * Rechazar solicitud (versión corregida con withoutEvents)
-     */
-    public function reject(Request $request, ServiceRequest $serviceRequest)
+    public function reject(RejectServiceRequestRequest $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('=== 🔍 REJECT METHOD ===');
-        \Log::info('Datos recibidos:', $request->all());
+        $result = $this->workflowService->rejectRequest(
+            $serviceRequest,
+            $request->validated()['rejection_reason']
+        );
 
-        // Verificar que la solicitud esté en estado PENDIENTE
-        if ($serviceRequest->status !== 'PENDIENTE') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado PENDIENTE para ser rechazada.');
-        }
-
-        try {
-            // Validar datos del formulario de rechazo
-            $validated = $request->validate([
-                'rejection_reason' => 'required|string|min:10|max:500',
-            ]);
-
-            // 🎯 Usar withoutEvents para evitar validaciones del trait
-            ServiceRequest::withoutEvents(function () use ($serviceRequest, $validated) {
-                $serviceRequest->update([
-                    'status' => 'RECHAZADA',
-                    'rejection_reason' => $validated['rejection_reason'],
-                    'rejected_at' => now(),
-                    'rejected_by' => auth()->id(),
-                ]);
-            });
-
-            \Log::info('🎉 ÉXITO: Solicitud rechazada exitosamente');
-
-            // Crear evidencia del rechazo
-            ServiceRequestEvidence::create([
-                'service_request_id' => $serviceRequest->id,
-                'title' => 'Solicitud Rechazada',
-                'description' => $validated['rejection_reason'],
-                'evidence_type' => 'SISTEMA',
-                'created_by' => auth()->id(),
-                'evidence_data' => [
-                    'action' => 'REJECTED',
-                    'rejected_by' => auth()->id(),
-                    'rejected_at' => now()->toISOString(),
-                    'rejection_reason' => $validated['rejection_reason'],
-                    'previous_status' => 'PENDIENTE',
-                    'new_status' => 'RECHAZADA',
-                ],
-            ]);
-
-            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud rechazada correctamente.');
-        } catch (ValidationException $e) {
-            \Log::error('❌ ERROR de validación al rechazar:', $e->errors());
-            return redirect()->back()->withErrors($e->errors())->withInput();
-        } catch (\Exception $e) {
-            \Log::error('❌ ERROR al rechazar: ' . $e->getMessage());
-            return redirect()
-                ->back()
-                ->with('error', 'Error al rechazar la solicitud: ' . $e->getMessage());
-        }
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function start(ServiceRequest $serviceRequest)
     {
-        \Log::info('🎯 === START METHOD CALLED ===');
-        \Log::info('📦 Request ALL data: ' . json_encode(request()->all()));
-        \Log::info('👤 User ID: ' . auth()->id());
-        \Log::info('🔍 ServiceRequest ID: ' . $serviceRequest->id);
-        \Log::info('🎫 Ticket: ' . $serviceRequest->ticket_number);
-        \Log::info('📊 Status: ' . $serviceRequest->status);
-        \Log::info('👥 Assigned_to: ' . $serviceRequest->assigned_to);
-        \Log::info('🌐 URL: ' . request()->fullUrl());
-        \Log::info('📝 Method: ' . request()->method());
+        $result = $this->workflowService->startProcessing($serviceRequest);
 
-        // Validaciones
-        if ($serviceRequest->status !== 'ACEPTADA') {
-            \Log::warning('❌ Validation failed: Status not ACEPTADA');
-            return back()->with('error', 'La solicitud debe estar ACEPTADA para iniciar.');
-        }
-
-        if (!$serviceRequest->assigned_to) {
-            \Log::warning('❌ Validation failed: No assigned technician');
-            return back()->with('error', 'Asigna un técnico antes de iniciar.');
-        }
-
-        \Log::info('✅ All validations passed - Proceeding with start process...');
-
-        // Procesamiento
-        try {
-            DB::transaction(function () use ($serviceRequest) {
-                \Log::info('🔄 Starting database transaction');
-
-                $previousStatus = $serviceRequest->status;
-
-                $serviceRequest->update([
-                    'status' => 'EN_PROCESO',
-                    'started_at' => now(),
-                ]);
-
-                \Log::info('✅ ServiceRequest updated to EN_PROCESO');
-
-                ServiceRequestEvidence::create([
-                    'service_request_id' => $serviceRequest->id,
-                    'title' => 'Procesamiento Iniciado',
-                    'description' => "Inicio de trabajo - Técnico: {$serviceRequest->assignee->name}",
-                    'evidence_type' => 'SISTEMA',
-                    'created_by' => auth()->id(),
-                    'evidence_data' => [
-                        'action' => 'STARTED',
-                        'started_by' => auth()->id(),
-                        'started_at' => now()->toISOString(),
-                        'assigned_technician' => $serviceRequest->assigned_to,
-                        'previous_status' => $previousStatus,
-                        'new_status' => 'EN_PROCESO',
-                    ],
-                ]);
-
-                \Log::info('✅ Evidence created successfully');
-            });
-
-            \Log::info('🎉 Process completed successfully for ticket: ' . $serviceRequest->ticket_number);
-            return back()->with('success', 'Solicitud marcada como en proceso.');
-        } catch (\Exception $e) {
-            \Log::error("💥 Start processing failed: {$e->getMessage()}");
-            \Log::error("📋 Stack trace: {$e->getTraceAsString()}");
-            return back()->with('error', 'Error al iniciar el procesamiento.');
-        }
+        return redirect()->back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
-    /**
-     * Resolver solicitud
-     */
     public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('=== 🔍 RESOLVE METHOD ===');
+        $data = [
+            'resolution_notes' => $request->input('resolution_notes', 'Resolución completada'),
+            'actual_resolution_time' => $request->input('actual_resolution_time', 60),
+        ];
 
-        if ($serviceRequest->status !== 'EN_PROCESO') {
-            return redirect()->back()->with('error', 'La solicitud debe estar en estado EN PROCESO.');
-        }
+        $result = $this->workflowService->resolveRequest($serviceRequest, $data);
 
-        try {
-            // 🎯 Desactivar eventos temporalmente para evitar validación
-            ServiceRequest::withoutEvents(function () use ($serviceRequest, $request) {
-                $serviceRequest->update([
-                    'status' => 'RESUELTA',
-                    'resolution_notes' => $request->input('resolution_notes', 'Resolución completada'),
-                    'actual_resolution_time' => $request->input('actual_resolution_time', 60),
-                    'resolved_at' => now(),
-                ]);
-            });
-
-            \Log::info('🎉 ÉXITO: Solicitud resuelta (eventos desactivados)');
-
-            return redirect()->route('service-requests.show', $serviceRequest)->with('success', '¡Solicitud resuelta correctamente!');
-        } catch (\Exception $e) {
-            \Log::error('❌ ERROR: ' . $e->getMessage());
-            return redirect()
-                ->back()
-                ->with('error', 'Error: ' . $e->getMessage());
-        }
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     /**
@@ -480,196 +290,25 @@ class ServiceRequestController extends Controller
         }
     }
 
-    /**
-     * Pausar una solicitud
-     */
-    public function pause(ServiceRequest $serviceRequest, Request $request)
+    public function pause(ServiceRequest $serviceRequest, PauseServiceRequestRequest $request)
     {
-        Log::info('=== INICIANDO PAUSE ===', [
-            'request_id' => $serviceRequest->id,
-            'ticket_number' => $serviceRequest->ticket_number,
-            'estado_actual' => $serviceRequest->status,
-            'usuario' => auth()->user()->name,
-        ]);
-
-        if ($serviceRequest->status !== 'EN_PROCESO') {
-            Log::warning('No se puede pausar - Estado incorrecto', [
-                'estado_actual' => $serviceRequest->status,
-                'estado_requerido' => 'EN_PROCESO',
-            ]);
-            return redirect()->back()->with('error', 'Solo se pueden pausar solicitudes en proceso.');
-        }
-
-        if ($serviceRequest->is_paused) {
-            Log::warning('No se puede pausar - Ya está pausada', [
-                'ticket_number' => $serviceRequest->ticket_number,
-            ]);
-            return redirect()->back()->with('error', 'La solicitud ya está pausada.');
-        }
-
-        $validated = $request->validate(
-            [
-                'pause_reason' => 'required|string|min:10|max:500',
-            ],
-            [
-                'pause_reason.required' => 'La razón de pausa es obligatoria.',
-                'pause_reason.min' => 'La razón debe tener al menos 10 caracteres.',
-                'pause_reason.max' => 'La razón no debe exceder los 500 caracteres.',
-            ],
+        $result = $this->workflowService->pauseRequest(
+            $serviceRequest,
+            $request->validated()['pause_reason']
         );
 
-        try {
-            DB::transaction(function () use ($serviceRequest, $validated) {
-                $serviceRequest->update([
-                    'status' => 'PAUSADA',
-                    'paused_at' => now(),
-                    'is_paused' => true,
-                    'pause_reason' => $validated['pause_reason'],
-                    'paused_by' => auth()->id(),
-                    'total_paused_minutes' => $serviceRequest->total_paused_minutes ?? 0,
-                ]);
-
-                Log::info('Solicitud pausada exitosamente', [
-                    'request_id' => $serviceRequest->id,
-                    'ticket_number' => $serviceRequest->ticket_number,
-                    'nuevo_estado' => 'PAUSADA',
-                    'paused_at' => now(),
-                    'razon_longitud' => strlen($validated['pause_reason']),
-                ]);
-
-                if (class_exists('App\Models\ActivityLog')) {
-                    \App\Models\ActivityLog::create([
-                        'service_request_id' => $serviceRequest->id,
-                        'user_id' => auth()->id(),
-                        'action' => 'PAUSED',
-                        'description' => 'Solicitud pausada por ' . auth()->user()->name . '. Razón: ' . $validated['pause_reason'],
-                        'created_at' => now(),
-                    ]);
-                }
-
-                if (class_exists('App\Models\Timeline')) {
-                    \App\Models\Timeline::create([
-                        'service_request_id' => $serviceRequest->id,
-                        'user_id' => auth()->id(),
-                        'event_type' => 'paused',
-                        'title' => 'Solicitud Pausada',
-                        'description' => 'La solicitud fue pausada: ' . $validated['pause_reason'],
-                        'icon' => 'pause',
-                        'color' => 'warning',
-                        'metadata' => [
-                            'reason' => $validated['pause_reason'],
-                            'paused_at' => now()->toISOString(),
-                            'previous_status' => 'EN_PROCESO',
-                            'paused_by' => auth()->user()->name,
-                        ],
-                        'created_at' => now(),
-                    ]);
-                }
-            });
-
-            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud pausada correctamente.');
-        } catch (\Exception $e) {
-            Log::error('Error al pausar solicitud', [
-                'request_id' => $serviceRequest->id,
-                'ticket_number' => $serviceRequest->ticket_number,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return redirect()
-                ->back()
-                ->with('error', 'Error al pausar la solicitud: ' . $e->getMessage())
-                ->withInput();
-        }
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
-    /**
-     * Reanudar una solicitud pausada
-     */
     public function resume(ServiceRequest $serviceRequest)
     {
-        Log::info('=== INICIANDO RESUME ===', [
-            'request_id' => $serviceRequest->id,
-            'ticket_number' => $serviceRequest->ticket_number,
-            'estado_actual' => $serviceRequest->status,
-            'usuario' => auth()->user()->name,
-        ]);
+        $result = $this->workflowService->resumeRequest($serviceRequest);
 
-        if ($serviceRequest->status !== 'PAUSADA') {
-            return redirect()->back()->with('error', 'Solo se pueden reanudar solicitudes pausadas.');
-        }
-
-        if (!$serviceRequest->is_paused) {
-            return redirect()->back()->with('error', 'La solicitud no está marcada como pausada.');
-        }
-
-        try {
-            DB::transaction(function () use ($serviceRequest) {
-                $currentPauseMinutes = 0;
-                if ($serviceRequest->paused_at) {
-                    $currentPauseMinutes = $serviceRequest->paused_at->diffInMinutes(now());
-                }
-
-                $totalPausedMinutes = ($serviceRequest->total_paused_minutes ?? 0) + $currentPauseMinutes;
-
-                $serviceRequest->update([
-                    'status' => 'EN_PROCESO',
-                    'is_paused' => false,
-                    'resumed_at' => now(),
-                    'pause_reason' => null,
-                    'paused_by' => null,
-                    'total_paused_minutes' => $totalPausedMinutes,
-                ]);
-
-                Log::info('Solicitud reanudada exitosamente', [
-                    'request_id' => $serviceRequest->id,
-                    'ticket_number' => $serviceRequest->ticket_number,
-                    'minutos_pausa_actual' => $currentPauseMinutes,
-                    'total_minutos_pausa' => $totalPausedMinutes,
-                ]);
-
-                if (class_exists('App\Models\ActivityLog')) {
-                    \App\Models\ActivityLog::create([
-                        'service_request_id' => $serviceRequest->id,
-                        'user_id' => auth()->id(),
-                        'action' => 'RESUMED',
-                        'description' => 'Solicitud reanudada por ' . auth()->user()->name . '. Duración de pausa: ' . $currentPauseMinutes . ' minutos',
-                        'created_at' => now(),
-                    ]);
-                }
-
-                if (class_exists('App\Models\Timeline')) {
-                    \App\Models\Timeline::create([
-                        'service_request_id' => $serviceRequest->id,
-                        'user_id' => auth()->id(),
-                        'event_type' => 'resumed',
-                        'title' => 'Solicitud Reanudada',
-                        'description' => 'La solicitud fue reanudada después de ' . $currentPauseMinutes . ' minutos en pausa.',
-                        'icon' => 'play',
-                        'color' => 'success',
-                        'metadata' => [
-                            'resumed_at' => now()->toISOString(),
-                            'previous_status' => 'PAUSADA',
-                            'pause_duration_minutes' => $currentPauseMinutes,
-                            'total_pause_minutes' => $totalPausedMinutes,
-                        ],
-                        'created_at' => now(),
-                    ]);
-                }
-            });
-
-            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud reanudada correctamente.');
-        } catch (\Exception $e) {
-            Log::error('Error al reanudar solicitud', [
-                'request_id' => $serviceRequest->id,
-                'ticket_number' => $serviceRequest->ticket_number,
-                'error' => $e->getMessage(),
-            ]);
-
-            return redirect()
-                ->back()
-                ->with('error', 'Error al reanudar la solicitud: ' . $e->getMessage());
-        }
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     public function close(Request $request, ServiceRequest $serviceRequest)
@@ -1012,92 +651,14 @@ class ServiceRequestController extends Controller
     public function downloadReport(ServiceRequest $serviceRequest)
     {
         try {
-            $serviceRequest->load(['requester', 'assignedTechnician', 'evidences', 'sla', 'subService']);
+            $serviceRequest->load(['requester', 'assignee', 'evidences', 'sla', 'subService']);
 
             if (!$serviceRequest->evidences) {
                 $serviceRequest->setRelation('evidences', collect());
             }
 
-            // Preprocesar archivos para Base64 (incluyendo imágenes y otros archivos)
-            $evidencesWithBase64 = $serviceRequest->evidences->map(function ($evidence) {
-                // Solo procesar evidencias que tienen file_path y no son del tipo SISTEMA
-                if ($evidence->file_path && $evidence->evidence_type !== 'SISTEMA') {
-                    try {
-                        // Buscar el archivo en diferentes ubicaciones posibles
-                        $possiblePaths = [
-                            storage_path('app/public/' . $evidence->file_path),
-                            storage_path('app/public/evidences/' . basename($evidence->file_path)), // Nueva ruta
-                            storage_path('app/' . $evidence->file_path),
-                            public_path('storage/' . $evidence->file_path),
-                            public_path($evidence->file_path),
-                        ];
-
-                        $filePath = null;
-                        foreach ($possiblePaths as $path) {
-                            if (file_exists($path)) {
-                                $filePath = $path;
-                                break;
-                            }
-                        }
-
-                        // Si no se encuentra, buscar por nombre de archivo en la carpeta evidences
-                        if (!$filePath) {
-                            $fileName = basename($evidence->file_path);
-                            $evidencePath = storage_path('app/public/evidences/' . $fileName);
-                            if (file_exists($evidencePath)) {
-                                $filePath = $evidencePath;
-                            }
-                        }
-
-                        if ($filePath && file_exists($filePath)) {
-                            // Verificar si es una imagen por la extensión
-                            $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-                            $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-
-                            if (in_array($extension, $imageExtensions)) {
-                                // Es una imagen - convertir a Base64
-                                $imageData = base64_encode(file_get_contents($filePath));
-
-                                $mimeTypes = [
-                                    'jpg' => 'image/jpeg',
-                                    'jpeg' => 'image/jpeg',
-                                    'png' => 'image/png',
-                                    'gif' => 'image/gif',
-                                    'bmp' => 'image/bmp',
-                                    'webp' => 'image/webp',
-                                ];
-
-                                $mimeType = $mimeTypes[$extension] ?? 'image/jpeg';
-                                $evidence->base64_content = "data:$mimeType;base64,$imageData";
-                                $evidence->is_image = true;
-                                $evidence->file_found = true;
-                            } else {
-                                // No es una imagen - marcar como archivo disponible
-                                $evidence->is_image = false;
-                                $evidence->file_found = true;
-                                $evidence->base64_content = null;
-                            }
-                        } else {
-                            $evidence->base64_content = null;
-                            $evidence->is_image = false;
-                            $evidence->file_found = false;
-                            Log::warning("Archivo no encontrado: {$evidence->file_path}");
-                            Log::warning('Buscando en: ' . storage_path('app/public/evidences/' . basename($evidence->file_path)));
-                        }
-                    } catch (\Exception $e) {
-                        $evidence->base64_content = null;
-                        $evidence->is_image = false;
-                        $evidence->file_found = false;
-                        Log::error("Error procesando archivo {$evidence->file_path}: " . $e->getMessage());
-                    }
-                } else {
-                    $evidence->base64_content = null;
-                    $evidence->is_image = false;
-                    $evidence->file_found = false;
-                }
-                return $evidence;
-            });
-
+            // Procesar evidencias usando el service
+            $evidencesWithBase64 = $this->evidenceService->prepareEvidencesForPdf($serviceRequest);
             $serviceRequest->setRelation('evidences', $evidencesWithBase64);
 
             // Log para debugging
@@ -1141,120 +702,27 @@ class ServiceRequestController extends Controller
     /**
      * Almacenar nueva evidencia
      */
-    public function storeEvidence(Request $request, ServiceRequest $serviceRequest)
+    public function storeEvidence(UploadEvidenceRequest $request, ServiceRequest $serviceRequest)
     {
         try {
-            Log::info('=== INICIANDO SUBIDA DE EVIDENCIAS ===');
+            $result = $this->evidenceService->uploadEvidences(
+                $serviceRequest,
+                $request->file('files')
+            );
 
-            $request->validate([
-                'files.*' => 'required|file|max:10240',
-            ]);
+            if ($result['success_count'] > 0) {
+                $message = $result['success_count'] . ' archivo(s) subido(s) correctamente.';
 
-            $uploadedFiles = [];
-
-            if ($request->hasFile('files')) {
-                foreach ($request->file('files') as $file) {
-                    Log::info('Procesando archivo:', [
-                        'name' => $file->getClientOriginalName(),
-                        'size' => $file->getSize(),
-                    ]);
-
-                    if (!$file->isValid()) {
-                        Log::error('Archivo no válido: ' . $file->getClientOriginalName());
-                        continue;
-                    }
-
-                    // Generar nombre único con servicios.code + Fecha + Hora + Microtime
-                    $serviceCode = $serviceRequest->code ?? 'SR' . $serviceRequest->id;
-                    $timestamp = now()->format('Ymd-His');
-                    $microtime = substr(str_replace('.', '', microtime(true)), -6);
-                    $extension = $file->getClientOriginalExtension();
-
-                    // Limpiar el código de servicio
-                    $cleanServiceCode = preg_replace('/[^a-zA-Z0-9]/', '-', $serviceCode);
-                    $cleanServiceCode = substr($cleanServiceCode, 0, 20);
-
-                    // Formato con guiones: ServicioCode-Fecha-Hora-Microtime
-                    $fileName = "{$cleanServiceCode}-{$timestamp}-{$microtime}.{$extension}";
-
-                    // Verificar y crear directorio si no existe
-                    $directory = 'evidences';
-                    if (!Storage::disk('public')->exists($directory)) {
-                        Storage::disk('public')->makeDirectory($directory);
-                        Log::info('Directorio creado: ' . $directory);
-                    }
-
-                    // Guardar archivo con verificación
-                    try {
-                        $filePath = $file->storeAs($directory, $fileName, 'public');
-                        Log::info('Archivo guardado en:', ['path' => $filePath]);
-                    } catch (\Exception $storageException) {
-                        Log::error('Error al guardar archivo: ' . $storageException->getMessage());
-                        continue;
-                    }
-
-                    // Verificar que el archivo se guardó correctamente
-                    if (!Storage::disk('public')->exists($filePath)) {
-                        Log::error('El archivo no existe en storage después de guardar: ' . $filePath);
-                        continue;
-                    }
-
-                    // Verificar tamaño del archivo guardado
-                    $storedFileSize = Storage::disk('public')->size($filePath);
-                    Log::info('Archivo guardado - Tamaño original: ' . $file->getSize() . ', Tamaño guardado: ' . $storedFileSize);
-
-                    if ($storedFileSize === 0) {
-                        Log::error('El archivo se guardó con tamaño 0: ' . $filePath);
-                        Storage::disk('public')->delete($filePath);
-                        continue;
-                    }
-
-                    $evidenceData = [
-                        'service_request_id' => $serviceRequest->id,
-                        'title' => $fileName,
-                        'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
-                        'evidence_type' => 'ARCHIVO',
-                        'file_path' => $filePath,
-                        'file_original_name' => $file->getClientOriginalName(),
-                        'file_mime_type' => $file->getMimeType(),
-                        'file_size' => $storedFileSize, // Usar el tamaño real del archivo guardado
-                        'user_id' => auth()->id(),
-                    ];
-
-                    Log::info('Creando evidencia en BD:', $evidenceData);
-
-                    try {
-                        $evidence = ServiceRequestEvidence::create($evidenceData);
-                        $evidence->load('user');
-                        Log::info('✅ Evidencia creada con ID: ' . $evidence->id);
-                        $uploadedFiles[] = $evidence;
-                    } catch (\Exception $dbException) {
-                        Log::error('Error al crear registro en BD: ' . $dbException->getMessage());
-                        // Eliminar archivo si falla la BD
-                        Storage::disk('public')->delete($filePath);
-                        continue;
-                    }
+                if ($result['error_count'] > 0) {
+                    $message .= ' ' . $result['error_count'] . ' archivo(s) con errores.';
                 }
 
-                Log::info('=== SUBIDA COMPLETADA ===', [
-                    'total_files' => count($uploadedFiles),
-                    'service_request_id' => $serviceRequest->id,
-                    'service_code' => $serviceRequest->code ?? 'SR' . $serviceRequest->id,
-                ]);
-
-                if (count($uploadedFiles) > 0) {
-                    return redirect()
-                        ->back()
-                        ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
-                } else {
-                    return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
-                }
+                return redirect()->back()->with('success', $message);
+            } else {
+                return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
             }
-
-            return redirect()->back()->with('error', 'No se seleccionaron archivos.');
         } catch (\Exception $e) {
             Log::error('Error en storeEvidence: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             return redirect()
                 ->back()
                 ->with('error', 'Error al subir archivos: ' . $e->getMessage());

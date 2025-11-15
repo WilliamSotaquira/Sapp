@@ -17,7 +17,6 @@
             <div class="p-6">
                 @include('components.service-requests.forms.basic-fields', [
                     'serviceRequest' => $serviceRequest,
-                    'services' => $services,
                     'subServices' => $subServices,
                     'errors' => $errors,
                     'mode' => 'edit'
