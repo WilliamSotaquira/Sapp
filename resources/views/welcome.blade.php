@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .hero-section {
-            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            background: linear-gradient(135deg, #454E59 0%, #747C8C 100%);
             color: white;
             padding: 100px 0;
         }
@@ -38,13 +38,13 @@
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center">
-                    <i class="fas fa-chart-line text-blue-600 text-2xl mr-3"></i>
-                    <span class="text-xl font-bold text-gray-800">Sistema Sapp</span>
+                    <i class="fas fa-chart-line text-red-600 text-2xl mr-3"></i>
+                    <span class="text-xl font-bold text-gray-800">Weirdoware - Sapp</span>
                 </div>
                 <div class="flex items-center space-x-4">
                     @auth
-                        <a href="{{ route('dashboard') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                            <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                        <a href="{{ route('dashboard') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">
+                            <i class="fas fa-tachometer-alt mr-2"></i>Sapp
                         </a>
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
@@ -54,7 +54,7 @@
                         </form>
                     @else
                         <a href="{{ route('login') }}" class="text-gray-600 hover:text-gray-800">Iniciar Sesión</a>
-                        <a href="{{ route('register') }}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Registrarse</a>
+                        <a href="{{ route('register') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Registrarse</a>
                     @endauth
                 </div>
             </div>
@@ -67,19 +67,19 @@
             <div class="flex flex-col lg:flex-row items-center">
                 <div class="lg:w-1/2 mb-10 lg:mb-0">
                     <h1 class="text-4xl lg:text-5xl font-bold mb-6">Sistema de Gestión Sapp</h1>
-                    <p class="text-xl mb-8 text-blue-100">
+                    <p class="text-xl mb-8 text-red-100">
                         Plataforma integral para la administración y seguimiento de servicios, solicitudes y acuerdos de nivel de servicio.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
                         @auth
-                            <a href="{{ route('dashboard') }}" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition text-center">
-                                <i class="fas fa-tachometer-alt mr-2"></i>Ir al Dashboard
+                            <a href="{{ route('dashboard') }}" class="bg-white text-gray-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition text-center">
+                                <i class="fas fa-tachometer-alt mr-2"></i>Ir a Sapp
                             </a>
                         @else
-                            <a href="{{ route('login') }}" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition text-center">
+                            <a href="{{ route('login') }}" class="bg-white text-red-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition text-center">
                                 <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
                             </a>
-                            <a href="{{ route('register') }}" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition text-center">
+                            <a href="{{ route('register') }}" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-red-600 transition text-center">
                                 <i class="fas fa-user-plus mr-2"></i>Registrarse
                             </a>
                         @endauth
@@ -104,7 +104,7 @@
                 <!-- Gestión de Servicios -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-cogs text-blue-600 text-4xl"></i>
+                        <i class="fas fa-cogs text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Gestión de Servicios</h3>
                     <p class="text-gray-600">
@@ -115,7 +115,7 @@
                 <!-- Acuerdos de Nivel de Servicio -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-handshake text-blue-600 text-4xl"></i>
+                        <i class="fas fa-handshake text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Acuerdos de Nivel de Servicio</h3>
                     <p class="text-gray-600">
@@ -126,7 +126,7 @@
                 <!-- Solicitudes de Servicio -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-tasks text-blue-600 text-4xl"></i>
+                        <i class="fas fa-tasks text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Solicitudes de Servicio</h3>
                     <p class="text-gray-600">
@@ -137,7 +137,7 @@
                 <!-- Sistema de Pausas -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-pause-circle text-blue-600 text-4xl"></i>
+                        <i class="fas fa-pause-circle text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Control de Pausas</h3>
                     <p class="text-gray-600">
@@ -148,7 +148,7 @@
                 <!-- Reportes y Métricas -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-chart-bar text-blue-600 text-4xl"></i>
+                        <i class="fas fa-chart-bar text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Reportes y Métricas</h3>
                     <p class="text-gray-600">
@@ -159,7 +159,7 @@
                 <!-- Gestión de Usuarios -->
                 <div class="feature-card">
                     <div class="text-center mb-4">
-                        <i class="fas fa-users text-blue-600 text-4xl"></i>
+                        <i class="fas fa-users text-red-600 text-4xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-gray-900 mb-3">Gestión de Usuarios</h3>
                     <p class="text-gray-600">
@@ -222,9 +222,9 @@
             </div>
 
             <div class="text-center mt-8">
-                <a href="{{ route('dashboard') }}" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition inline-flex items-center">
+                <a href="{{ route('dashboard') }}" class="bg-red-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-red-700 transition inline-flex items-center">
                     <i class="fas fa-tachometer-alt mr-2"></i>
-                    Ir al Dashboard Completo
+                    Ir al Sapp
                 </a>
             </div>
         </div>
@@ -237,7 +237,7 @@
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
                     <div class="flex items-center">
-                        <i class="fas fa-chart-line text-blue-400 text-2xl mr-3"></i>
+                        <i class="fas fa-chart-line text-red-400 text-2xl mr-3"></i>
                         <span class="text-xl font-bold">Sistema Sapp</span>
                     </div>
                     <p class="text-gray-400 mt-2">Plataforma de gestión integral de servicios</p>
