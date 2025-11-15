@@ -39,6 +39,14 @@ class ServiceRequestEvidence extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * Alias para user() - Para compatibilidad hacia atrás
+     */
+    public function uploadedBy()
+    {
+        return $this->user();
+    }
     /**
      * Accessor para file_url - VERSIÓN MEJORADA SIN WARNINGS
      */

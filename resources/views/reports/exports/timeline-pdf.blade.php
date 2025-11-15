@@ -320,7 +320,7 @@
                     <td><strong>Fecha Resolución</strong></td>
                     <td>{{ $request->resolved_at->format('d/m/Y H:i') }}</td>
                     <td><strong>Tiempo Total</strong></td>
-                    <td>{{ $totalResolutionTime ?? 'N/A' }}</td>
+                    <td>{{ ($totalResolutionTime && isset($totalResolutionTime['formatted'])) ? $totalResolutionTime['formatted'] : 'N/A' }}</td>
                 </tr>
                 @endif
             </tbody>
@@ -328,13 +328,26 @@
     </div>
 
     <!-- ESTADÍSTICAS DE TIEMPO -->
-    @if($timeInStatus && count($timeInStatus) > 0)
+    @php
+    // Función auxiliar para contar de manera segura (reutilizable)
+    if (!function_exists('safeCountForStats')) {
+        function safeCountForStats($collection) {
+            if (is_null($collection)) return 0;
+            if (is_array($collection)) return count($collection);
+            if (method_exists($collection, 'count')) return $collection->count();
+            if (is_countable($collection)) return count($collection);
+            return 0;
+        }
+    }
+    @endphp
+
+    @if($timeInStatus && safeCountForStats($timeInStatus) > 0)
     <div class="section">
         <h2>⏱️ ESTADÍSTICAS DE TIEMPO</h2>
 
-        @if($totalResolutionTime)
+        @if($totalResolutionTime && isset($totalResolutionTime['formatted']))
         <div class="stat-card">
-            <div class="stat-value">{{ $totalResolutionTime }}</div>
+            <div class="stat-value">{{ $totalResolutionTime['formatted'] }}</div>
             <div class="stat-label">Tiempo Total de Resolución</div>
         </div>
         @endif
@@ -347,10 +360,10 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($timeInStatus as $status => $time)
+                @foreach($timeInStatus as $status => $data)
                 <tr>
                     <td>{{ $status }}</td>
-                    <td>{{ $time }}</td>
+                    <td>{{ isset($data['formatted']) ? $data['formatted'] : (is_array($data) ? 'N/A' : $data) }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -362,7 +375,7 @@
     <div class="section">
         <h2>🕒 LINEA DE TIEMPO - EVENTOS</h2>
 
-        @if(!empty($timelineEvents) && count($timelineEvents) > 0)
+        @if(!empty($timelineEvents) && safeCountForStats($timelineEvents) > 0)
         <table class="table">
             <thead>
                 <tr>
@@ -370,7 +383,7 @@
                     <th width="12%">Tipo</th>
                     <th width="38%">Evento</th>
                     <th width="20%">Usuario</th>
-                    <th width="15%">Estado</th>
+                    <th width="15%">Categoría</th>
                 </tr>
             </thead>
             <tbody>
@@ -420,7 +433,7 @@
                         @endif
                     </td>
                     <td>{{ $event['user'] ?? $event['user_name'] ?? $event['created_by'] ?? 'Sistema' }}</td>
-                    <td>{{ $event['status'] ?? $request->status }}</td>
+                    <td>{{ ucfirst($event['type'] ?? 'sistema') }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -434,10 +447,19 @@
 
     <!-- EVIDENCIAS CON IMÁGENES - VERSIÓN CORREGIDA -->
     @php
+    // Función auxiliar para contar de manera segura
+    function safeCount($collection) {
+        if (is_null($collection)) return 0;
+        if (is_array($collection)) return count($collection);
+        if (method_exists($collection, 'count')) return $collection->count();
+        if (is_countable($collection)) return count($collection);
+        return 0;
+    }
+
     // USAR LAS EVIDENCIAS PREPARADAS POR EL CONTROLADOR
     $evidencesToShow = $evidencesWithImages ?? $request->evidences;
 
-    if($evidencesToShow && (is_countable($evidencesToShow) ? count($evidencesToShow) : 0) > 0) {
+    if($evidencesToShow && safeCount($evidencesToShow) > 0) {
     $imageEvidences = collect($evidencesToShow)->filter(function($evidence) {
     $mimeType = is_array($evidence) ? ($evidence['mime_type'] ?? null) : $evidence->mime_type;
     return $mimeType && str_starts_with($mimeType, 'image/');
@@ -453,14 +475,14 @@
     }
     @endphp
 
-    @if($evidencesToShow && (is_countable($evidencesToShow) ? count($evidencesToShow) : 0) > 0)
+    @if($evidencesToShow && safeCount($evidencesToShow) > 0)
     <div class="section">
         <h2>📎 EVIDENCIAS ADJUNTAS</h2>
 
         <!-- EVIDENCIAS CON IMÁGENES -->
-        @if($imageEvidences->count() > 0)
+        @if(safeCount($imageEvidences) > 0)
         <div class="evidences-section">
-            <h3 style="color: #2c5aa0; font-size: 10px; margin-bottom: 10px;">🖼️ Evidencias con Imágenes ({{ $imageEvidences->count() }})</h3>
+            <h3 style="color: #2c5aa0; font-size: 10px; margin-bottom: 10px;">🖼️ Evidencias con Imágenes ({{ safeCount($imageEvidences) }})</h3>
 
             <div class="images-grid">
                 @foreach($imageEvidences as $evidence)
@@ -561,9 +583,9 @@
         @endif
 
         <!-- OTRAS EVIDENCIAS -->
-        @if($otherEvidences->count() > 0)
+        @if(safeCount($otherEvidences) > 0)
         <div class="evidences-section">
-            <h3 style="color: #2c5aa0; font-size: 10px; margin-bottom: 10px;">📄 Otras Evidencias ({{ $otherEvidences->count() }})</h3>
+            <h3 style="color: #2c5aa0; font-size: 10px; margin-bottom: 10px;">📄 Otras Evidencias ({{ safeCount($otherEvidences) }})</h3>
 
             <table class="table">
                 <thead>
@@ -629,15 +651,15 @@
             <tbody>
                 <tr>
                     <td width="25%"><strong>Total Eventos</strong></td>
-                    <td width="25%">{{ count($timelineEvents ?? []) }}</td>
+                    <td width="25%">{{ safeCountForStats($timelineEvents ?? []) }}</td>
                     <td width="25%"><strong>Total Evidencias</strong></td>
-                    <td width="25%">{{ is_countable($evidencesToShow) ? count($evidencesToShow) : 0 }}</td>
+                    <td width="25%">{{ safeCount($evidencesToShow) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Imágenes</strong></td>
-                    <td>{{ $imageEvidences->count() ?? 0 }}</td>
+                    <td>{{ safeCount($imageEvidences) }}</td>
                     <td><strong>Documentos</strong></td>
-                    <td>{{ $otherEvidences->count() ?? 0 }}</td>
+                    <td>{{ safeCount($otherEvidences) }}</td>
                 </tr>
                 <tr>
                     <td><strong>Estado Final</strong></td>

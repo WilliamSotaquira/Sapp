@@ -118,6 +118,7 @@ class TimelineReportController extends ReportController
         $request = ServiceRequest::with([
             'subService.service.family',
             'requester',
+            'requestedBy',
             'assignee',
             'sla',
             'evidences.uploadedBy',
@@ -145,7 +146,13 @@ class TimelineReportController extends ReportController
      */
     public function timelineByTicket()
     {
-        return view('reports.timeline-by-ticket');
+        // Obtener algunos tickets de ejemplo para mostrar en la ayuda
+        $sampleTickets = ServiceRequest::select('ticket_number', 'title')
+            ->orderBy('created_at', 'desc')
+            ->take(3)
+            ->get();
+
+        return view('reports.timeline-by-ticket', compact('sampleTickets'));
     }
 
     /**
@@ -160,6 +167,7 @@ class TimelineReportController extends ReportController
             $request = ServiceRequest::with([
                 'subService.service.family',
                 'requester',
+                'requestedBy',
                 'assignee',
                 'sla',
                 'evidences.uploadedBy',
@@ -184,8 +192,8 @@ class TimelineReportController extends ReportController
                 $data = [
                     'request' => $request,
                     'timelineEvents' => $this->prepareEventsForPdf($timelineEvents, $request),
-                    'timeInStatus' => $timeInStatus ?? [],
-                    'totalResolutionTime' => $totalResolutionTime ?? 'N/A',
+                    'timeInStatus' => $timeInStatus ?? collect([]),
+                    'totalResolutionTime' => $totalResolutionTime ?? null,
                     'timeStatistics' => $timeStatistics ?? [],
                     'timeSummary' => $timeSummary ?? [],
                     'evidencesWithImages' => $evidencesWithImages // NUEVO: Evidencias preparadas
@@ -202,7 +210,19 @@ class TimelineReportController extends ReportController
             }
 
             if ($format === 'excel') {
-                return Excel::download(new RequestTimelineExport($request), "{$filename}.xlsx");
+                try {
+                    return Excel::download(new RequestTimelineExport($request), "{$filename}.xlsx");
+                } catch (\Exception $excelError) {
+                    \Log::error('Error específico con Excel: ' . $excelError->getMessage());
+
+                    // Si hay un error con Excel (probablemente ZIP), ofrecer CSV como alternativa
+                    if (str_contains($excelError->getMessage(), 'zip')) {
+                        \Log::info('Intentando exportación como CSV debido a problema con ZIP');
+                        return $this->exportTimelineAsCSV($request, $filename);
+                    }
+
+                    throw $excelError;
+                }
             }
 
             return redirect()->back()->with('error', 'Formato no válido');
@@ -364,13 +384,12 @@ class TimelineReportController extends ReportController
             foreach ($timelineEvents as $event) {
                 $preparedEvent = [
                     'type' => $this->cleanValueForPdf($event['type'] ?? 'system'),
-                    'title' => $this->cleanValueForPdf($event['title'] ?? $event['event'] ?? 'Evento del sistema'),
-                    'description' => $this->cleanValueForPdf($event['description'] ?? $event['notes'] ?? ''),
-                    'user' => $this->cleanValueForPdf($event['user'] ?? $event['user_name'] ?? $event['created_by'] ?? 'Sistema'),
-                    'timestamp' => $this->cleanTimestampForPdf($event['timestamp'] ?? $event['created_at'] ?? $event['date'] ?? now()),
-                    'status' => $this->cleanValueForPdf($event['status'] ?? $request->status),
-                    'created_at' => $this->cleanTimestampForPdf($event['timestamp'] ?? $event['created_at'] ?? $event['date'] ?? now()),
-                    'event' => $this->cleanValueForPdf($event['event'] ?? $event['title'] ?? 'Evento del sistema')
+                    'title' => $this->cleanValueForPdf($event['title'] ?? 'Evento del sistema'),
+                    'description' => $this->cleanValueForPdf($event['description'] ?? ''),
+                    'user' => $this->cleanValueForPdf($event['user'] ?? 'Sistema'),
+                    'timestamp' => $this->cleanTimestampForPdf($event['timestamp'] ?? now()),
+                    'created_at' => $this->cleanTimestampForPdf($event['timestamp'] ?? now()),
+                    'event' => $this->cleanValueForPdf($event['title'] ?? 'Evento del sistema') // Para compatibilidad
                 ];
 
                 $preparedEvents[] = $preparedEvent;
@@ -437,22 +456,80 @@ class TimelineReportController extends ReportController
     public function downloadTimelineByTicket(Request $request)
     {
         try {
-            $ticketNumber = $request->input('ticket_number');
+            // Validar entrada
+            $request->validate([
+                'ticket_number' => 'required|string',
+                'format' => 'required|in:pdf,excel'
+            ]);
 
+            $ticketNumber = trim($request->input('ticket_number'));
+            $format = $request->input('format', 'pdf');
+
+            \Log::info("Buscando ticket: {$ticketNumber} con formato: {$format}");
+
+            // Buscar el ServiceRequest
             $serviceRequest = ServiceRequest::where('ticket_number', $ticketNumber)
                 ->with([
                     'subService.service.family',
                     'requester',
+                    'requestedBy',
                     'assignee',
                     'sla',
-                    'evidences.uploadedBy'
+                    'evidences.uploadedBy',
+                    'breachLogs'
                 ])
-                ->firstOrFail();
+                ->first(); // Usar first() en lugar de firstOrFail() para mejor control
 
-            return $this->showTimeline($serviceRequest->id);
-        } catch (\Exception $e) {
+            if (!$serviceRequest) {
+                // Buscar con variaciones comunes del ticket number
+                $serviceRequest = ServiceRequest::where('ticket_number', 'LIKE', "%{$ticketNumber}%")
+                    ->orWhere('id', $ticketNumber)
+                    ->with([
+                        'subService.service.family',
+                        'requester',
+                        'requestedBy',
+                        'assignee',
+                        'sla',
+                        'evidences.uploadedBy',
+                        'breachLogs'
+                    ])
+                    ->first();
+            }
+
+            if (!$serviceRequest) {
+                \Log::warning("Ticket no encontrado: {$ticketNumber}");
+
+                // Sugerir algunos tickets disponibles
+                $suggestedTickets = ServiceRequest::select('ticket_number', 'title')
+                    ->orderBy('created_at', 'desc')
+                    ->take(3)
+                    ->get()
+                    ->pluck('ticket_number')
+                    ->toArray();
+
+                $suggestion = '';
+                if (!empty($suggestedTickets)) {
+                    $suggestion = ' Algunos tickets disponibles: ' . implode(', ', $suggestedTickets);
+                }
+
+                return redirect()->route('reports.timeline.by-ticket')
+                    ->with('error', "No se encontró ninguna solicitud con el número de ticket: {$ticketNumber}. Verifica que el número esté correcto.{$suggestion}");
+            }
+
+            \Log::info("Ticket encontrado: ID {$serviceRequest->id}, Número: {$serviceRequest->ticket_number}");
+
+            // Llamar al método de exportación existente con el ID y formato
+            return $this->exportTimeline($serviceRequest->id, $format);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->route('reports.timeline.by-ticket')
-                ->with('error', 'Ticket no encontrado: ' . $e->getMessage());
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            \Log::error('Error en downloadTimelineByTicket: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            return redirect()->route('reports.timeline.by-ticket')
+                ->with('error', 'Error al procesar la solicitud: ' . $e->getMessage());
         }
     }
 
@@ -644,5 +721,86 @@ class TimelineReportController extends ReportController
             \Log::error('Error en getEvidenceImages: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Método de respaldo para exportar como CSV cuando Excel falla
+     */
+    private function exportTimelineAsCSV($request, $filename)
+    {
+        try {
+            $timelineEvents = $request->getTimelineEvents();
+
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=\"{$filename}.csv\"",
+            ];
+
+            $callback = function() use ($timelineEvents, $request) {
+                $file = fopen('php://output', 'w');
+
+                // UTF-8 BOM para Excel
+                fwrite($file, "\xEF\xBB\xBF");
+
+                // Encabezados
+                fputcsv($file, [
+                    'Evento',
+                    'Fecha y Hora',
+                    'Usuario Responsable',
+                    'Descripción',
+                    'Tipo de Evento',
+                    'Estado'
+                ]);
+
+                // Datos
+                foreach ($timelineEvents as $event) {
+                    // Obtener el status/type del evento de manera segura
+                    $eventStatus = $event['status'] ?? $event['type'] ?? 'unknown';
+
+                    // Obtener el nombre del evento
+                    $eventName = $event['event'] ?? $event['title'] ?? 'Evento';
+
+                    // Obtener el usuario de manera segura
+                    $userName = 'Sistema';
+                    if (isset($event['user']) && $event['user']) {
+                        $userName = is_object($event['user']) ? $event['user']->name : $event['user'];
+                    }
+
+                    fputcsv($file, [
+                        $eventName,
+                        $event['timestamp']->format('d/m/Y H:i:s'),
+                        $userName,
+                        $event['description'] ?? 'Sin descripción',
+                        $this->getEventTypeLabel($eventStatus),
+                        $eventStatus
+                    ]);
+                }
+
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        } catch (\Exception $e) {
+            \Log::error('Error en exportTimelineAsCSV: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al generar el reporte CSV: ' . $e->getMessage());
+        }
+    }
+
+    private function getEventTypeLabel($status)
+    {
+        $labels = [
+            'created' => 'Creación',
+            'assigned' => 'Asignación',
+            'accepted' => 'Aceptación',
+            'responded' => 'Respuesta Inicial',
+            'paused' => 'Pausa',
+            'resumed' => 'Reanudación',
+            'resolved' => 'Resolución',
+            'closed' => 'Cierre',
+            'evidence' => 'Evidencia',
+            'breach' => 'Incumplimiento SLA'
+        ];
+
+        return $labels[$status] ?? ucfirst($status);
     }
 }

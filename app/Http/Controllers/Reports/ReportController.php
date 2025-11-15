@@ -183,7 +183,7 @@ class ReportController extends Controller
             'end' => Carbon::parse($dateTo)
         ];
 
-        $serviceData = ServiceRequest::selectRaw("
+        $servicePerformance = ServiceRequest::selectRaw("
             services.name as service_name,
             service_families.name as family_name,
             COUNT(service_requests.id) as total_requests,
@@ -194,6 +194,7 @@ class ReportController extends Controller
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
         ->whereBetween('service_requests.created_at', [$dateFrom, $dateTo])
+        ->whereNull('service_requests.deleted_at')
         ->groupBy('services.id', 'services.name', 'service_families.name')
         ->get();
 
@@ -202,7 +203,7 @@ class ReportController extends Controller
                 'service-performance-' . date('Y-m-d') . '.xlsx');
         }
 
-        return view('reports.service-performance', compact('serviceData', 'dateRange', 'dateFrom', 'dateTo'));
+        return view('reports.service-performance', compact('servicePerformance', 'dateRange', 'dateFrom', 'dateTo'));
     }
 
     /**

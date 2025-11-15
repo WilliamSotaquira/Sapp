@@ -38,6 +38,12 @@ Route::prefix('reports')->name('reports.')->group(function () {
         // Búsqueda por ticket number - CORREGIDO
         Route::get('/by-ticket', [TimelineReportController::class, 'timelineByTicket'])->name('by-ticket');
 
+        // Manejar acceso GET a download-by-ticket (redireccionar al formulario)
+        Route::get('/download-by-ticket', function() {
+            return redirect()->route('reports.timeline.by-ticket')
+                ->with('info', 'Por favor usa el formulario para buscar y descargar el timeline de una solicitud.');
+        });
+
         // Procesar búsqueda por ticket - CORREGIDO (usar POST)
         Route::post('/download-by-ticket', [TimelineReportController::class, 'downloadTimelineByTicket'])
             ->name('download-by-ticket');
