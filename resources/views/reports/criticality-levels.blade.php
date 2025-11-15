@@ -45,7 +45,7 @@
     </div>
 
     @php
-        $totalRequests = $criticalityData->sum('count');
+        $totalRequests = $criticalityData->isNotEmpty() ? $criticalityData->sum('count') : 0;
         $criticalityColors = [
             'BAJA' => 'bg-green-100 text-green-800',
             'MEDIA' => 'bg-yellow-100 text-yellow-800',
@@ -54,7 +54,7 @@
         ];
     @endphp
 
-    @if($totalRequests > 0)
+    @if($criticalityData->isNotEmpty() && $totalRequests > 0)
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             @foreach($criticalityData as $level => $data)
                 <div class="bg-white rounded-lg shadow p-6 text-center">
@@ -66,7 +66,7 @@
                         {{ $data->count }}
                     </div>
                     <div class="mt-2">
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $criticalityColors[$level] }}">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $criticalityColors[$level] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $level }}
                         </span>
                     </div>
@@ -92,7 +92,7 @@
                     @foreach($criticalityData as $level => $data)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $criticalityColors[$level] }}">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $criticalityColors[$level] ?? 'bg-gray-100 text-gray-800' }}">
                                     {{ $level }}
                                 </span>
                             </td>
