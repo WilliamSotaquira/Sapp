@@ -208,7 +208,7 @@
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <a href="{{ url('/') }}" class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
+                    <a href="{{ url('/dashboard') }}" class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
                         <!-- Icono grande para escritorio con efectos -->
                         <div class="logo-border-animation mr-2">
                             <img src="/icon-sapp_lg.svg" alt="Sistema Sapp"
