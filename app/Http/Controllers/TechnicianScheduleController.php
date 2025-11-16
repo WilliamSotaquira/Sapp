@@ -15,7 +15,13 @@ class TechnicianScheduleController extends Controller
      */
     public function index(Request $request)
     {
-        $view = $request->get('view', 'week'); // day, week, month
+        // Detectar si es móvil basado en el ancho de pantalla o user agent
+        $isMobile = $request->header('sec-ch-ua-mobile') === '?1' ||
+                    preg_match('/(android|iphone|ipad|mobile)/i', $request->userAgent());
+
+        // Vista predeterminada: 'day' para móvil, 'week' para desktop
+        $defaultView = $isMobile ? 'day' : 'week';
+        $view = $request->get('view', $defaultView); // day, week, month
         $date = $request->get('date', now()->format('Y-m-d'));
         $technicianId = $request->get('technician_id');
 
@@ -255,13 +261,25 @@ class TechnicianScheduleController extends Controller
     public function myAgenda(Request $request)
     {
         $user = auth()->user();
-        $technician = Technician::where('user_id', $user->id)->first();
 
-        if (!$technician) {
-            return view('technician-schedule.no-technician-profile', [
-                'user' => $user,
-                'message' => 'No tienes un perfil de técnico asignado. Contacta al administrador para que te asigne uno.'
-            ]);
+        // Si se especifica un técnico en la URL y el usuario es admin, mostrar ese técnico
+        $technicianId = $request->get('technician_id');
+
+        if ($technicianId && $user->isAdmin()) {
+            // Administrador viendo la agenda de otro técnico
+            $technician = Technician::with('user')->findOrFail($technicianId);
+            $isViewingOther = true;
+        } else {
+            // Usuario viendo su propia agenda
+            $technician = Technician::where('user_id', $user->id)->first();
+            $isViewingOther = false;
+
+            if (!$technician) {
+                return view('technician-schedule.no-technician-profile', [
+                    'user' => $user,
+                    'message' => 'No tienes un perfil de técnico asignado. Contacta al administrador para que te asigne uno.'
+                ]);
+            }
         }
 
         $date = $request->get('date', now()->format('Y-m-d'));
@@ -278,7 +296,13 @@ class TechnicianScheduleController extends Controller
             }),
         ];
 
-        return view('technician-schedule.my-agenda', compact('technician', 'tasks', 'scheduleBlocks', 'date', 'stats'));
+        // Obtener lista de técnicos para el selector (solo para admin)
+        $technicians = collect();
+        if ($user->isAdmin()) {
+            $technicians = Technician::with('user')->active()->get();
+        }
+
+        return view('technician-schedule.my-agenda', compact('technician', 'tasks', 'scheduleBlocks', 'date', 'stats', 'isViewingOther', 'technicians'));
     }
 
     /**

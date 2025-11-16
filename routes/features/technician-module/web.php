@@ -30,6 +30,9 @@ Route::prefix('technicians')->name('technicians.')->group(function () {
     Route::put('/{technician}', [TechnicianController::class, 'update'])->name('update');
     Route::delete('/{technician}', [TechnicianController::class, 'destroy'])->name('destroy');
 
+    // Toggle rol de administrador
+    Route::patch('/{technician}/toggle-admin', [TechnicianController::class, 'toggleAdmin'])->name('toggle-admin');
+
     // Gestión de skills
     Route::get('/{technician}/skills', [TechnicianController::class, 'skills'])->name('skills');
     Route::post('/{technician}/skills', [TechnicianController::class, 'addSkill'])->name('skills.add');

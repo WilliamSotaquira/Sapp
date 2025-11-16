@@ -184,6 +184,45 @@
                 <p class="mt-2 text-xs text-gray-500">Agrega las tecnologías y herramientas que domina el técnico</p>
             </div>
 
+            <!-- Tipo de Usuario -->
+            @if(auth()->user()->isAdmin())
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-user-shield mr-2 text-red-600"></i>
+                    Tipo de Usuario
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Rol del Usuario -->
+                    <div>
+                        <label for="user_role" class="block text-sm font-medium text-gray-700 mb-2">
+                            Rol de Usuario <span class="text-red-500">*</span>
+                        </label>
+                        <select name="user_role"
+                                id="user_role"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('user_role') border-red-500 @enderror"
+                                required>
+                            <option value="user" {{ old('user_role', 'user') == 'user' ? 'selected' : '' }}>
+                                Usuario Regular
+                            </option>
+                            <option value="technician" {{ old('user_role', 'technician') == 'technician' ? 'selected' : '' }}>
+                                Técnico
+                            </option>
+                            <option value="admin" {{ old('user_role') == 'admin' ? 'selected' : '' }}>
+                                Administrador
+                            </option>
+                        </select>
+                        @error('user_role')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-xs text-gray-500">
+                            <strong>Usuario:</strong> Sin permisos especiales | <strong>Técnico:</strong> Gestiona su propia agenda | <strong>Admin:</strong> Gestiona todo el sistema
+                        </p>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <!-- Estado y Disponibilidad -->
             <div class="border-b pb-4">
                 <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">

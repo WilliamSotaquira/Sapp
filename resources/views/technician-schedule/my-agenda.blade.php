@@ -2,12 +2,78 @@
 
 @section('title', 'Mi Agenda')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <a href="{{ route('technician-schedule.index') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-calendar-alt"></i>
+                <span class="ml-1">Calendario</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="ml-1">Mi Agenda</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
-<div class="container mx-auto px-4 py-6">
-    <!-- Encabezado -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-800">📋 Mi Agenda</h1>
-        <p class="text-gray-600 mt-1">{{ $technician->user->name }} - {{ \Carbon\Carbon::parse($date)->format('l, j \d\e F \d\e Y') }}</p>
+<div class="container mx-auto px-3 sm:px-4 md:px-6">
+    <!-- Encabezado con selector de técnico para admin -->
+    <div class="mb-4 sm:mb-6">
+        <div class="flex flex-col lg:flex-row justify-between items-start gap-3 sm:gap-4">
+            <div class="flex-1">
+                @if(isset($isViewingOther) && $isViewingOther)
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-3 rounded mb-2">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Viendo la agenda de: <strong>{{ $technician->user->name }}</strong>
+                        </p>
+                    </div>
+                @endif
+                <p class="text-sm sm:text-base text-gray-600">{{ $technician->user->name }} - {{ \Carbon\Carbon::parse($date)->format('l, j \d\e F \d\e Y') }}</p>
+            </div>
+
+            @if(auth()->user()->isAdmin() && isset($technicians) && $technicians->count() > 0)
+                <!-- Selector de técnico para administradores -->
+                <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                    <select id="technicianSelector"
+                            onchange="changeTechnician()"
+                            class="w-full sm:w-64 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Mi Agenda</option>
+                        @foreach($technicians as $tech)
+                            <option value="{{ $tech->id }}" {{ request('technician_id') == $tech->id ? 'selected' : '' }}>
+                                {{ $tech->user->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <input type="date"
+                           id="dateSelector"
+                           value="{{ $date }}"
+                           onchange="changeDate()"
+                           class="w-full sm:w-auto text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            @else
+                <!-- Solo selector de fecha para técnicos -->
+                <div class="w-full sm:w-auto">
+                    <input type="date"
+                           id="dateSelector"
+                           value="{{ $date }}"
+                           onchange="changeDate()"
+                           class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            @endif
+        </div>
     </div>
 
     <!-- Estadísticas del día -->
@@ -241,12 +307,26 @@
 </div>
 
 <script>
-    function changeDate(days) {
-        const dateInput = document.getElementById('dateSelector');
-        const currentDate = new Date(dateInput.value);
-        currentDate.setDate(currentDate.getDate() + days);
-        dateInput.value = currentDate.toISOString().split('T')[0];
-        window.location.href = '{{ route('technician-schedule.my-agenda') }}?date=' + dateInput.value;
+    function changeTechnician() {
+        const technicianId = document.getElementById('technicianSelector').value;
+        const date = document.getElementById('dateSelector').value;
+
+        let url = '{{ route('technician-schedule.my-agenda') }}?date=' + date;
+        if (technicianId) {
+            url += '&technician_id=' + technicianId;
+        }
+        window.location.href = url;
+    }
+
+    function changeDate() {
+        const date = document.getElementById('dateSelector').value;
+        const technicianId = document.getElementById('technicianSelector')?.value;
+
+        let url = '{{ route('technician-schedule.my-agenda') }}?date=' + date;
+        if (technicianId) {
+            url += '&technician_id=' + technicianId;
+        }
+        window.location.href = url;
     }
 
     function openCompleteModal(taskId) {

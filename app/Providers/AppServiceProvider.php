@@ -4,12 +4,17 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Gate; // ✅ AGREGAR ESTA LÍNEA
+use Illuminate\Support\Facades\Gate;
+use App\Models\ServiceRequest;
+use App\Observers\ServiceRequestObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function boot()
     {
+        // Registrar Observer para ServiceRequest
+        ServiceRequest::observe(ServiceRequestObserver::class);
+
         // ========== DEFINICIÓN DE GATES/POLÍTICAS ==========
 
         // ✅ AGREGAR ESTE GATE PARA ASIGNAR SOLICITUDES

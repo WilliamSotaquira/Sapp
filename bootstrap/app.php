@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Excluir rutas públicas de verificación CSRF
+        $middleware->validateCsrfTokens(except: [
+            'consultar/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

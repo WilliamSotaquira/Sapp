@@ -43,6 +43,7 @@ class TechnicianController extends Controller
             'max_daily_capacity_hours' => 'required|numeric|min:1|max:12',
             'status' => 'required|in:active,inactive',
             'availability_status' => 'required|in:available,busy,on_leave,unavailable',
+            'user_role' => 'nullable|in:user,technician,admin',
             'skills' => 'nullable|array',
             'skills.*.skill_name' => 'nullable|string|max:255',
             'skills.*.proficiency_level' => 'nullable|in:beginner,intermediate,advanced,expert',
@@ -50,6 +51,11 @@ class TechnicianController extends Controller
         ]);
 
         $technician = Technician::create($validated);
+
+        // Asignar rol al usuario si el usuario actual es admin
+        if (auth()->user()->isAdmin() && isset($validated['user_role'])) {
+            $technician->user->update(['role' => $validated['user_role']]);
+        }
 
         // Agregar habilidades si se proporcionaron
         if (!empty($validated['skills'])) {
@@ -120,6 +126,7 @@ class TechnicianController extends Controller
             'max_daily_capacity_hours' => 'required|numeric|min:1|max:12',
             'status' => 'required|in:active,inactive',
             'availability_status' => 'required|in:available,busy,on_leave,unavailable',
+            'user_role' => 'nullable|in:user,technician,admin',
             'skills' => 'nullable|array',
             'skills.*.id' => 'nullable|exists:technician_skills,id',
             'skills.*.skill_name' => 'nullable|string|max:255',
@@ -128,6 +135,11 @@ class TechnicianController extends Controller
         ]);
 
         $technician->update($validated);
+
+        // Actualizar rol del usuario si el usuario actual es admin y no está cambiando su propio rol
+        if (auth()->user()->isAdmin() && isset($validated['user_role']) && auth()->id() !== $technician->user_id) {
+            $technician->user->update(['role' => $validated['user_role']]);
+        }
 
         // Actualizar o crear habilidades
         if (!empty($validated['skills'])) {
@@ -210,5 +222,36 @@ class TechnicianController extends Controller
         $scheduleBlocks = $technician->scheduleBlocks()->forDate($date)->get();
 
         return view('technicians.capacity', compact('technician', 'tasks', 'availableCapacity', 'scheduleBlocks', 'date'));
+    }
+
+    /**
+     * Toggle rol de administrador
+     */
+    public function toggleAdmin(Technician $technician)
+    {
+        $user = $technician->user;
+
+        // Verificar que el usuario actual sea admin
+        if (!auth()->user()->isAdmin()) {
+            return back()->with('error', 'No tienes permisos para realizar esta acción.');
+        }
+
+        // No permitir que un usuario se quite sus propios permisos de admin
+        if ($user->id === auth()->id() && $user->isAdmin()) {
+            return back()->with('error', 'No puedes quitarte tus propios permisos de administrador.');
+        }
+
+        // Toggle del rol
+        if ($user->isAdmin()) {
+            $user->role = 'user';
+            $message = "Se han removido los permisos de administrador de {$user->name}.";
+        } else {
+            $user->role = 'admin';
+            $message = "{$user->name} ahora es administrador.";
+        }
+
+        $user->save();
+
+        return back()->with('success', $message);
     }
 }

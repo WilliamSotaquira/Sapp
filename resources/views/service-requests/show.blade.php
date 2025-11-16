@@ -206,5 +206,80 @@
                 closePreview();
             }
         });
+
+        // Función para copiar link público al portapapeles
+        function copyPublicLink(url, ticketNumber) {
+            // Intentar usar la API moderna del portapapeles
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(function() {
+                    showCopyNotification(ticketNumber, true);
+                }).catch(function(err) {
+                    // Fallback si falla
+                    copyToClipboardFallback(url, ticketNumber);
+                });
+            } else {
+                // Fallback para navegadores antiguos
+                copyToClipboardFallback(url, ticketNumber);
+            }
+        }
+
+        // Método alternativo para copiar
+        function copyToClipboardFallback(text, ticketNumber) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                showCopyNotification(ticketNumber, successful);
+            } catch (err) {
+                showCopyNotification(ticketNumber, false);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // Mostrar notificación de copia
+        function showCopyNotification(ticketNumber, success) {
+            // Crear elemento de notificación
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 transform transition-all duration-300 ${
+                success ? 'bg-green-500' : 'bg-red-500'
+            } text-white`;
+
+            notification.innerHTML = `
+                <i class="fas ${success ? 'fa-check-circle' : 'fa-exclamation-circle'} text-xl"></i>
+                <div>
+                    <div class="font-semibold">${success ? '¡Link copiado!' : 'Error al copiar'}</div>
+                    <div class="text-sm opacity-90">${
+                        success
+                            ? 'El link público del ticket ' + ticketNumber + ' está en tu portapapeles'
+                            : 'Por favor, copia el link manualmente'
+                    }</div>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Animar entrada
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
+            }, 10);
+
+            // Remover después de 3 segundos
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
     </script>
 @endpush
