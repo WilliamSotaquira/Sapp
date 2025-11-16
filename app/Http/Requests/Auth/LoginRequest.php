@@ -54,14 +54,14 @@ class LoginRequest extends FormRequest
             if ($this->has('g-recaptcha-response')) {
                 $recaptchaResponse = $this->input('g-recaptcha-response');
                 $recaptchaSecret = config('services.recaptcha.secret_key');
-                
+
                 $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
-                
+
                 if ($verifyResponse === false) {
                     $validator->errors()->add('g-recaptcha-response', 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.');
                     return;
                 }
-                
+
                 $responseData = json_decode($verifyResponse);
 
                 if (!$responseData || !$responseData->success) {

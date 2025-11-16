@@ -41,15 +41,15 @@ class RegisteredUserController extends Controller
         // Verificar reCAPTCHA
         $recaptchaResponse = $request->input('g-recaptcha-response');
         $recaptchaSecret = config('services.recaptcha.secret_key');
-        
+
         $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
-        
+
         if ($verifyResponse === false) {
             return back()
                 ->withInput()
                 ->withErrors(['g-recaptcha-response' => 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.']);
         }
-        
+
         $responseData = json_decode($verifyResponse);
 
         if (!$responseData || !$responseData->success) {
