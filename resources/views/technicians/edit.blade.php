@@ -2,15 +2,37 @@
 
 @section('title', 'Editar Técnico')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-xs"></i></li>
+        <li>
+            <a href="{{ route('technicians.index') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-users-cog"></i> Técnicos
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-xs"></i></li>
+        <li>
+            <a href="{{ route('technicians.show', $technician) }}" class="hover:text-blue-600 transition-colors">
+                {{ $technician->user->name }}
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-edit"></i> Editar
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
 <div class="max-w-4xl mx-auto">
     <div class="bg-white shadow-md rounded-lg overflow-hidden">
-        <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 px-6 py-4">
-            <h2 class="text-2xl font-bold text-white flex items-center">
-                <i class="fas fa-user-edit mr-3"></i>
-                Editar Técnico: {{ $technician->user->name }}
-            </h2>
-        </div>
 
         <form action="{{ route('technicians.update', $technician) }}" method="POST" class="p-6 space-y-6">
             @csrf
@@ -197,6 +219,51 @@
                 </button>
                 <p class="mt-2 text-xs text-gray-500">Gestiona las habilidades técnicas del profesional</p>
             </div>
+
+            <!-- Tipo de Usuario -->
+            @if(auth()->user()->isAdmin())
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-user-shield mr-2 text-yellow-600"></i>
+                    Tipo de Usuario
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Rol del Usuario -->
+                    <div>
+                        <label for="user_role" class="block text-sm font-medium text-gray-700 mb-2">
+                            Rol de Usuario <span class="text-red-500">*</span>
+                        </label>
+                        <select name="user_role"
+                                id="user_role"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('user_role') border-red-500 @enderror"
+                                {{ auth()->id() === $technician->user_id ? 'disabled' : '' }}
+                                required>
+                            <option value="user" {{ old('user_role', $technician->user->role ?? 'user') == 'user' ? 'selected' : '' }}>
+                                Usuario Regular
+                            </option>
+                            <option value="technician" {{ old('user_role', $technician->user->role ?? 'user') == 'technician' ? 'selected' : '' }}>
+                                Técnico
+                            </option>
+                            <option value="admin" {{ old('user_role', $technician->user->role ?? 'user') == 'admin' ? 'selected' : '' }}>
+                                Administrador
+                            </option>
+                        </select>
+                        @if(auth()->id() === $technician->user_id)
+                            <p class="mt-1 text-xs text-gray-500">
+                                <i class="fas fa-info-circle"></i> No puedes cambiar tu propio rol
+                            </p>
+                        @endif
+                        @error('user_role')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-xs text-gray-500">
+                            <strong>Usuario:</strong> Sin permisos especiales | <strong>Técnico:</strong> Gestiona su propia agenda | <strong>Admin:</strong> Gestiona todo el sistema
+                        </p>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <!-- Estado y Disponibilidad -->
             <div class="border-b pb-4">

@@ -2,17 +2,38 @@
 
 @section('title', 'Gestión de Tareas')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <a href="{{ route('technician-schedule.index') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-calendar-alt"></i>
+                <span class="ml-1">Calendario</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-tasks"></i>
+            <span class="ml-1">Gestión de Tareas</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
-<div class="space-y-6">
+<div class="space-y-4 sm:space-y-6">
     <!-- Header -->
-    <div class="bg-white shadow-md rounded-lg p-6">
-        <div class="flex justify-between items-center">
+    <div class="bg-white shadow-md rounded-lg p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-                <h2 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-tasks mr-3 text-red-600"></i>
-                    Gestión de Tareas
-                </h2>
-                <p class="text-gray-600 mt-1">Administra todas las tareas del equipo técnico</p>
+                <p class="text-gray-600 text-sm sm:text-base">Administra todas las tareas del equipo técnico</p>
             </div>
             <a href="{{ route('tasks.create') }}"
                class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition-colors duration-200 flex items-center">

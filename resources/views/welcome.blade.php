@@ -71,16 +71,16 @@
                         Plataforma integral para la administración y seguimiento de servicios, solicitudes y acuerdos de nivel de servicio.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
+                        <a href="{{ route('public.tracking.index') }}" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition text-center shadow-lg">
+                            <i class="fas fa-search mr-2"></i>Consultar mi Solicitud
+                        </a>
                         @auth
                             <a href="{{ route('dashboard') }}" class="bg-white text-gray-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition text-center">
-                                <i class="fas fa-tachometer-alt mr-2"></i>Ir a Sapp
+                                <i class="fas fa-tachometer-alt mr-2"></i>Ir a Dashboard
                             </a>
                         @else
                             <a href="{{ route('login') }}" class="bg-white text-red-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition text-center">
                                 <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
-                            </a>
-                            <a href="{{ route('register') }}" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-red-600 transition text-center">
-                                <i class="fas fa-user-plus mr-2"></i>Registrarse
                             </a>
                         @endauth
                     </div>

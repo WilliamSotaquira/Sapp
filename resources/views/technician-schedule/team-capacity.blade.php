@@ -2,62 +2,88 @@
 
 @section('title', 'Capacidad del Equipo')
 
-@section('content')
-<div class="container mx-auto px-4 py-6">
-    <!-- Encabezado -->
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-800">📊 Capacidad del Equipo</h1>
-            <p class="text-gray-600 mt-1">
-                <i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($date)->format('l, j \d\e F \d\e Y') }}
-            </p>
-            <p class="text-sm text-blue-600 mt-1">
-                <i class="fas fa-info-circle"></i> Mostrando solo las tareas programadas para este día.
-                Haz clic en el número de tareas para ver el detalle.
-            </p>
-        </div>
-        <div class="flex gap-2">
-            <input type="date" id="dateSelector" value="{{ $date }}"
-                   onchange="window.location.href='{{ route('technician-schedule.team-capacity') }}?date=' + this.value"
-                   class="border-gray-300 rounded-lg">
-            <a href="{{ route('technician-schedule.index') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                <i class="fas fa-calendar"></i> Calendario
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
             </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <a href="{{ route('technician-schedule.index') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-calendar-alt"></i>
+                <span class="ml-1">Calendario</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-chart-bar"></i>
+            <span class="ml-1">Capacidad del Equipo</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
+@section('content')
+<div class="container mx-auto">
+    <!-- Info y controles -->
+    <div class="mb-4 sm:mb-6">
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-3 sm:gap-4">
+            <div class="flex-1">
+                <p class="text-sm sm:text-base text-gray-600">
+                    <i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($date)->format('l, j \d\e F \d\e Y') }}
+                </p>
+                <p class="text-xs sm:text-sm text-blue-600 mt-2">
+                    <i class="fas fa-info-circle"></i> Mostrando solo las tareas programadas para este día.
+                    <span class="hidden sm:inline">Haz clic en el número de tareas para ver el detalle.</span>
+                </p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 lg:flex-shrink-0">
+                <input type="date" id="dateSelector" value="{{ $date }}"
+                       onchange="window.location.href='{{ route('technician-schedule.team-capacity') }}?date=' + this.value"
+                       class="w-full sm:w-auto text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <a href="{{ route('technician-schedule.index') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm whitespace-nowrap">
+                    <i class="fas fa-calendar"></i> <span class="hidden sm:inline">Calendario</span><span class="sm:hidden">Cal.</span>
+                </a>
+            </div>
         </div>
     </div>
 
     <!-- Resumen General -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow">
-            <div class="text-3xl font-bold text-blue-600">{{ $teamStats['total_technicians'] }}</div>
-            <div class="text-sm text-gray-600">Técnicos Activos</div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div class="bg-white border-l-4 border-blue-500 p-3 sm:p-4 rounded-lg shadow">
+            <div class="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600">{{ $teamStats['total_technicians'] }}</div>
+            <div class="text-xs sm:text-sm text-gray-600 mt-1">Técnicos<span class="hidden sm:inline"> Activos</span></div>
         </div>
 
-        <div class="bg-white border-l-4 border-gray-500 p-4 rounded-lg shadow">
-            <div class="text-3xl font-bold text-gray-600">{{ $teamStats['total_tasks_today'] }}</div>
-            <div class="text-sm text-gray-600">Total Tareas Hoy</div>
+        <div class="bg-white border-l-4 border-gray-500 p-3 sm:p-4 rounded-lg shadow">
+            <div class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-600">{{ $teamStats['total_tasks_today'] }}</div>
+            <div class="text-xs sm:text-sm text-gray-600 mt-1">Total<span class="hidden sm:inline"> Tareas</span></div>
         </div>
 
-        <div class="bg-white border-l-4 border-green-500 p-4 rounded-lg shadow">
-            <div class="text-3xl font-bold text-green-600">{{ $teamStats['completed_tasks_today'] }}</div>
-            <div class="text-sm text-gray-600">Completadas</div>
+        <div class="bg-white border-l-4 border-green-500 p-3 sm:p-4 rounded-lg shadow">
+            <div class="text-xl sm:text-2xl md:text-3xl font-bold text-green-600">{{ $teamStats['completed_tasks_today'] }}</div>
+            <div class="text-xs sm:text-sm text-gray-600 mt-1">Completadas</div>
         </div>
 
-        <div class="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow">
-            <div class="text-3xl font-bold text-blue-600">{{ $teamStats['in_progress_tasks_today'] }}</div>
-            <div class="text-sm text-gray-600">En Progreso</div>
+        <div class="bg-white border-l-4 border-blue-500 p-3 sm:p-4 rounded-lg shadow">
+            <div class="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600">{{ $teamStats['in_progress_tasks_today'] }}</div>
+            <div class="text-xs sm:text-sm text-gray-600 mt-1">En Progreso</div>
         </div>
 
-        <div class="bg-white border-l-4 border-yellow-500 p-4 rounded-lg shadow">
-            <div class="text-3xl font-bold text-yellow-600">{{ $teamStats['pending_tasks_today'] }}</div>
-            <div class="text-sm text-gray-600">Pendientes</div>
+        <div class="bg-white border-l-4 border-yellow-500 p-3 sm:p-4 rounded-lg shadow sm:col-span-3 lg:col-span-1">
+            <div class="text-xl sm:text-2xl md:text-3xl font-bold text-yellow-600">{{ $teamStats['pending_tasks_today'] }}</div>
+            <div class="text-xs sm:text-sm text-gray-600 mt-1">Pendientes</div>
         </div>
     </div>
 
     <!-- Capacidad por Técnico -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="p-6 border-b">
-            <h2 class="text-xl font-bold text-gray-800">Utilización de Capacidad por Técnico</h2>
+        <div class="p-3 sm:p-4 md:p-6 border-b">
+            <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-800">Utilización de Capacidad por Técnico</h2>
         </div>
 
         <div class="overflow-x-auto">
@@ -224,10 +250,10 @@
     </div>
 
     <!-- Gráfico de utilización (Placeholder - se puede implementar con Chart.js) -->
-    <div class="mt-6 bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Distribución de Capacidad</h2>
+    <div class="mt-4 sm:mt-6 bg-white rounded-lg shadow-md p-3 sm:p-4 md:p-6">
+        <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Distribución de Capacidad</h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             @php
                 $overloaded = $capacityData->where('status', 'overloaded')->count();
                 $high = $capacityData->where('status', 'high')->count();
@@ -237,27 +263,27 @@
                 $total = $capacityData->count();
             @endphp
 
-            <div class="text-center p-4 bg-red-50 rounded-lg">
-                <div class="text-4xl font-bold text-red-600">{{ $overloaded + $high }}</div>
-                <div class="text-sm text-gray-600 mt-1">Sobrecargados / Alta Carga</div>
+            <div class="text-center p-3 sm:p-4 bg-red-50 rounded-lg">
+                <div class="text-2xl sm:text-3xl md:text-4xl font-bold text-red-600">{{ $overloaded + $high }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Sobrecargados<span class="hidden sm:inline"> / Alta Carga</span></div>
                 @if($total > 0)
-                    <div class="text-xs text-gray-500 mt-1">{{ round((($overloaded + $high) / $total) * 100) }}% del equipo</div>
+                    <div class="text-xs text-gray-500 mt-1">{{ round((($overloaded + $high) / $total) * 100) }}% <span class="hidden sm:inline">del equipo</span></div>
                 @endif
             </div>
 
-            <div class="text-center p-4 bg-green-50 rounded-lg">
-                <div class="text-4xl font-bold text-green-600">{{ $optimal }}</div>
-                <div class="text-sm text-gray-600 mt-1">Utilización Óptima</div>
+            <div class="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">{{ $optimal }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Utilización Óptima</div>
                 @if($total > 0)
-                    <div class="text-xs text-gray-500 mt-1">{{ round(($optimal / $total) * 100) }}% del equipo</div>
+                    <div class="text-xs text-gray-500 mt-1">{{ round(($optimal / $total) * 100) }}% <span class="hidden sm:inline">del equipo</span></div>
                 @endif
             </div>
 
-            <div class="text-center p-4 bg-gray-50 rounded-lg">
-                <div class="text-4xl font-bold text-gray-600">{{ $low + $underutilized }}</div>
-                <div class="text-sm text-gray-600 mt-1">Baja Utilización</div>
+            <div class="text-center p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <div class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-600">{{ $low + $underutilized }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Baja Utilización</div>
                 @if($total > 0)
-                    <div class="text-xs text-gray-500 mt-1">{{ round((($low + $underutilized) / $total) * 100) }}% del equipo</div>
+                    <div class="text-xs text-gray-500 mt-1">{{ round((($low + $underutilized) / $total) * 100) }}% <span class="hidden sm:inline">del equipo</span></div>
                 @endif
             </div>
         </div>
@@ -265,11 +291,11 @@
 
     <!-- Recomendaciones -->
     @if($overloaded > 0 || ($low + $underutilized) > 0)
-        <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg">
-            <h3 class="text-lg font-bold text-yellow-800 mb-3">
+        <div class="mt-4 sm:mt-6 bg-yellow-50 border-l-4 border-yellow-500 p-3 sm:p-4 md:p-6 rounded-lg">
+            <h3 class="text-base sm:text-lg font-bold text-yellow-800 mb-2 sm:mb-3">
                 <i class="fas fa-lightbulb"></i> Recomendaciones
             </h3>
-            <ul class="space-y-2 text-sm text-yellow-700">
+            <ul class="space-y-2 text-xs sm:text-sm text-yellow-700">
                 @if($overloaded > 0)
                     <li><i class="fas fa-exclamation-triangle"></i> <strong>{{ $overloaded }}</strong> técnico(s) sobrecargado(s). Considera redistribuir tareas.</li>
                 @endif

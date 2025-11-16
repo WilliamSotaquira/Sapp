@@ -20,6 +20,18 @@
                         <span class="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
                             {{ ucfirst($technician->specialization) }}
                         </span>
+                        @php
+                            $userRole = $technician->user->role ?? 'user';
+                            $roleConfig = [
+                                'admin' => ['icon' => 'fa-user-shield', 'label' => 'Administrador', 'class' => 'bg-purple-100 text-purple-800'],
+                                'technician' => ['icon' => 'fa-user-cog', 'label' => 'Técnico', 'class' => 'bg-blue-100 text-blue-800'],
+                                'user' => ['icon' => 'fa-user', 'label' => 'Usuario', 'class' => 'bg-gray-100 text-gray-600']
+                            ];
+                            $config = $roleConfig[$userRole] ?? $roleConfig['user'];
+                        @endphp
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full {{ $config['class'] }}">
+                            <i class="fas {{ $config['icon'] }}"></i> {{ $config['label'] }}
+                        </span>
                         @if($technician->status === 'active')
                             <span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
                                 <i class="fas fa-check-circle"></i> Activo

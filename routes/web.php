@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PublicTrackingController;
 
 // =============================================================================
 // RUTAS PÚBLICAS
@@ -8,6 +9,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+// Consulta pública de solicitudes (sin autenticación)
+Route::prefix('consultar')->name('public.tracking.')->group(function () {
+    Route::get('/', [PublicTrackingController::class, 'index'])->name('index');
+    Route::post('/search', [PublicTrackingController::class, 'search'])->name('search');
+    Route::get('/{ticketNumber}', [PublicTrackingController::class, 'show'])->name('show');
 });
 
 // =============================================================================

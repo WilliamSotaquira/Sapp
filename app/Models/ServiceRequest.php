@@ -97,6 +97,11 @@ class ServiceRequest extends Model
         return $this->hasMany(ServiceRequestEvidence::class, 'service_request_id');
     }
 
+    public function statusHistories()
+    {
+        return $this->hasMany(ServiceRequestStatusHistory::class)->orderBy('created_at', 'desc');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

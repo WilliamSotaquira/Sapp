@@ -3,12 +3,33 @@
 
 @section('title', 'Servicios')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <span class="text-gray-500">Catálogos</span>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-cog"></i>
+            <span class="ml-1">Servicios</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
-<div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+<div class="container mx-auto">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
         <div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Servicios</h1>
-            <p class="text-gray-600 mt-1 text-sm sm:text-base">Gestión de servicios y sus configuraciones</p>
+            <p class="text-gray-600 text-sm sm:text-base">Gestión de servicios y sus configuraciones</p>
         </div>
         <a href="{{ route('services.create') }}"
            class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg transition duration-200 flex items-center justify-center text-sm sm:text-base">

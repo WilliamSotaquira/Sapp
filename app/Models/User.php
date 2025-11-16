@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -69,6 +70,14 @@ class User extends Authenticatable
     public function isAdmin()
     {
         return $this->hasRole('admin') || $this->id === 1; // El usuario con ID 1 es admin
+    }
+
+    /**
+     * Verificar si el usuario tiene rol de técnico
+     */
+    public function isTechnicianRole()
+    {
+        return $this->hasRole('technician');
     }
 
     /**

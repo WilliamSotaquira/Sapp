@@ -164,29 +164,29 @@
     </div>
 
     <!-- Resumen de la semana -->
-    <div class="p-6 bg-gray-50 border-t">
-        <div class="grid grid-cols-4 gap-4 text-center">
+    <div class="p-3 sm:p-4 md:p-6 bg-gray-50 border-t">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
             @php
                 $totalTasks = collect($days)->sum(fn($d) => $d['tasks']->count());
                 $impactTasks = collect($days)->sum(fn($d) => $d['tasks']->where('type', 'impact')->count());
                 $regularTasks = collect($days)->sum(fn($d) => $d['tasks']->where('type', 'regular')->count());
                 $completed = collect($days)->sum(fn($d) => $d['tasks']->where('status', 'completed')->count());
             @endphp
-            <div>
-                <div class="text-2xl font-bold text-blue-600">{{ $totalTasks }}</div>
-                <div class="text-sm text-gray-600">Total Tareas</div>
+            <div class="bg-white p-2 sm:p-3 rounded-lg shadow-sm">
+                <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ $totalTasks }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Total Tareas</div>
             </div>
-            <div>
-                <div class="text-2xl font-bold text-red-600">{{ $impactTasks }}</div>
-                <div class="text-sm text-gray-600">Tareas Impacto</div>
+            <div class="bg-white p-2 sm:p-3 rounded-lg shadow-sm">
+                <div class="text-xl sm:text-2xl font-bold text-red-600">{{ $impactTasks }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Impacto</div>
             </div>
-            <div>
-                <div class="text-2xl font-bold text-blue-600">{{ $regularTasks }}</div>
-                <div class="text-sm text-gray-600">Tareas Regulares</div>
+            <div class="bg-white p-2 sm:p-3 rounded-lg shadow-sm">
+                <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ $regularTasks }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Regulares</div>
             </div>
-            <div>
-                <div class="text-2xl font-bold text-green-600">{{ $completed }}</div>
-                <div class="text-sm text-gray-600">Completadas</div>
+            <div class="bg-white p-2 sm:p-3 rounded-lg shadow-sm">
+                <div class="text-xl sm:text-2xl font-bold text-green-600">{{ $completed }}</div>
+                <div class="text-xs sm:text-sm text-gray-600 mt-1">Completadas</div>
             </div>
         </div>
     </div>

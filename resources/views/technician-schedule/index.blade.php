@@ -2,13 +2,30 @@
 
 @section('title', 'Calendario de Técnicos')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-calendar-alt"></i>
+            <span class="ml-1">Calendario de Técnicos</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
-<div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+<div class="container mx-auto">
     <!-- Encabezado -->
     <div class="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
-            <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">📅 Calendario de Técnicos</h1>
-            <p class="text-gray-600 mt-1 text-sm sm:text-base">Gestión de tiempos y capacidad del equipo</p>
+            <p class="text-gray-600 text-sm sm:text-base">Gestión de tiempos y capacidad del equipo</p>
         </div>
         <div class="flex flex-wrap gap-2 w-full sm:w-auto">
             <a href="{{ route('tasks.create') }}" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
@@ -22,45 +39,48 @@
 
     <!-- Filtros y Controles -->
     <div class="bg-white rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <!-- Selector de vista -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Vista</label>
-                <select id="viewSelector" class="w-full border-gray-300 rounded-lg">
-                    <option value="day" {{ $view === 'day' ? 'selected' : '' }}>Día</option>
-                    <option value="week" {{ $view === 'week' ? 'selected' : '' }}>Semana</option>
-                    <option value="month" {{ $view === 'month' ? 'selected' : '' }}>Mes</option>
-                </select>
+        <div class="space-y-3 sm:space-y-4">
+            <!-- Fila 1: Selectores -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <!-- Selector de vista -->
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Vista</label>
+                    <select id="viewSelector" class="w-full text-sm sm:text-base border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="day" {{ $view === 'day' ? 'selected' : '' }}>Día</option>
+                        <option value="week" {{ $view === 'week' ? 'selected' : '' }}>Semana</option>
+                        <option value="month" {{ $view === 'month' ? 'selected' : '' }}>Mes</option>
+                    </select>
+                </div>
+
+                <!-- Selector de técnico -->
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Técnico</label>
+                    <select id="technicianSelector" class="w-full text-sm sm:text-base border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos los técnicos</option>
+                        @foreach($technicians as $tech)
+                            <option value="{{ $tech->id }}" {{ $technicianId == $tech->id ? 'selected' : '' }}>
+                                {{ $tech->user->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Selector de fecha -->
+                <div class="sm:col-span-2 lg:col-span-1">
+                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">Fecha</label>
+                    <input type="date" id="dateSelector" value="{{ $date }}" class="w-full text-sm sm:text-base border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
             </div>
 
-            <!-- Selector de técnico -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Técnico</label>
-                <select id="technicianSelector" class="w-full border-gray-300 rounded-lg">
-                    <option value="">Todos los técnicos</option>
-                    @foreach($technicians as $tech)
-                        <option value="{{ $tech->id }}" {{ $technicianId == $tech->id ? 'selected' : '' }}>
-                            {{ $tech->user->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <!-- Selector de fecha -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-                <input type="date" id="dateSelector" value="{{ $date }}" class="w-full border-gray-300 rounded-lg">
-            </div>
-
-            <!-- Botones de navegación -->
-            <div class="flex items-end gap-2">
-                <button onclick="navigateDate('prev')" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">
+            <!-- Fila 2: Botones de navegación -->
+            <div class="flex justify-center sm:justify-start gap-2">
+                <button onclick="navigateDate('prev')" class="bg-gray-200 hover:bg-gray-300 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <button onclick="navigateDate('today')" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">
+                <button onclick="navigateDate('today')" class="bg-gray-200 hover:bg-gray-300 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base font-medium">
                     Hoy
                 </button>
-                <button onclick="navigateDate('next')" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">
+                <button onclick="navigateDate('next')" class="bg-gray-200 hover:bg-gray-300 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base">
                     <i class="fas fa-chevron-right"></i>
                 </button>
             </div>

@@ -42,7 +42,7 @@ class ServiceRequestEvidenceController extends Controller
         \Log::info('Service Request ID: ' . $serviceRequest->id);
         \Log::info('User ID: ' . auth()->id());
         \Log::info('Request data:', $request->all());
-        \Log::info('Has files: ' . (\$request->hasFile('files') ? 'YES' : 'NO'));
+        \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
 
         // Validar que la solicitud no esté cerrada
         if ($serviceRequest->status === 'CERRADA') {
@@ -53,7 +53,7 @@ class ServiceRequestEvidenceController extends Controller
 
         try {
             // Nuestro formulario usa 'files[]' no 'file'
-            \$request->validate([
+            $request->validate([
                 'files.*' => 'required|file|max:10240',
             ]);
 

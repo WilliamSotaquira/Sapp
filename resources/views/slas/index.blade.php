@@ -2,14 +2,35 @@
 
 @section('title', 'Lista de SLAs')
 
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <span class="text-gray-500">Catálogos</span>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-clock"></i>
+            <span class="ml-1">SLAs</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
-<div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+<div class="container mx-auto">
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
             <div>
-                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Acuerdos de Nivel de Servicio (SLAs)</h1>
-                <p class="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Gestión de todos los acuerdos de nivel de servicio</p>
+                <p class="text-gray-600 text-sm sm:text-base">Gestión de todos los acuerdos de nivel de servicio</p>
             </div>
             <a href="{{ route('slas.create') }}"
                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 sm:px-4 rounded-md transition duration-150 ease-in-out flex items-center justify-center text-sm sm:text-base">
