@@ -102,14 +102,7 @@ class PublicTrackingController extends Controller
         ->where('ticket_number', $ticketNumber)
         ->firstOrFail();
 
-        // Validar que el usuario tenga acceso (verificación por email)
-        $emailProvided = $request->session()->get('tracking_email_' . $ticketNumber);
-
-        if (!$emailProvided && !auth()->check()) {
-            // Solicitar validación de email
-            return view('public.tracking.verify', compact('serviceRequest'));
-        }
-
+        // Mostrar la solicitud directamente (la verificación ya se hizo en el search con reCAPTCHA)
         return view('public.tracking.show', compact('serviceRequest'));
     }
 
