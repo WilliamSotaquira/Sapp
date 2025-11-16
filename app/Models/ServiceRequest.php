@@ -18,6 +18,10 @@ class ServiceRequest extends Model
 
     protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
 
+    protected $attributes = [
+        'status' => 'PENDIENTE',
+    ];
+
     protected $casts = [
         'acceptance_deadline' => 'datetime',
         'response_deadline' => 'datetime',
