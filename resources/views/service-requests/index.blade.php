@@ -22,9 +22,10 @@
     <!-- Header Principal -->
     <x-service-requests.index.header.main-header />
 
-    <div class="space-y-6">
+    <div class="space-y-3 md:space-y-6">
         <!-- Fila 1: Estadísticas y Acción Principal -->
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <!-- En móvil: layout compacto, tablet: 2-3 cols, desktop: 5 cols -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 lg:gap-6">
 
             <!-- Tarjeta 1: Nueva Solicitud -->
             <x-service-requests.index.stats-cards.create-action />

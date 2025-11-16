@@ -70,4 +70,20 @@ class User extends Authenticatable
     {
         return $this->hasRole('admin') || $this->id === 1; // El usuario con ID 1 es admin
     }
+
+    /**
+     * Relación con perfil de técnico
+     */
+    public function technician()
+    {
+        return $this->hasOne(\App\Models\Technician::class);
+    }
+
+    /**
+     * Verificar si el usuario es técnico
+     */
+    public function isTechnician()
+    {
+        return $this->technician()->exists();
+    }
 }

@@ -4,21 +4,21 @@
 @section('title', 'Servicios')
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
-    <div class="flex justify-between items-center mb-6">
+<div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">Servicios</h1>
-            <p class="text-gray-600 mt-1">Gestión de servicios y sus configuraciones</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Servicios</h1>
+            <p class="text-gray-600 mt-1 text-sm sm:text-base">Gestión de servicios y sus configuraciones</p>
         </div>
         <a href="{{ route('services.create') }}"
-           class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
+           class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg transition duration-200 flex items-center justify-center text-sm sm:text-base">
             <i class="fas fa-plus mr-2"></i>Nuevo Servicio
         </a>
     </div>
 
     <!-- Alertas -->
     @if(session('success'))
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded">
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-3 sm:p-4 mb-4 sm:mb-6 rounded text-sm sm:text-base">
             <div class="flex items-center">
                 <i class="fas fa-check-circle mr-2"></i>
                 <span>{{ session('success') }}</span>
@@ -27,7 +27,7 @@
     @endif
 
     @if(session('error'))
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 sm:p-4 mb-4 sm:mb-6 rounded text-sm sm:text-base">
             <div class="flex items-center">
                 <i class="fas fa-exclamation-circle mr-2"></i>
                 <span>{{ session('error') }}</span>
@@ -36,16 +36,16 @@
     @endif
 
     <!-- Filtros y Búsqueda -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Buscar</label>
                 <input type="text" id="searchInput" placeholder="Buscar servicios..."
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                       class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Familia</label>
-                <select id="familyFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Familia</label>
+                <select id="familyFilter" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
                     <option value="">Todas las familias</option>
                     @foreach($services->pluck('family')->unique()->filter() as $family)
                         <option value="{{ $family->id }}">{{ $family->name }}</option>
@@ -53,8 +53,8 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-                <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Estado</label>
+                <select id="statusFilter" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
                     <option value="">Todos los estados</option>
                     <option value="active">Activos</option>
                     <option value="inactive">Inactivos</option>

@@ -108,10 +108,12 @@
                 <div class="text-center py-8 bg-gray-50 rounded-lg">
                     <i class="fas fa-camera text-gray-400 text-4xl mb-3"></i>
                     <p class="text-gray-500 mb-4">No hay evidencias registradas para esta solicitud.</p>
+                    @if($serviceRequest->status !== 'CERRADA')
                     <a href="{{ route('service-requests.evidences.create', $serviceRequest) }}"
                         class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg inline-flex items-center">
                         <i class="fas fa-plus mr-2"></i>Agregar Evidencia
                     </a>
+                    @endif
                 </div>
             @endif
         </div>

@@ -3,29 +3,29 @@
 @section('title', 'Lista de SLAs')
 
 @section('content')
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">Acuerdos de Nivel de Servicio (SLAs)</h1>
-                <p class="text-gray-600 mt-2">Gestión de todos los acuerdos de nivel de servicio</p>
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Acuerdos de Nivel de Servicio (SLAs)</h1>
+                <p class="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Gestión de todos los acuerdos de nivel de servicio</p>
             </div>
             <a href="{{ route('slas.create') }}"
-               class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out">
+               class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 sm:px-4 rounded-md transition duration-150 ease-in-out flex items-center justify-center text-sm sm:text-base">
                 <i class="fas fa-plus mr-2"></i>Nuevo SLA
             </a>
         </div>
 
         <!-- Mensajes de éxito/error -->
         @if(session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+        <div class="bg-green-100 border border-green-400 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded mb-4 sm:mb-6 text-sm sm:text-base">
             <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
         </div>
         @endif
 
         @if(session('error'))
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div class="bg-red-100 border border-red-400 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded mb-4 sm:mb-6 text-sm sm:text-base">
             <i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}
         </div>
         @endif
@@ -37,16 +37,16 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-3 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Nombre
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-3 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                                 Servicio
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-3 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                                 Nivel
                             </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-3 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Tiempos
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

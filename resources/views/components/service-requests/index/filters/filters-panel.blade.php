@@ -1,21 +1,21 @@
-<div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-semibold text-gray-800 flex items-center">
-            <i class="fas fa-filter text-blue-500 mr-2"></i>
+<div class="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
+    <div class="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 class="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-filter text-blue-500 mr-2 text-xs sm:text-sm"></i>
             Filtros
         </h3>
     </div>
 
     <form id="filtersForm" method="GET" action="{{ route('service-requests.index') }}">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <!-- Filtro de Estado -->
             <div>
-                <label for="status" class="block text-xs font-medium text-gray-700 mb-2">
-                    <i class="fas fa-tag mr-2"></i>Estado
+                <label for="status" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <i class="fas fa-tag mr-1 sm:mr-2"></i>Estado
                 </label>
                 <select id="status"
                         name="status"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Todos los estados</option>
                     <option value="PENDIENTE" {{ request('status') == 'PENDIENTE' ? 'selected' : '' }}>Pendiente</option>
                     <option value="ACEPTADA" {{ request('status') == 'ACEPTADA' ? 'selected' : '' }}>Aceptada</option>
@@ -29,12 +29,12 @@
 
             <!-- Filtro de Criticidad -->
             <div>
-                <label for="criticality" class="block text-xs font-medium text-gray-700 mb-2">
-                    <i class="fas fa-flag mr-2"></i>Prioridad
+                <label for="criticality" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
+                    <i class="fas fa-flag mr-1 sm:mr-2"></i>Prioridad
                 </label>
                 <select id="criticality"
                         name="criticality"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Todas las prioridades</option>
                     <option value="BAJA" {{ request('criticality') == 'BAJA' ? 'selected' : '' }}>Baja</option>
                     <option value="MEDIA" {{ request('criticality') == 'MEDIA' ? 'selected' : '' }}>Media</option>
@@ -44,10 +44,10 @@
             </div>
 
             <!-- Botones de Acción -->
-            <div class="flex items-end space-x-3">
+            <div class="flex items-end space-x-2 sm:space-x-3">
                 <button type="button"
                         id="clearFilters"
-                        class="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition duration-200 font-medium text-sm">
+                        class="flex-1 bg-gray-100 text-gray-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-gray-200 transition duration-200 font-medium text-xs sm:text-sm">
                     <i class="fas fa-times mr-2"></i>Limpiar
                 </button>
                 <button type="submit"

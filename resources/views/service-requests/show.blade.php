@@ -25,19 +25,19 @@
 
 @section('content')
 
-    <div class="space-y-6">
+    <div class="space-y-4 sm:space-y-6">
         <!-- Header Principal con botón de edición -->
-        <div class="flex justify-between items-center flex-wrap gap-4">
+        <div class="flex justify-between items-center flex-wrap gap-3 sm:gap-4">
             <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
         </div>
 
         <!-- Tarjetas de Información -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <x-service-requests.show.info-cards.service-info :serviceRequest="$serviceRequest" />
             <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <x-service-requests.show.info-cards.timelines-info :serviceRequest="$serviceRequest" />
             <x-service-requests.show.info-cards.sla-info :serviceRequest="$serviceRequest" />
         </div>
@@ -54,6 +54,9 @@
 
         <!-- Sistema de Evidencias -->
         <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
+
+        <!-- Notas y Comentarios del Sistema -->
+        <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />
 
         <!-- Historial y Timeline -->
         {{-- <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" /> --}}

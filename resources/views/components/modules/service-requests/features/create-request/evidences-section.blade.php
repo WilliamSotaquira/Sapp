@@ -16,7 +16,7 @@
             </span>
         </h3>
 
-        @if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO']))
+        @if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA']) && $serviceRequest->status !== 'CERRADA')
         <a href="{{ route('service-requests.evidences.create', $serviceRequest) }}"
             class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center">
             <i class="fas fa-plus mr-2"></i>Agregar Evidencia
@@ -121,7 +121,7 @@
     <div class="text-center py-8 bg-gray-50 rounded-lg">
         <i class="fas fa-camera text-gray-400 text-4xl mb-3"></i>
         <p class="text-gray-500 mb-4">No hay evidencias registradas para esta solicitud.</p>
-        @if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO']))
+        @if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA']) && $serviceRequest->status !== 'CERRADA')
         <a href="{{ route('service-requests.evidences.create', $serviceRequest) }}"
             class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg inline-flex items-center">
             <i class="fas fa-plus mr-2"></i>Agregar Primera Evidencia
@@ -163,10 +163,12 @@
                     • Un archivo adjunto
                 </p>
             </div>
+            @if($serviceRequest->status !== 'CERRADA')
             <a href="{{ route('service-requests.evidences.create', $serviceRequest) }}"
                 class="ml-auto bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg">
                 <i class="fas fa-plus mr-2"></i>Agregar Evidencia
             </a>
+            @endif
             @endif
         </div>
     </div>

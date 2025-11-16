@@ -123,23 +123,23 @@
                 @endphp
 
                 @foreach($quickActions as $action)
-                <a href="{{ $action['route'] }}" class="flex items-center p-3 bg-{{ $action['color'] }}-50 rounded-lg hover:bg-{{ $action['color'] }}-100 transition-all duration-200 border border-{{ $action['color'] }}-200 group">
-                    <div class="p-2 bg-{{ $action['color'] }}-100 rounded-lg group-hover:scale-110 transition-transform duration-200">
-                        <i class="{{ $action['icon'] }} text-{{ $action['color'] }}-600 text-lg"></i>
+                <a href="{{ $action['route'] }}" class="flex items-center p-2.5 sm:p-3 bg-{{ $action['color'] }}-50 rounded-lg hover:bg-{{ $action['color'] }}-100 transition-all duration-200 border border-{{ $action['color'] }}-200 group">
+                    <div class="p-1.5 sm:p-2 bg-{{ $action['color'] }}-100 rounded-lg group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
+                        <i class="{{ $action['icon'] }} text-{{ $action['color'] }}-600 text-base sm:text-lg"></i>
                     </div>
-                    <div class="ml-4 flex-1">
-                        <p class="font-medium text-{{ $action['color'] }}-800">{{ $action['title'] }}</p>
-                        <p class="text-sm text-{{ $action['color'] }}-600">{{ $action['description'] }}</p>
+                    <div class="ml-3 sm:ml-4 flex-1 min-w-0">
+                        <p class="font-medium text-{{ $action['color'] }}-800 text-sm sm:text-base truncate">{{ $action['title'] }}</p>
+                        <p class="text-xs sm:text-sm text-{{ $action['color'] }}-600 hidden sm:block">{{ $action['description'] }}</p>
                     </div>
-                    <i class="fas fa-arrow-right text-{{ $action['color'] }}-400 opacity-0 group-hover:opacity-100 transform group-hover:translate-x-1 transition-all duration-200"></i>
+                    <i class="fas fa-arrow-right text-{{ $action['color'] }}-400 opacity-0 group-hover:opacity-100 transform group-hover:translate-x-1 transition-all duration-200 text-xs sm:text-sm flex-shrink-0"></i>
                 </a>
                 @endforeach
             </div>
         </div>
 
         <!-- Resumen de Solicitudes por Estado con gráfico visual -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold mb-4 text-gray-800">Resumen de Solicitudes</h2>
+        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h2 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-800">Resumen de Solicitudes</h2>
 
             <!-- Mini gráfico de barras -->
             @php

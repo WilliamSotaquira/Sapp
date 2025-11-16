@@ -32,11 +32,11 @@
         @else
             <!-- Archivo -->
             <div class="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 mb-3">
-                <div class="w-10 h-10 bg-white rounded-lg border border-gray-300 flex items-center justify-center mr-3">
+                <div class="w-10 h-10 bg-white rounded-lg border border-gray-300 flex items-center justify-center mr-3 flex-shrink-0">
                     <i class="fas fa-file text-gray-500"></i>
                 </div>
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-900 truncate">{{ $evidence->file_original_name }}</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate" title="{{ $evidence->file_original_name }}">{{ $evidence->file_original_name }}</p>
                     <p class="text-xs text-gray-500 mt-1">{{ $evidence->formatted_file_size }}</p>
                 </div>
             </div>

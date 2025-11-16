@@ -204,10 +204,10 @@
 <body class="bg-gray-100">
     <!-- Navigation -->
     <nav class="bg-red-600 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
+        <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
+            <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 sm:space-x-4">
                     <a href="{{ url('/') }}" class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
                         <!-- Icono grande para escritorio con efectos -->
                         <div class="logo-border-animation mr-2">
@@ -256,6 +256,41 @@
                                 Reportes
                             </a>
 
+                            <!-- Menú desplegable para Técnicos -->
+                            <div class="dropdown relative" id="technicianDropdown">
+                                <button
+                                    class="dropdown-trigger flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
+                                          {{ request()->routeIs('technicians.*', 'tasks.*', 'technician-schedule.*') ? 'nav-item-active' : '' }}"
+                                    id="technicianButton">
+                                    <i class="fas fa-user-cog mr-2"></i>
+                                    Técnicos
+                                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                                </button>
+                                <div class="dropdown-menu rounded-b mt-1" id="technicianMenu">
+                                    <a href="{{ route('technician-schedule.index') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.index') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-calendar-alt mr-2"></i>Calendario
+                                    </a>
+                                    <a href="{{ route('technician-schedule.my-agenda') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.my-agenda') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-clipboard-list mr-2"></i>Mi Agenda
+                                    </a>
+                                    <a href="{{ route('technician-schedule.team-capacity') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.team-capacity') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-chart-line mr-2"></i>Capacidad del Equipo
+                                    </a>
+                                    <div class="border-t border-red-500 my-1"></div>
+                                    <a href="{{ route('tasks.index') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('tasks.index') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-tasks mr-2"></i>Tareas
+                                    </a>
+                                    <a href="{{ route('technicians.index') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technicians.index') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-users-cog mr-2"></i>Gestión de Técnicos
+                                    </a>
+                                </div>
+                            </div>
+
                             <!-- Menú desplegable para catálogos -->
                             <div class="dropdown relative" id="catalogDropdown">
                                 <button
@@ -295,24 +330,24 @@
                 </div>
 
                 <!-- Menú de usuario -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
                     @auth
-                        <div class="flex items-center space-x-2 bg-red-700 px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
-                            <i class="fas fa-user-circle"></i>
-                            <span class="hidden sm:inline">{{ Auth::user()->name }}</span>
+                        <div class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
+                            <i class="fas fa-user-circle text-sm sm:text-base"></i>
+                            <span class="hidden sm:inline text-sm md:text-base truncate max-w-[100px] md:max-w-none">{{ Auth::user()->name }}</span>
                         </div>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <button type="submit" class="hover:bg-red-700 px-3 py-2 rounded transition-all duration-300 hover:scale-105"
+                            <button type="submit" class="hover:bg-red-700 px-2 sm:px-3 py-1 sm:py-2 rounded transition-all duration-300 hover:scale-105 text-sm md:text-base"
                                 title="Cerrar sesión">
                                 <i class="fas fa-sign-out-alt"></i>
-                                <span class="hidden sm:inline ml-1">Salir</span>
+                                <span class="hidden lg:inline ml-1">Salir</span>
                             </button>
                         </form>
 
                         <!-- Botón menú móvil -->
-                        <button id="mobileMenuButton" class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110">
-                            <i class="fas fa-bars text-xl"></i>
+                        <button id="mobileMenuButton" class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2">
+                            <i class="fas fa-bars text-lg sm:text-xl"></i>
                         </button>
                     @else
                         <a href="{{ route('login') }}"
@@ -349,6 +384,41 @@
                             class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('reports.*') ? 'bg-red-800' : '' }}">
                             <i class="fas fa-chart-bar mr-3"></i>
                             Reportes
+                        </a>
+
+                        <div class="px-4 py-2 font-semibold text-red-200 border-b border-red-500">
+                            <i class="fas fa-user-cog mr-3"></i>
+                            Técnicos
+                        </div>
+
+                        <a href="{{ route('technician-schedule.index') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.index') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-calendar-alt mr-3"></i>
+                            Calendario
+                        </a>
+
+                        <a href="{{ route('technician-schedule.my-agenda') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.my-agenda') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-clipboard-list mr-3"></i>
+                            Mi Agenda
+                        </a>
+
+                        <a href="{{ route('technician-schedule.team-capacity') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.team-capacity') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-chart-line mr-3"></i>
+                            Capacidad del Equipo
+                        </a>
+
+                        <a href="{{ route('tasks.index') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('tasks.index') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-tasks mr-3"></i>
+                            Tareas
+                        </a>
+
+                        <a href="{{ route('technicians.index') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technicians.index') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-users-cog mr-3"></i>
+                            Gestión de Técnicos
                         </a>
 
                         <div class="px-4 py-2 font-semibold text-red-200 border-b border-red-500">
@@ -392,24 +462,24 @@
     </nav>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
         <!-- Flash Messages -->
         @if (session('success'))
             <div
-                class="alert-flash bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+                class="alert-flash bg-green-100 border border-green-400 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div class="alert-flash bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            <div class="alert-flash bg-red-100 border border-red-400 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
                 {{ session('error') }}
             </div>
         @endif
 
         <!-- Page Header -->
-        <div class="mb-6">
-            <h1 class="text-2xl font-bold text-gray-900">@yield('title')</h1>
+        <div class="mb-4 sm:mb-6">
+            <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">@yield('title')</h1>
             @yield('breadcrumb')
         </div>
 
@@ -521,6 +591,7 @@
         // Inicializar todos los menús desplegables
         setupDropdown('catalogButton', 'catalogMenu');
         setupDropdown('requestsButton', 'requestsMenu');
+        setupDropdown('technicianButton', 'technicianMenu');
 
         // Efectos especiales para el logo
         document.addEventListener('DOMContentLoaded', function() {
