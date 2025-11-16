@@ -210,11 +210,16 @@
         <label class="block text-sm font-medium text-gray-700 mb-2">
             Nivel de Criticidad <span class="text-red-500">*</span>
         </label>
+        
+        @php
+            $currentCriticality = old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA');
+        @endphp
+        
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="criticality-level-container">
             @foreach (['BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA'] as $level)
                 <label class="relative flex cursor-pointer criticality-level-option">
                     <input type="radio" name="criticality_level" value="{{ $level }}"
-                        {{ old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA') == $level ? 'checked' : '' }}
+                        {{ $currentCriticality == $level ? 'checked' : '' }}
                         class="sr-only peer" required>
                     <div
                         class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md">
