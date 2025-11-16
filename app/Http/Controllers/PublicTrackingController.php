@@ -23,7 +23,23 @@ class PublicTrackingController extends Controller
         $validated = $request->validate([
             'query' => 'required|string|min:3',
             'type' => 'required|in:ticket,email',
+            'g-recaptcha-response' => 'required',
+        ], [
+            'g-recaptcha-response.required' => 'Por favor completa la verificación de seguridad (reCAPTCHA).',
         ]);
+
+        // Verificar reCAPTCHA
+        $recaptchaResponse = $request->input('g-recaptcha-response');
+        $recaptchaSecret = config('services.recaptcha.secret_key');
+        
+        $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+        $responseData = json_decode($verifyResponse);
+
+        if (!$responseData->success) {
+            return back()
+                ->withInput()
+                ->withErrors(['g-recaptcha-response' => 'La verificación de seguridad falló. Por favor intenta nuevamente.']);
+        }
 
         $query = $validated['query'];
         $type = $validated['type'];
