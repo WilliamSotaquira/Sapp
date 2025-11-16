@@ -122,6 +122,35 @@ class ServiceRequest extends Model
         return $this->belongsTo(User::class, 'requested_by');
     }
 
+    /**
+     * Relación con tareas del módulo de técnicos
+     */
+    public function tasks()
+    {
+        return $this->hasMany(\App\Models\Task::class);
+    }
+
+    /**
+     * Actualizar estado basado en tareas
+     */
+    public function updateStatusFromTasks()
+    {
+        $tasks = $this->tasks;
+
+        if ($tasks->isEmpty()) {
+            return;
+        }
+
+        $allCompleted = $tasks->every(fn($task) => $task->status === 'completed');
+        $anyInProgress = $tasks->contains(fn($task) => $task->status === 'in_progress');
+
+        if ($allCompleted) {
+            $this->resolve('Todas las tareas han sido completadas');
+        } elseif ($anyInProgress && $this->status !== self::STATUS_IN_PROGRESS) {
+            $this->update(['status' => self::STATUS_IN_PROGRESS]);
+        }
+    }
+
     // ==================== MÉTODOS ADICIONALES ====================
 
     /**

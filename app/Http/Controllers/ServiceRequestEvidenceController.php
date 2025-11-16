@@ -18,8 +18,13 @@ class ServiceRequestEvidenceController extends Controller
     public function create(ServiceRequest $serviceRequest)
     {
         // Verificar que la solicitud está en estado adecuado para agregar evidencias
-        if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO'])) {
+        if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA'])) {
             return redirect()->route('service-requests.show', $serviceRequest)->with('error', 'No se pueden agregar evidencias en el estado actual de la solicitud.');
+        }
+
+        // No permitir agregar evidencias si la solicitud está cerrada
+        if ($serviceRequest->status === 'CERRADA') {
+            return redirect()->route('service-requests.show', $serviceRequest)->with('error', 'No se pueden agregar evidencias a una solicitud cerrada.');
         }
 
         // Obtener el siguiente número de paso
@@ -37,11 +42,18 @@ class ServiceRequestEvidenceController extends Controller
         \Log::info('Service Request ID: ' . $serviceRequest->id);
         \Log::info('User ID: ' . auth()->id());
         \Log::info('Request data:', $request->all());
-        \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
+        \Log::info('Has files: ' . (\$request->hasFile('files') ? 'YES' : 'NO'));
+
+        // Validar que la solicitud no esté cerrada
+        if ($serviceRequest->status === 'CERRADA') {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('error', 'No se pueden agregar evidencias a una solicitud cerrada.');
+        }
 
         try {
             // Nuestro formulario usa 'files[]' no 'file'
-            $request->validate([
+            \$request->validate([
                 'files.*' => 'required|file|max:10240',
             ]);
 

@@ -1,5 +1,27 @@
 @props(['serviceRequest'])
 
+@php
+    // Verificar si la solicitud está cerrada
+    $isClosed = $serviceRequest->status === 'CERRADA';
+@endphp
+
+@if($isClosed)
+<!-- Mensaje cuando la solicitud está cerrada -->
+<div class="border-2 border-gray-300 rounded-2xl p-6 text-center bg-gray-50">
+    <div class="max-w-md mx-auto">
+        <i class="fas fa-lock text-3xl text-gray-400 mb-4"></i>
+        <h4 class="text-lg font-semibold text-gray-700 mb-2">Evidencias Bloqueadas</h4>
+        <p class="text-gray-500 text-sm mb-4">
+            No se pueden agregar más evidencias a una solicitud cerrada
+        </p>
+        <div class="inline-flex items-center px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm">
+            <i class="fas fa-info-circle mr-2"></i>
+            <span>La solicitud está en estado: <strong>CERRADA</strong></span>
+        </div>
+    </div>
+</div>
+@else
+<!-- Formulario normal de carga de evidencias -->
 <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-gray-400 transition duration-150">
     <div class="max-w-md mx-auto">
         <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-4"></i>
@@ -135,3 +157,4 @@ document.getElementById('evidenceUploadForm')?.addEventListener('submit', functi
     }, 1000);
 });
 </script>
+@endif

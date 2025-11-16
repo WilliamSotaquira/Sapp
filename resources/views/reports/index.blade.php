@@ -19,51 +19,51 @@
 @endsection
 
 @section('content')
-<div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-900">Módulo de Informes</h1>
-    <p class="text-gray-600 mt-2">Genera reportes y análisis de los servicios y solicitudes</p>
+<div class="mb-4 sm:mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Módulo de Informes</h1>
+    <p class="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Genera reportes y análisis de los servicios y solicitudes</p>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
     <!-- Timeline por Ticket Card - NUEVO -->
-    <a href="{{ route('reports.timeline.by-ticket') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-red-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-900">Timeline por Ticket</h3>
-                <p class="text-gray-600 text-sm mt-1">Descarga timeline ingresando número de solicitud</p>
+    <a href="{{ route('reports.timeline.by-ticket') }}" class="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-red-500">
+        <div class="flex items-center justify-between flex-wrap sm:flex-nowrap gap-3">
+            <div class="flex-1 min-w-0">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900">Timeline por Ticket</h3>
+                <p class="text-gray-600 text-xs sm:text-sm mt-1">Descarga timeline ingresando número de solicitud</p>
             </div>
-            <div class="bg-red-100 p-3 rounded-full">
-                <i class="fas fa-ticket-alt text-red-600 text-xl"></i>
+            <div class="bg-red-100 p-2.5 sm:p-3 rounded-full flex-shrink-0">
+                <i class="fas fa-ticket-alt text-red-600 text-lg sm:text-xl"></i>
             </div>
         </div>
-        <div class="mt-4">
-            <span class="text-sm text-gray-500">Búsqueda rápida por número</span>
+        <div class="mt-3 sm:mt-4">
+            <span class="text-xs sm:text-sm text-gray-500">Búsqueda rápida por número</span>
         </div>
     </a>
 
     <!-- Time Range Report Card - NUEVO -->
-    <a href="{{ route('reports.time-range.index') }}" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-teal-500">
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-900">Reporte por Rango de Tiempo</h3>
-                <p class="text-gray-600 text-sm mt-1">Análisis detallado por periodo con evidencias incluidas</p>
+    <a href="{{ route('reports.time-range.index') }}" class="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-teal-500">
+        <div class="flex items-center justify-between flex-wrap sm:flex-nowrap gap-3">
+            <div class="flex-1 min-w-0">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900">Reporte por Rango de Tiempo</h3>
+                <p class="text-gray-600 text-xs sm:text-sm mt-1">Análisis detallado por periodo con evidencias incluidas</p>
             </div>
-            <div class="bg-teal-100 p-3 rounded-full">
-                <i class="fas fa-calendar-alt text-teal-600 text-xl"></i>
+            <div class="bg-teal-100 p-2.5 sm:p-3 rounded-full flex-shrink-0">
+                <i class="fas fa-calendar-alt text-teal-600 text-lg sm:text-xl"></i>
             </div>
         </div>
-        <div class="mt-4">
-            <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">Incluye ZIP con evidencias</span>
-                <div class="flex space-x-1">
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <i class="fas fa-file-pdf mr-1"></i>PDF
+        <div class="mt-3 sm:mt-4">
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <span class="text-xs sm:text-sm text-gray-500">Incluye ZIP con evidencias</span>
+                <div class="flex flex-wrap gap-1">
+                    <span class="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-red-100 text-red-800">
+                        <i class="fas fa-file-pdf mr-0.5 sm:mr-1"></i>PDF
                     </span>
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <i class="fas fa-file-excel mr-1"></i>Excel
+                    <span class="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-green-100 text-green-800">
+                        <i class="fas fa-file-excel mr-0.5 sm:mr-1"></i>Excel
                     </span>
-                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        <i class="fas fa-file-archive mr-1"></i>ZIP
+                    <span class="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <i class="fas fa-file-archive mr-0.5 sm:mr-1"></i>ZIP
                     </span>
                 </div>
             </div>
@@ -210,19 +210,19 @@
 </div>
 
 <!-- Date Range Filter -->
-<div class="mt-8 bg-white rounded-lg shadow-md p-6">
-    <h3 class="text-lg font-semibold mb-4">Filtros Globales</h3>
-    <form id="globalFilterForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Filtros Globales</h3>
+    <form id="globalFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div>
-            <label for="start_date" class="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-            <input type="date" id="start_date" name="start_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            <label for="start_date" class="block text-xs sm:text-sm font-medium text-gray-700">Fecha Inicio</label>
+            <input type="date" id="start_date" name="start_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-1.5 sm:p-2 text-sm">
         </div>
         <div>
-            <label for="end_date" class="block text-sm font-medium text-gray-700">Fecha Fin</label>
-            <input type="date" id="end_date" name="end_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+            <label for="end_date" class="block text-xs sm:text-sm font-medium text-gray-700">Fecha Fin</label>
+            <input type="date" id="end_date" name="end_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-1.5 sm:p-2 text-sm">
         </div>
         <div class="flex items-end">
-            <button type="button" onclick="applyGlobalFilter()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            <button type="button" onclick="applyGlobalFilter()" class="w-full sm:w-auto bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded hover:bg-blue-700 text-sm sm:text-base">
                 Aplicar Filtro
             </button>
         </div>
@@ -230,24 +230,24 @@
 </div>
 
 <!-- Nuevas Funcionalidades Section -->
-<div class="mt-8 bg-white rounded-lg shadow-md p-6">
-    <h3 class="text-lg font-semibold mb-4 text-teal-700">
+<div class="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <h3 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-teal-700">
         <i class="fas fa-star mr-2"></i>Nueva Funcionalidad - Línea de Tiempo
     </h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-teal-50 rounded-lg p-4 border border-teal-200">
-            <h4 class="font-semibold text-teal-800 mb-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div class="bg-teal-50 rounded-lg p-3 sm:p-4 border border-teal-200">
+            <h4 class="font-semibold text-teal-800 mb-2 text-sm sm:text-base">
                 <i class="fas fa-chart-line mr-2"></i>Análisis Temporal Avanzado
             </h4>
-            <ul class="text-sm text-teal-700 space-y-1">
+            <ul class="text-xs sm:text-sm text-teal-700 space-y-1">
                 <li>• Cronología completa de eventos por solicitud</li>
                 <li>• Métricas de tiempo y eficiencia</li>
                 <li>• Distribución de tiempos por estado</li>
                 <li>• Cumplimiento de tiempos vs SLA</li>
             </ul>
         </div>
-        <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <h4 class="font-semibold text-blue-800 mb-2">
+        <div class="bg-blue-50 rounded-lg p-3 sm:p-4 border border-blue-200">
+            <h4 class="font-semibold text-blue-800 mb-2 text-sm sm:text-base">
                 <i class="fas fa-download mr-2"></i>Exportación de Reportes
             </h4>
             <ul class="text-sm text-blue-700 space-y-1">

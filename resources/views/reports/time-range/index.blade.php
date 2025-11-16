@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }    // Form submission validation
     const reportForm = document.getElementById('reportForm');
     let downloadCheckInterval;
-    
+
     reportForm.addEventListener('submit', function(e) {
         if (!validateDateRange()) {
             e.preventDefault();
@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading state
         generateBtn.disabled = true;
         generateBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2" aria-hidden="true"></i>Generando reporte...';
-        
+
         // Reset button after 10 seconds (en caso de descarga exitosa o error)
         setTimeout(function() {
             generateBtn.disabled = false;

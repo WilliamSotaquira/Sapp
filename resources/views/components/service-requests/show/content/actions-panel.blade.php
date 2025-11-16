@@ -56,13 +56,36 @@
                 <span class="text-sm text-gray-500 mt-1">Reporte PDF</span>
             </a>
 
-            <!-- Compartir -->
-            <button type="button"
-                class="flex flex-col items-center p-4 bg-pink-50 rounded-lg hover:bg-pink-100 transition duration-150 text-center">
-                <i class="fas fa-share-alt text-pink-600 text-xl mb-2"></i>
+            <!-- Compartir por WhatsApp -->
+            @php
+                $shareUrl = route('service-requests.show', $serviceRequest);
+                $statusLabels = [
+                    'PENDIENTE' => 'Pendiente',
+                    'ACEPTADA' => 'Aceptada',
+                    'EN_PROCESO' => 'En Proceso',
+                    'PAUSADA' => 'Pausada',
+                    'RESUELTA' => 'Resuelta',
+                    'CERRADA' => 'Cerrada',
+                    'CANCELADA' => 'Cancelada'
+                ];
+                $statusText = $statusLabels[$serviceRequest->status] ?? $serviceRequest->status;
+
+                // Mensaje sin emojis para evitar problemas de codificación
+                $shareMessage = "Hola!\n\n" .
+                                "Te comparto los detalles de esta solicitud de servicio:\n\n" .
+                                "*Ticket:* " . $serviceRequest->ticket_number . "\n" .
+                                "*Estado:* " . $statusText . "\n" .
+                                "*Servicio:* " . ($serviceRequest->service->name ?? 'No especificado') . "\n\n" .
+                                "Ver mas informacion aqui: " . $shareUrl;
+
+                $whatsappUrl = "https://wa.me/?text=" . rawurlencode($shareMessage);
+            @endphp
+            <a href="{{ $whatsappUrl }}" target="_blank"
+                class="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
+                <i class="fab fa-whatsapp text-green-600 text-xl mb-2"></i>
                 <span class="font-medium text-gray-900">Compartir</span>
-                <span class="text-sm text-gray-500 mt-1">Enlace de acceso</span>
-            </button>
+                <span class="text-sm text-gray-500 mt-1">Enviar por WhatsApp</span>
+            </a>
 
         </div>
     </div>

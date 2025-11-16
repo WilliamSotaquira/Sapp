@@ -13,21 +13,26 @@
             <div class="text-right">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800">
                     <i class="fas fa-file-alt mr-2"></i>
-                    {{ $serviceRequest->evidences->count() }} archivo{{ $serviceRequest->evidences->count() !== 1 ? 's' : '' }}
+                    {{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() }} archivo{{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() !== 1 ? 's' : '' }}
                 </span>
             </div>
         </div>
     </div>
 
     <div class="p-6">
-        @if($serviceRequest->evidences->count() > 0)
+        @php
+            // Filtrar solo evidencias de tipo ARCHIVO
+            $fileEvidences = $serviceRequest->evidences->where('evidence_type', 'ARCHIVO');
+        @endphp
+
+        @if($fileEvidences->count() > 0)
             <!-- Estadísticas rápidas -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 @php
-                    $imagesCount = $serviceRequest->evidences->where('file_type', 'like', 'image%')->count();
-                    $documentsCount = $serviceRequest->evidences->whereIn('file_type', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->count();
-                    $othersCount = $serviceRequest->evidences->count() - $imagesCount - $documentsCount;
-                    $totalSize = $serviceRequest->evidences->sum('file_size');
+                    $imagesCount = $fileEvidences->where('file_type', 'like', 'image%')->count();
+                    $documentsCount = $fileEvidences->whereIn('file_type', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->count();
+                    $othersCount = $fileEvidences->count() - $imagesCount - $documentsCount;
+                    $totalSize = $fileEvidences->sum('file_size');
                 @endphp
 
                 <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
@@ -70,7 +75,7 @@
                     Archivos adjuntos
                 </h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach($serviceRequest->evidences as $evidence)
+                    @foreach($fileEvidences as $evidence)
                     <x-service-requests.show.evidences.evidence-card :evidence="$evidence" />
                     @endforeach
                 </div>
@@ -98,13 +103,14 @@
         @endif
 
         <!-- Sección de subida de archivos -->
-        <div class="{{ $serviceRequest->evidences->count() > 0 ? 'mt-8 pt-6 border-t border-gray-200' : '' }}">
+        @if($serviceRequest->status !== 'CERRADA')
+        <div class="{{ $fileEvidences->count() > 0 ? 'mt-8 pt-6 border-t border-gray-200' : '' }}">
             <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
                         <i class="fas fa-cloud-upload-alt text-gray-600 mr-2"></i>
                         <h4 class="text-md font-semibold text-gray-700">
-                            {{ $serviceRequest->evidences->count() > 0 ? 'Agregar más archivos' : 'Subir primera evidencia' }}
+                            {{ $fileEvidences->count() > 0 ? 'Agregar más archivos' : 'Subir primera evidencia' }}
                         </h4>
                     </div>
                     <span class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
@@ -114,9 +120,21 @@
                 <x-service-requests.show.evidences.evidence-uploader :serviceRequest="$serviceRequest" />
             </div>
         </div>
+        @else
+        <!-- Mensaje cuando la solicitud está cerrada -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="bg-gray-100 rounded-xl p-6 border border-gray-300 text-center">
+                <i class="fas fa-lock text-gray-400 text-3xl mb-3"></i>
+                <h4 class="text-md font-semibold text-gray-700 mb-2">Solicitud Cerrada</h4>
+                <p class="text-sm text-gray-600">
+                    No se pueden agregar más evidencias a esta solicitud porque está en estado <strong>CERRADA</strong>
+                </p>
+            </div>
+        </div>
+        @endif
 
         <!-- Información adicional -->
-        @if($serviceRequest->evidences->count() > 0)
+        @if($fileEvidences->count() > 0)
         <div class="mt-4 text-center">
             <p class="text-xs text-gray-500">
                 <i class="fas fa-info-circle mr-1"></i>

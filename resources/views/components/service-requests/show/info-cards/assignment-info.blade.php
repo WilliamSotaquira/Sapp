@@ -30,6 +30,7 @@
                         <p class="text-amber-800 font-semibold">Asignación pendiente</p>
                         <p class="text-amber-600 text-sm">La solicitud está aceptada pero requiere asignación de técnico
                             para iniciar el proceso.</p>
+                        @if($serviceRequest->status !== 'CERRADA')
                         <div class="mt-2 flex gap-2">
                             <a href="{{ route('service-requests.edit', $serviceRequest) }}"
                                 class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
@@ -42,6 +43,7 @@
                                 Asignar Técnico
                             </button>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -78,6 +80,7 @@
                                 </p>
                                 <p class="text-sm text-gray-500">{{ $serviceRequest->assignee->email ?? '' }}</p>
                             </div>
+                            @if($serviceRequest->status !== 'CERRADA')
                             <div class="flex gap-2">
                                 <button type="button" data-request-id="{{ $serviceRequest->id }}"
                                     class="quick-assign-btn inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
@@ -90,6 +93,7 @@
                                     Editar
                                 </a>
                             </div>
+                            @endif
                         </div>
 
                         @if ($serviceRequest->status === 'ACEPTADA')
@@ -119,6 +123,7 @@
                                     @endif
                                 </p>
                             </div>
+                            @if($serviceRequest->status !== 'CERRADA')
                             <div class="flex gap-2">
                                 <a href="{{ route('service-requests.edit', $serviceRequest) }}"
                                     class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
@@ -131,6 +136,7 @@
                                     Asignar Técnico
                                 </button>
                             </div>
+                            @endif
                         </div>
                         <p
                             class="text-sm @if ($serviceRequest->status === 'EN_PROCESO') text-red-500 font-medium @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 font-medium @else text-gray-500 @endif mt-1">
@@ -145,6 +151,15 @@
                     </div>
                 @endif
             </div>
+
+            @if ($serviceRequest->status === 'CERRADA')
+                <div class="mt-4 p-3 bg-gray-100 border border-gray-300 rounded-lg">
+                    <div class="flex items-center text-gray-600">
+                        <i class="fas fa-lock mr-2"></i>
+                        <span class="text-sm font-medium">Esta solicitud está cerrada. No se pueden realizar cambios de asignación.</span>
+                    </div>
+                </div>
+            @endif
 
             @if ($serviceRequest->status === 'ACEPTADA' && $serviceRequest->assigned_to)
                 <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
