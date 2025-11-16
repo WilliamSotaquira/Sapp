@@ -31,7 +31,7 @@ class PublicTrackingController extends Controller
         // Verificar reCAPTCHA
         $recaptchaResponse = $request->input('g-recaptcha-response');
         $recaptchaSecret = config('services.recaptcha.secret_key');
-        
+
         $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
         $responseData = json_decode($verifyResponse);
 
