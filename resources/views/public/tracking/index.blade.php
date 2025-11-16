@@ -8,16 +8,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen" style="background: linear-gradient(135deg, #F4F6F8 0%, #E3E7E8 100%);">
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="text-center mb-8">
             <div class="mb-6">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-full mb-4">
-                    <i class="fas fa-search text-white text-3xl"></i>
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
+                    <i class="fas fa-search text-white text-2xl"></i>
                 </div>
             </div>
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-3">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-3">
                 Consultar Estado de Solicitud
             </h1>
             <p class="text-gray-600 text-base sm:text-lg mb-2">
@@ -30,7 +30,7 @@
 
         <!-- Formulario de Búsqueda -->
         <div class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200">
                 @if(session('error'))
                     <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center">
                         <i class="fas fa-exclamation-circle mr-2"></i>
@@ -51,30 +51,30 @@
                     <!-- Tipo de Búsqueda -->
                     <div>
                         <label class="block text-base font-semibold text-gray-800 mb-4">
-                            <i class="fas fa-question-circle text-blue-600 mr-2"></i>
+                            <i class="fas fa-question-circle mr-2" style="color: #D00B1D;"></i>
                             ¿Cómo deseas buscar tu solicitud?
                         </label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <label class="relative flex items-center p-5 border-2 border-blue-500 bg-blue-50 rounded-lg cursor-pointer hover:shadow-md transition-all">
+                            <label class="relative flex items-center p-5 border-2 rounded-lg cursor-pointer hover:shadow-md transition-all" style="border-color: #D00B1D; background-color: #FFF5F5;">
                                 <input type="radio" name="type" value="ticket" class="mr-3 w-4 h-4" checked>
                                 <div class="flex-1">
                                     <div class="font-semibold text-gray-800 text-base mb-1">
-                                        <i class="fas fa-ticket-alt text-blue-600 mr-2"></i>
+                                        <i class="fas fa-ticket-alt mr-2" style="color: #D00B1D;"></i>
                                         Número de Ticket
                                     </div>
                                     <div class="text-xs text-gray-600">Si conoces el código único de tu solicitud</div>
-                                    <div class="text-xs text-blue-600 font-mono mt-1 bg-white px-2 py-1 rounded inline-block">Ej: INF-PU-M-251112-001</div>
+                                    <div class="text-xs font-mono mt-1 px-2 py-1 rounded inline-block" style="background-color: #FFF9E6; color: #666;">Ej: INF-PU-M-251112-001</div>
                                 </div>
                             </label>
-                            <label class="relative flex items-center p-5 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 hover:shadow-md transition-all">
+                            <label class="relative flex items-center p-5 border-2 border-gray-300 rounded-lg cursor-pointer hover:shadow-md transition-all" style="hover:border-color: #D00B1D;">
                                 <input type="radio" name="type" value="email" class="mr-3 w-4 h-4">
                                 <div class="flex-1">
                                     <div class="font-semibold text-gray-800 text-base mb-1">
-                                        <i class="fas fa-envelope text-blue-600 mr-2"></i>
+                                        <i class="fas fa-envelope mr-2" style="color: #D00B1D;"></i>
                                         Correo Electrónico
                                     </div>
                                     <div class="text-xs text-gray-600">Para ver todas tus solicitudes registradas</div>
-                                    <div class="text-xs text-blue-600 font-mono mt-1 bg-white px-2 py-1 rounded inline-block">Ej: usuario@ejemplo.com</div>
+                                    <div class="text-xs font-mono mt-1 px-2 py-1 rounded inline-block" style="background-color: #FFF9E6; color: #666;">Ej: usuario@ejemplo.com</div>
                                 </div>
                             </label>
                         </div>
@@ -83,7 +83,7 @@
                     <!-- Campo de Búsqueda -->
                     <div>
                         <label for="query" class="block text-sm font-semibold text-gray-800 mb-2">
-                            <i class="fas fa-edit text-blue-600 mr-2"></i>
+                            <i class="fas fa-edit mr-2" style="color: #D00B1D;"></i>
                             Ingresa tu búsqueda
                         </label>
                         <div class="relative">
@@ -93,7 +93,7 @@
                             <input type="text"
                                    name="query"
                                    id="query"
-                                   class="w-full pl-10 pr-4 py-3 border-2 @error('query') border-red-500 @else border-gray-300 focus:border-blue-500 @enderror rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                                   class="w-full pl-10 pr-4 py-2.5 border @error('query') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent focus:outline-none transition-all"
                                    placeholder="Número de ticket o correo electrónico"
                                    value="{{ old('query') }}"
                                    required>
@@ -119,7 +119,8 @@
 
                     <!-- Botón de Búsqueda -->
                     <button type="submit"
-                            class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg"
+                            style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
                         <i class="fas fa-search mr-2"></i>
                         Buscar Mi Solicitud
                     </button>
@@ -128,14 +129,14 @@
                 <!-- Información Adicional -->
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                        <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                        <i class="fas fa-info-circle mr-2" style="color: #D00B1D;"></i>
                         ¿Cómo funciona?
                     </h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
                         <div class="flex items-start">
                             <div class="flex-shrink-0 mr-3">
-                                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-blue-600 font-bold">1</span>
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #FFF5F5;">
+                                    <span class="font-bold" style="color: #D00B1D;">1</span>
                                 </div>
                             </div>
                             <div>
@@ -145,8 +146,8 @@
                         </div>
                         <div class="flex items-start">
                             <div class="flex-shrink-0 mr-3">
-                                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-blue-600 font-bold">2</span>
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: #FFF5F5;">
+                                    <span class="font-bold" style="color: #D00B1D;">2</span>
                                 </div>
                             </div>
                             <div>
@@ -155,30 +156,30 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="mt-4 p-4 rounded-lg border" style="background-color: #FFF9E6; border-color: #E5C340;">
                         <div class="flex items-start">
-                            <i class="fas fa-lightbulb text-yellow-600 mt-0.5 mr-2"></i>
+                            <i class="fas fa-lightbulb mt-0.5 mr-2" style="color: #E5C340;"></i>
                             <div class="text-sm">
-                                <p class="font-semibold text-yellow-800 mb-1">Consejo</p>
-                                <p class="text-yellow-700">Guarda el número de ticket que aparece en la confirmación de tu solicitud. Te permitirá consultar su estado fácilmente.</p>
+                                <p class="font-semibold text-gray-800 mb-1">Consejo</p>
+                                <p class="text-gray-700">Guarda el número de ticket que aparece en la confirmación de tu solicitud. Te permitirá consultar su estado fácilmente.</p>
                             </div>
                         </div>
                     </div>
                     <h3 class="text-sm font-semibold text-gray-700 mb-3">
-                        <i class="fas fa-info-circle text-blue-600"></i>
+                        <i class="fas fa-info-circle" style="color: #D00B1D;"></i>
                         ¿Necesitas ayuda?
                     </h3>
                     <ul class="space-y-2 text-sm text-gray-600">
                         <li class="flex items-start">
-                            <i class="fas fa-check text-green-500 mr-2 mt-1"></i>
+                            <i class="fas fa-check mr-2 mt-1" style="color: #D00B1D;"></i>
                             <span>El número de ticket fue enviado a tu correo al crear la solicitud</span>
                         </li>
                         <li class="flex items-start">
-                            <i class="fas fa-check text-green-500 mr-2 mt-1"></i>
+                            <i class="fas fa-check mr-2 mt-1" style="color: #D00B1D;"></i>
                             <span>Puedes buscar todas tus solicitudes usando tu correo electrónico</span>
                         </li>
                         <li class="flex items-start">
-                            <i class="fas fa-check text-green-500 mr-2 mt-1"></i>
+                            <i class="fas fa-check mr-2 mt-1" style="color: #D00B1D;"></i>
                             <span>No necesitas iniciar sesión para consultar el estado</span>
                         </li>
                     </ul>
@@ -187,14 +188,14 @@
                 <!-- Link al sistema -->
                 @auth
                     <div class="mt-6 text-center">
-                        <a href="{{ route('dashboard') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <a href="{{ route('dashboard') }}" class="text-sm font-medium hover:underline" style="color: #D00B1D;">
                             <i class="fas fa-arrow-left mr-1"></i>
                             Volver al Dashboard
                         </a>
                     </div>
                 @else
                     <div class="mt-6 text-center">
-                        <a href="{{ route('login') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <a href="{{ route('login') }}" class="text-sm font-medium hover:underline" style="color: #D00B1D;">
                             <i class="fas fa-sign-in-alt mr-1"></i>
                             ¿Eres parte del equipo? Inicia sesión aquí
                         </a>

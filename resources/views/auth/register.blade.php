@@ -9,26 +9,26 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
-<body class="bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 min-h-screen">
-    <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4 py-8">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen" style="background: linear-gradient(135deg, #F4F6F8 0%, #E3E7E8 100%);">
+    <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
         <!-- Logo y Header -->
-        <div class="text-center mb-8">
+        <div class="text-center mb-6">
             <a href="/" class="inline-block">
-                <div class="w-20 h-20 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl shadow-lg flex items-center justify-center mb-4 mx-auto transform hover:scale-105 transition-transform">
-                    <i class="fas fa-user-plus text-white text-3xl"></i>
+                <div class="w-16 h-16 rounded-xl shadow-md flex items-center justify-center mb-4 mx-auto transform hover:scale-105 transition-transform" style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
+                    <i class="fas fa-user-plus text-white text-2xl"></i>
                 </div>
             </a>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Únete a nosotros!</h1>
-            <p class="text-gray-600">Crea tu cuenta para comenzar</p>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Únete a nosotros</h1>
+            <p class="text-gray-600 text-sm">Crea tu cuenta para comenzar</p>
         </div>
 
         <!-- Card Principal -->
         <div class="w-full sm:max-w-md">
-            <div class="bg-white shadow-2xl rounded-2xl overflow-hidden">
+            <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
                 <!-- Header del Card -->
-                <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-5">
-                    <h2 class="text-xl font-bold text-white flex items-center">
-                        <i class="fas fa-user-plus mr-3"></i>
+                <div class="px-6 py-5 border-b" style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-user-circle mr-2"></i>
                         Crear Nueva Cuenta
                     </h2>
                 </div>
@@ -54,8 +54,8 @@
 
                         <!-- Nombre Completo -->
                         <div>
-                            <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-user text-purple-600 mr-2"></i>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-user mr-2" style="color: #D00B1D;"></i>
                                 Nombre Completo
                             </label>
                             <div class="relative">
@@ -66,7 +66,7 @@
                                        id="name"
                                        name="name"
                                        value="{{ old('name') }}"
-                                       class="w-full pl-10 pr-4 py-3 border-2 @error('name') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('name') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
                                        placeholder="Juan Pérez"
                                        required
                                        autofocus
@@ -82,8 +82,8 @@
 
                         <!-- Email -->
                         <div>
-                            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-envelope text-purple-600 mr-2"></i>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-envelope mr-2" style="color: #D00B1D;"></i>
                                 Correo Electrónico
                             </label>
                             <div class="relative">
@@ -94,7 +94,7 @@
                                        id="email"
                                        name="email"
                                        value="{{ old('email') }}"
-                                       class="w-full pl-10 pr-4 py-3 border-2 @error('email') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('email') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
                                        placeholder="tu@ejemplo.com"
                                        required
                                        autocomplete="username">
@@ -109,8 +109,8 @@
 
                         <!-- Password -->
                         <div>
-                            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-lock text-purple-600 mr-2"></i>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-2" style="color: #D00B1D;"></i>
                                 Contraseña
                             </label>
                             <div class="relative">
@@ -120,7 +120,7 @@
                                 <input type="password"
                                        id="password"
                                        name="password"
-                                       class="w-full pl-10 pr-4 py-3 border-2 @error('password') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('password') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
                                        placeholder="••••••••"
                                        required
                                        autocomplete="new-password">
@@ -139,8 +139,8 @@
 
                         <!-- Confirm Password -->
                         <div>
-                            <label for="password_confirmation" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-check-circle text-purple-600 mr-2"></i>
+                            <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-2" style="color: #D00B1D;"></i>
                                 Confirmar Contraseña
                             </label>
                             <div class="relative">
@@ -150,7 +150,7 @@
                                 <input type="password"
                                        id="password_confirmation"
                                        name="password_confirmation"
-                                       class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition-all"
                                        placeholder="••••••••"
                                        required
                                        autocomplete="new-password">
@@ -175,16 +175,17 @@
                         </div>
 
                         <!-- Términos y Condiciones -->
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <p class="text-xs text-blue-800">
-                                <i class="fas fa-info-circle mr-1"></i>
+                        <div class="rounded-lg p-3 border" style="background-color: #FFF9E6; border-color: #E5C340;">
+                            <p class="text-xs text-gray-700">
+                                <i class="fas fa-info-circle mr-1" style="color: #E5C340;"></i>
                                 Al registrarte, aceptas nuestros términos de servicio y política de privacidad.
                             </p>
                         </div>
 
                         <!-- Botón Submit -->
                         <button type="submit"
-                                class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                class="w-full text-white font-semibold py-2.5 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg"
+                                style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
                             <i class="fas fa-user-plus mr-2"></i>
                             Crear Mi Cuenta
                         </button>
@@ -192,11 +193,11 @@
                 </div>
 
                 <!-- Footer del Card -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div class="px-6 py-4 border-t border-gray-200" style="background-color: #F4F6F8;">
                     <div class="text-center">
                         <p class="text-sm text-gray-600">
                             ¿Ya tienes una cuenta?
-                            <a href="{{ route('login') }}" class="text-purple-600 hover:text-purple-800 font-semibold hover:underline ml-1">
+                            <a href="{{ route('login') }}" class="font-medium hover:underline ml-1" style="color: #D00B1D;">
                                 Inicia sesión aquí
                             </a>
                         </p>
