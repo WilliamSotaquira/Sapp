@@ -9,26 +9,26 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
-<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen" style="background: linear-gradient(135deg, #F4F6F8 0%, #E3E7E8 100%);">
     <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
         <!-- Logo y Header -->
-        <div class="text-center mb-8">
+        <div class="text-center mb-6">
             <a href="/" class="inline-block">
-                <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg flex items-center justify-center mb-4 mx-auto transform hover:scale-105 transition-transform">
-                    <i class="fas fa-user-shield text-white text-3xl"></i>
+                <div class="w-16 h-16 rounded-xl shadow-md flex items-center justify-center mb-4 mx-auto transform hover:scale-105 transition-transform" style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
+                    <i class="fas fa-user-shield text-white text-2xl"></i>
                 </div>
             </a>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido de nuevo!</h1>
-            <p class="text-gray-600">Inicia sesión para acceder al sistema</p>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Bienvenido de nuevo</h1>
+            <p class="text-gray-600 text-sm">Inicia sesión para acceder al sistema</p>
         </div>
 
         <!-- Card Principal -->
         <div class="w-full sm:max-w-md">
-            <div class="bg-white shadow-2xl rounded-2xl overflow-hidden">
+            <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
                 <!-- Header del Card -->
-                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5">
-                    <h2 class="text-xl font-bold text-white flex items-center">
-                        <i class="fas fa-sign-in-alt mr-3"></i>
+                <div class="px-6 py-5 border-b" style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
+                    <h2 class="text-lg font-semibold text-white flex items-center">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
                         Iniciar Sesión
                     </h2>
                 </div>
@@ -62,8 +62,8 @@
 
                         <!-- Email -->
                         <div>
-                            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-envelope text-blue-600 mr-2"></i>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-envelope mr-2" style="color: #D00B1D;"></i>
                                 Correo Electrónico
                             </label>
                             <div class="relative">
@@ -74,7 +74,8 @@
                                        id="email"
                                        name="email"
                                        value="{{ old('email') }}"
-                                       class="w-full pl-10 pr-4 py-3 border-2 @error('email') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('email') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
+                                       style="@error('email') @else focus:ring-color: #D00B1D; @enderror"
                                        placeholder="tu@ejemplo.com"
                                        required
                                        autofocus
@@ -90,8 +91,8 @@
 
                         <!-- Password -->
                         <div>
-                            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-lock text-blue-600 mr-2"></i>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-lock mr-2" style="color: #D00B1D;"></i>
                                 Contraseña
                             </label>
                             <div class="relative">
@@ -101,7 +102,8 @@
                                 <input type="password"
                                        id="password"
                                        name="password"
-                                       class="w-full pl-10 pr-4 py-3 border-2 @error('password') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('password') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
+                                       style="@error('password') @else focus:ring-color: #D00B1D; @enderror"
                                        placeholder="••••••••"
                                        required
                                        autocomplete="current-password">
@@ -125,7 +127,7 @@
                             </label>
 
                             @if (Route::has('password.request'))
-                                <a href="{{ route('password.request') }}" class="text-sm text-blue-600 hover:text-blue-800 font-semibold hover:underline">
+                                <a href="{{ route('password.request') }}" class="text-sm font-medium hover:underline" style="color: #D00B1D;">
                                     ¿Olvidaste tu contraseña?
                                 </a>
                             @endif
@@ -144,7 +146,8 @@
 
                         <!-- Botón Submit -->
                         <button type="submit"
-                                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                class="w-full text-white font-semibold py-2.5 px-6 rounded-lg transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg"
+                                style="background: linear-gradient(135deg, #D00B1D 0%, #A60A17 100%);">
                             <i class="fas fa-sign-in-alt mr-2"></i>
                             Iniciar Sesión
                         </button>
@@ -152,11 +155,11 @@
                 </div>
 
                 <!-- Footer del Card -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div class="px-6 py-4 border-t border-gray-200" style="background-color: #F4F6F8;">
                     <div class="text-center">
                         <p class="text-sm text-gray-600">
                             ¿No tienes una cuenta?
-                            <a href="{{ route('register') }}" class="text-blue-600 hover:text-blue-800 font-semibold hover:underline ml-1">
+                            <a href="{{ route('register') }}" class="font-medium hover:underline ml-1" style="color: #D00B1D;">
                                 Regístrate aquí
                             </a>
                         </p>
