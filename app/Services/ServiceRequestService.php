@@ -147,9 +147,10 @@ class ServiceRequestService
             ->get();
 
         $users = User::select(['id', 'name', 'email'])->orderBy('name')->get();
+        $requesters = \App\Models\Requester::active()->orderBy('name')->get();
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
 
-        return compact('subServices', 'users', 'criticalityLevels');
+        return compact('subServices', 'users', 'requesters', 'criticalityLevels');
     }
 
     /**

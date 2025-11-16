@@ -14,6 +14,7 @@ class UpdateServiceRequestRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'requester_id' => 'required|exists:requesters,id',
             'sub_service_id' => 'required|exists:sub_services,id',
             'sla_id' => 'required|exists:service_level_agreements,id',
             'assigned_to' => 'nullable|exists:users,id',
@@ -26,6 +27,8 @@ class UpdateServiceRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'requester_id.required' => 'El solicitante es obligatorio.',
+            'requester_id.exists' => 'El solicitante seleccionado no es válido.',
             'sub_service_id.required' => 'El sub-servicio es obligatorio.',
             'sla_id.required' => 'El SLA es obligatorio.',
             'title.required' => 'El título es obligatorio.',
