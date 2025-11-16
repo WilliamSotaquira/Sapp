@@ -13,8 +13,9 @@ class ServiceRequestObserver
      */
     public function created(ServiceRequest $serviceRequest): void
     {
-        // Registrar el estado inicial
-        $this->logStatusChange($serviceRequest, null, $serviceRequest->status, 'Solicitud creada');
+        // Registrar el estado inicial - asegurar que el status existe
+        $status = $serviceRequest->status ?? 'PENDIENTE';
+        $this->logStatusChange($serviceRequest, null, $status, 'Solicitud creada');
     }
 
     /**
