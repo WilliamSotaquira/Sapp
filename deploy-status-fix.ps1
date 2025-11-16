@@ -42,19 +42,19 @@ try {
     # 1. Backup de base de datos
     Print-Status "Paso 1/10: Preparando backup de base de datos..."
     $backupFile = "backup_$(Get-Date -Format 'yyyyMMdd_HHmmss').sql"
-    
+
     # Verificar si existe el directorio de backups
     if (-not (Test-Path "storage\backups")) {
         New-Item -ItemType Directory -Path "storage\backups" -Force | Out-Null
     }
-    
+
     $createBackup = Read-Host "¿Deseas crear un backup de la base de datos? (s/n)"
     if ($createBackup -eq "s") {
         $dbUser = Read-Host "Ingresa el nombre de usuario de MySQL"
         $dbPass = Read-Host "Ingresa la contraseña de MySQL" -AsSecureString
         $dbPassPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($dbPass))
         $dbName = Read-Host "Ingresa el nombre de la base de datos"
-        
+
         $mysqldumpPath = "C:\xampp\mysql\bin\mysqldump.exe"
         if (Test-Path $mysqldumpPath) {
             & $mysqldumpPath -u $dbUser -p"$dbPassPlain" $dbName > "storage\backups\$backupFile"
@@ -96,7 +96,7 @@ try {
     Print-Status "Paso 5/10: Verificando commit..."
     $currentCommit = git rev-parse --short HEAD
     Print-Status "Commit actual: $currentCommit"
-    
+
     $commitHistory = git log --oneline -n 10
     if ($commitHistory -match "3aea8a0") {
         Print-Success "Commit del fix encontrado en el historial"
@@ -133,7 +133,7 @@ try {
 
     # 9. Reiniciar servicios
     Print-Status "Paso 9/10: Reiniciando servicios..."
-    
+
     # Queue workers
     $queueProcesses = Get-Process | Where-Object { $_.ProcessName -like "*php*" -and $_.CommandLine -like "*queue:work*" }
     if ($queueProcesses) {
@@ -171,7 +171,7 @@ try {
     Print-Status "==================================================================="
     Print-Success "¡Despliegue completado exitosamente!"
     Print-Status "==================================================================="
-    
+
     Write-Host ""
     Print-Status "Próximos pasos:"
     Write-Host "1. Verificar que la aplicación carga correctamente"
@@ -179,12 +179,12 @@ try {
     Write-Host "3. Verificar que el historial de estados se registra correctamente"
     Write-Host "4. Revisar logs: Get-Content storage\logs\laravel.log -Tail 50"
     Write-Host ""
-    
+
     Print-Warning "En caso de necesitar hacer rollback:"
     Write-Host "git reset --hard $currentCommit~1"
     Write-Host "php artisan cache:clear; php artisan config:cache"
     Write-Host ""
-    
+
     Print-Status "Backup disponible en: storage\backups\$backupFile"
 
 } catch {

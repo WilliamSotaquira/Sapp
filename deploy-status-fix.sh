@@ -50,9 +50,9 @@ if command -v mysqldump &> /dev/null; then
     read -sp "Ingresa la contraseña de MySQL: " DB_PASS
     echo
     read -p "Ingresa el nombre de la base de datos: " DB_NAME
-    
+
     mysqldump -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" > "storage/backups/$BACKUP_FILE" 2>/dev/null
-    
+
     if [ $? -eq 0 ]; then
         print_success "Backup creado: storage/backups/$BACKUP_FILE"
     else
