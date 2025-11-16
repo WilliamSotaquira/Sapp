@@ -29,7 +29,46 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            'g-recaptcha-response' => ['required'],
         ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'g-recaptcha-response.required' => 'Por favor completa la verificación de seguridad (reCAPTCHA).',
+        ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->has('g-recaptcha-response')) {
+                $recaptchaResponse = $this->input('g-recaptcha-response');
+                $recaptchaSecret = config('services.recaptcha.secret_key');
+                
+                $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+                
+                if ($verifyResponse === false) {
+                    $validator->errors()->add('g-recaptcha-response', 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.');
+                    return;
+                }
+                
+                $responseData = json_decode($verifyResponse);
+
+                if (!$responseData || !$responseData->success) {
+                    $validator->errors()->add('g-recaptcha-response', 'La verificación de seguridad falló. Por favor intenta nuevamente.');
+                }
+            }
+        });
     }
 
     /**
