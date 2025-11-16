@@ -24,6 +24,7 @@
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
     <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
     <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
+    <input type="hidden" name="requested_by" value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
 
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
     <div>
