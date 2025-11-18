@@ -114,7 +114,7 @@
                                         </div>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ $technician->user->name }}</div>
+                                        <div class="text-sm font-medium text-gray-900">{{ $technician->user?->name ?? 'Usuario no asignado' }}</div>
                                         <div class="text-xs text-gray-500">{{ $technician->user->email }}</div>
                                     </div>
                                 </div>
@@ -123,7 +123,7 @@
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                     {{ ucfirst($technician->specialization) }}
                                 </span>
-                                <div class="lg:hidden text-xs text-gray-600 mt-1">{{ $technician->user->name }}</div>
+                                <div class="lg:hidden text-xs text-gray-600 mt-1">{{ $technician->user?->name ?? 'Usuario no asignado' }}</div>
                             </td>
                             <td class="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                                 <div class="flex items-center">

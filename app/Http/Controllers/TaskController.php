@@ -6,6 +6,8 @@ use App\Models\Task;
 use App\Models\Technician;
 use App\Models\ServiceRequest;
 use App\Models\Project;
+use App\Models\Subtask;
+use App\Models\TaskChecklist;
 use App\Services\TaskAssignmentService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -47,7 +49,10 @@ class TaskController extends Controller
             ->orderBy('scheduled_time')
             ->paginate(20);
 
-        $technicians = Technician::with('user')->active()->get();
+        $technicians = Technician::with('user')
+            ->active()
+            ->whereHas('user')
+            ->get();
 
         return view('tasks.index', compact('tasks', 'technicians'));
     }
@@ -57,7 +62,10 @@ class TaskController extends Controller
      */
     public function create()
     {
-        $technicians = Technician::with('user')->active()->get();
+        $technicians = Technician::with('user')
+            ->active()
+            ->whereHas('user')
+            ->get();
 
         // Obtener solicitudes de servicio ACEPTADAS y asignadas al usuario actual
         $serviceRequests = ServiceRequest::where('assigned_to', auth()->id())
@@ -111,6 +119,10 @@ class TaskController extends Controller
                 'scheduled_start_time' => 'La hora debe estar dentro del horario laboral (6:00 - 18:00).'
             ])->withInput();
         }
+
+        // Asegurar valores por defecto para campos que no pueden ser null
+        $validated['technical_complexity'] = $validated['technical_complexity'] ?? 3;
+        $validated['environment'] = $validated['environment'] ?? 'production';
 
         $task = Task::create($validated);
 
@@ -185,7 +197,9 @@ class TaskController extends Controller
             'dependents.task',
             'slaCompliance',
             'gitAssociations',
-            'knowledgeBase'
+            'knowledgeBase',
+            'subtasks',
+            'checklists'
         ]);
 
         return view('tasks.show', compact('task'));
@@ -196,7 +210,10 @@ class TaskController extends Controller
      */
     public function edit(Task $task)
     {
-        $technicians = Technician::with('user')->active()->get();
+        $technicians = Technician::with('user')
+            ->active()
+            ->whereHas('user')
+            ->get();
 
         // Obtener solicitudes de servicio ACEPTADAS y asignadas al usuario actual
         $serviceRequests = ServiceRequest::where('assigned_to', auth()->id())
@@ -250,6 +267,10 @@ class TaskController extends Controller
                 'scheduled_start_time' => 'La hora debe estar dentro del horario laboral (6:00 - 18:00).'
             ])->withInput();
         }
+
+        // Asegurar valores por defecto para campos que no pueden ser null
+        $validated['technical_complexity'] = $validated['technical_complexity'] ?? 3;
+        $validated['environment'] = $validated['environment'] ?? 'production';
 
         // Registrar cambios significativos en el historial
         $changes = [];
@@ -311,7 +332,7 @@ class TaskController extends Controller
         // Validar que la fecha y hora no sean del pasado
         if ($date && $time) {
             $scheduledDateTime = \Carbon\Carbon::parse($date . ' ' . $time);
-            if ($scheduledDateTime->isPast()) {
+            if ($scheduledDateTime->lt(now()->subMinutes(5))) {
                 return back()->withErrors([
                     'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
                 ])->withInput();
@@ -569,5 +590,118 @@ class TaskController extends Controller
             'sla_deadline' => now()->addMinutes($sla->resolution_time_minutes),
             'compliance_status' => 'within_sla',
         ]);
+    }
+
+    // =============================================================================
+    // GESTIÓN DE SUBTAREAS
+    // =============================================================================
+
+    public function storeSubtask(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'priority' => 'required|in:high,medium,low',
+        ]);
+
+        $validated['order'] = $task->subtasks()->max('order') + 1;
+        $task->subtasks()->create($validated);
+
+        return back()->with('success', 'Subtarea creada');
+    }
+
+    public function updateSubtask(Request $request, Task $task, Subtask $subtask)
+    {
+        if ($subtask->task_id !== $task->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'priority' => 'required|in:high,medium,low',
+            'status' => 'required|in:pending,in_progress,completed',
+        ]);
+
+        $subtask->update($validated);
+
+        return back()->with('success', 'Subtarea actualizada');
+    }
+
+    public function destroySubtask(Task $task, Subtask $subtask)
+    {
+        if ($subtask->task_id !== $task->id) {
+            abort(403);
+        }
+
+        $subtask->delete();
+
+        return back()->with('success', 'Subtarea eliminada');
+    }
+
+    public function toggleSubtaskStatus(Task $task, Subtask $subtask)
+    {
+        if ($subtask->task_id !== $task->id) {
+            abort(403);
+        }
+
+        if ($subtask->status === 'completed') {
+            $subtask->update(['status' => 'pending', 'completed_at' => null]);
+        } else {
+            $subtask->complete();
+        }
+
+        return back();
+    }
+
+    // =============================================================================
+    // GESTIÓN DE CHECKLISTS
+    // =============================================================================
+
+    public function storeChecklist(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+        ]);
+
+        $validated['order'] = $task->checklists()->max('order') + 1;
+        $task->checklists()->create($validated);
+
+        return back()->with('success', 'Item creado');
+    }
+
+    public function updateChecklist(Request $request, Task $task, TaskChecklist $checklist)
+    {
+        if ($checklist->task_id !== $task->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+        ]);
+
+        $checklist->update($validated);
+
+        return back()->with('success', 'Item actualizado');
+    }
+
+    public function destroyChecklist(Task $task, TaskChecklist $checklist)
+    {
+        if ($checklist->task_id !== $task->id) {
+            abort(403);
+        }
+
+        $checklist->delete();
+
+        return back()->with('success', 'Item eliminado');
+    }
+
+    public function toggleChecklist(Task $task, TaskChecklist $checklist)
+    {
+        if ($checklist->task_id !== $task->id) {
+            abort(403);
+        }
+
+        $checklist->toggle();
+
+        return back();
     }
 }

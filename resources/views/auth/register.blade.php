@@ -7,7 +7,9 @@
     <title>Registro - {{ config('app.name') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @if(config('services.recaptcha.site_key'))
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    @endif
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen" style="background: linear-gradient(135deg, #F4F6F8 0%, #E3E7E8 100%);">
     <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
@@ -164,6 +166,7 @@
                         </div>
 
                         <!-- Google reCAPTCHA -->
+                        @if(config('services.recaptcha.site_key') && config('services.recaptcha.secret_key'))
                         <div>
                             <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
                             @error('g-recaptcha-response')
@@ -173,6 +176,7 @@
                                 </p>
                             @enderror
                         </div>
+                        @endif
 
                         <!-- Términos y Condiciones -->
                         <div class="rounded-lg p-3 border" style="background-color: #FFF9E6; border-color: #E5C340;">

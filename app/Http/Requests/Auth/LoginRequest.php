@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\RecaptchaEnterpriseService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -26,11 +27,20 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
-            'g-recaptcha-response' => ['required'],
         ];
+
+        // Solo requerir reCAPTCHA si está completamente configurado (ambas claves)
+        $siteKey = config('services.recaptcha.site_key');
+        $secretKey = config('services.recaptcha.secret_key');
+
+        if (!empty($siteKey) && !empty($secretKey)) {
+            $rules['g-recaptcha-response'] = ['required'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -51,21 +61,48 @@ class LoginRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            if ($this->has('g-recaptcha-response')) {
+            // Solo validar reCAPTCHA si está completamente configurado
+            $siteKey = config('services.recaptcha.site_key');
+            $secretKey = config('services.recaptcha.secret_key');
+
+            if (!empty($siteKey) && !empty($secretKey) && $this->has('g-recaptcha-response')) {
                 $recaptchaResponse = $this->input('g-recaptcha-response');
-                $recaptchaSecret = config('services.recaptcha.secret_key');
 
-                $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+                // Usar reCAPTCHA Enterprise si está habilitado
+                if (config('services.recaptcha.enterprise.enabled')) {
+                    $recaptchaService = new RecaptchaEnterpriseService();
+                    $assessment = $recaptchaService->createAssessment($recaptchaResponse, 'login');
 
-                if ($verifyResponse === false) {
-                    $validator->errors()->add('g-recaptcha-response', 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.');
-                    return;
-                }
+                    if (!$assessment || !$assessment['success']) {
+                        $validator->errors()->add('g-recaptcha-response',
+                            $assessment['message'] ?? 'La verificación de seguridad falló.');
+                        return;
+                    }
 
-                $responseData = json_decode($verifyResponse);
+                    // Verificar score (umbral: 0.5)
+                    if (!$recaptchaService->isScoreAcceptable($assessment['score'], 0.5)) {
+                        $validator->errors()->add('g-recaptcha-response',
+                            'La verificación de seguridad indica un comportamiento sospechoso. Score: ' . $assessment['score']);
+                        return;
+                    }
+                } else {
+                    // Fallback a reCAPTCHA v2 estándar
+                    $recaptchaSecret = config('services.recaptcha.secret_key');
 
-                if (!$responseData || !$responseData->success) {
-                    $validator->errors()->add('g-recaptcha-response', 'La verificación de seguridad falló. Por favor intenta nuevamente.');
+                    if ($recaptchaSecret) {
+                        $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+
+                        if ($verifyResponse === false) {
+                            $validator->errors()->add('g-recaptcha-response', 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.');
+                            return;
+                        }
+
+                        $responseData = json_decode($verifyResponse);
+
+                        if (!$responseData || !$responseData->success) {
+                            $validator->errors()->add('g-recaptcha-response', 'La verificación de seguridad falló. Por favor intenta nuevamente.');
+                        }
+                    }
                 }
             }
         });

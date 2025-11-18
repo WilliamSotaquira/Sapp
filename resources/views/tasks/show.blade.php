@@ -122,7 +122,7 @@
                         <div class="flex items-center">
                             <i class="fas fa-user-circle text-2xl text-gray-400 mr-3"></i>
                             <div>
-                                <p class="text-sm font-medium text-gray-900">{{ $task->technician->user->name }}</p>
+                                <p class="text-sm font-medium text-gray-900">{{ $task->technician->user?->name ?? 'Sin asignar' }}</p>
                                 <p class="text-xs text-gray-500">{{ ucfirst($task->technician->specialization) }}</p>
                             </div>
                         </div>
@@ -180,6 +180,129 @@
         </div>
     @endif
 
+    <!-- Subtareas -->
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                <i class="fas fa-tasks mr-2 text-red-600"></i>
+                Subtareas
+                <span class="ml-2 text-sm text-gray-500">({{ $task->subtasks->count() }})</span>
+            </h3>
+            <button onclick="toggleSubtaskForm()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm">
+                <i class="fas fa-plus"></i> Agregar
+            </button>
+        </div>
+
+        <!-- Formulario compacto -->
+        <div id="subtaskForm" class="hidden mb-3">
+            <form action="{{ route('tasks.subtasks.store', $task) }}" method="POST" class="flex gap-2">
+                @csrf
+                <input type="text" name="title" placeholder="Título de la subtarea..." required class="flex-1 rounded border-gray-300 text-sm">
+                <select name="priority" class="rounded border-gray-300 text-sm">
+                    <option value="high">Alta</option>
+                    <option value="medium" selected>Media</option>
+                    <option value="low">Baja</option>
+                </select>
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                    Guardar
+                </button>
+                <button type="button" onclick="toggleSubtaskForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-1 rounded text-sm">
+                    ✕
+                </button>
+            </form>
+        </div>
+
+        <!-- Lista simple -->
+        @if($task->subtasks->count() > 0)
+            <div class="space-y-2">
+                @foreach($task->subtasks as $subtask)
+                    <div class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <form action="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="text-lg {{ $subtask->isCompleted() ? 'text-green-600' : 'text-gray-300' }}">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                        </form>
+                        <span class="flex-1 {{ $subtask->isCompleted() ? 'line-through text-gray-500' : '' }}">{{ $subtask->title }}</span>
+                        @php
+                            $colors = ['high' => 'text-red-600', 'medium' => 'text-yellow-600', 'low' => 'text-green-600'];
+                        @endphp
+                        <span class="text-xs {{ $colors[$subtask->priority] }}">●</span>
+                        <form action="{{ route('tasks.subtasks.destroy', [$task, $subtask]) }}" method="POST">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-800 text-sm" onclick="return confirm('¿Eliminar?')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <p class="text-gray-400 text-sm text-center py-3">Sin subtareas</p>
+        @endif
+    </div>
+
+    <!-- Checklist -->
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                <i class="fas fa-list-check mr-2 text-red-600"></i>
+                Checklist
+                @php
+                    $completedCount = $task->checklists->where('is_completed', true)->count();
+                    $totalCount = $task->checklists->count();
+                @endphp
+                <span class="ml-2 text-sm text-gray-500">({{ $completedCount }}/{{ $totalCount }})</span>
+            </h3>
+            <button onclick="toggleChecklistForm()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm">
+                <i class="fas fa-plus"></i> Agregar
+            </button>
+        </div>
+
+        <!-- Formulario compacto -->
+        <div id="checklistForm" class="hidden mb-3">
+            <form action="{{ route('tasks.checklists.store', $task) }}" method="POST" class="flex gap-2">
+                @csrf
+                <input type="text" name="title" placeholder="Item del checklist..." required class="flex-1 rounded border-gray-300 text-sm">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                    Guardar
+                </button>
+                <button type="button" onclick="toggleChecklistForm()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-1 rounded text-sm">
+                    ✕
+                </button>
+            </form>
+        </div>
+
+        <!-- Lista simple -->
+        @if($task->checklists->count() > 0)
+            <div class="space-y-2">
+                @foreach($task->checklists as $checklist)
+                    <div class="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <form action="{{ route('tasks.checklists.toggle', [$task, $checklist]) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="text-lg {{ $checklist->is_completed ? 'text-green-600' : 'text-gray-300' }}">
+                                <i class="fas {{ $checklist->is_completed ? 'fa-check-square' : 'fa-square' }}"></i>
+                            </button>
+                        </form>
+                        <span class="flex-1 text-sm {{ $checklist->is_completed ? 'line-through text-gray-500' : 'text-gray-900' }}">
+                            {{ $checklist->title }}
+                        </span>
+                        <form action="{{ route('tasks.checklists.destroy', [$task, $checklist]) }}" method="POST">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-800 text-sm" onclick="return confirm('¿Eliminar?')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <p class="text-gray-400 text-sm text-center py-3">Sin items</p>
+        @endif
+    </div>
+
     <!-- Acciones de workflow -->
     @if($task->status !== 'completed' && $task->status !== 'cancelled')
         <div class="bg-white shadow-md rounded-lg p-6">
@@ -233,4 +356,16 @@
         </div>
     @endif
 </div>
+
+<script>
+function toggleSubtaskForm() {
+    const form = document.getElementById('subtaskForm');
+    form.classList.toggle('hidden');
+}
+
+function toggleChecklistForm() {
+    const form = document.getElementById('checklistForm');
+    form.classList.toggle('hidden');
+}
+</script>
 @endsection
