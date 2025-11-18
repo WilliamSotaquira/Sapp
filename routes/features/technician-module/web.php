@@ -67,6 +67,18 @@ Route::prefix('tasks')->name('tasks.')->group(function () {
     Route::post('/{task}/unblock', [TaskController::class, 'unblock'])->name('unblock');
     Route::post('/{task}/reschedule', [TaskController::class, 'reschedule'])->name('reschedule');
     Route::post('/{task}/update-duration', [TaskController::class, 'updateDuration'])->name('update-duration');
+
+    // Subtareas
+    Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');
+    Route::put('/{task}/subtasks/{subtask}', [TaskController::class, 'updateSubtask'])->name('subtasks.update');
+    Route::delete('/{task}/subtasks/{subtask}', [TaskController::class, 'destroySubtask'])->name('subtasks.destroy');
+    Route::post('/{task}/subtasks/{subtask}/toggle', [TaskController::class, 'toggleSubtaskStatus'])->name('subtasks.toggle');
+
+    // Checklists
+    Route::post('/{task}/checklists', [TaskController::class, 'storeChecklist'])->name('checklists.store');
+    Route::put('/{task}/checklists/{checklist}', [TaskController::class, 'updateChecklist'])->name('checklists.update');
+    Route::delete('/{task}/checklists/{checklist}', [TaskController::class, 'destroyChecklist'])->name('checklists.destroy');
+    Route::post('/{task}/checklists/{checklist}/toggle', [TaskController::class, 'toggleChecklist'])->name('checklists.toggle');
 });
 
 // =============================================================================

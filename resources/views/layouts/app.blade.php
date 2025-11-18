@@ -8,6 +8,7 @@
     <title>@yield('title', 'Sistema de Servicios')</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfUdsYZAAAAAFnFtC01B3KQkS3qp6SSxhSoIiGE"></script>
 
     <style type="text/tailwindcss">
         @theme {
@@ -55,7 +56,8 @@
             transition: all 0.3s ease;
         }
 
-        .logo-large, .logo-small {
+        .logo-large,
+        .logo-small {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         }
@@ -70,20 +72,29 @@
             width: auto;
         }
 
-        .logo-large:hover, .logo-small:hover {
+        .logo-large:hover,
+        .logo-small:hover {
             transform: scale(1.05) rotate(2deg);
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)) brightness(1.1);
         }
 
-        .logo-large:active, .logo-small:active {
+        .logo-large:active,
+        .logo-small:active {
             transform: scale(0.98);
             transition: transform 0.1s ease;
         }
 
         /* Efecto de pulso sutil al cargar */
         @keyframes gentlePulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.03); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.03);
+            }
         }
 
         .logo-pulse {
@@ -103,7 +114,7 @@
             left: -50%;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
             opacity: 0;
             transition: opacity 0.3s ease;
             transform: rotate(45deg);
@@ -139,8 +150,15 @@
         }
 
         @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         /* Responsive */
@@ -193,6 +211,7 @@
                 transform: translate(0, 0) scale(1);
                 opacity: 0.8;
             }
+
             100% {
                 transform: translate(var(--tx), var(--ty)) scale(0);
                 opacity: 0;
@@ -208,18 +227,17 @@
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <a href="{{ url('/dashboard') }}" class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
+                    <a href="{{ url('/dashboard') }}"
+                        class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
                         <!-- Icono grande para escritorio con efectos -->
                         <div class="logo-border-animation mr-2">
-                            <img src="/icon-sapp_lg.svg" alt="Sistema Sapp"
-                                 class="logo-large logo-glow logo-pulse"
-                                 id="logoLarge">
+                            <img src="/icon-sapp_lg.svg" alt="Sistema Sapp" class="logo-large logo-glow logo-pulse"
+                                id="logoLarge">
                         </div>
                         <!-- Icono pequeño para móvil con efectos -->
                         <div class="logo-border-animation mr-2">
-                            <img src="/icon-sapp_xs.svg" alt="Sistema Sapp"
-                                 class="logo-small logo-glow logo-pulse"
-                                 id="logoSmall">
+                            <img src="/icon-sapp_xs.svg" alt="Sistema Sapp" class="logo-small logo-glow logo-pulse"
+                                id="logoSmall">
                         </div>
                         {{-- <span class="hidden sm:inline transition-colors duration-300 hover:text-red-200">Sistema Sapp</span> --}}
                     </a>
@@ -332,13 +350,16 @@
                 <!-- Menú de usuario -->
                 <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
                     @auth
-                        <div class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
+                        <div
+                            class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
                             <i class="fas fa-user-circle text-sm sm:text-base"></i>
-                            <span class="hidden sm:inline text-sm md:text-base truncate max-w-[100px] md:max-w-none">{{ Auth::user()->name }}</span>
+                            <span
+                                class="hidden sm:inline text-sm md:text-base truncate max-w-[100px] md:max-w-none">{{ Auth::user()->name }}</span>
                         </div>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <button type="submit" class="hover:bg-red-700 px-2 sm:px-3 py-1 sm:py-2 rounded transition-all duration-300 hover:scale-105 text-sm md:text-base"
+                            <button type="submit"
+                                class="hover:bg-red-700 px-2 sm:px-3 py-1 sm:py-2 rounded transition-all duration-300 hover:scale-105 text-sm md:text-base"
                                 title="Cerrar sesión">
                                 <i class="fas fa-sign-out-alt"></i>
                                 <span class="hidden lg:inline ml-1">Salir</span>
@@ -346,7 +367,8 @@
                         </form>
 
                         <!-- Botón menú móvil -->
-                        <button id="mobileMenuButton" class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2">
+                        <button id="mobileMenuButton"
+                            class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2">
                             <i class="fas fa-bars text-lg sm:text-xl"></i>
                         </button>
                     @else
@@ -472,7 +494,8 @@
         @endif
 
         @if (session('error'))
-            <div class="alert-flash bg-red-100 border border-red-400 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
+            <div
+                class="alert-flash bg-red-100 border border-red-400 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
                 {{ session('error') }}
             </div>
         @endif
@@ -515,7 +538,8 @@
             const mobileMenu = document.getElementById('mobileMenu');
             const mobileMenuButton = document.getElementById('mobileMenuButton');
 
-            if (mobileMenu && mobileMenuButton && !mobileMenu.contains(event.target) && !mobileMenuButton.contains(event.target)) {
+            if (mobileMenu && mobileMenuButton && !mobileMenu.contains(event.target) && !mobileMenuButton.contains(
+                    event.target)) {
                 mobileMenu.classList.add('hidden');
             }
         });
@@ -647,6 +671,16 @@
                     particle.remove();
                 }, 600);
             }
+        }
+    </script>
+    <script>
+        function onClick(e) {
+            e.preventDefault();
+            grecaptcha.enterprise.ready(async () => {
+                const token = await grecaptcha.enterprise.execute('6LfUdsYZAAAAAFnFtC01B3KQkS3qp6SSxhSoIiGE', {
+                    action: 'LOGIN'
+                });
+            });
         }
     </script>
 

@@ -20,25 +20,66 @@ class PublicTrackingController extends Controller
      */
     public function search(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'query' => 'required|string|min:3',
             'type' => 'required|in:ticket,email',
-            'g-recaptcha-response' => 'required',
-        ], [
-            'g-recaptcha-response.required' => 'Por favor completa la verificación de seguridad (reCAPTCHA).',
-        ]);
+        ];
 
-        // Verificar reCAPTCHA
-        $recaptchaResponse = $request->input('g-recaptcha-response');
-        $recaptchaSecret = config('services.recaptcha.secret_key');
+        $messages = [];
 
-        $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
-        $responseData = json_decode($verifyResponse);
+        // Solo requerir reCAPTCHA si está completamente configurado (ambas claves)
+        $siteKey = config('services.recaptcha.site_key');
+        $secretKey = config('services.recaptcha.secret_key');
 
-        if (!$responseData->success) {
-            return back()
-                ->withInput()
-                ->withErrors(['g-recaptcha-response' => 'La verificación de seguridad falló. Por favor intenta nuevamente.']);
+        if (!empty($siteKey) && !empty($secretKey)) {
+            $rules['g-recaptcha-response'] = 'required';
+            $messages['g-recaptcha-response.required'] = 'Por favor completa la verificación de seguridad (reCAPTCHA).';
+        }
+
+        $validated = $request->validate($rules, $messages);
+
+        // Verificar reCAPTCHA solo si está completamente configurado
+        if (!empty($siteKey) && !empty($secretKey) && $request->has('g-recaptcha-response')) {
+            $recaptchaResponse = $request->input('g-recaptcha-response');
+
+            // Usar reCAPTCHA Enterprise si está habilitado
+            if (config('services.recaptcha.enterprise.enabled')) {
+                $recaptchaService = new RecaptchaEnterpriseService();
+                $assessment = $recaptchaService->createAssessment($recaptchaResponse, 'search');
+
+                if (!$assessment || !$assessment['success']) {
+                    return back()
+                        ->withInput()
+                        ->withErrors(['g-recaptcha-response' => $assessment['message'] ?? 'La verificación de seguridad falló.']);
+                }
+
+                if (!$recaptchaService->isScoreAcceptable($assessment['score'], 0.3)) {
+                    return back()
+                        ->withInput()
+                        ->withErrors(['g-recaptcha-response' => 'Verificación sospechosa. Por favor intenta nuevamente.']);
+                }
+            } else {
+                // Fallback a reCAPTCHA v2
+                $recaptchaSecret = config('services.recaptcha.secret_key');
+
+                if ($recaptchaSecret) {
+                    $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+
+                    if ($verifyResponse === false) {
+                        return back()
+                            ->withInput()
+                            ->withErrors(['g-recaptcha-response' => 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.']);
+                    }
+
+                    $responseData = json_decode($verifyResponse);
+
+                    if (!$responseData || !$responseData->success) {
+                        return back()
+                            ->withInput()
+                            ->withErrors(['g-recaptcha-response' => 'La verificación de seguridad falló. Por favor intenta nuevamente.']);
+                    }
+                }
+            }
         }
 
         $query = $validated['query'];

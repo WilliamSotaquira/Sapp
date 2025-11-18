@@ -119,7 +119,7 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <i class="fas fa-user-circle text-gray-400 mr-2"></i>
-                                    <span class="text-sm text-gray-900">{{ $task->technician->user->name }}</span>
+                                    <span class="text-sm text-gray-900">{{ $task->technician->user?->name ?? 'Sin asignar' }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

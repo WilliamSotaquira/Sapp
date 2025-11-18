@@ -146,6 +146,16 @@ class Task extends Model
         return $this->hasMany(KnowledgeBaseLink::class);
     }
 
+    public function subtasks()
+    {
+        return $this->hasMany(Subtask::class)->orderBy('order');
+    }
+
+    public function checklists()
+    {
+        return $this->hasMany(TaskChecklist::class)->orderBy('order');
+    }
+
     public function scheduleBlock()
     {
         return $this->hasOne(ScheduleBlock::class);

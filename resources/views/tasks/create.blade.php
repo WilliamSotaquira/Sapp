@@ -128,9 +128,11 @@
                                 required>
                             <option value="">Seleccione un técnico...</option>
                             @foreach($technicians as $technician)
-                                <option value="{{ $technician->id }}" {{ old('technician_id') == $technician->id ? 'selected' : '' }}>
-                                    {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
-                                </option>
+                                @if($technician->user)
+                                    <option value="{{ $technician->id }}" {{ old('technician_id') == $technician->id ? 'selected' : '' }}>
+                                        {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
+                                    </option>
+                                @endif
                             @endforeach
                         </select>
                         @error('technician_id')
