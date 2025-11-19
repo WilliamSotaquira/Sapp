@@ -4,15 +4,136 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <div class="bg-white shadow-md rounded-lg overflow-hidden">
-        <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
-            <h2 class="text-2xl font-bold text-white flex items-center">
-                <i class="fas fa-plus-circle mr-3"></i>
-                Crear Nueva Tarea
-            </h2>
-        </div>
+    <!-- Modal de Validación Inicial -->
+    <div id="initialValidationModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-[9999]">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300">
+            <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-lg">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-clipboard-check mr-2"></i>
+                        Validación de Tarea
+                    </h3>
+                    <span id="modalStepIndicator" class="text-white text-sm font-semibold bg-white bg-opacity-20 px-3 py-1 rounded-full">Paso 1/3</span>
+                </div>
+                <!-- Barra de progreso -->
+                <div class="mt-3 bg-white bg-opacity-20 rounded-full h-2">
+                    <div id="progressBar" class="bg-white h-2 rounded-full transition-all duration-300" style="width: 33%"></div>
+                </div>
+            </div>
 
-        <form action="{{ route('tasks.store') }}" method="POST" class="p-6 space-y-6" id="taskForm">
+            <div class="p-6 space-y-6">
+                <!-- Paso 1: Selección de Técnico -->
+                <div id="step1" class="space-y-4">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            Paso 1: Seleccione el técnico asignado
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="modal_technician_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Técnico Asignado <span class="text-red-500">*</span>
+                        </label>
+                        <select id="modal_technician_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                            <option value="">Seleccione un técnico...</option>
+                            @foreach($technicians as $technician)
+                                @if($technician->user)
+                                    <option value="{{ $technician->id }}">
+                                        {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
+                                    </option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <button type="button" id="continueToStep2" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        Continuar <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Paso 2: Vincular a Solicitud -->
+                <div id="step2" class="hidden space-y-4">
+                    <div class="bg-green-50 border-l-4 border-green-500 p-4">
+                        <p class="text-sm text-green-800">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            Paso 2: ¿Vincular a una solicitud de servicio?
+                        </p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button type="button" id="linkToRequestYes" class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center">
+                            <i class="fas fa-link mr-2"></i>
+                            Sí, vincular a solicitud
+                        </button>
+                        <button type="button" id="linkToRequestNo" class="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center">
+                            <i class="fas fa-times mr-2"></i>
+                            No, crear tarea independiente
+                        </button>
+                    </div>
+
+                    <button type="button" id="backToStep1" class="w-full text-gray-600 hover:text-gray-800 text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i> Volver
+                    </button>
+                </div>
+
+                <!-- Paso 3: Selección de Solicitud -->
+                <div id="step3" class="hidden space-y-4">
+                    <div class="bg-purple-50 border-l-4 border-purple-500 p-4">
+                        <p class="text-sm text-purple-800">
+                            <i class="fas fa-search mr-2"></i>
+                            Paso 3: Seleccione la solicitud de servicio
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="modal_service_request_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Solicitud de Servicio
+                        </label>
+                        <div class="relative">
+                            <select id="modal_service_request_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                                <option value="">Seleccione una solicitud...</option>
+                            </select>
+                            <div id="loadingSpinner" class="hidden absolute right-3 top-3">
+                                <i class="fas fa-spinner fa-spin text-red-600"></i>
+                            </div>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">
+                            <i class="fas fa-filter mr-1"></i>
+                            Solo se mostrarán solicitudes asignadas al técnico seleccionado
+                        </p>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button type="button" id="backToStep2" class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+                            <i class="fas fa-arrow-left mr-1"></i> Volver
+                        </button>
+                        <button type="button" id="confirmAndLoadData" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                            Confirmar <i class="fas fa-check ml-2"></i>
+                        </button>
+                    </div>
+
+                    <div id="noRequestsAlert" class="hidden mt-2">
+                        <button type="button" id="skipRequestSelection" class="w-full bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors text-sm">
+                            <i class="fas fa-forward mr-2"></i>Continuar sin solicitud
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario Principal (Oculto inicialmente) -->
+    <div id="mainFormContainer" class="hidden">
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                <h2 class="text-2xl font-bold text-white flex items-center">
+                    <i class="fas fa-plus-circle mr-3"></i>
+                    Crear Nueva Tarea
+                </h2>
+            </div>
+
+            <form action="{{ route('tasks.store') }}" method="POST" class="p-6 space-y-6" id="taskForm">
             @csrf
 
             @if ($errors->any())
@@ -38,6 +159,7 @@
                     <div class="md:col-span-2">
                         <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
                             Título <span class="text-red-500">*</span>
+                            <i class="fas fa-info-circle text-gray-400 ml-1 cursor-help" title="Ingrese un título descriptivo y conciso para la tarea"></i>
                         </label>
                         <input type="text"
                                name="title"
@@ -103,6 +225,121 @@
                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('description') border-red-500 @enderror"
                                   required>{{ old('description') }}</textarea>
                         @error('description')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Subtareas -->
+                    <div class="md:col-span-2">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Subtareas (Opcional)
+                                <i class="fas fa-info-circle text-gray-400 ml-1 cursor-help" title="Divida la tarea en partes independientes asignables"></i>
+                            </label>
+                            <button type="button" id="toggleSubtasksBtn" class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                                <i class="fas fa-plus mr-1"></i>
+                                <span id="toggleSubtasksText">Agregar subtareas</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Subtareas (Dinámico) -->
+            <div id="subtasksSection" class="border-b pb-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-red-600"></i>
+                    Subtareas
+                </h3>
+                <div id="subtasksContainer" class="space-y-3">
+                    <!-- Las subtareas se agregarán dinámicamente aquí -->
+                </div>
+                <button type="button" id="addSubtaskBtn" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Agregar Subtarea
+                </button>
+            </div>
+
+            <!-- Asociaciones Opcionales -->
+            <div class="border-b pb-4" id="associationsSection">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-link mr-2 text-red-600"></i>
+                    Asociaciones (Opcional)
+                </h3>
+
+                <!-- Alerta de información cuando viene desde modal -->
+                <div id="preselectedRequestAlert" class="hidden mb-4 bg-blue-50 border-l-4 border-blue-500 p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                        <div>
+                            <p class="text-sm font-medium text-blue-800">
+                                Solicitud vinculada automáticamente
+                            </p>
+                            <p class="text-xs text-blue-700 mt-1">
+                                Los datos de técnico, prioridad y duración se cargaron desde la solicitud seleccionada.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Solicitud de Servicio -->
+                    <div class="md:col-span-2">
+                        <label for="service_request_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Solicitud de Servicio
+                        </label>
+                        <select name="service_request_id"
+                                id="service_request_id"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('service_request_id') border-red-500 @enderror">
+                            <option value="">Sin asociar</option>
+                            @forelse($serviceRequests as $request)
+                                @php
+                                    // Calcular duración estimada desde el SLA
+                                    $estimatedHours = 0;
+                                    if ($request->sla && $request->sla->resolution_time_minutes) {
+                                        $estimatedHours = round($request->sla->resolution_time_minutes / 60, 1);
+                                    }
+                                @endphp
+                                <option value="{{ $request->id }}"
+                                        data-technician="{{ $request->assignee?->technician?->id ?? '' }}"
+                                        data-priority="{{ $request->criticality_level ?? '' }}"
+                                        data-duration="{{ $estimatedHours }}"
+                                        {{ old('service_request_id') == $request->id ? 'selected' : '' }}>
+                                    #{{ $request->ticket_number }} - {{ Str::limit($request->title, 60) }}
+                                    @if($request->assigned_to)
+                                        (Técnico: {{ $request->assignee->name ?? 'N/A' }})
+                                    @endif
+                                </option>
+                            @empty
+                                <option value="" disabled>No hay solicitudes disponibles</option>
+                            @endforelse
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Si selecciona una solicitud, se cargarán automáticamente el técnico, prioridad y duración estimada
+                        </p>
+                        @error('service_request_id')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Proyecto -->
+                    <div class="md:col-span-2">
+                        <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Proyecto
+                        </label>
+                        <select name="project_id"
+                                id="project_id"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('project_id') border-red-500 @enderror">
+                            <option value="">Sin asociar</option>
+                            @forelse($projects as $project)
+                                <option value="{{ $project->id }}" {{ old('project_id') == $project->id ? 'selected' : '' }}>
+                                    {{ $project->name }}
+                                </option>
+                            @empty
+                                <option value="" disabled>No hay proyectos activos</option>
+                            @endforelse
+                        </select>
+                        @error('project_id')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
                     </div>
@@ -204,14 +441,17 @@
                 </div>
             </div>
 
-            <!-- Información Técnica -->
+            <!-- Información Técnica (Colapsable) -->
             <div class="border-b pb-4">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                    <i class="fas fa-code mr-2 text-red-600"></i>
-                    Información Técnica (Opcional)
-                </h3>
+                <button type="button" id="toggleTechnicalInfo" class="w-full flex items-center justify-between text-left py-2 hover:bg-gray-50 rounded-lg transition-colors">
+                    <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                        <i class="fas fa-code mr-2 text-red-600"></i>
+                        Información Técnica (Opcional)
+                    </h3>
+                    <i class="fas fa-chevron-down transition-transform duration-200" id="technicalInfoIcon"></i>
+                </button>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div id="technicalInfoContent" class="mt-4 grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
                     <!-- Complejidad Técnica -->
                     <div>
                         <label for="technical_complexity" class="block text-sm font-medium text-gray-700 mb-2">
@@ -301,60 +541,6 @@
                 </div>
             </div>
 
-            <!-- Asociaciones Opcionales -->
-            <div class="border-b pb-4">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                    <i class="fas fa-link mr-2 text-red-600"></i>
-                    Asociaciones (Opcional)
-                </h3>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Solicitud de Servicio -->
-                    <div>
-                        <label for="service_request_id" class="block text-sm font-medium text-gray-700 mb-2">
-                            Solicitud de Servicio
-                        </label>
-                        <select name="service_request_id"
-                                id="service_request_id"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('service_request_id') border-red-500 @enderror">
-                            <option value="">Sin asociar</option>
-                            @forelse($serviceRequests as $request)
-                                <option value="{{ $request->id }}" {{ old('service_request_id') == $request->id ? 'selected' : '' }}>
-                                    #{{ $request->id }} - {{ Str::limit($request->title, 50) }}
-                                </option>
-                            @empty
-                                <option value="" disabled>No hay solicitudes abiertas</option>
-                            @endforelse
-                        </select>
-                        @error('service_request_id')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Proyecto -->
-                    <div>
-                        <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">
-                            Proyecto
-                        </label>
-                        <select name="project_id"
-                                id="project_id"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('project_id') border-red-500 @enderror">
-                            <option value="">Sin asociar</option>
-                            @forelse($projects as $project)
-                                <option value="{{ $project->id }}" {{ old('project_id') == $project->id ? 'selected' : '' }}>
-                                    {{ $project->name }}
-                                </option>
-                            @empty
-                                <option value="" disabled>No hay proyectos activos</option>
-                            @endforelse
-                        </select>
-                        @error('project_id')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-
             <!-- Botones de Acción -->
             <div class="flex justify-end space-x-4 pt-4">
                 <a href="{{ route('tasks.index') }}"
@@ -363,17 +549,162 @@
                     Cancelar
                 </a>
                 <button type="submit"
-                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center">
+                        id="submitBtn"
+                        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fas fa-save mr-2"></i>
-                    Crear Tarea
+                    <span id="submitBtnText">Crear Tarea</span>
+                    <i class="fas fa-spinner fa-spin ml-2 hidden" id="submitSpinner"></i>
                 </button>
             </div>
         </form>
+        </div>
     </div>
 </div>
+@endsection
 
 @section('scripts')
+<style>
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fade-in 0.3s ease-out;
+    }
+
+    /* Mejorar transiciones de secciones */
+    .section-transition {
+        transition: all 0.3s ease-in-out;
+    }
+
+    /* Efecto de enfoque mejorado */
+    input:focus, select:focus, textarea:focus {
+        transform: scale(1.01);
+        transition: transform 0.2s ease;
+    }
+</style>
+
 <script>
+    // Contador de caracteres para descripción
+    document.getElementById('description').addEventListener('input', function() {
+        const charCount = this.value.length;
+        const counter = document.getElementById('charCount');
+        counter.textContent = `${charCount} caracteres`;
+
+        if (charCount > 800) {
+            counter.classList.add('text-red-500');
+            counter.classList.remove('text-gray-500');
+        } else {
+            counter.classList.remove('text-red-500');
+            counter.classList.add('text-gray-500');
+        }
+    });
+
+    // Actualizar indicadores de progreso en modal
+    function updateModalProgress(step) {
+        const indicator = document.getElementById('modalStepIndicator');
+        const progressBar = document.getElementById('progressBar');
+
+        if (indicator) {
+            indicator.textContent = `Paso ${step}/3`;
+        }
+
+        if (progressBar) {
+            const progress = (step / 3) * 100;
+            progressBar.style.width = progress + '%';
+        }
+    }
+
+    // Manejo de subtareas con botón toggle
+    var subtaskCounter = 0;
+    const subtasksSection = document.getElementById('subtasksSection');
+    const toggleSubtasksBtn = document.getElementById('toggleSubtasksBtn');
+    const toggleSubtasksText = document.getElementById('toggleSubtasksText');
+
+    // Toggle para mostrar/ocultar sección de subtareas
+    toggleSubtasksBtn.addEventListener('click', function() {
+        if (subtasksSection.classList.contains('hidden')) {
+            subtasksSection.classList.remove('hidden');
+            subtasksSection.classList.add('animate-fade-in');
+            toggleSubtasksText.textContent = 'Ocultar subtareas';
+            this.querySelector('i').classList.remove('fa-plus');
+            this.querySelector('i').classList.add('fa-minus');
+
+            // Agregar primera subtarea si no hay ninguna
+            if (subtaskCounter === 0) {
+                addSubtask();
+            }
+        } else {
+            subtasksSection.classList.add('hidden');
+            toggleSubtasksText.textContent = 'Agregar subtareas';
+            this.querySelector('i').classList.remove('fa-minus');
+            this.querySelector('i').classList.add('fa-plus');
+        }
+    });
+
+    // Agregar subtarea
+    document.getElementById('addSubtaskBtn').addEventListener('click', addSubtask);
+
+    function addSubtask() {
+        subtaskCounter++;
+        var container = document.getElementById('subtasksContainer');
+        var subtaskHtml = `
+            <div class="subtask-item bg-gray-50 p-4 rounded-lg border border-gray-200 animate-fade-in" data-subtask="${subtaskCounter}">
+                <div class="flex justify-between items-start mb-3">
+                    <h4 class="font-semibold text-gray-700">Subtarea #${subtaskCounter}</h4>
+                    <button type="button" onclick="removeSubtask(${subtaskCounter})" class="text-red-500 hover:text-red-700 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Título <span class="text-red-500">*</span></label>
+                        <input type="text" name="subtasks[${subtaskCounter}][title]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                        <textarea name="subtasks[${subtaskCounter}][description]" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Duración estimada (min)</label>
+                        <input type="number" name="subtasks[${subtaskCounter}][estimated_minutes]" value="15" min="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
+                        <select name="subtasks[${subtaskCounter}][priority]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                            <option value="low">Baja</option>
+                            <option value="medium" selected>Media</option>
+                            <option value="high">Alta</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', subtaskHtml);
+    }
+
+    window.removeSubtask = function(id) {
+        var element = document.querySelector(`[data-subtask="${id}"]`);
+        if (element) {
+            // Animación de salida
+            element.style.opacity = '0';
+            element.style.transform = 'scale(0.95)';
+            element.style.transition = 'all 0.2s ease-out';
+            setTimeout(() => {
+                element.remove();
+                subtaskCounter--;
+
+                // Si no quedan subtareas, ocultar la sección
+                if (document.querySelectorAll('.subtask-item').length === 0) {
+                    subtasksSection.classList.add('hidden');
+                    toggleSubtasksText.textContent = 'Agregar subtareas';
+                    toggleSubtasksBtn.querySelector('i').classList.remove('fa-minus');
+                    toggleSubtasksBtn.querySelector('i').classList.add('fa-plus');
+                }
+            }, 200);
+        }
+    };
+
     // Convertir tecnologías y accesos a JSON antes de enviar
     document.getElementById('taskForm').addEventListener('submit', function(e) {
         // Procesar tecnologías
@@ -434,7 +765,77 @@
                 }
             }
         }
-    });    // Auto-ajustar duración estimada según el tipo de tarea
+    });
+
+    // Toggle para Información Técnica
+    const toggleTechnicalInfo = document.getElementById('toggleTechnicalInfo');
+    const technicalInfoContent = document.getElementById('technicalInfoContent');
+    const technicalInfoIcon = document.getElementById('technicalInfoIcon');
+
+    toggleTechnicalInfo.addEventListener('click', function() {
+        if (technicalInfoContent.style.display === 'none' || !technicalInfoContent.style.display) {
+            technicalInfoContent.style.display = 'grid';
+        } else {
+            technicalInfoContent.style.display = 'none';
+        }
+        technicalInfoIcon.classList.toggle('fa-chevron-down');
+        technicalInfoIcon.classList.toggle('fa-chevron-up');
+    });
+
+    // Cargar datos desde solicitud de servicio
+    const serviceRequestSelect = document.getElementById('service_request_id');
+    const technicianSelect = document.getElementById('technician_id');
+    const prioritySelect = document.getElementById('priority');
+    const estimatedDurationValue = document.getElementById('estimated_duration_value');
+    const estimatedDurationUnit = document.getElementById('estimated_duration_unit');
+
+    serviceRequestSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+
+        if (this.value) {
+            // Cargar técnico si está disponible
+            const technicianId = selectedOption.dataset.technician;
+            if (technicianId) {
+                technicianSelect.value = technicianId;
+            }
+
+            // Cargar prioridad según criticidad
+            const criticality = selectedOption.dataset.priority;
+            if (criticality) {
+                // Mapear criticidad a prioridad
+                const priorityMap = {
+                    'low': 'low',
+                    'medium': 'medium',
+                    'high': 'high',
+                    'critical': 'urgent'
+                };
+                prioritySelect.value = priorityMap[criticality] || 'medium';
+            }
+
+            // Cargar duración estimada
+            const duration = selectedOption.dataset.duration;
+            if (duration && duration > 0) {
+                const hours = parseFloat(duration);
+                if (hours >= 1) {
+                    estimatedDurationValue.value = hours.toFixed(1);
+                    estimatedDurationUnit.value = 'hours';
+                } else {
+                    estimatedDurationValue.value = Math.round(hours * 60);
+                    estimatedDurationUnit.value = 'minutes';
+                }
+                updateEstimatedHours();
+            }
+
+            // Mostrar mensaje informativo
+            console.log('Datos cargados desde solicitud de servicio:', {
+                technician: technicianId,
+                priority: criticality,
+                duration: duration
+            });
+        }
+    });
+
+    // Auto-ajustar duración estimada según el tipo de tarea
     document.getElementById('type').addEventListener('change', function() {
         const estimatedValueInput = document.getElementById('estimated_duration_value');
         const unitSelect = document.getElementById('estimated_duration_unit');
@@ -536,6 +937,191 @@
     document.getElementById('scheduled_date').addEventListener('change', validateDateTime);
     document.getElementById('scheduled_start_time').addEventListener('change', validateDateTime);
 
+    // Mejorar feedback visual al enviar formulario
+    document.getElementById('taskForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        const submitText = document.getElementById('submitBtnText');
+        const submitSpinner = document.getElementById('submitSpinner');
+
+        if (submitBtn && submitText && submitSpinner) {
+            submitBtn.disabled = true;
+            submitText.textContent = 'Creando...';
+            submitSpinner.classList.remove('hidden');
+        }
+    });
+
+    // ===== GESTIÓN DEL MODAL DE VALIDACIÓN INICIAL =====
+    const initialModal = document.getElementById('initialValidationModal');
+    const mainFormContainer = document.getElementById('mainFormContainer');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const step3 = document.getElementById('step3');
+
+    let selectedTechnicianId = null;
+    let selectedServiceRequestId = null;
+    let linkToRequest = false;
+
+    // Paso 1 -> Paso 2
+    document.getElementById('continueToStep2').addEventListener('click', function() {
+        selectedTechnicianId = document.getElementById('modal_technician_id').value;
+
+        if (!selectedTechnicianId) {
+            alert('Por favor seleccione un técnico');
+            return;
+        }
+
+        step1.classList.add('hidden');
+        step2.classList.remove('hidden');
+        updateModalProgress(2);
+    });
+
+    // Paso 2 -> Opción SÍ vincular a solicitud
+    document.getElementById('linkToRequestYes').addEventListener('click', function() {
+        linkToRequest = true;
+        loadServiceRequestsForTechnician(selectedTechnicianId);
+        step2.classList.add('hidden');
+        step3.classList.remove('hidden');
+        updateModalProgress(3);
+    });
+
+    // Paso 2 -> Opción NO vincular a solicitud
+    document.getElementById('linkToRequestNo').addEventListener('click', function() {
+        linkToRequest = false;
+        selectedServiceRequestId = null;
+        closeModalAndLoadForm();
+    });
+
+    // Volver de Paso 2 a Paso 1
+    document.getElementById('backToStep1').addEventListener('click', function() {
+        step2.classList.add('hidden');
+        step1.classList.remove('hidden');
+        updateModalProgress(1);
+    });
+
+    // Volver de Paso 3 a Paso 2
+    document.getElementById('backToStep2').addEventListener('click', function() {
+        step3.classList.add('hidden');
+        step2.classList.remove('hidden');
+        updateModalProgress(2);
+    });
+
+    // Confirmar y cargar datos
+    document.getElementById('confirmAndLoadData').addEventListener('click', function() {
+        selectedServiceRequestId = document.getElementById('modal_service_request_id').value;
+
+        if (!selectedServiceRequestId) {
+            alert('Por favor seleccione una solicitud de servicio');
+            return;
+        }
+
+        closeModalAndLoadForm();
+    });
+
+    // Cargar solicitudes para el técnico seleccionado
+    function loadServiceRequestsForTechnician(technicianId) {
+        const select = document.getElementById('modal_service_request_id');
+        const noRequestsAlert = document.getElementById('noRequestsAlert');
+        const spinner = document.getElementById('loadingSpinner');
+
+        select.innerHTML = '<option value="">Cargando...</option>';
+        select.disabled = true;
+        noRequestsAlert.classList.add('hidden');
+
+        if (spinner) {
+            spinner.classList.remove('hidden');
+        }
+
+        fetch(`/api/service-requests/by-technician/${technicianId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
+            .then(data => {
+                select.disabled = false;
+                if (spinner) {
+                    spinner.classList.add('hidden');
+                }
+
+                select.innerHTML = '<option value="">Seleccione una solicitud...</option>';
+
+                if (!data || data.error) {
+                    select.innerHTML = '<option value="">Error: ' + (data.error || 'Error desconocido') + '</option>';
+                    noRequestsAlert.classList.remove('hidden');
+                    return;
+                }
+
+                if (data.length === 0) {
+                    select.innerHTML = '<option value="">No hay solicitudes ACEPTADAS disponibles</option>';
+                    noRequestsAlert.classList.remove('hidden');
+                    return;
+                }
+
+                data.forEach(request => {
+                    const option = document.createElement('option');
+                    option.value = request.id;
+                    option.textContent = `#${request.ticket_number} - ${request.title}`;
+                    option.dataset.technician = request.assigned_technician_id || '';
+                    option.dataset.priority = request.criticality_level || '';
+                    option.dataset.duration = request.estimated_hours || '';
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error cargando solicitudes:', error);
+                select.innerHTML = '<option value="">Error al cargar solicitudes</option>';
+                noRequestsAlert.classList.remove('hidden');
+            });
+    }
+
+    // Botón para omitir selección de solicitud
+    document.getElementById('skipRequestSelection').addEventListener('click', function() {
+        selectedServiceRequestId = null;
+        linkToRequest = false;
+        closeModalAndLoadForm();
+    });
+
+    // Cerrar modal y mostrar formulario
+    function closeModalAndLoadForm() {
+        // Animación de salida del modal
+        const modalContent = initialModal.querySelector('.bg-white');
+        modalContent.style.transform = 'scale(0.95)';
+        modalContent.style.opacity = '0';
+
+        setTimeout(() => {
+            initialModal.classList.add('hidden');
+            mainFormContainer.classList.remove('hidden');
+            mainFormContainer.classList.add('animate-fade-in');
+
+            // Reset modal animation
+            modalContent.style.transform = '';
+            modalContent.style.opacity = '';
+        }, 200);
+
+        // Asignar técnico al formulario
+        document.getElementById('technician_id').value = selectedTechnicianId;
+
+        // Si hay solicitud vinculada, cargar datos automáticamente
+        if (linkToRequest && selectedServiceRequestId) {
+            document.getElementById('service_request_id').value = selectedServiceRequestId;
+
+            // Mostrar alerta informativa
+            document.getElementById('preselectedRequestAlert').classList.remove('hidden');
+
+            // Trigger change event para cargar datos automáticamente
+            const event = new Event('change');
+            document.getElementById('service_request_id').dispatchEvent(event);
+
+            // Scroll a la sección de asociaciones para que vea la alerta
+            setTimeout(() => {
+                document.getElementById('associationsSection').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }, 300);
+        }
+    }
+
 </script>
-@endsection
 @endsection

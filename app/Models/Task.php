@@ -69,13 +69,30 @@ class Task extends Model
         parent::boot();
 
         static::creating(function ($model) {
+            // Solo generar código si no viene ya asignado
             if (empty($model->task_code)) {
-                $model->task_code = static::generateTaskCode($model->type, $model->scheduled_date);
+                // Generar código sin transacción adicional (ya debe estar en una transacción)
+                $date = $model->scheduled_date ? Carbon::parse($model->scheduled_date) : now();
+                $prefix = $model->type === 'impact' ? 'IMP' : 'REG';
+                $dateStr = $date->format('Ymd');
+
+                $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
+                    ->lockForUpdate()
+                    ->orderBy('task_code', 'desc')
+                    ->first();
+
+                $sequence = 1;
+                if ($lastTask) {
+                    $parts = explode('-', $lastTask->task_code);
+                    $sequence = isset($parts[2]) ? intval($parts[2]) + 1 : 1;
+                }
+
+                $model->task_code = sprintf('%s-%s-%03d', $prefix, $dateStr, $sequence);
             }
         });
     }
 
-    // Generación automática de código de tarea
+    // Generación automática de código de tarea (método helper)
     public static function generateTaskCode($type, $date = null)
     {
         $date = $date ? Carbon::parse($date) : now();
@@ -83,6 +100,7 @@ class Task extends Model
         $dateStr = $date->format('Ymd');
 
         $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
+            ->lockForUpdate()
             ->orderBy('task_code', 'desc')
             ->first();
 

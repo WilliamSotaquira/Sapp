@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Requirement;
 use App\Models\Project;
 use App\Models\Alert;
+use App\Models\Task;
 use Illuminate\Http\Request;
 
 class CalendarController extends Controller
@@ -70,6 +71,34 @@ class CalendarController extends Controller
             ];
         }
 
+        // Tareas (confirmadas y programadas)
+        $tasks = Task::with(['technician.user'])
+            ->whereIn('status', ['confirmed', 'in_progress'])
+            ->whereNotNull('scheduled_date')
+            ->get();
+
+        foreach ($tasks as $task) {
+            // Calcular fecha de fin basada en la duración estimada
+            $startDateTime = \Carbon\Carbon::parse($task->scheduled_date->format('Y-m-d') . ' ' . $task->scheduled_start_time);
+            $endDateTime = $startDateTime->copy()->addHours($task->estimated_hours);
+
+            $events[] = [
+                'id' => 'task-' . $task->id,
+                'title' => '🔧 ' . $task->title,
+                'start' => $startDateTime->format('Y-m-d\TH:i:s'),
+                'end' => $endDateTime->format('Y-m-d\TH:i:s'),
+                'color' => $this->getTaskColor($task),
+                'url' => route('tasks.show', $task->id),
+                'extendedProps' => [
+                    'type' => 'task',
+                    'priority' => $task->priority,
+                    'status' => $task->status,
+                    'technician' => $task->technician?->user?->name,
+                    'estimated_hours' => $task->estimated_hours
+                ]
+            ];
+        }
+
         return response()->json($events);
     }
 
@@ -101,6 +130,28 @@ class CalendarController extends Controller
             'warning' => '#ffc107',
             'success' => '#28a745',
             default => '#17a2b8'
+        };
+    }
+
+    private function getTaskColor($task)
+    {
+        // Color por prioridad si la tarea está confirmada
+        if ($task->status === 'confirmed') {
+            return match($task->priority) {
+                'urgent' => '#dc3545',
+                'high' => '#fd7e14',
+                'medium' => '#ffc107',
+                'low' => '#20c997',
+                default => '#007bff'
+            };
+        }
+
+        // Color por estado si está en progreso
+        return match($task->status) {
+            'in_progress' => '#17a2b8',
+            'completed' => '#28a745',
+            'cancelled' => '#6c757d',
+            default => '#007bff'
         };
     }
 }

@@ -85,7 +85,7 @@ class ServiceRequestWorkflowService
     /**
      * Iniciar procesamiento
      */
-    public function startProcessing(ServiceRequest $serviceRequest): array
+    public function startProcessing(ServiceRequest $serviceRequest, bool $useStandardTasks = false): array
     {
         if ($serviceRequest->status !== 'ACEPTADA') {
             return ['success' => false, 'message' => 'La solicitud debe estar ACEPTADA para iniciar.'];
@@ -96,7 +96,7 @@ class ServiceRequestWorkflowService
         }
 
         try {
-            DB::transaction(function () use ($serviceRequest) {
+            DB::transaction(function () use ($serviceRequest, $useStandardTasks) {
                 $previousStatus = $serviceRequest->status;
 
                 $serviceRequest->update([
@@ -112,9 +112,21 @@ class ServiceRequestWorkflowService
                     'new_status' => 'EN_PROCESO',
                     'assigned_technician' => $serviceRequest->assigned_to,
                 ]);
+
+                // Crear tareas predefinidas solo si el usuario lo solicitó
+                if ($useStandardTasks) {
+                    $this->createStandardTasksForRequest($serviceRequest);
+                }
             });
 
-            return ['success' => true, 'message' => 'Solicitud marcada como en proceso.'];
+            $message = 'Solicitud marcada como en proceso.';
+            if ($useStandardTasks) {
+                $message .= ' Tareas predefinidas creadas y asignadas.';
+            } else {
+                $message .= ' Puedes crear las tareas manualmente.';
+            }
+
+            return ['success' => true, 'message' => $message];
         } catch (\Exception $e) {
             Log::error('Error al iniciar procesamiento: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Error al iniciar el procesamiento.'];
@@ -250,5 +262,163 @@ class ServiceRequestWorkflowService
                 'performed_at' => now()->toISOString(),
             ], $data),
         ]);
+    }
+
+    /**
+     * Crear tareas predefinidas para una solicitud
+     */
+    private function createStandardTasksForRequest(ServiceRequest $serviceRequest): void
+    {
+        $standardTasks = $serviceRequest->subService
+            ->standardTasks()
+            ->active()
+            ->ordered()
+            ->get();
+
+        // Determinar si hay técnico asignado para auto-asignar al calendario
+        $hasTechnician = !empty($serviceRequest->assigned_to);
+        $technicianId = null;
+
+        if ($hasTechnician) {
+            $assignedUser = \App\Models\User::find($serviceRequest->assigned_to);
+            $technicianId = $assignedUser?->technician?->id;
+        }
+
+        foreach ($standardTasks as $standardTask) {
+            // Generar información del código antes del lock
+            $date = now()->addDay();
+            $prefix = $standardTask->type === 'impact' ? 'IMP' : 'REG';
+            $dateStr = $date->format('Ymd');
+            $lockName = "task_code_gen_{$prefix}_{$dateStr}";
+
+            // Obtener lock de aplicación (espera hasta 10 segundos)
+            $lockAcquired = \DB::select("SELECT GET_LOCK(?, 10) as result", [$lockName])[0]->result;
+
+            if (!$lockAcquired) {
+                \Log::error("Failed to acquire lock for task code generation", [
+                    'standard_task_id' => $standardTask->id,
+                    'service_request_id' => $serviceRequest->id,
+                    'lock_name' => $lockName
+                ]);
+                continue;
+            }
+
+            try {
+                $taskCode = \DB::transaction(function () use ($standardTask, $serviceRequest, $prefix, $dateStr, $date, $technicianId, $hasTechnician) {
+                    // Obtener último código con lock de fila (incluir borrados)
+                    $lastTask = \App\Models\Task::withTrashed()
+                        ->where('task_code', 'like', "{$prefix}-{$dateStr}-%")
+                        ->lockForUpdate()
+                        ->orderBy('task_code', 'desc')
+                        ->first();
+
+                    $sequence = 1;
+                    if ($lastTask) {
+                        $parts = explode('-', $lastTask->task_code);
+                        $sequence = isset($parts[2]) ? intval($parts[2]) + 1 : 1;
+                    }
+
+                    $taskCode = sprintf('%s-%s-%03d', $prefix, $dateStr, $sequence);
+
+                    // Determinar el status: si hay técnico y service_request, auto-confirmar
+                    $taskStatus = ($hasTechnician && $technicianId) ? 'confirmed' : 'pending';
+
+                    // Preparar datos para inserción
+                    $taskData = [
+                        'type' => $standardTask->type,
+                        'title' => $standardTask->title,
+                        'description' => $standardTask->description,
+                        'service_request_id' => $serviceRequest->id,
+                        'technician_id' => $technicianId,
+                        'scheduled_date' => $date,
+                        'scheduled_start_time' => '08:00',
+                        'estimated_hours' => $standardTask->estimated_hours,
+                        'priority' => $standardTask->priority,
+                        'status' => $taskStatus,
+                        'technical_complexity' => $standardTask->technical_complexity,
+                        'technologies' => $standardTask->technologies,
+                        'required_accesses' => $standardTask->required_accesses,
+                        'environment' => $standardTask->environment,
+                        'technical_notes' => $standardTask->technical_notes,
+                        'task_code' => $taskCode,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    // Insertar directamente sin eventos del modelo
+                    \DB::table('tasks')->insert($taskData);
+
+                    // Retornar el código para buscar después
+                    return $taskCode;
+                });
+
+                // Obtener la tarea recién creada (después del commit)
+                $task = \App\Models\Task::where('task_code', $taskCode)->first();
+
+                // Liberar lock DESPUÉS del commit
+                \DB::select("SELECT RELEASE_LOCK(?)", [$lockName]);
+            } catch (\Exception $e) {
+                // Asegurar que el lock se libera incluso si hay error
+                \DB::select("SELECT RELEASE_LOCK(?)", [$lockName]);
+
+                \Log::error("Failed to create task from standard task", [
+                    'standard_task_id' => $standardTask->id,
+                    'service_request_id' => $serviceRequest->id,
+                    'error' => $e->getMessage()
+                ]);
+                continue;
+            }
+
+            // Si no se pudo crear la tarea, continuar con la siguiente
+            if (!isset($task) || !$task) {
+                continue;
+            }
+
+            // Registrar en el historial
+            $notes = 'Tarea predefinida creada automáticamente desde solicitud de servicio';
+            if ($hasTechnician && $technicianId) {
+                $notes .= ' y asignada automáticamente a la agenda del técnico';
+            }
+
+            \App\Models\TaskHistory::create([
+                'task_id' => $task->id,
+                'action' => 'created',
+                'user_id' => auth()->id(),
+                'notes' => $notes,
+                'metadata' => [
+                    'standard_task_id' => $standardTask->id,
+                    'type' => $task->type,
+                    'priority' => $task->priority,
+                    'auto_assigned_to_calendar' => $hasTechnician && $technicianId
+                ]
+            ]);
+
+            // Si hay técnico asignado, registrar asignación
+            if ($technicianId) {
+                \App\Models\TaskHistory::create([
+                    'task_id' => $task->id,
+                    'action' => 'assigned',
+                    'user_id' => auth()->id(),
+                    'notes' => 'Técnico asignado automáticamente desde solicitud de servicio',
+                    'metadata' => ['technician_id' => $technicianId]
+                ]);
+            }
+
+            // Asociar SLA de la solicitud
+            if ($serviceRequest->sla_id) {
+                $task->update(['sla_id' => $serviceRequest->sla_id]);
+            }
+
+            // Crear las subtareas si existen
+            foreach ($standardTask->standardSubtasks as $standardSubtask) {
+                $task->subtasks()->create([
+                    'title' => $standardSubtask->title,
+                    'description' => $standardSubtask->description,
+                    'priority' => $standardSubtask->priority,
+                    'status' => 'pending',
+                    'is_completed' => false,
+                ]);
+            }
+        }
     }
 }

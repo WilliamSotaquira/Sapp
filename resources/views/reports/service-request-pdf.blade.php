@@ -182,6 +182,55 @@
         </div>
     </div>
 
+    <!-- Tareas -->
+    <div class="section">
+        <div class="section-title">TAREAS ({{ $serviceRequest->tasks->count() }})</div>
+
+        @if($serviceRequest->tasks && $serviceRequest->tasks->count() > 0)
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Título</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Subtareas</th>
+                        <th>Completadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($serviceRequest->tasks as $task)
+                    <tr>
+                        <td>{{ $task->task_code }}</td>
+                        <td>{{ $task->title }}</td>
+                        <td>{{ $task->status }}</td>
+                        <td>{{ $task->priority }}</td>
+                        <td>{{ $task->subtasks->count() }}</td>
+                        <td>{{ $task->subtasks->where('is_completed', true)->count() }}/{{ $task->subtasks->count() }}</td>
+                    </tr>
+                    @if($task->subtasks->count() > 0)
+                        @foreach($task->subtasks as $subtask)
+                        <tr style="background-color: #f9f9f9;">
+                            <td style="padding-left: 20px;">--</td>
+                            <td colspan="2">{{ $subtask->title }}</td>
+                            <td>{{ $subtask->priority ?? 'N/A' }}</td>
+                            <td colspan="2">
+                                {{ $subtask->is_completed ? '[X] Completada' : '[ ] Pendiente' }}
+                                @if($subtask->completed_at)
+                                    ({{ $subtask->completed_at->format('d/m/Y H:i') }})
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    @endif
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            <div class="no-data">No hay tareas registradas para esta solicitud</div>
+        @endif
+    </div>
+
     <!-- Evidencias -->
     <div class="section">
         <div class="section-title">EVIDENCIAS ({{ $serviceRequest->evidences->count() }})</div>

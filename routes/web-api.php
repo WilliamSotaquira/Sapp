@@ -4,6 +4,7 @@ use App\Models\Service;
 use App\Models\SubService;
 use App\Models\ServiceFamily;
 use App\Models\ServiceSubservice;
+use App\Models\StandardTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -54,6 +55,26 @@ Route::prefix('api')->name('api.')->group(function () {
             return response()->json(['error' => 'Error al cargar subservicios'], 500);
         }
     })->name('services.sub-services');
+
+    // Obtener tareas predefinidas por subservicio
+    Route::get('/sub-services/{subServiceId}/standard-tasks', function ($subServiceId) {
+        try {
+            \Log::info("Cargando tareas predefinidas para subservicio: " . $subServiceId);
+
+            $tasks = StandardTask::with('standardSubtasks')
+                ->where('sub_service_id', $subServiceId)
+                ->active()
+                ->ordered()
+                ->get();
+
+            \Log::info("Tareas predefinidas encontradas: " . $tasks->count());
+
+            return response()->json($tasks);
+        } catch (\Exception $e) {
+            \Log::error('Error al cargar tareas predefinidas: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al cargar tareas predefinidas'], 500);
+        }
+    })->name('sub-services.standard-tasks');
 
     // =========================================================================
     // SERVICE SUB SERVICE - FIND OR CREATE
@@ -218,4 +239,49 @@ Route::prefix('api')->name('api.')->group(function () {
             ], 500);
         }
     })->name('sub-services.slas.get');
+
+    // =========================================================================
+    // CARGAR SOLICITUDES POR TÉCNICO
+    // =========================================================================
+    Route::get('/service-requests/by-technician/{technicianId}', function ($technicianId) {
+        try {
+            \Log::info("Cargando solicitudes para técnico: " . $technicianId);
+
+            $technician = \App\Models\Technician::findOrFail($technicianId);
+            $userId = $technician->user_id;
+
+            $requests = \App\Models\ServiceRequest::with('sla')
+                ->where('assigned_to', $userId)
+                ->whereIn('status', ['ACEPTADA', 'PENDIENTE']) // Incluir PENDIENTE para pruebas
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            \Log::info("Solicitudes encontradas: " . $requests->count());
+
+            $formattedRequests = $requests->map(function ($request) use ($technicianId) {
+                // Calcular duración estimada desde el SLA (en horas)
+                $estimatedHours = 0;
+                if ($request->sla && $request->sla->resolution_time_minutes) {
+                    $estimatedHours = round($request->sla->resolution_time_minutes / 60, 1);
+                }
+
+                return [
+                    'id' => $request->id,
+                    'ticket_number' => $request->ticket_number,
+                    'title' => $request->title,
+                    'criticality_level' => $request->criticality_level,
+                    'estimated_hours' => $estimatedHours,
+                    'assigned_technician_id' => $technicianId,
+                    'status' => $request->status
+                ];
+            });
+
+            return response()->json($formattedRequests);
+        } catch (\Exception $e) {
+            \Log::error('Error cargando solicitudes por técnico: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Error interno del servidor'
+            ], 500);
+        }
+    })->name('service-requests.by-technician');
 });

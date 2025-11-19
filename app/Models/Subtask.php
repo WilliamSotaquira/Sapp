@@ -12,14 +12,17 @@ class Subtask extends Model
     protected $fillable = [
         'task_id',
         'title',
+        'description',
         'status',
         'priority',
         'order',
+        'is_completed',
         'completed_at',
     ];
 
     protected $casts = [
         'order' => 'integer',
+        'is_completed' => 'boolean',
         'completed_at' => 'datetime',
     ];
 

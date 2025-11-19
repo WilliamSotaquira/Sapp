@@ -31,35 +31,41 @@
             <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
         </div>
 
-        <!-- Tarjetas de Información -->
+        <!-- Descripción del Problema (Lo más importante primero) -->
+        <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
+
+        <!-- Información Clave en 2 columnas -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <x-service-requests.show.info-cards.service-info :serviceRequest="$serviceRequest" />
             <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
         </div>
 
+        <!-- Tiempos y SLA -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <x-service-requests.show.info-cards.timelines-info :serviceRequest="$serviceRequest" />
             <x-service-requests.show.info-cards.sla-info :serviceRequest="$serviceRequest" />
         </div>
 
-        <!-- Paneles de Contenido -->
-        <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
+        <!-- Sistema de Evidencias -->
+        <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
+
+        <!-- Tareas Asociadas -->
+        <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
 
         <!-- Panel de Rutas Web (solo si existen) -->
         @if ($serviceRequest->hasWebRoutes())
             <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
         @endif
 
-        <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
-
-        <!-- Sistema de Evidencias -->
-        <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
-
-        <!-- Notas y Comentarios del Sistema -->
+        <!-- Notas y Comentarios del Sistema (Información complementaria) -->
         <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />
 
-        <!-- Historial y Timeline -->
+        <!-- Historial y Timeline (Al final, información histórica) -->
         {{-- <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" /> --}}
+
+
+        <!-- Acciones Disponibles (Segundo en importancia) -->
+        <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
     </div>
 
     <!-- Modal de vista previa para evidencias -->

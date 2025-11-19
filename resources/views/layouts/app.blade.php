@@ -302,6 +302,10 @@
                                         class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('tasks.index') ? 'bg-red-700' : '' }}">
                                         <i class="fas fa-tasks mr-2"></i>Tareas
                                     </a>
+                                    <a href="{{ route('standard-tasks.index') }}"
+                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('standard-tasks.*') ? 'bg-red-700' : '' }}">
+                                        <i class="fas fa-layer-group mr-2"></i>Tareas Predefinidas
+                                    </a>
                                     <a href="{{ route('technicians.index') }}"
                                         class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technicians.index') ? 'bg-red-700' : '' }}">
                                         <i class="fas fa-users-cog mr-2"></i>Gestión de Técnicos
@@ -435,6 +439,12 @@
                             class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('tasks.index') ? 'bg-red-800' : '' }}">
                             <i class="fas fa-tasks mr-3"></i>
                             Tareas
+                        </a>
+
+                        <a href="{{ route('standard-tasks.index') }}"
+                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('standard-tasks.*') ? 'bg-red-800' : '' }}">
+                            <i class="fas fa-layer-group mr-3"></i>
+                            Tareas Predefinidas
                         </a>
 
                         <a href="{{ route('technicians.index') }}"
