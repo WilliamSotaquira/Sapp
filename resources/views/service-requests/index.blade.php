@@ -22,7 +22,7 @@
     <!-- Header Principal -->
     <x-service-requests.index.header.main-header />
 
-    <div class="space-y-3 md:space-y-6">
+    <div class="space-y-3 md:space-y-6" id="resultsContainer">
         <!-- Fila 1: Estadísticas y Acción Principal -->
         <!-- En móvil: layout compacto, tablet: 2-3 cols, desktop: 5 cols -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 lg:gap-6">
@@ -45,7 +45,57 @@
         </div>
 
         <!-- Fila 2: Filtros y Búsqueda -->
-        <x-service-requests.index.filters.filters-panel />
+        <div class="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 class="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-filter text-blue-500 mr-2 text-xs sm:text-sm"></i>
+                    Filtros
+                </h3>
+            </div>
+
+            <form id="filtersForm" method="GET" action="{{ route('service-requests.index') }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Filtro de Estado -->
+                    <div>
+                        <label for="statusFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
+                            <i class="fas fa-tag mr-1 sm:mr-2"></i>Estado
+                        </label>
+                        <select id="statusFilter" name="status" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Todos los estados</option>
+                            <option value="PENDIENTE" {{ request('status') == 'PENDIENTE' ? 'selected' : '' }}>Pendiente</option>
+                            <option value="ACEPTADA" {{ request('status') == 'ACEPTADA' ? 'selected' : '' }}>Aceptada</option>
+                            <option value="EN_PROCESO" {{ request('status') == 'EN_PROCESO' ? 'selected' : '' }}>En Proceso</option>
+                            <option value="PAUSADA" {{ request('status') == 'PAUSADA' ? 'selected' : '' }}>Pausada</option>
+                            <option value="RESUELTA" {{ request('status') == 'RESUELTA' ? 'selected' : '' }}>Resuelta</option>
+                            <option value="CERRADA" {{ request('status') == 'CERRADA' ? 'selected' : '' }}>Cerrada</option>
+                            <option value="CANCELADA" {{ request('status') == 'CANCELADA' ? 'selected' : '' }}>Cancelada</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro de Criticidad -->
+                    <div>
+                        <label for="criticalityFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
+                            <i class="fas fa-flag mr-1 sm:mr-2"></i>Prioridad
+                        </label>
+                        <select id="criticalityFilter" name="criticality" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Todas las prioridades</option>
+                            <option value="BAJA" {{ request('criticality') == 'BAJA' ? 'selected' : '' }}>Baja</option>
+                            <option value="MEDIA" {{ request('criticality') == 'MEDIA' ? 'selected' : '' }}>Media</option>
+                            <option value="ALTA" {{ request('criticality') == 'ALTA' ? 'selected' : '' }}>Alta</option>
+                            <option value="CRITICA" {{ request('criticality') == 'CRITICA' ? 'selected' : '' }}>Crítica</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro de búsqueda por texto -->
+                    <div class="col-span-1 lg:col-span-2">
+                        <label for="searchFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
+                            <i class="fas fa-search mr-1 sm:mr-2"></i>Buscar solicitud
+                        </label>
+                        <input type="text" id="searchFilter" name="search" value="{{ request('search') }}" placeholder="Buscar por ticket, título o descripción..." class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+            </form>
+        </div>
 
         <!-- Fila 3: Lista de Solicitudes -->
         <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" />
@@ -58,79 +108,80 @@
     </div>
 @endsection
 
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Elementos del DOM
-            const statusFilter = document.getElementById('statusFilter');
-            const criticalityFilter = document.getElementById('criticalityFilter');
-            const applyFiltersBtn = document.getElementById('applyFilters');
-            const clearFiltersBtn = document.getElementById('clearFilters');
+@section('scripts')
+<script>
+(function() {
+    var resultsContainer = document.getElementById('resultsContainer');
+    var timeout = null;
 
-            // Aplicar filtros
-            function applyFilters() {
-                const status = statusFilter.value;
-                const criticality = criticalityFilter.value;
-                const rows = document.querySelectorAll('tbody tr[data-status]');
+    function updateResults() {
+        var searchFilter = document.getElementById('searchFilter');
+        var statusFilter = document.getElementById('statusFilter');
+        var criticalityFilter = document.getElementById('criticalityFilter');
 
-                let visibleCount = 0;
+        var params = new URLSearchParams();
+        if (searchFilter.value.trim()) params.append('search', searchFilter.value.trim());
+        if (statusFilter.value) params.append('status', statusFilter.value);
+        if (criticalityFilter.value) params.append('criticality', criticalityFilter.value);
 
-                rows.forEach(row => {
-                    const rowStatus = row.getAttribute('data-status');
-                    const rowCriticality = row.getAttribute('data-criticality');
+        searchFilter.style.borderColor = '#3b82f6';
 
-                    const statusMatch = !status || rowStatus === status;
-                    const criticalityMatch = !criticality || rowCriticality === criticality;
-
-                    if (statusMatch && criticalityMatch) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-
-                // Actualizar contador
-                const counter = document.querySelector('.bg-blue-100');
-                if (counter) {
-                    counter.textContent = `${visibleCount} resultados`;
-                }
+        fetch('{{ route("service-requests.index") }}?' + params.toString(), {
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            resultsContainer.innerHTML = html;
+            var newSearchFilter = document.getElementById('searchFilter');
+            if (newSearchFilter) {
+                newSearchFilter.focus();
+                newSearchFilter.style.borderColor = '#d1d5db';
             }
-
-            // Limpiar filtros
-            function clearFilters() {
-                statusFilter.value = '';
-                criticalityFilter.value = '';
-                applyFilters();
-                sessionStorage.removeItem('serviceRequests_statusFilter');
-                sessionStorage.removeItem('serviceRequests_criticalityFilter');
-            }
-
-            // Event Listeners
-            applyFiltersBtn.addEventListener('click', applyFilters);
-            clearFiltersBtn.addEventListener('click', clearFilters);
-
-            // Restaurar valores de filtro si existen
-            const savedStatus = sessionStorage.getItem('serviceRequests_statusFilter');
-            const savedCriticality = sessionStorage.getItem('serviceRequests_criticalityFilter');
-
-            if (savedStatus) statusFilter.value = savedStatus;
-            if (savedCriticality) criticalityFilter.value = savedCriticality;
-
-            // Guardar valores de filtro
-            statusFilter.addEventListener('change', () => {
-                sessionStorage.setItem('serviceRequests_statusFilter', statusFilter.value);
-            });
-
-            criticalityFilter.addEventListener('change', () => {
-                sessionStorage.setItem('serviceRequests_criticalityFilter', criticalityFilter.value);
-            });
-
-            // Aplicar filtros al cargar la página
-            applyFilters();
         });
-    </script>
-@endpush
+    }
+
+    function clearFilters() {
+        fetch('{{ route("service-requests.index") }}', {
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            resultsContainer.innerHTML = html;
+        });
+    }
+
+    // Usar delegación de eventos
+    resultsContainer.addEventListener('input', function(e) {
+        if (e.target.id === 'searchFilter') {
+            clearTimeout(timeout);
+            timeout = setTimeout(updateResults, 1200);
+        }
+    });
+
+    resultsContainer.addEventListener('keydown', function(e) {
+        if (e.target.id === 'searchFilter' && e.keyCode === 13) {
+            e.preventDefault();
+            e.stopPropagation();
+            clearTimeout(timeout);
+            updateResults();
+        }
+    });
+
+    resultsContainer.addEventListener('change', function(e) {
+        if (e.target.id === 'statusFilter' || e.target.id === 'criticalityFilter') {
+            updateResults();
+        }
+    });
+
+    resultsContainer.addEventListener('click', function(e) {
+        if (e.target.id === 'clearFiltersBtn' || e.target.closest('#clearFiltersBtn')) {
+            e.preventDefault();
+            clearFilters();
+        }
+    });
+})();
+</script>
+@endsection
 
 <style>
     .bg-gradient-to-br {

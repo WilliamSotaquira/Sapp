@@ -49,7 +49,7 @@
                 </option>
             @endforeach
         </select>
-        
+
         <p class="mt-1 text-sm text-gray-500">
             <i class="fas fa-info-circle mr-1"></i>
             Seleccione la persona que realiza la solicitud
@@ -210,11 +210,11 @@
         <label class="block text-sm font-medium text-gray-700 mb-2">
             Nivel de Criticidad <span class="text-red-500">*</span>
         </label>
-        
+
         @php
             $currentCriticality = old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA');
         @endphp
-        
+
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="criticality-level-container">
             @foreach (['BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA'] as $level)
                 <label class="relative flex cursor-pointer criticality-level-option">

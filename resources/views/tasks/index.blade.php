@@ -183,6 +183,15 @@
                                    title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <form action="{{ route('tasks.destroy', $task) }}" method="POST" class="inline" onsubmit="return confirm('¿Está seguro de eliminar esta tarea?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            class="text-red-600 hover:text-red-900"
+                                            title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty

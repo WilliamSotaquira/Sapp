@@ -54,10 +54,17 @@ class ServiceRequestController extends Controller
         $serviceRequests = $this->serviceRequestService->getFilteredServiceRequests($filters, 15);
         $stats = $this->serviceRequestService->getDashboardStats();
 
-        return view('service-requests.index', array_merge(
+        $data = array_merge(
             compact('serviceRequests'),
             $stats
-        ));
+        );
+
+        // Si es petición AJAX, devolver solo el contenido parcial
+        if ($request->ajax() || $request->wantsJson()) {
+            return view('service-requests.partials.table-content', $data);
+        }
+
+        return view('service-requests.index', $data);
     }
 
     /**
@@ -87,6 +94,7 @@ class ServiceRequestController extends Controller
                 ->with('error', 'Error al crear la solicitud: ' . $e->getMessage());
         }
     }
+
     /**
      * Display the specified resource.
      */
@@ -200,9 +208,10 @@ class ServiceRequestController extends Controller
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
-    public function start(ServiceRequest $serviceRequest)
+    public function start(Request $request, ServiceRequest $serviceRequest)
     {
-        $result = $this->workflowService->startProcessing($serviceRequest);
+        $useStandardTasks = $request->input('use_standard_tasks', '0') === '1';
+        $result = $this->workflowService->startProcessing($serviceRequest, $useStandardTasks);
 
         return redirect()->back()->with(
             $result['success'] ? 'success' : 'error',

@@ -62,6 +62,13 @@ Route::middleware('auth')->group(function () {
     // Módulo de Tiempos y Capacidad para Técnicos
     require __DIR__ . '/features/technician-module/web.php';
 
+    // Tareas Predefinidas
+    Route::resource('standard-tasks', App\Http\Controllers\StandardTaskController::class);
+
+    // Rutas para toggle de tareas y subtareas
+    Route::post('tasks/{task}/toggle-status', [App\Http\Controllers\TaskController::class, 'toggleStatus'])->name('tasks.toggle-status');
+    Route::post('tasks/{task}/subtasks/{subtask}/toggle', [App\Http\Controllers\TaskController::class, 'toggleSubtask'])->name('tasks.subtasks.toggle');
+
     // =========================================================================
     // APIS PARA FORMULARIOS WEB
     // =========================================================================

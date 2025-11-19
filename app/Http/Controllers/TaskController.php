@@ -67,9 +67,10 @@ class TaskController extends Controller
             ->whereHas('user')
             ->get();
 
-        // Obtener solicitudes de servicio ACEPTADAS y asignadas al usuario actual
-        $serviceRequests = ServiceRequest::where('assigned_to', auth()->id())
-            ->where('status', 'ACEPTADA')
+        // Solo solicitudes ABIERTAS (PENDIENTE, ACEPTADA, EN_PROCESO) asignadas al usuario actual
+        $serviceRequests = ServiceRequest::with(['assignee.technician', 'sla'])
+            ->where('assigned_to', auth()->id())
+            ->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -96,12 +97,21 @@ class TaskController extends Controller
             'scheduled_date' => 'required|date',
             'scheduled_start_time' => 'required|date_format:H:i',
             'estimated_hours' => 'required|numeric|min:0.1',
-            'priority' => 'required|in:critical,high,medium,low',
+            'priority' => 'required|in:urgent,high,medium,low',
             'technical_complexity' => 'nullable|integer|min:1|max:5',
             'technologies' => 'nullable|string',
             'required_accesses' => 'nullable|string',
             'environment' => 'nullable|in:development,staging,production',
             'technical_notes' => 'nullable|string',
+            'task_organization' => 'nullable|in:none,subtasks,checklist',
+            'subtasks' => 'nullable|array',
+            'subtasks.*.title' => 'required|string|max:255',
+            'subtasks.*.description' => 'nullable|string',
+            'subtasks.*.estimated_hours' => 'nullable|numeric|min:0.1',
+            'subtasks.*.priority' => 'nullable|in:urgent,high,medium,low',
+            'checklist' => 'nullable|array',
+            'checklist.*.item' => 'required_with:checklist|string|max:500',
+            'checklist.*.order' => 'nullable|integer|min:0',
         ]);
 
         // Validar que la fecha y hora no sean del pasado
@@ -120,11 +130,127 @@ class TaskController extends Controller
             ])->withInput();
         }
 
-        // Asegurar valores por defecto para campos que no pueden ser null
-        $validated['technical_complexity'] = $validated['technical_complexity'] ?? 3;
-        $validated['environment'] = $validated['environment'] ?? 'production';
+        // Si hay solicitud de servicio asociada, marcar para asignación automática a agenda
+        $autoAssignToCalendar = false;
+        if (!empty($validated['service_request_id']) && !empty($validated['technician_id'])) {
+            $autoAssignToCalendar = true;
+            // La tarea se confirmará automáticamente
+            $validated['status'] = 'confirmed';
+        }
 
-        $task = Task::create($validated);
+        // Asegurar que los campos opcionales tengan valores predeterminados
+        $validated['technical_complexity'] = $validated['technical_complexity'] ?? null;
+        $validated['environment'] = $validated['environment'] ?? null;
+        $validated['technical_notes'] = $validated['technical_notes'] ?? null;
+
+        // Crear tarea con generación atómica de código
+        \Log::info("=== INICIO CREACIÓN DE TAREA ===");
+
+        $date = \Carbon\Carbon::parse($validated['scheduled_date']);
+        $prefix = $validated['type'] === 'impact' ? 'IMP' : 'REG';
+        $dateStr = $date->format('Ymd');
+        $lockName = "task_code_gen_{$prefix}_{$dateStr}";
+
+        \Log::info("Lock name: " . $lockName);
+
+        // Obtener lock de aplicación (espera hasta 10 segundos)
+        $lockAcquired = \DB::selectOne("SELECT GET_LOCK(?, 10) as result", [$lockName])->result;
+
+        \Log::info("Lock acquired: " . ($lockAcquired ? 'YES' : 'NO'));
+
+        if (!$lockAcquired) {
+            return back()->withErrors(['task_code' => 'No se pudo generar el código de tarea. Intente nuevamente.'])->withInput();
+        }
+
+        $task = null;
+        try {
+            // Realizar todo dentro de UNA transacción
+            \DB::beginTransaction();
+
+            // Obtener último código con lock de fila (incluir borrados)
+            $lastTask = Task::withTrashed()
+                ->where('task_code', 'like', "{$prefix}-{$dateStr}-%")
+                ->lockForUpdate()
+                ->orderBy('task_code', 'desc')
+                ->first();
+
+            $sequence = 1;
+            if ($lastTask) {
+                $parts = explode('-', $lastTask->task_code);
+                if (isset($parts[2])) {
+                    $lastSequence = intval($parts[2]);
+                    $sequence = $lastSequence + 1;
+
+                    // Log para debug
+                    \Log::info("Generando código de tarea", [
+                        'last_code' => $lastTask->task_code,
+                        'last_sequence' => $lastSequence,
+                        'new_sequence' => $sequence
+                    ]);
+                }
+            }
+
+            // Asignar el código
+            $taskCode = sprintf('%s-%s-%03d', $prefix, $dateStr, $sequence);
+            $validated['task_code'] = $taskCode;
+            $validated['created_at'] = now();
+            $validated['updated_at'] = now();
+
+            \Log::info("DEBUG: Intentando insertar tarea", [
+                'last_task_code' => $lastTask ? $lastTask->task_code : 'NINGUNA',
+                'sequence_calculated' => $sequence,
+                'new_code' => $taskCode,
+                'validated_code' => $validated['task_code']
+            ]);
+
+            // Insertar directamente
+            \DB::table('tasks')->insert($validated);
+
+            // Commit de la transacción
+            \DB::commit();
+
+            \Log::info("Tarea insertada exitosamente: " . $validated['task_code']);
+
+            // Buscar la tarea creada
+            $task = Task::where('task_code', $validated['task_code'])->first();
+
+        } catch (\Exception $e) {
+            \Log::error("Error al insertar tarea", [
+                'code_attempted' => $validated['task_code'] ?? 'N/A',
+                'error' => $e->getMessage()
+            ]);
+            \DB::rollBack();
+            \DB::selectOne("SELECT RELEASE_LOCK(?)", [$lockName]);
+            throw $e;
+        }
+
+        // Liberar lock DESPUÉS de todo
+        \DB::selectOne("SELECT RELEASE_LOCK(?)", [$lockName]);
+
+        // Crear subtareas si se seleccionó
+        if (!empty($validated['subtasks']) && is_array($validated['subtasks'])) {
+            foreach ($validated['subtasks'] as $subtaskData) {
+                $task->subtasks()->create(array_merge($subtaskData, [
+                    'technician_id' => $validated['technician_id'],
+                    'status' => 'pending',
+                ]));
+            }
+        }
+
+        // Crear checklist si se seleccionó
+        if (!empty($validated['checklist']) && is_array($validated['checklist'])) {
+            foreach ($validated['checklist'] as $index => $checklistItem) {
+                // Filtrar items vacíos
+                if (empty($checklistItem['item'])) {
+                    continue;
+                }
+                $task->checklists()->create([
+                    'title' => $checklistItem['item'],
+                    'order' => $checklistItem['order'] ?? $index,
+                    'is_completed' => false,
+                ]);
+            }
+        }
 
         // Detectar horarios no hábiles
         $nonWorkingWarnings = [];
@@ -142,6 +268,9 @@ class TaskController extends Controller
 
         // Registrar en el historial
         $notes = 'Tarea creada';
+        if ($autoAssignToCalendar) {
+            $notes .= ' y asignada automáticamente a la agenda del técnico desde solicitud de servicio';
+        }
         if (!empty($nonWorkingWarnings)) {
             $notes .= ' (HORARIO NO HÁBIL: ' . implode(', ', $nonWorkingWarnings) . ')';
         }
@@ -154,7 +283,8 @@ class TaskController extends Controller
             'metadata' => [
                 'type' => $validated['type'],
                 'priority' => $validated['priority'],
-                'non_working_warnings' => $nonWorkingWarnings
+                'non_working_warnings' => $nonWorkingWarnings,
+                'auto_assigned_to_calendar' => $autoAssignToCalendar
             ]
         ]);
 
@@ -178,8 +308,13 @@ class TaskController extends Controller
             $this->createSlaCompliance($task);
         }
 
+        $successMessage = 'Tarea creada exitosamente';
+        if ($autoAssignToCalendar) {
+            $successMessage .= ' y confirmada en la agenda del técnico.';
+        }
+
         return redirect()->route('tasks.show', $task)
-            ->with('success', 'Tarea creada exitosamente');
+            ->with('success', $successMessage);
     }
 
     /**
@@ -215,11 +350,19 @@ class TaskController extends Controller
             ->whereHas('user')
             ->get();
 
-        // Obtener solicitudes de servicio ACEPTADAS y asignadas al usuario actual
+        // Solo solicitudes ABIERTAS (PENDIENTE, ACEPTADA, EN_PROCESO) asignadas al usuario actual
         $serviceRequests = ServiceRequest::where('assigned_to', auth()->id())
-            ->where('status', 'ACEPTADA')
+            ->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'])
             ->orderBy('created_at', 'desc')
             ->get();
+
+        // Si la tarea tiene una solicitud asociada que no está en la lista, agregarla
+        if ($task->service_request_id && !$serviceRequests->contains('id', $task->service_request_id)) {
+            $currentServiceRequest = ServiceRequest::find($task->service_request_id);
+            if ($currentServiceRequest) {
+                $serviceRequests->prepend($currentServiceRequest);
+            }
+        }
 
         $projects = Project::whereIn('status', ['active', 'in_progress'])
             ->orderBy('name')
@@ -252,6 +395,14 @@ class TaskController extends Controller
             'technical_notes' => 'nullable|string',
         ]);
 
+        // Convertir strings vacíos a null
+        if (empty($validated['service_request_id'])) {
+            $validated['service_request_id'] = null;
+        }
+        if (empty($validated['project_id'])) {
+            $validated['project_id'] = null;
+        }
+
         // Validar que la fecha y hora no sean del pasado
         $scheduledDateTime = \Carbon\Carbon::parse($validated['scheduled_date'] . ' ' . $validated['scheduled_start_time']);
         if ($scheduledDateTime->isPast()) {
@@ -267,10 +418,6 @@ class TaskController extends Controller
                 'scheduled_start_time' => 'La hora debe estar dentro del horario laboral (6:00 - 18:00).'
             ])->withInput();
         }
-
-        // Asegurar valores por defecto para campos que no pueden ser null
-        $validated['technical_complexity'] = $validated['technical_complexity'] ?? 3;
-        $validated['environment'] = $validated['environment'] ?? 'production';
 
         // Registrar cambios significativos en el historial
         $changes = [];
@@ -332,7 +479,7 @@ class TaskController extends Controller
         // Validar que la fecha y hora no sean del pasado
         if ($date && $time) {
             $scheduledDateTime = \Carbon\Carbon::parse($date . ' ' . $time);
-            if ($scheduledDateTime->lt(now()->subMinutes(5))) {
+            if ($scheduledDateTime->isPast()) {
                 return back()->withErrors([
                     'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
                 ])->withInput();
@@ -374,8 +521,8 @@ class TaskController extends Controller
      */
     public function start(Task $task)
     {
-        if ($task->status !== 'pending') {
-            return back()->with('error', 'Solo se pueden iniciar tareas pendientes');
+        if (!in_array($task->status, ['pending', 'confirmed'])) {
+            return back()->with('error', 'Solo se pueden iniciar tareas pendientes o confirmadas');
         }
 
         $task->start();
@@ -634,6 +781,10 @@ class TaskController extends Controller
 
         $subtask->delete();
 
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Subtarea eliminada']);
+        }
+
         return back()->with('success', 'Subtarea eliminada');
     }
 
@@ -647,6 +798,14 @@ class TaskController extends Controller
             $subtask->update(['status' => 'pending', 'completed_at' => null]);
         } else {
             $subtask->complete();
+        }
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_completed' => $subtask->status === 'completed',
+                'message' => 'Subtarea actualizada'
+            ]);
         }
 
         return back();
@@ -691,6 +850,10 @@ class TaskController extends Controller
 
         $checklist->delete();
 
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Item eliminado']);
+        }
+
         return back()->with('success', 'Item eliminado');
     }
 
@@ -702,6 +865,103 @@ class TaskController extends Controller
 
         $checklist->toggle();
 
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_completed' => $checklist->is_completed,
+                'message' => 'Checklist actualizado'
+            ]);
+        }
+
         return back();
     }
+
+    /**
+     * Toggle task completion status
+     */
+    public function toggleStatus(Task $task, Request $request)
+    {
+        try {
+            $completed = $request->input('completed', false);
+
+            if ($completed) {
+                // Marcar como completada
+                $task->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                ]);
+
+                // Marcar todas las subtareas como completadas
+                $task->subtasks()->update([
+                    'is_completed' => true,
+                    'completed_at' => now(),
+                ]);
+
+                $message = 'Tarea marcada como completada';
+            } else {
+                // Volver a en proceso
+                $task->update([
+                    'status' => 'in_progress',
+                    'completed_at' => null,
+                ]);
+
+                // Desmarcar todas las subtareas
+                $task->subtasks()->update([
+                    'is_completed' => false,
+                    'completed_at' => null,
+                ]);
+
+                $message = 'Tarea marcada como en proceso';
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'status' => $task->status
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar la tarea: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle subtask completion status
+     */
+    public function toggleSubtask(Task $task, Subtask $subtask, Request $request)
+    {
+        try {
+            if ($subtask->task_id !== $task->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La subtarea no pertenece a esta tarea'
+                ], 403);
+            }
+
+            $isCompleted = $request->input('is_completed', false);
+
+            $subtask->update([
+                'is_completed' => $isCompleted,
+                'completed_at' => $isCompleted ? now() : null,
+            ]);
+
+            $message = $isCompleted
+                ? 'Subtarea marcada como completada'
+                : 'Subtarea marcada como pendiente';
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'is_completed' => $subtask->is_completed
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar la subtarea: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
+

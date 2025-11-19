@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="test-token">
+    <title>Test Checkbox</title>
+</head>
+<body>
+    <h1>Test de Checkbox</h1>
+
+    <input type="checkbox" id="task-1" onchange="toggleTaskStatus(1, this.checked)">
+    <label for="task-1">Tarea de prueba</label>
+
+    <div id="output" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+    <script>
+    function toggleTaskStatus(taskId, isChecked) {
+        console.log('Toggle task:', taskId, 'checked:', isChecked);
+
+        const output = document.getElementById('output');
+        output.innerHTML = `Función llamada: taskId=${taskId}, checked=${isChecked}`;
+
+        alert(`Función funciona! Task: ${taskId}, Checked: ${isChecked}`);
+    }
+    </script>
+</body>
+</html>

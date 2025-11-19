@@ -144,60 +144,75 @@
 
     $currentStatus = $serviceRequest->status;
     $actions = $workflowConfig[$currentStatus] ?? [];
+    
+    // Contar botones activos para distribuir dinámicamente
+    $activeActions = collect($actions)->filter(fn($action) => $action['condition'])->count();
+    
+    // Determinar clases de grid según cantidad de botones
+    $gridClasses = match(true) {
+        $activeActions === 1 => 'grid-cols-1',
+        $activeActions === 2 => 'grid-cols-1 sm:grid-cols-2',
+        $activeActions === 3 => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+        $activeActions >= 4 => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+        default => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+    };
 @endphp
 
 @if (count($actions) > 0 && !$disabled)
-    <div class="{{ $compact ? 'flex flex-col gap-2' : 'grid gap-3 md:grid-cols-3' }}">
+    <div class="{{ $compact ? 'flex flex-col gap-2' : 'grid ' . $gridClasses . ' gap-4' }}">
         @foreach ($actions as $actionItem)
             @if ($actionItem['condition'])
-                <div
-                    class="{{ $compact ? '' : 'rounded-full border-2 border border-slate-300 shadow-sm' }} max-w-44 max-h-max">
+                <div class="flex">
                     {{-- BOTONES QUE ABREN MODALES --}}
                     @if ($actionItem['method'] === 'MODAL')
                         <button type="button"
                             onclick="document.getElementById('{{ $actionItem['modal_id'] }}').classList.remove('hidden')"
-                            class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-full border-2 font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 {{ $compact ? 'text-sm' : '' }} leading-4 text-start gap-1 max-h-14 max-w-44">
-                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                            class="flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border-2 border-{{ $actionItem['color'] }}-700 rounded-full font-semibold text-white text-sm hover:bg-{{ $actionItem['color'] }}-700 hover:border-{{ $actionItem['color'] }}-800 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 group min-h-[3rem]"
+                            aria-label="{{ $actionItem['label'] }}">
+                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} transition-transform group-hover:scale-110" aria-hidden="true"></i>
                             @if ($showLabels)
-                                {{ $actionItem['label'] }}
+                                <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
                             @endif
                         </button>
 
                         {{-- BOTONES CON GET (LINKS) --}}
                     @elseif($actionItem['method'] === 'GET')
                         <a href="{{ route($actionItem['route'], $serviceRequest) }}"
-                            class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-full border-2 font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 no-underline {{ $compact ? 'text-sm' : '' }} leading-4 text-start gap-1 max-h-14 max-w-44">
-                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                            class="flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border-2 border-{{ $actionItem['color'] }}-700 rounded-full font-semibold text-white text-sm hover:bg-{{ $actionItem['color'] }}-700 hover:border-{{ $actionItem['color'] }}-800 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 no-underline group min-h-[3rem]"
+                            aria-label="{{ $actionItem['label'] }}">
+                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} transition-transform group-hover:scale-110" aria-hidden="true"></i>
                             @if ($showLabels)
-                                {{ $actionItem['label'] }}
+                                <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
                             @endif
                         </a>
 
                         {{-- BOTONES CON FORMULARIOS (POST, PATCH) --}}
                     @else
                         <form action="{{ route($actionItem['route'], $serviceRequest) }}" method="POST"
-                            class="inline w-full">
+                            class="w-full">
                             @csrf
                             @if ($actionItem['method'] === 'PATCH')
                                 @method('PATCH')
                             @endif
 
                             <button type="submit"
-                                class="inline-flex items-center justify-center w-full px-6 py-2 bg-{{ $actionItem['color'] }}-600 border border-transparent text-sm rounded-full border-2 font-semibold text-white hover:bg-{{ $actionItem['color'] }}-700 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition ease-in-out duration-150 no-underline {{ $compact ? 'text-sm' : '' }} leading-4 text-start gap-1 max-h-14 max-w-44"
-                                onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')">
-                                <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                                class="flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border-2 border-{{ $actionItem['color'] }}-700 rounded-full font-semibold text-white text-sm hover:bg-{{ $actionItem['color'] }}-700 hover:border-{{ $actionItem['color'] }}-800 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 group min-h-[3rem]"
+                                onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')"
+                                aria-label="{{ $actionItem['label'] }}">
+                                <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} transition-transform group-hover:scale-110" aria-hidden="true"></i>
                                 @if ($showLabels)
-                                    {{ $actionItem['label'] }}
+                                    <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
                                 @endif
                             </button>
                         </form>
                     @endif
                 </div>
             @else
-                <div class="{{ $compact ? '' : 'bg-gray-50 rounded-2xl border border-gray-200' }}  max-w-44 max-h-max">
+                <div class="flex">
                     <button type="button" disabled
-                        class="inline-flex items-center justify-center w-full px-6 py-2 bg-gray-400 border border-transparent text-sm font-semibold text-white cursor-not-allowed {{ $compact ? 'text-sm' : '' }} leading-4 text-start gap-1 rounded-2xl max-w-44"
-                        title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}">
+                        class="flex items-center justify-center w-full px-4 py-3 bg-gray-400 border-2 border-gray-500 rounded-full font-semibold text-white text-sm cursor-not-allowed opacity-60 min-h-[3rem]"
+                        title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}"
+                        aria-label="{{ $actionItem['label'] }} (deshabilitado)">
                         <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
                         @if ($showLabels)
                             {{ $actionItem['label'] }}

@@ -64,6 +64,11 @@ class SubService extends Model
         )->where('service_level_agreements.is_active', true);
     }
 
+    public function standardTasks()
+    {
+        return $this->hasMany(StandardTask::class)->active()->ordered();
+    }
+
     /**
      * Validar que el código sea único
      */
