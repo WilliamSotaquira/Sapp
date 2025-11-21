@@ -136,33 +136,33 @@
 
                 @foreach($quickActions as $action)
                     <a href="{{ $action['route'] }}" aria-label="{{ $action['title'] }}"
-                        class="group rounded-2xl border border-gray-100 bg-gradient-to-br from-white via-white to-gray-50 p-4 shadow-sm hover:shadow-lg transition-all duration-200">
-                        <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        class="group rounded-2xl border border-{{ $action['color'] }}-100/70 bg-gradient-to-br from-white via-white to-{{ $action['color'] }}-50/40 p-4 shadow-sm hover:shadow-{{ $action['color'] }}-200/80 transition-all duration-200">
+                        <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-{{ $action['color'] }}-600">
                             <span>{{ $action['badge'] }}</span>
-                            <span class="inline-flex items-center text-gray-400">
+                            <span class="inline-flex items-center text-{{ $action['color'] }}-500">
                                 <span class="mr-1">Ir</span>
                                 <i class="fas fa-chevron-right text-xs group-hover:translate-x-1 transition-transform duration-200"></i>
                             </span>
                         </div>
                         <div class="mt-2.5 flex items-start space-x-3">
-                            <div class="p-2.5 rounded-xl bg-gray-100 text-{{ $action['color'] }}-600 shadow-inner shadow-white/60 group-hover:scale-110 transition-transform duration-200">
+                            <div class="p-2.5 rounded-xl bg-{{ $action['color'] }}-100 text-{{ $action['color'] }}-600 shadow-inner shadow-white/60 group-hover:scale-110 transition-transform duration-200">
                                 <i class="{{ $action['icon'] }} text-lg"></i>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-semibold text-gray-900 text-sm leading-tight truncate">
+                                <p class="font-semibold text-{{ $action['color'] }}-900 text-sm leading-tight truncate">
                                     {{ $action['title'] }}
                                 </p>
-                                <p class="text-xs text-gray-500 mt-1">
+                                <p class="text-xs text-{{ $action['color'] }}-600 mt-1">
                                     {{ $action['description'] }}
                                 </p>
                             </div>
                         </div>
-                        <div class="mt-3 flex items-center justify-between text-xs text-gray-400">
+                        <div class="mt-3 flex items-center justify-between text-xs text-{{ $action['color'] }}-600">
                             <span class="flex items-center gap-1">
                                 <i class="fas fa-clock text-[10px]"></i>
                                 Disponible 24/7
                             </span>
-                            <span class="flex items-center gap-1 group-hover:text-gray-700 transition-colors duration-200">
+                            <span class="flex items-center gap-1 group-hover:text-{{ $action['color'] }}-800 transition-colors duration-200">
                                 <i class="fas fa-arrow-right text-[10px]"></i>
                                 Acceder
                             </span>
@@ -191,6 +191,7 @@
                         'EN_PROCESO' => ['color' => 'purple', 'icon' => 'fas fa-play-circle', 'count' => \App\Models\ServiceRequest::where('status', 'EN_PROCESO')->count()],
                         'PAUSADA' => ['color' => 'orange', 'icon' => 'fas fa-pause-circle', 'count' => \App\Models\ServiceRequest::where('status', 'PAUSADA')->count()],
                         'RESUELTA' => ['color' => 'green', 'icon' => 'fas fa-check-double', 'count' => \App\Models\ServiceRequest::where('status', 'RESUELTA')->count()],
+                        'CERRADA' => ['color' => 'gray', 'icon' => 'fas fa-lock', 'count' => \App\Models\ServiceRequest::where('status', 'CERRADA')->count()],
                     ];
                 }
                 if(!isset($totalRequests)) {
@@ -229,22 +230,22 @@
             @endif
 
             <!-- Lista de estados -->
-            <div class="space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @foreach($statuses as $status => $data)
-                <div class="flex items-center justify-between p-2.5 rounded-2xl border border-gray-100 bg-white shadow hover:-translate-y-0.5 transition-transform duration-200">
+                <div class="flex items-center justify-between p-2.5 rounded-2xl border border-{{ $data['color'] }}-100 bg-{{ $data['color'] }}-50/40 shadow hover:-translate-y-0.5 transition-transform duration-200">
                     <div class="flex items-center">
-                        <div class="p-1.5 rounded-xl bg-gray-100 text-{{ $data['color'] }}-600 mr-3">
+                        <div class="p-1.5 rounded-xl bg-white/70 text-{{ $data['color'] }}-600 mr-3">
                             <i class="{{ $data['icon'] }} text-sm"></i>
                         </div>
                         <div>
-                            <span class="font-semibold text-gray-900 text-xs sm:text-sm">{{ $status }}</span>
-                            <p class="text-[10px] text-gray-500">Estado operativo</p>
+                            <span class="font-semibold text-{{ $data['color'] }}-900 text-xs sm:text-sm">{{ $status }}</span>
+                            <p class="text-[10px] text-{{ $data['color'] }}-600/80">Estado operativo</p>
                         </div>
                     </div>
                     <div class="flex items-center">
-                        <span class="text-lg font-semibold text-gray-900 mr-1.5">{{ $data['count'] }}</span>
+                        <span class="text-lg font-semibold text-{{ $data['color'] }}-800 mr-1.5">{{ $data['count'] }}</span>
                         @if($totalRequests > 0)
-                            <span class="text-xs text-gray-500">
+                            <span class="text-xs text-{{ $data['color'] }}-600/80">
                                 ({{ round(($data['count'] / $totalRequests) * 100, 1) }}%)
                             </span>
                         @endif
