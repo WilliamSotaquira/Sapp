@@ -695,6 +695,70 @@ class ServiceRequestController extends Controller
         }
     }
 
+    public function quickAssignRequester(Request $request, ServiceRequest $service_request)
+    {
+        Log::info('QuickAssignRequester llamado', [
+            'user_id' => auth()->id(),
+            'service_request_id' => $service_request->id,
+            'requester_id' => $request->requester_id,
+            'has_permission' => auth()->user()->can('assign-service-requests'),
+        ]);
+
+        if (!auth()->user()->can('assign-service-requests')) {
+            return response()->json(
+                [
+                    'success' => false,
+                    'message' => 'No tienes permisos para asignar solicitantes',
+                ],
+                403,
+            );
+        }
+
+        $validated = $request->validate([
+            'requester_id' => 'required|exists:requesters,id',
+        ]);
+
+        try {
+            $previousRequester = $service_request->requester_id;
+
+            $service_request->update([
+                'requester_id' => $validated['requester_id'],
+            ]);
+
+            $service_request->load('requester');
+
+            if (class_exists('App\Models\ServiceRequestHistory')) {
+                \App\Models\ServiceRequestHistory::create([
+                    'service_request_id' => $service_request->id,
+                    'user_id' => auth()->id(),
+                    'action' => 'ASIGNACION_SOLICITANTE_RAPIDA',
+                    'description' => 'Solicitud reasignada a un nuevo solicitante mediante asignación rápida',
+                    'details' => [
+                        'previous_requester' => $previousRequester,
+                        'new_requester' => $validated['requester_id'],
+                        'assigned_by' => auth()->id(),
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Solicitante asignado correctamente',
+                'requester_name' => $service_request->requester->name ?? null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error en asignación rápida de solicitante: ' . $e->getMessage());
+
+            return response()->json(
+                [
+                    'success' => false,
+                    'message' => 'Error al asignar solicitante: ' . $e->getMessage(),
+                ],
+                500,
+            );
+        }
+    }
+
     /**
      * Descargar reporte PDF de una solicitud específica
      */
