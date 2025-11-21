@@ -25,11 +25,59 @@
 
 @section('content')
 
+    @php
+        if (!isset($previousRequestNav)) {
+            $previousRequestNav = \App\Models\ServiceRequest::where('id', '<', $serviceRequest->id)
+                ->orderBy('id', 'desc')
+                ->first();
+        }
+        if (!isset($nextRequestNav)) {
+            $nextRequestNav = \App\Models\ServiceRequest::where('id', '>', $serviceRequest->id)->orderBy('id')->first();
+        }
+    @endphp
+
     <div class="space-y-4 sm:space-y-6">
-        <!-- Header Principal con botón de edición -->
-        <div class="flex justify-between items-center flex-wrap gap-3 sm:gap-4">
-            <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600 bg-white rounded-lg border border-gray-100 px-3 py-2"
+            id="requestNavigation"
+            data-prev-url="{{ $previousRequestNav ? route('service-requests.show', $previousRequestNav) : '' }}"
+            data-next-url="{{ $nextRequestNav ? route('service-requests.show', $nextRequestNav) : '' }}" role="navigation"
+            aria-label="Navegación entre solicitudes">
+            <div class="flex items-center gap-2 flex-1">
+                @if ($previousRequestNav)
+                    <a href="{{ route('service-requests.show', $previousRequestNav) }}"
+                        class="nav-direction inline-flex items-center gap-1"
+                        title="Ir a la solicitud #{{ $previousRequestNav->ticket_number }}"
+                        aria-label="Ver solicitud anterior #{{ $previousRequestNav->ticket_number }}">
+                        <i class="fas fa-arrow-left text-[10px]"></i>
+                        <span>Anterior · #{{ $previousRequestNav->ticket_number }}</span>
+                    </a>
+                @else
+                    <span class="inline-flex items-center gap-1 text-gray-400">
+                        <i class="fas fa-arrow-left text-[10px]"></i>
+                        <span>Anterior</span>
+                    </span>
+                @endif
+            </div>
+            <div class="flex items-center gap-2 flex-1 justify-end">
+                @if ($nextRequestNav)
+                    <a href="{{ route('service-requests.show', $nextRequestNav) }}"
+                        class="nav-direction inline-flex items-center gap-1 justify-end text-right"
+                        title="Ir a la solicitud #{{ $nextRequestNav->ticket_number }}"
+                        aria-label="Ver siguiente solicitud #{{ $nextRequestNav->ticket_number }}">
+                        <span>#{{ $nextRequestNav->ticket_number }} · Siguiente</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </a>
+                @else
+                    <span class="inline-flex items-center gap-1 text-gray-400">
+                        <span>Siguiente</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </span>
+                @endif
+            </div>
         </div>
+
+        <!-- Header Principal con botón de edición -->
+        <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" />
 
         <!-- Descripción del Problema (Lo más importante primero) -->
         <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
@@ -74,6 +122,41 @@
 
 @section('styles')
     <style>
+        .nav-direction {
+            color: #4b5563;
+            transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+            position: relative;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .nav-direction::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), transparent);
+            opacity: 0;
+            transform: translateY(2px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .nav-direction:hover,
+        .nav-direction:focus-visible {
+            color: #1d4ed8;
+            background-color: rgba(59, 130, 246, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .nav-direction:hover::after,
+        .nav-direction:focus-visible::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         /* Timeline Styles */
         .timeline-item::before {
             content: '';
@@ -157,7 +240,73 @@
                     }
                 }
             }, true);
+
+            setupNavigationInteractions();
         });
+
+        function setupNavigationInteractions() {
+            const navContainer = document.getElementById('requestNavigation');
+            if (!navContainer) {
+                return;
+            }
+
+            const prevUrl = navContainer.dataset.prevUrl;
+            const nextUrl = navContainer.dataset.nextUrl;
+
+            function goTo(url) {
+                if (url) {
+                    window.location.href = url;
+                }
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                    return;
+                }
+                if (e.key === 'ArrowLeft') {
+                    goTo(prevUrl);
+                }
+                if (e.key === 'ArrowRight') {
+                    goTo(nextUrl);
+                }
+            });
+
+            let touchStartX = null;
+            let touchStartY = null;
+
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 1) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                }
+            }, {
+                passive: true
+            });
+
+            document.addEventListener('touchend', function(e) {
+                if (touchStartX === null || touchStartY === null) {
+                    return;
+                }
+
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffX = touchEndX - touchStartX;
+                const diffY = Math.abs(touchEndY - touchStartY);
+
+                if (Math.abs(diffX) > 60 && diffY < 40) {
+                    if (diffX > 0) {
+                        goTo(prevUrl);
+                    } else {
+                        goTo(nextUrl);
+                    }
+                }
+
+                touchStartX = null;
+                touchStartY = null;
+            }, {
+                passive: true
+            });
+        }
 
         // ✅ FUNCIONES GLOBALES para el modal de vista previa
         function openPreview(fileUrl, fileName) {

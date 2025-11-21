@@ -19,9 +19,9 @@
             </ol>
         </nav>
         <div class="flex flex-col sm:flex-row sm:items-center justify-between">
-            <h1 class="text-3xl font-bold text-gray-900">Dashboard Principal</h1>
+            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Dashboard Principal</h1>
             <div class="mt-2 sm:mt-0">
-                <span class="text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
+                <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
             </div>
         </div>
     </div>
@@ -70,11 +70,11 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         <div class="p-3 bg-{{ $stat['color'] }}-100 rounded-lg">
-                            <i class="{{ $stat['icon'] }} text-{{ $stat['color'] }}-600 text-xl" aria-hidden="true"></i>
+                            <i class="{{ $stat['icon'] }} text-{{ $stat['color'] }}-600 text-lg" aria-hidden="true"></i>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-600">{{ $stat['title'] }}</p>
-                            <p class="text-2xl font-semibold text-gray-900 count-up" data-count="{{ $stat['count'] }}">{{ $stat['count'] }}</p>
+                            <p class="text-xs sm:text-sm font-medium text-gray-600">{{ $stat['title'] }}</p>
+                            <p class="text-xl sm:text-2xl font-semibold text-gray-900 count-up" data-count="{{ $stat['count'] }}">{{ $stat['count'] }}</p>
                         </div>
                     </div>
                     <i class="fas fa-chevron-right text-{{ $stat['color'] }}-400 text-sm" aria-hidden="true"></i>
@@ -88,12 +88,15 @@
     <!-- Dos Columnas: Acciones Rápidas y Resumen de Solicitudes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Acciones Rápidas mejoradas -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-800">Acciones Rápidas</h2>
-                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Acceso directo</span>
+        <div class="bg-white rounded-2xl shadow p-6 border border-gray-100">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <p class="text-[11px] uppercase tracking-wider text-gray-400">Productividad</p>
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Acciones Rápidas</h2>
+                </div>
+                <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
             </div>
-            <div class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 @php
                     $quickActions = [
                         [
@@ -101,50 +104,83 @@
                             'description' => 'Crear una nueva solicitud de servicio',
                             'route' => route('service-requests.create'),
                             'color' => 'blue',
-                            'icon' => 'fas fa-plus-circle'
+                            'icon' => 'fas fa-plus-circle',
+                            'badge' => 'Alta'
                         ],
                         [
                             'title' => 'Nueva Familia',
                             'description' => 'Agregar familia de servicio',
                             'route' => route('service-families.create'),
                             'color' => 'green',
-                            'icon' => 'fas fa-layer-group'
+                            'icon' => 'fas fa-layer-group',
+                            'badge' => 'Catálogo'
                         ],
                         [
                             'title' => 'Ver Solicitudes',
                             'description' => 'Gestionar todas las solicitudes',
                             'route' => route('service-requests.index'),
                             'color' => 'purple',
-                            'icon' => 'fas fa-list'
+                            'icon' => 'fas fa-list',
+                            'badge' => 'Operación'
                         ],
                         [
                             'title' => 'Gestionar SLAs',
                             'description' => 'Configurar acuerdos de nivel de servicio',
                             'route' => route('slas.index'),
                             'color' => 'orange',
-                            'icon' => 'fas fa-handshake'
+                            'icon' => 'fas fa-handshake',
+                            'badge' => 'Compromisos'
                         ]
                     ];
                 @endphp
 
                 @foreach($quickActions as $action)
-                <a href="{{ $action['route'] }}" class="flex items-center p-2.5 sm:p-3 bg-{{ $action['color'] }}-50 rounded-lg hover:bg-{{ $action['color'] }}-100 transition-all duration-200 border border-{{ $action['color'] }}-200 group">
-                    <div class="p-1.5 sm:p-2 bg-{{ $action['color'] }}-100 rounded-lg group-hover:scale-110 transition-transform duration-200 flex-shrink-0">
-                        <i class="{{ $action['icon'] }} text-{{ $action['color'] }}-600 text-base sm:text-lg"></i>
-                    </div>
-                    <div class="ml-3 sm:ml-4 flex-1 min-w-0">
-                        <p class="font-medium text-{{ $action['color'] }}-800 text-sm sm:text-base truncate">{{ $action['title'] }}</p>
-                        <p class="text-xs sm:text-sm text-{{ $action['color'] }}-600 hidden sm:block">{{ $action['description'] }}</p>
-                    </div>
-                    <i class="fas fa-arrow-right text-{{ $action['color'] }}-400 opacity-0 group-hover:opacity-100 transform group-hover:translate-x-1 transition-all duration-200 text-xs sm:text-sm flex-shrink-0"></i>
-                </a>
+                    <a href="{{ $action['route'] }}" aria-label="{{ $action['title'] }}"
+                        class="group rounded-2xl border border-gray-100 bg-gradient-to-br from-white via-white to-gray-50 p-4 shadow-sm hover:shadow-lg transition-all duration-200">
+                        <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            <span>{{ $action['badge'] }}</span>
+                            <span class="inline-flex items-center text-gray-400">
+                                <span class="mr-1">Ir</span>
+                                <i class="fas fa-chevron-right text-xs group-hover:translate-x-1 transition-transform duration-200"></i>
+                            </span>
+                        </div>
+                        <div class="mt-2.5 flex items-start space-x-3">
+                            <div class="p-2.5 rounded-xl bg-gray-100 text-{{ $action['color'] }}-600 shadow-inner shadow-white/60 group-hover:scale-110 transition-transform duration-200">
+                                <i class="{{ $action['icon'] }} text-lg"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900 text-sm leading-tight truncate">
+                                    {{ $action['title'] }}
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    {{ $action['description'] }}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between text-xs text-gray-400">
+                            <span class="flex items-center gap-1">
+                                <i class="fas fa-clock text-[10px]"></i>
+                                Disponible 24/7
+                            </span>
+                            <span class="flex items-center gap-1 group-hover:text-gray-700 transition-colors duration-200">
+                                <i class="fas fa-arrow-right text-[10px]"></i>
+                                Acceder
+                            </span>
+                        </div>
+                    </a>
                 @endforeach
             </div>
         </div>
 
         <!-- Resumen de Solicitudes por Estado (pasar $statuses y $totalRequests desde controlador para optimizar) -->
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
-            <h2 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-800">Resumen de Solicitudes</h2>
+        <div class="bg-white rounded-2xl shadow p-4 sm:p-5 border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <p class="text-[11px] uppercase tracking-widest text-gray-400">Visión general</p>
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Resumen de Solicitudes</h2>
+                </div>
+                <span class="text-xs font-semibold text-gray-500">Total: {{ $totalRequests ?? 0 }}</span>
+            </div>
 
             <!-- Mini gráfico de barras -->
             @php
@@ -163,9 +199,12 @@
             @endphp
 
             @if($totalRequests > 0)
-            <div class="mb-6 bg-gray-50 p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-gray-700 mb-2">Distribución por estado</h3>
-                <div class="flex h-4 bg-gray-200 rounded-full overflow-hidden">
+            <div class="mb-4 bg-gray-50 border border-gray-100 p-2.5 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium text-gray-700">Distribución por estado</h3>
+                    <span class="text-xs text-gray-500">Proporción %</span>
+                </div>
+                <div class="flex h-2 sm:h-2.5 bg-gray-200 rounded-full overflow-hidden">
                     @foreach($statuses as $status => $data)
                         @if($data['count'] > 0)
                             <div
@@ -176,12 +215,12 @@
                         @endif
                     @endforeach
                 </div>
-                <div class="flex flex-wrap gap-2 mt-2">
+                <div class="flex flex-wrap gap-x-2 gap-y-1 mt-2">
                     @foreach($statuses as $status => $data)
                         @if($data['count'] > 0)
-                            <div class="flex items-center text-xs">
-                                <div class="w-3 h-3 bg-{{ $data['color'] }}-500 rounded mr-1"></div>
-                                <span class="text-gray-600">{{ $status }}</span>
+                            <div class="flex items-center text-[10px] text-gray-600">
+                                <div class="w-2 h-2 bg-{{ $data['color'] }}-500 rounded mr-1"></div>
+                                <span>{{ $status }}</span>
                             </div>
                         @endif
                     @endforeach
@@ -190,17 +229,22 @@
             @endif
 
             <!-- Lista de estados -->
-            <div class="space-y-4">
+            <div class="space-y-2">
                 @foreach($statuses as $status => $data)
-                <div class="flex items-center justify-between p-3 bg-{{ $data['color'] }}-50 rounded-lg border border-{{ $data['color'] }}-200 hover:bg-{{ $data['color'] }}-100 transition-colors">
+                <div class="flex items-center justify-between p-2.5 rounded-2xl border border-gray-100 bg-white shadow hover:-translate-y-0.5 transition-transform duration-200">
                     <div class="flex items-center">
-                        <i class="{{ $data['icon'] }} text-{{ $data['color'] }}-600 text-lg mr-3"></i>
-                        <span class="font-medium text-{{ $data['color'] }}-800">{{ $status }}</span>
+                        <div class="p-1.5 rounded-xl bg-gray-100 text-{{ $data['color'] }}-600 mr-3">
+                            <i class="{{ $data['icon'] }} text-sm"></i>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-gray-900 text-xs sm:text-sm">{{ $status }}</span>
+                            <p class="text-[10px] text-gray-500">Estado operativo</p>
+                        </div>
                     </div>
                     <div class="flex items-center">
-                        <span class="text-2xl font-bold text-{{ $data['color'] }}-600 mr-2">{{ $data['count'] }}</span>
+                        <span class="text-lg font-semibold text-gray-900 mr-1.5">{{ $data['count'] }}</span>
                         @if($totalRequests > 0)
-                            <span class="text-sm text-{{ $data['color'] }}-500">
+                            <span class="text-xs text-gray-500">
                                 ({{ round(($data['count'] / $totalRequests) * 100, 1) }}%)
                             </span>
                         @endif
@@ -212,28 +256,28 @@
     </div>
 
     <!-- Solicitudes Recientes con filtros y búsqueda -->
-    <div class="bg-white rounded-lg shadow" aria-labelledby="recent-requests-heading">
+    <div class="bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading">
         <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between">
-            <h2 id="recent-requests-heading" class="text-xl font-semibold text-gray-800 mb-2 sm:mb-0">Solicitudes Recientes</h2>
-            <div class="flex space-x-2 items-center" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
+            <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">Solicitudes Recientes</h2>
+            <div class="flex space-x-2 items-center text-xs sm:text-sm" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
                 <div class="relative">
                     <input
                         type="text"
                         id="search-requests"
                         placeholder="Buscar solicitud..."
                         aria-label="Buscar solicitud por ticket o título"
-                        class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
+                        class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
                     >
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
-                <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 rounded-lg text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Todos los estados</option>
                     @foreach(array_keys($statuses) as $status)
                         <option value="{{ $status }}">{{ $status }}</option>
                     @endforeach
                 </select>
-                <button id="clear-filters" type="button" class="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Limpiar filtros">Limpiar</button>
-                <button id="toggle-density" type="button" class="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Alternar densidad de filas">Densidad</button>
+                <button id="clear-filters" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Limpiar filtros">Limpiar</button>
+                <button id="toggle-density" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Alternar densidad de filas">Densidad</button>
             </div>
         </div>
         @php

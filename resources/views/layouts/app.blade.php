@@ -21,34 +21,108 @@
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
         .nav-item-active {
-            background-color: rgba(255, 255, 255, 0.15);
-            border-left: 4px solid white;
+            background-color: rgba(255, 255, 255, 0.18);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .primary-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.9rem;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .primary-nav-link i,
+        .dropdown-menu a i,
+        .mobile-nav-link i {
+            width: 1rem;
+            text-align: center;
+        }
+
+        .primary-nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.12);
         }
 
         .mobile-menu {
-            transition: all 0.3s ease;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .mobile-section-trigger {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            color: #fee2e2;
+            background-color: rgba(0, 0, 0, 0.12);
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .mobile-section-trigger:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .mobile-section-trigger[aria-expanded="true"] .fa-chevron-down {
+            transform: rotate(180deg);
+        }
+
+        .mobile-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1rem;
+            border-radius: 0.75rem;
+            color: white;
+            background-color: rgba(255, 255, 255, 0.02);
+            transition: background-color 0.2s ease;
+        }
+
+        .mobile-nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .mobile-nav-link-active {
+            background-color: rgba(0, 0, 0, 0.35);
         }
 
         .dropdown-menu {
             display: none;
             position: absolute;
             background-color: #dc2626;
-            min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            min-width: 220px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
             z-index: 1000;
-            border-radius: 0 0 4px 4px;
+            border-radius: 0 0 0.75rem 0.75rem;
             top: 100%;
             left: 0;
+            padding: 0.35rem 0;
         }
 
         .dropdown-menu.show {
             display: block;
         }
 
-        .dropdown-trigger:hover .dropdown-menu,
-        .dropdown-menu:hover {
-            display: block;
+        .dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .dropdown-menu a:hover,
+        .dropdown-menu a.bg-red-700 {
+            background-color: #b91c1c;
         }
 
         /* Estilos mejorados para los logos */
@@ -222,8 +296,133 @@
 </head>
 
 <body class="bg-gray-100">
+    @php
+        $navSections = [
+            [
+                'key' => 'requests',
+                'label' => 'Solicitudes',
+                'icon' => 'fas fa-tasks',
+                'type' => 'dropdown',
+                'match' => ['service-requests.*'],
+                'links' => [
+                    [
+                        'route' => 'service-requests.index',
+                        'label' => 'Ver Solicitudes',
+                        'icon' => 'fas fa-list',
+                        'match' => ['service-requests.index'],
+                    ],
+                    [
+                        'route' => 'service-requests.create',
+                        'label' => 'Crear Solicitud',
+                        'icon' => 'fas fa-plus-circle',
+                        'match' => ['service-requests.create'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'reports',
+                'label' => 'Reportes',
+                'icon' => 'fas fa-chart-bar',
+                'type' => 'link',
+                'route' => 'reports.index',
+                'match' => ['reports.*'],
+            ],
+            [
+                'key' => 'technicians',
+                'label' => 'Técnicos',
+                'icon' => 'fas fa-user-cog',
+                'type' => 'dropdown',
+                'match' => ['technicians.*', 'tasks.*', 'standard-tasks.*', 'technician-schedule.*'],
+                'links' => [
+                    [
+                        'route' => 'technician-schedule.index',
+                        'label' => 'Calendario',
+                        'icon' => 'fas fa-calendar-alt',
+                        'match' => ['technician-schedule.index'],
+                    ],
+                    [
+                        'route' => 'technician-schedule.my-agenda',
+                        'label' => 'Mi Agenda',
+                        'icon' => 'fas fa-clipboard-list',
+                        'match' => ['technician-schedule.my-agenda'],
+                    ],
+                    [
+                        'route' => 'technician-schedule.team-capacity',
+                        'label' => 'Capacidad del Equipo',
+                        'icon' => 'fas fa-chart-line',
+                        'match' => ['technician-schedule.team-capacity'],
+                    ],
+                    [
+                        'route' => 'tasks.index',
+                        'label' => 'Tareas',
+                        'icon' => 'fas fa-tasks',
+                        'match' => ['tasks.*'],
+                    ],
+                    [
+                        'route' => 'standard-tasks.index',
+                        'label' => 'Tareas Predefinidas',
+                        'icon' => 'fas fa-layer-group',
+                        'match' => ['standard-tasks.*'],
+                    ],
+                    [
+                        'route' => 'technicians.index',
+                        'label' => 'Gestión de Técnicos',
+                        'icon' => 'fas fa-users-cog',
+                        'match' => ['technicians.*'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'catalogs',
+                'label' => 'Catálogos',
+                'icon' => 'fas fa-list-alt',
+                'type' => 'dropdown',
+                'match' => ['requester-management.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*'],
+                'links' => [
+                    [
+                        'route' => 'requester-management.requesters.index',
+                        'label' => 'Solicitantes',
+                        'icon' => 'fas fa-users',
+                        'match' => ['requester-management.*'],
+                    ],
+                    [
+                        'route' => 'service-families.index',
+                        'label' => 'Familias',
+                        'icon' => 'fas fa-layer-group',
+                        'match' => ['service-families.*'],
+                    ],
+                    [
+                        'route' => 'services.index',
+                        'label' => 'Servicios',
+                        'icon' => 'fas fa-cog',
+                        'match' => ['services.*'],
+                    ],
+                    [
+                        'route' => 'sub-services.index',
+                        'label' => 'Sub-Servicios',
+                        'icon' => 'fas fa-cogs',
+                        'match' => ['sub-services.*'],
+                    ],
+                    [
+                        'route' => 'slas.index',
+                        'label' => 'SLAs',
+                        'icon' => 'fas fa-clock',
+                        'match' => ['slas.*'],
+                    ],
+                ],
+            ],
+        ];
+
+        $isSectionActive = function ($patterns) {
+            if (empty($patterns)) {
+                return false;
+            }
+
+            return request()->routeIs(...(array) $patterns);
+        };
+    @endphp
     <!-- Navigation -->
-    <nav class="bg-red-600 text-white shadow-lg">
+    <nav class="bg-red-600 text-white shadow-lg" id="mainNavigation">
         <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
@@ -245,109 +444,39 @@
 
                     @auth
                         <!-- Menú para desktop -->
-                        <div class="hidden md:flex space-x-1">
-                            <!-- Menú desplegable para Solicitudes -->
-                            <div class="dropdown relative" id="requestsDropdown">
-                                <button
-                                    class="dropdown-trigger flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
-                                          {{ request()->routeIs('service-requests.*') ? 'nav-item-active' : '' }}"
-                                    id="requestsButton">
-                                    <i class="fas fa-tasks mr-2"></i>
-                                    Solicitudes
-                                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
-                                </button>
-                                <div class="dropdown-menu rounded-b mt-1" id="requestsMenu">
-                                    <a href="{{ route('service-requests.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-requests.index') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-list mr-2"></i>Ver Solicitudes
+                        <div class="hidden md:flex items-center space-x-2">
+                            @foreach ($navSections as $section)
+                                @php
+                                    $sectionActive = $isSectionActive($section['match'] ?? []);
+                                @endphp
+                                @if (($section['type'] ?? 'link') === 'link')
+                                    <a href="{{ route($section['route']) }}"
+                                        class="primary-nav-link {{ $sectionActive ? 'nav-item-active' : '' }}">
+                                        <i class="{{ $section['icon'] }}"></i>
+                                        {{ $section['label'] }}
                                     </a>
-                                    <a href="{{ route('service-requests.create') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-requests.create') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-plus-circle mr-2"></i>Crear Solicitud
-                                    </a>
-                                </div>
-                            </div>
-
-                            <a href="{{ route('reports.index') }}"
-                                class="flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
-                                  {{ request()->routeIs('reports.*') ? 'nav-item-active' : '' }}">
-                                <i class="fas fa-chart-bar mr-2"></i>
-                                Reportes
-                            </a>
-
-                            <!-- Menú desplegable para Técnicos -->
-                            <div class="dropdown relative" id="technicianDropdown">
-                                <button
-                                    class="dropdown-trigger flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
-                                          {{ request()->routeIs('technicians.*', 'tasks.*', 'technician-schedule.*') ? 'nav-item-active' : '' }}"
-                                    id="technicianButton">
-                                    <i class="fas fa-user-cog mr-2"></i>
-                                    Técnicos
-                                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
-                                </button>
-                                <div class="dropdown-menu rounded-b mt-1" id="technicianMenu">
-                                    <a href="{{ route('technician-schedule.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.index') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-calendar-alt mr-2"></i>Calendario
-                                    </a>
-                                    <a href="{{ route('technician-schedule.my-agenda') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.my-agenda') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-clipboard-list mr-2"></i>Mi Agenda
-                                    </a>
-                                    <a href="{{ route('technician-schedule.team-capacity') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technician-schedule.team-capacity') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-chart-line mr-2"></i>Capacidad del Equipo
-                                    </a>
-                                    <div class="border-t border-red-500 my-1"></div>
-                                    <a href="{{ route('tasks.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('tasks.index') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-tasks mr-2"></i>Tareas
-                                    </a>
-                                    <a href="{{ route('standard-tasks.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('standard-tasks.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-layer-group mr-2"></i>Tareas Predefinidas
-                                    </a>
-                                    <a href="{{ route('technicians.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('technicians.index') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-users-cog mr-2"></i>Gestión de Técnicos
-                                    </a>
-                                </div>
-                            </div>
-
-                            <!-- Menú desplegable para catálogos -->
-                            <div class="dropdown relative" id="catalogDropdown">
-                                <button
-                                    class="dropdown-trigger flex items-center hover:bg-red-700 px-3 py-2 rounded transition-colors duration-200
-                                          {{ request()->routeIs('service-families.*', 'services.*', 'sub-services.*', 'slas.*') ? 'nav-item-active' : '' }}"
-                                    id="catalogButton">
-                                    <i class="fas fa-list-alt mr-2"></i>
-                                    Catálogos
-                                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
-                                </button>
-                                <div class="dropdown-menu rounded-b mt-1" id="catalogMenu">
-                                    {{-- Solicitantes --}}
-                                    <a href="{{ route('requester-management.requesters.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('requester-management.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-users mr-2"></i>Solicitantes
-                                    </a>
-                                    <a href="{{ route('service-families.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('service-families.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-layer-group mr-2"></i>Familias
-                                    </a>
-                                    <a href="{{ route('services.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('services.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-cog mr-2"></i>Servicios
-                                    </a>
-                                    <a href="{{ route('sub-services.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('sub-services.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-cogs mr-2"></i>Sub-Servicios
-                                    </a>
-                                    <a href="{{ route('slas.index') }}"
-                                        class="block px-4 py-2 hover:bg-red-700 {{ request()->routeIs('slas.*') ? 'bg-red-700' : '' }}">
-                                        <i class="fas fa-clock mr-2"></i>SLAs
-                                    </a>
-                                </div>
-                            </div>
+                                @else
+                                    <div class="relative" data-dropdown="{{ $section['key'] }}">
+                                        <button type="button"
+                                            class="primary-nav-link {{ $sectionActive ? 'nav-item-active' : '' }}"
+                                            data-dropdown-toggle="{{ $section['key'] }}" aria-expanded="false"
+                                            aria-haspopup="true">
+                                            <i class="{{ $section['icon'] }}"></i>
+                                            {{ $section['label'] }}
+                                            <i class="fas fa-chevron-down text-xs"></i>
+                                        </button>
+                                        <div class="dropdown-menu" data-dropdown-menu="{{ $section['key'] }}">
+                                            @foreach ($section['links'] as $link)
+                                                <a href="{{ route($link['route']) }}"
+                                                    class="{{ $isSectionActive($link['match'] ?? []) ? 'bg-red-700' : '' }}">
+                                                    <i class="{{ $link['icon'] }}"></i>
+                                                    {{ $link['label'] }}
+                                                </a>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
                         </div>
                     @endauth
                 </div>
@@ -372,8 +501,9 @@
                         </form>
 
                         <!-- Botón menú móvil -->
-                        <button id="mobileMenuButton"
-                            class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2">
+                        <button type="button"
+                            class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2"
+                            data-mobile-menu-toggle aria-expanded="false" aria-controls="mobileMenuPanel">
                             <i class="fas fa-bars text-lg sm:text-xl"></i>
                         </button>
                     @else
@@ -388,106 +518,44 @@
 
             <!-- Menú móvil -->
             @auth
-                <div id="mobileMenu" class="mobile-menu md:hidden bg-red-700 mt-2 rounded-lg overflow-hidden hidden">
-                    <div class="py-2 space-y-1">
-                        <div class="px-4 py-2 font-semibold text-red-200 border-b border-red-500">
-                            <i class="fas fa-tasks mr-3"></i>
-                            Solicitudes
-                        </div>
-
-                        <a href="{{ route('service-requests.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('service-requests.index') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-list mr-3"></i>
-                            Ver Solicitudes
-                        </a>
-
-                        <a href="{{ route('service-requests.create') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('service-requests.create') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-plus-circle mr-3"></i>
-                            Crear Solicitud
-                        </a>
-
-                        <a href="{{ route('reports.index') }}"
-                            class="flex items-center px-4 py-2 hover:bg-red-600 {{ request()->routeIs('reports.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-chart-bar mr-3"></i>
-                            Reportes
-                        </a>
-
-                        <div class="px-4 py-2 font-semibold text-red-200 border-b border-red-500">
-                            <i class="fas fa-user-cog mr-3"></i>
-                            Técnicos
-                        </div>
-
-                        <a href="{{ route('technician-schedule.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.index') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-calendar-alt mr-3"></i>
-                            Calendario
-                        </a>
-
-                        <a href="{{ route('technician-schedule.my-agenda') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.my-agenda') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-clipboard-list mr-3"></i>
-                            Mi Agenda
-                        </a>
-
-                        <a href="{{ route('technician-schedule.team-capacity') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technician-schedule.team-capacity') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-chart-line mr-3"></i>
-                            Capacidad del Equipo
-                        </a>
-
-                        <a href="{{ route('tasks.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('tasks.index') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-tasks mr-3"></i>
-                            Tareas
-                        </a>
-
-                        <a href="{{ route('standard-tasks.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('standard-tasks.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-layer-group mr-3"></i>
-                            Tareas Predefinidas
-                        </a>
-
-                        <a href="{{ route('technicians.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('technicians.index') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-users-cog mr-3"></i>
-                            Gestión de Técnicos
-                        </a>
-
-                        <div class="px-4 py-2 font-semibold text-red-200 border-b border-red-500">
-                            <i class="fas fa-list-alt mr-3"></i>
-                            Catálogos
-                        </div>
-
-                        <a href="{{ route('requester-management.requesters.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('requester-management.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-users mr-3"></i>
-                            Solicitantes
-                        </a>
-
-                        <a href="{{ route('service-families.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('service-families.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-layer-group mr-3"></i>
-                            Familias
-                        </a>
-
-                        <a href="{{ route('services.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('services.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-cog mr-3"></i>
-                            Servicios
-                        </a>
-
-                        <a href="{{ route('sub-services.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('sub-services.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-cogs mr-3"></i>
-                            Sub-Servicios
-                        </a>
-
-                        <a href="{{ route('slas.index') }}"
-                            class="flex items-center px-6 py-2 hover:bg-red-600 {{ request()->routeIs('slas.*') ? 'bg-red-800' : '' }}">
-                            <i class="fas fa-clock mr-3"></i>
-                            SLAs
-                        </a>
+                <div id="mobileMenuPanel"
+                    class="mobile-menu md:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
+                    <div class="py-4 px-4 space-y-3">
+                        @foreach ($navSections as $section)
+                            @php
+                                $sectionActive = $isSectionActive($section['match'] ?? []);
+                            @endphp
+                            @if (($section['type'] ?? 'link') === 'link')
+                                <a href="{{ route($section['route']) }}"
+                                    class="mobile-nav-link {{ $sectionActive ? 'mobile-nav-link-active' : '' }}">
+                                    <i class="{{ $section['icon'] }}"></i>
+                                    <span>{{ $section['label'] }}</span>
+                                </a>
+                            @else
+                                <div class="bg-white/5 rounded-2xl p-2">
+                                    <button type="button" class="mobile-section-trigger"
+                                        data-mobile-section-trigger="{{ $section['key'] }}"
+                                        data-default-open="{{ $sectionActive ? 'true' : 'false' }}"
+                                        aria-expanded="{{ $sectionActive ? 'true' : 'false' }}">
+                                        <span class="flex items-center gap-3">
+                                            <i class="{{ $section['icon'] }}"></i>
+                                            {{ $section['label'] }}
+                                        </span>
+                                        <i class="fas fa-chevron-down text-xs transition-transform duration-200"></i>
+                                    </button>
+                                    <div class="mt-2 space-y-1 {{ $sectionActive ? '' : 'hidden' }}"
+                                        data-mobile-section-panel="{{ $section['key'] }}">
+                                        @foreach ($section['links'] as $link)
+                                            <a href="{{ route($link['route']) }}"
+                                                class="mobile-nav-link {{ $isSectionActive($link['match'] ?? []) ? 'mobile-nav-link-active' : '' }}">
+                                                <i class="{{ $link['icon'] }}"></i>
+                                                {{ $link['label'] }}
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+                        @endforeach
                     </div>
                 </div>
             @endauth
@@ -538,108 +606,195 @@
             });
         }, 5000);
 
-        // Toggle menú móvil
-        document.getElementById('mobileMenuButton').addEventListener('click', function() {
-            const mobileMenu = document.getElementById('mobileMenu');
-            mobileMenu.classList.toggle('hidden');
-        });
-
-        // Cerrar menú móvil al hacer clic fuera de él
-        document.addEventListener('click', function(event) {
-            const mobileMenu = document.getElementById('mobileMenu');
-            const mobileMenuButton = document.getElementById('mobileMenuButton');
-
-            if (mobileMenu && mobileMenuButton && !mobileMenu.contains(event.target) && !mobileMenuButton.contains(
-                    event.target)) {
-                mobileMenu.classList.add('hidden');
-            }
-        });
-
-        // Control mejorado del menú desplegable de catálogos
-        function setupDropdown(buttonId, menuId) {
-            const button = document.getElementById(buttonId);
-            const menu = document.getElementById(menuId);
-            let closeTimeout;
-
-            if (button && menu) {
-                // Abrir menú al hacer hover o clic
-                button.addEventListener('mouseenter', () => openMenu(menu));
-                menu.addEventListener('mouseenter', () => openMenu(menu));
-
-                // Cerrar menú con retraso al salir
-                button.addEventListener('mouseleave', function() {
-                    closeTimeout = setTimeout(() => {
-                        if (!menu.matches(':hover')) {
-                            closeMenu(menu);
-                        }
-                    }, 300);
-                });
-
-                menu.addEventListener('mouseleave', function() {
-                    closeTimeout = setTimeout(() => {
-                        if (!button.matches(':hover')) {
-                            closeMenu(menu);
-                        }
-                    }, 300);
-                });
-
-                // Cancelar cierre si el cursor vuelve al menú
-                menu.addEventListener('mouseenter', function() {
-                    clearTimeout(closeTimeout);
-                });
-
-                button.addEventListener('mouseenter', function() {
-                    clearTimeout(closeTimeout);
-                });
-
-                // Soporte para dispositivos táctiles
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    if (menu.classList.contains('show')) {
-                        closeMenu(menu);
-                    } else {
-                        openMenu(menu);
-                    }
-                });
-
-                // Cerrar menú al hacer clic fuera
-                document.addEventListener('click', function(event) {
-                    if (!button.contains(event.target) && !menu.contains(event.target)) {
-                        closeMenu(menu);
-                    }
-                });
-            }
-        }
-
-        function openMenu(menu) {
-            if (menu) {
-                menu.classList.add('show');
-            }
-        }
-
-        function closeMenu(menu) {
-            if (menu) {
-                menu.classList.remove('show');
-            }
-        }
-
-        // Inicializar todos los menús desplegables
-        setupDropdown('catalogButton', 'catalogMenu');
-        setupDropdown('requestsButton', 'requestsMenu');
-        setupDropdown('technicianButton', 'technicianMenu');
-
-        // Efectos especiales para el logo
         document.addEventListener('DOMContentLoaded', function() {
+            setupNavigationMenus();
+            setupLogoEffects();
+        });
+
+        function setupNavigationMenus() {
+            const dropdownWrappers = document.querySelectorAll('[data-dropdown]');
+            const mobileMenuToggle = document.querySelector('[data-mobile-menu-toggle]');
+            const mobileMenuPanel = document.getElementById('mobileMenuPanel');
+            const mobileSectionButtons = document.querySelectorAll('[data-mobile-section-trigger]');
+            const mobileSectionPanels = document.querySelectorAll('[data-mobile-section-panel]');
+            let desktopOpenKey = null;
+            let mobileMenuOpen = false;
+            let currentMobileSection = null;
+
+            function closeAllDesktopDropdowns() {
+                dropdownWrappers.forEach(wrapper => {
+                    const button = wrapper.querySelector('[data-dropdown-toggle]');
+                    const menu = wrapper.querySelector('[data-dropdown-menu]');
+                    if (button && menu) {
+                        menu.classList.remove('show');
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                });
+                desktopOpenKey = null;
+            }
+
+            function closeAllMobileSections() {
+                mobileSectionPanels.forEach(panel => panel.classList.add('hidden'));
+                mobileSectionButtons.forEach(button => button.setAttribute('aria-expanded', 'false'));
+                currentMobileSection = null;
+            }
+
+            function resetMobileSectionsToDefault() {
+                closeAllMobileSections();
+                mobileSectionButtons.forEach(button => {
+                    if (button.dataset.defaultOpen === 'true') {
+                        const key = button.dataset.mobileSectionTrigger;
+                        const panel = document.querySelector(
+                            `[data-mobile-section-panel=\"${key}\"]`
+                        );
+                        if (panel) {
+                            panel.classList.remove('hidden');
+                            button.setAttribute('aria-expanded', 'true');
+                            currentMobileSection = key;
+                        }
+                    }
+                });
+            }
+
+            function closeMobileMenu() {
+                if (mobileMenuPanel) {
+                    mobileMenuPanel.classList.add('hidden');
+                }
+                if (mobileMenuToggle) {
+                    mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                }
+                mobileMenuOpen = false;
+                resetMobileSectionsToDefault();
+            }
+
+            dropdownWrappers.forEach(wrapper => {
+                const button = wrapper.querySelector('[data-dropdown-toggle]');
+                const menu = wrapper.querySelector('[data-dropdown-menu]');
+                if (!button || !menu) {
+                    return;
+                }
+                const key = wrapper.dataset.dropdown;
+
+                const openMenu = () => {
+                    closeAllDesktopDropdowns();
+                    menu.classList.add('show');
+                    button.setAttribute('aria-expanded', 'true');
+                    desktopOpenKey = key;
+                };
+
+                const closeMenu = () => {
+                    menu.classList.remove('show');
+                    button.setAttribute('aria-expanded', 'false');
+                    if (desktopOpenKey === key) {
+                        desktopOpenKey = null;
+                    }
+                };
+
+                let hoverTimeout;
+
+                button.addEventListener('click', event => {
+                    event.preventDefault();
+                    if (desktopOpenKey === key) {
+                        closeMenu();
+                    } else {
+                        openMenu();
+                    }
+                });
+
+                button.addEventListener('mouseenter', () => {
+                    clearTimeout(hoverTimeout);
+                    openMenu();
+                });
+
+                button.addEventListener('mouseleave', () => {
+                    hoverTimeout = setTimeout(closeMenu, 200);
+                });
+
+                menu.addEventListener('mouseenter', () => {
+                    clearTimeout(hoverTimeout);
+                });
+
+                menu.addEventListener('mouseleave', () => {
+                    hoverTimeout = setTimeout(closeMenu, 200);
+                });
+            });
+
+            document.addEventListener('click', event => {
+                if (!event.target.closest('[data-dropdown]')) {
+                    closeAllDesktopDropdowns();
+                }
+            });
+
+            mobileSectionButtons.forEach(button => {
+                const key = button.dataset.mobileSectionTrigger;
+                const panel = document.querySelector(`[data-mobile-section-panel=\"${key}\"]`);
+                if (!panel) {
+                    return;
+                }
+
+                button.addEventListener('click', () => {
+                    const isOpen = currentMobileSection === key;
+                    if (isOpen) {
+                        panel.classList.add('hidden');
+                        button.setAttribute('aria-expanded', 'false');
+                        currentMobileSection = null;
+                    } else {
+                        closeAllMobileSections();
+                        panel.classList.remove('hidden');
+                        button.setAttribute('aria-expanded', 'true');
+                        currentMobileSection = key;
+                    }
+                });
+            });
+
+            resetMobileSectionsToDefault();
+
+            if (mobileMenuToggle && mobileMenuPanel) {
+                mobileMenuToggle.addEventListener('click', () => {
+                    mobileMenuOpen = !mobileMenuOpen;
+                    if (mobileMenuOpen) {
+                        mobileMenuPanel.classList.remove('hidden');
+                        mobileMenuToggle.setAttribute('aria-expanded', 'true');
+                        resetMobileSectionsToDefault();
+                    } else {
+                        closeMobileMenu();
+                    }
+                });
+
+                document.addEventListener('click', event => {
+                    if (
+                        mobileMenuOpen &&
+                        !mobileMenuPanel.contains(event.target) &&
+                        !mobileMenuToggle.contains(event.target)
+                    ) {
+                        closeMobileMenu();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    closeAllDesktopDropdowns();
+                    if (mobileMenuOpen) {
+                        closeMobileMenu();
+                    }
+                }
+            });
+        }
+
+        function setupLogoEffects() {
             const logoLink = document.getElementById('logoLink');
             const logoLarge = document.getElementById('logoLarge');
             const logoSmall = document.getElementById('logoSmall');
 
-            // Efecto de partículas al hacer clic en el logo
+            if (!logoLink) {
+                return;
+            }
+
             logoLink.addEventListener('click', function(e) {
                 createParticles(e, logoLink);
             });
 
-            // Efecto de vibración sutil al hacer hover
             logoLink.addEventListener('mouseenter', function() {
                 this.style.transform = 'translateY(-2px)';
             });
@@ -648,12 +803,11 @@
                 this.style.transform = 'translateY(0)';
             });
 
-            // Efecto de carga inicial
             setTimeout(() => {
                 if (logoLarge) logoLarge.style.animation = 'none';
                 if (logoSmall) logoSmall.style.animation = 'none';
             }, 3000);
-        });
+        }
 
         // Función para crear partículas (efecto opcional)
         function createParticles(event, element) {
