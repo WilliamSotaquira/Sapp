@@ -44,58 +44,7 @@
 
         </div>
 
-        <!-- Fila 2: Filtros y Búsqueda -->
-        <div class="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
-            <div class="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 class="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
-                    <i class="fas fa-filter text-blue-500 mr-2 text-xs sm:text-sm"></i>
-                    Filtros
-                </h3>
-            </div>
-
-            <form id="filtersForm" method="GET" action="{{ route('service-requests.index') }}">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <!-- Filtro de Estado -->
-                    <div>
-                        <label for="statusFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
-                            <i class="fas fa-tag mr-1 sm:mr-2"></i>Estado
-                        </label>
-                        <select id="statusFilter" name="status" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Todos los estados</option>
-                            <option value="PENDIENTE" {{ request('status') == 'PENDIENTE' ? 'selected' : '' }}>Pendiente</option>
-                            <option value="ACEPTADA" {{ request('status') == 'ACEPTADA' ? 'selected' : '' }}>Aceptada</option>
-                            <option value="EN_PROCESO" {{ request('status') == 'EN_PROCESO' ? 'selected' : '' }}>En Proceso</option>
-                            <option value="PAUSADA" {{ request('status') == 'PAUSADA' ? 'selected' : '' }}>Pausada</option>
-                            <option value="RESUELTA" {{ request('status') == 'RESUELTA' ? 'selected' : '' }}>Resuelta</option>
-                            <option value="CERRADA" {{ request('status') == 'CERRADA' ? 'selected' : '' }}>Cerrada</option>
-                            <option value="CANCELADA" {{ request('status') == 'CANCELADA' ? 'selected' : '' }}>Cancelada</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro de Criticidad -->
-                    <div>
-                        <label for="criticalityFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
-                            <i class="fas fa-flag mr-1 sm:mr-2"></i>Prioridad
-                        </label>
-                        <select id="criticalityFilter" name="criticality" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Todas las prioridades</option>
-                            <option value="BAJA" {{ request('criticality') == 'BAJA' ? 'selected' : '' }}>Baja</option>
-                            <option value="MEDIA" {{ request('criticality') == 'MEDIA' ? 'selected' : '' }}>Media</option>
-                            <option value="ALTA" {{ request('criticality') == 'ALTA' ? 'selected' : '' }}>Alta</option>
-                            <option value="CRITICA" {{ request('criticality') == 'CRITICA' ? 'selected' : '' }}>Crítica</option>
-                        </select>
-                    </div>
-
-                    <!-- Filtro de búsqueda por texto -->
-                    <div class="col-span-1 lg:col-span-2">
-                        <label for="searchFilter" class="block text-xs font-medium text-gray-700 mb-1.5 sm:mb-2">
-                            <i class="fas fa-search mr-1 sm:mr-2"></i>Buscar solicitud
-                        </label>
-                        <input type="text" id="searchFilter" name="search" value="{{ request('search') }}" placeholder="Buscar por ticket, título o descripción..." class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                </div>
-            </form>
-        </div>
+        <!-- Filtros movidos dentro de la tabla -->
 
         <!-- Fila 3: Lista de Solicitudes -->
         <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" />
@@ -113,94 +62,319 @@
 (function() {
     var resultsContainer = document.getElementById('resultsContainer');
     var timeout = null;
+    var isUpdating = false;
+    var STORAGE_KEY = 'sr_filters_v1';
+    var suggestionIndex = -1;
+
+    function getFilterElements() {
+        return {
+            search: document.getElementById('searchFilter'),
+            status: document.getElementById('statusFilter'),
+            criticality: document.getElementById('criticalityFilter'),
+            requester: document.getElementById('requesterFilter'),
+            startDate: document.getElementById('startDateFilter'),
+            endDate: document.getElementById('endDateFilter'),
+            suggestions: document.getElementById('requesterSuggestions'),
+            badge: document.getElementById('filtersActiveBadge'),
+            spinner: document.getElementById('loadingSpinner')
+        };
+    }
+
+    function countActiveFilters(el) {
+        var c = 0;
+        if(el.search && el.search.value.trim()) c++;
+        if(el.status && el.status.value) c++;
+        if(el.criticality && el.criticality.value) c++;
+        if(el.requester && el.requester.value.trim()) c++;
+        if(el.startDate && el.startDate.value) c++;
+        if(el.endDate && el.endDate.value) c++;
+        return c;
+    }
+
+    function updateBadge() {
+        var el = getFilterElements();
+        var active = countActiveFilters(el);
+        if(!el.badge) return;
+        if(active > 0) {
+            el.badge.textContent = active;
+            el.badge.classList.remove('hidden');
+        } else {
+            el.badge.classList.add('hidden');
+        }
+    }
+
+    function persistState() {
+        var el = getFilterElements();
+        var state = {
+            search: el.search ? el.search.value : '',
+            status: el.status ? el.status.value : '',
+            criticality: el.criticality ? el.criticality.value : '',
+            requester: el.requester ? el.requester.value : '',
+            start_date: el.startDate ? el.startDate.value : '',
+            end_date: el.endDate ? el.endDate.value : ''
+        };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    }
+
+    function restoreState() {
+        var el = getFilterElements();
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if(!raw) return;
+            var state = JSON.parse(raw);
+            if(el.search && !el.search.value) el.search.value = state.search || '';
+            if(el.status && !el.status.value) el.status.value = state.status || '';
+            if(el.criticality && !el.criticality.value) el.criticality.value = state.criticality || '';
+            if(el.requester && !el.requester.value) el.requester.value = state.requester || '';
+            if(el.startDate && !el.startDate.value) el.startDate.value = state.start_date || '';
+            if(el.endDate && !el.endDate.value) el.endDate.value = state.end_date || '';
+            updateBadge();
+        } catch(e) {}
+    }
+
+    // Evitar envío nativo del formulario
+    document.addEventListener('submit', function(e){
+        if(e.target && (e.target.id === 'filtersForm' || e.target.id === 'inlineFiltersForm')) {
+            e.preventDefault();
+            e.stopPropagation();
+            updateResults();
+        }
+    });
+
+    function buildParams(el){
+        var params = new URLSearchParams();
+        if (el.search && el.search.value.trim()) params.append('search', el.search.value.trim());
+        if (el.status && el.status.value) params.append('status', el.status.value);
+        if (el.criticality && el.criticality.value) params.append('criticality', el.criticality.value);
+        if (el.requester && el.requester.value.trim()) params.append('requester', el.requester.value.trim());
+        if (el.startDate && el.startDate.value) params.append('start_date', el.startDate.value);
+        if (el.endDate && el.endDate.value) params.append('end_date', el.endDate.value);
+        return params;
+    }
 
     function updateResults() {
-        var searchFilter = document.getElementById('searchFilter');
-        var statusFilter = document.getElementById('statusFilter');
-        var criticalityFilter = document.getElementById('criticalityFilter');
-
-        var params = new URLSearchParams();
-        if (searchFilter.value.trim()) params.append('search', searchFilter.value.trim());
-        if (statusFilter.value) params.append('status', statusFilter.value);
-        if (criticalityFilter.value) params.append('criticality', criticalityFilter.value);
-
-        searchFilter.style.borderColor = '#3b82f6';
-
-        fetch('{{ route("service-requests.index") }}?' + params.toString(), {
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
-        })
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-            resultsContainer.innerHTML = html;
-            var newSearchFilter = document.getElementById('searchFilter');
-            if (newSearchFilter) {
-                newSearchFilter.focus();
-                newSearchFilter.style.borderColor = '#d1d5db';
-            }
-        });
+        if (isUpdating) return;
+        isUpdating = true;
+        var el = getFilterElements();
+        if(el.spinner){ el.spinner.classList.remove('hidden'); el.spinner.classList.add('flex'); }
+        var params = buildParams(el);
+        if(el.search) el.search.style.borderColor = '#3b82f6';
+        fetch('{{ route("service-requests.index") }}?' + params.toString(), { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(function(r){ return r.text(); })
+            .then(function(html){
+                resultsContainer.innerHTML = html;
+                var newEls = getFilterElements();
+                if (newEls.search) {
+                    newEls.search.focus();
+                    newEls.search.style.borderColor = '#d1d5db';
+                }
+                restoreState();
+                updateBadge();
+            })
+            .finally(function(){
+                persistState();
+                var els = getFilterElements();
+                if(els.spinner){ els.spinner.classList.add('hidden'); els.spinner.classList.remove('flex'); }
+                isUpdating = false;
+            });
     }
 
     function clearFilters() {
-        fetch('{{ route("service-requests.index") }}', {
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
-        })
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-            resultsContainer.innerHTML = html;
-        });
+        try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+        fetch('{{ route("service-requests.index") }}', { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(r=>r.text())
+            .then(html => {
+                resultsContainer.innerHTML = html;
+                suggestionIndex = -1;
+                restoreState();
+                updateBadge();
+            });
     }
 
-    // Usar delegación de eventos
-    resultsContainer.addEventListener('input', function(e) {
-        if (e.target.id === 'searchFilter') {
+    // Delegación de eventos
+    resultsContainer.addEventListener('input', function(e){
+        if(e.target.id === 'searchFilter') {
             clearTimeout(timeout);
-            timeout = setTimeout(updateResults, 1200);
+            timeout = setTimeout(updateResults, 800);
         }
     });
 
-    resultsContainer.addEventListener('keydown', function(e) {
-        if (e.target.id === 'searchFilter' && e.keyCode === 13) {
-            e.preventDefault();
-            e.stopPropagation();
-            clearTimeout(timeout);
+    resultsContainer.addEventListener('keydown', function(e){
+        if(e.target.id === 'searchFilter' && e.key === 'Enter') {
+            e.preventDefault(); e.stopPropagation(); clearTimeout(timeout); updateResults();
+        }
+        if(['requesterFilter','startDateFilter','endDateFilter'].includes(e.target.id) && e.key === 'Enter') {
+            e.preventDefault(); e.stopPropagation(); updateResults();
+        }
+        // Navegación sugerencias
+        var els = getFilterElements();
+        if(e.target.id === 'requesterFilter' && els.suggestions && !els.suggestions.classList.contains('hidden')) {
+            var items = Array.from(els.suggestions.querySelectorAll('li'));
+            if(items.length === 0) return;
+            if(e.key === 'ArrowDown') {
+                e.preventDefault(); suggestionIndex = (suggestionIndex + 1) % items.length; focusSuggestion(items);
+            } else if(e.key === 'ArrowUp') {
+                e.preventDefault(); suggestionIndex = (suggestionIndex - 1 + items.length) % items.length; focusSuggestion(items);
+            } else if(e.key === 'Escape') {
+                els.suggestions.classList.add('hidden'); e.target.setAttribute('aria-expanded','false'); suggestionIndex = -1;
+            } else if(e.key === 'Enter' && suggestionIndex >= 0) {
+                e.preventDefault(); items[suggestionIndex].click();
+            }
+        } else if(e.target.parentElement && e.target.parentElement.id === 'requesterSuggestions') {
+            var items2 = Array.from(e.target.parentElement.querySelectorAll('li'));
+            if(items2.length === 0) return;
+            if(e.key === 'ArrowDown') { e.preventDefault(); suggestionIndex = (suggestionIndex + 1) % items2.length; focusSuggestion(items2); }
+            else if(e.key === 'ArrowUp') { e.preventDefault(); suggestionIndex = (suggestionIndex - 1 + items2.length) % items2.length; focusSuggestion(items2); }
+            else if(e.key === 'Enter') { e.preventDefault(); e.target.click(); }
+            else if(e.key === 'Escape') { var rf = document.getElementById('requesterFilter'); e.target.parentElement.classList.add('hidden'); rf && rf.setAttribute('aria-expanded','false'); suggestionIndex = -1; rf && rf.focus(); }
+        }
+    });
+
+    function focusSuggestion(items){
+        items.forEach((it,i)=>{ it.setAttribute('aria-selected', i===suggestionIndex?'true':'false'); if(i===suggestionIndex) it.focus(); });
+    }
+
+    resultsContainer.addEventListener('change', function(e){
+        if(['statusFilter','criticalityFilter','startDateFilter','endDateFilter'].includes(e.target.id)) {
             updateResults();
         }
     });
 
-    resultsContainer.addEventListener('change', function(e) {
-        if (e.target.id === 'statusFilter' || e.target.id === 'criticalityFilter') {
-            updateResults();
+    resultsContainer.addEventListener('input', function(e){
+        if(e.target.id === 'requesterFilter') {
+            const rf = document.getElementById('requesterFilter');
+            const rs = document.getElementById('requesterSuggestions');
+            const value = rf.value.trim();
+            clearTimeout(timeout);
+            if(value.length < 2) {
+                if(rs) rs.classList.add('hidden');
+                rf.setAttribute('aria-expanded','false');
+                suggestionIndex = -1;
+                timeout = setTimeout(updateResults, 500);
+                return;
+            }
+            timeout = setTimeout(function(){
+                fetch("{{ route('service-requests.suggest-requesters') }}?term=" + encodeURIComponent(value), { headers:{'X-Requested-With':'XMLHttpRequest'} })
+                    .then(r=>r.json())
+                    .then(list => {
+                        if(!rs) return;
+                        rs.innerHTML = '';
+                        if(list.length === 0) {
+                            rs.classList.add('hidden'); rf.setAttribute('aria-expanded','false'); suggestionIndex = -1; return;
+                        }
+                        list.forEach(item => {
+                            const li = document.createElement('li');
+                            li.textContent = item.display;
+                            li.tabIndex = -1;
+                            li.className = 'px-2.5 py-1.5 hover:bg-blue-50 cursor-pointer';
+                            li.setAttribute('role','option');
+                            li.dataset.value = item.email || item.name;
+                            li.addEventListener('click', () => {
+                                rf.value = item.email || item.name;
+                                rs.classList.add('hidden');
+                                rf.setAttribute('aria-expanded','false');
+                                updateResults();
+                            });
+                            rs.appendChild(li);
+                        });
+                        rs.classList.remove('hidden');
+                        rf.setAttribute('aria-expanded','true');
+                        suggestionIndex = -1;
+                    })
+                    .catch(()=>{});
+            }, 350);
+            setTimeout(updateResults, 900);
         }
     });
 
-    resultsContainer.addEventListener('click', function(e) {
-        if (e.target.id === 'clearFiltersBtn' || e.target.closest('#clearFiltersBtn')) {
-            e.preventDefault();
-            clearFilters();
+    document.addEventListener('click', function(e){
+        var els = getFilterElements();
+        if(!els.suggestions) return;
+        if(!els.suggestions.contains(e.target) && e.target !== els.requester){
+            els.suggestions.classList.add('hidden');
+            els.requester && els.requester.setAttribute('aria-expanded','false');
+            suggestionIndex = -1;
+        }
+        // Cerrar menú Más opciones si clic fuera
+        if(!e.target.closest('.sr-more-btn') && !e.target.closest('.sr-more-menu')) {
+            resultsContainer.querySelectorAll('.sr-more-menu:not(.hidden)').forEach(function(m){
+                m.classList.add('hidden');
+                var btn = m.parentElement.querySelector('.sr-more-btn');
+                if(btn) btn.setAttribute('aria-expanded','false');
+            });
         }
     });
+
+    resultsContainer.addEventListener('click', function(e){
+        if(e.target.id === 'clearFiltersBtn' || e.target.closest('#clearFiltersBtn')) {
+            e.preventDefault(); clearFilters();
+        }
+        // Toggle menú Más opciones
+        var moreBtn = e.target.closest('.sr-more-btn');
+        if(moreBtn) {
+            e.preventDefault();
+            var wrapper = moreBtn.parentElement; // relative div
+            var menu = wrapper.querySelector('.sr-more-menu');
+            if(!menu) return;
+            // Cerrar otros menús
+            resultsContainer.querySelectorAll('.sr-more-menu:not(.hidden)').forEach(function(m){
+                if(m !== menu) {
+                    m.classList.add('hidden');
+                    var btn = m.parentElement.querySelector('.sr-more-btn');
+                    if(btn) btn.setAttribute('aria-expanded','false');
+                }
+            });
+            var isHidden = menu.classList.contains('hidden');
+            if(isHidden) {
+                menu.classList.remove('hidden');
+                moreBtn.setAttribute('aria-expanded','true');
+            } else {
+                menu.classList.add('hidden');
+                moreBtn.setAttribute('aria-expanded','false');
+            }
+        }
+    });
+
+    // ESC global para cerrar menús Más opciones
+    document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape') {
+            resultsContainer.querySelectorAll('.sr-more-menu:not(.hidden)').forEach(function(m){
+                m.classList.add('hidden');
+                var btn = m.parentElement.querySelector('.sr-more-btn');
+                if(btn) btn.setAttribute('aria-expanded','false');
+                if(btn) btn.focus();
+            });
+        }
+    });
+
+    function initialLoad(){ restoreState(); updateBadge(); }
+    initialLoad();
 })();
 </script>
 @endsection
 
-<style>
-    .bg-gradient-to-br {
-        background: linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to));
-    }
+@push('styles')
+<style type="text/tailwindcss">
+    @layer utilities {
+        .bg-gradient-to-br {
+            background: linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to));
+        }
 
-    .backdrop-blur-sm {
-        backdrop-filter: blur(4px);
-    }
+        .backdrop-blur-sm {
+            backdrop-filter: blur(4px);
+        }
 
-    .transition {
-        transition: all 0.2s ease-in-out;
-    }
+        .transition {
+            transition: all 0.2s ease-in-out;
+        }
 
-    .hover\:bg-gray-50:hover {
-        background-color: rgba(249, 250, 251, 0.8);
-    }
+        .hover\:bg-gray-50:hover {
+            background-color: rgba(249, 250, 251, 0.8);
+        }
 
-    .font-mono {
-        font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+        .font-mono {
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+        }
     }
 </style>
+@endpush

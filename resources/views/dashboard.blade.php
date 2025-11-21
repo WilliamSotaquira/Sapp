@@ -3,7 +3,8 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" role="main">
+    <a href="#recent-requests-heading" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-blue-600 text-white px-3 py-1 rounded">Saltar a solicitudes recientes</a>
     <!-- Encabezado con breadcrumb y título -->
     <div class="mb-8">
         <nav class="flex mb-4" aria-label="Breadcrumb">
@@ -25,56 +26,60 @@
         </div>
     </div>
 
-    <!-- Estadísticas Principales con animación de carga -->
+    <!-- Estadísticas Principales (ideal pasar $stats desde controlador y cachear resultados) -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         @php
-            $stats = [
-                [
-                    'title' => 'Familias de Servicio',
-                    'count' => \App\Models\ServiceFamily::count(),
-                    'color' => 'blue',
-                    'icon' => 'fas fa-layer-group',
-                    'route' => route('service-families.index')
-                ],
-                [
-                    'title' => 'Servicios',
-                    'count' => \App\Models\Service::count(),
-                    'color' => 'green',
-                    'icon' => 'fas fa-cogs',
-                    'route' => route('services.index')
-                ],
-                [
-                    'title' => 'Sub-Servicios',
-                    'count' => \App\Models\SubService::count(),
-                    'color' => 'purple',
-                    'icon' => 'fas fa-list-alt',
-                    'route' => route('sub-services.index')
-                ],
-                [
-                    'title' => 'Total Solicitudes',
-                    'count' => \App\Models\ServiceRequest::count(),
-                    'color' => 'orange',
-                    'icon' => 'fas fa-tasks',
-                    'route' => route('service-requests.index')
-                ]
-            ];
+            // Si no se pasa $stats desde el controlador, se define aquí (fallback).
+            if(!isset($stats)) {
+                $stats = [
+                    [
+                        'title' => 'Familias de Servicio',
+                        'count' => \App\Models\ServiceFamily::count(),
+                        'color' => 'blue',
+                        'icon' => 'fas fa-layer-group',
+                        'route' => route('service-families.index')
+                    ],
+                    [
+                        'title' => 'Servicios',
+                        'count' => \App\Models\Service::count(),
+                        'color' => 'green',
+                        'icon' => 'fas fa-cogs',
+                        'route' => route('services.index')
+                    ],
+                    [
+                        'title' => 'Sub-Servicios',
+                        'count' => \App\Models\SubService::count(),
+                        'color' => 'purple',
+                        'icon' => 'fas fa-list-alt',
+                        'route' => route('sub-services.index')
+                    ],
+                    [
+                        'title' => 'Total Solicitudes',
+                        'count' => \App\Models\ServiceRequest::count(),
+                        'color' => 'orange',
+                        'icon' => 'fas fa-tasks',
+                        'route' => route('service-requests.index')
+                    ]
+                ];
+            }
         @endphp
 
         @foreach($stats as $stat)
-        <a href="{{ $stat['route'] }}" class="block transform transition-transform hover:scale-105">
-            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-{{ $stat['color'] }}-500 h-full">
+        <a href="{{ $stat['route'] }}" class="block transform transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-{{ $stat['color'] }}-500 rounded-lg" aria-label="Ir a {{ $stat['title'] }}">
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-{{ $stat['color'] }}-500 h-full relative">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         <div class="p-3 bg-{{ $stat['color'] }}-100 rounded-lg">
-                            <i class="{{ $stat['icon'] }} text-{{ $stat['color'] }}-600 text-xl"></i>
+                            <i class="{{ $stat['icon'] }} text-{{ $stat['color'] }}-600 text-xl" aria-hidden="true"></i>
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-600">{{ $stat['title'] }}</p>
-                            <p class="text-2xl font-semibold text-gray-900">{{ $stat['count'] }}</p>
+                            <p class="text-2xl font-semibold text-gray-900 count-up" data-count="{{ $stat['count'] }}">{{ $stat['count'] }}</p>
                         </div>
                     </div>
-                    <i class="fas fa-chevron-right text-{{ $stat['color'] }}-400 text-sm"></i>
+                    <i class="fas fa-chevron-right text-{{ $stat['color'] }}-400 text-sm" aria-hidden="true"></i>
                 </div>
+                <span class="absolute top-2 right-2 text-xs text-gray-400" aria-hidden="true">→</span>
             </div>
         </a>
         @endforeach
@@ -137,21 +142,24 @@
             </div>
         </div>
 
-        <!-- Resumen de Solicitudes por Estado con gráfico visual -->
+        <!-- Resumen de Solicitudes por Estado (pasar $statuses y $totalRequests desde controlador para optimizar) -->
         <div class="bg-white rounded-lg shadow p-4 sm:p-6">
             <h2 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-800">Resumen de Solicitudes</h2>
 
             <!-- Mini gráfico de barras -->
             @php
-                $statuses = [
-                    'PENDIENTE' => ['color' => 'yellow', 'icon' => 'fas fa-clock', 'count' => \App\Models\ServiceRequest::where('status', 'PENDIENTE')->count()],
-                    'ACEPTADA' => ['color' => 'blue', 'icon' => 'fas fa-check-circle', 'count' => \App\Models\ServiceRequest::where('status', 'ACEPTADA')->count()],
-                    'EN_PROCESO' => ['color' => 'purple', 'icon' => 'fas fa-play-circle', 'count' => \App\Models\ServiceRequest::where('status', 'EN_PROCESO')->count()],
-                    'PAUSADA' => ['color' => 'orange', 'icon' => 'fas fa-pause-circle', 'count' => \App\Models\ServiceRequest::where('status', 'PAUSADA')->count()],
-                    'RESUELTA' => ['color' => 'green', 'icon' => 'fas fa-check-double', 'count' => \App\Models\ServiceRequest::where('status', 'RESUELTA')->count()],
-                ];
-
-                $totalRequests = \App\Models\ServiceRequest::count();
+                if(!isset($statuses)) {
+                    $statuses = [
+                        'PENDIENTE' => ['color' => 'yellow', 'icon' => 'fas fa-clock', 'count' => \App\Models\ServiceRequest::where('status', 'PENDIENTE')->count()],
+                        'ACEPTADA' => ['color' => 'blue', 'icon' => 'fas fa-check-circle', 'count' => \App\Models\ServiceRequest::where('status', 'ACEPTADA')->count()],
+                        'EN_PROCESO' => ['color' => 'purple', 'icon' => 'fas fa-play-circle', 'count' => \App\Models\ServiceRequest::where('status', 'EN_PROCESO')->count()],
+                        'PAUSADA' => ['color' => 'orange', 'icon' => 'fas fa-pause-circle', 'count' => \App\Models\ServiceRequest::where('status', 'PAUSADA')->count()],
+                        'RESUELTA' => ['color' => 'green', 'icon' => 'fas fa-check-double', 'count' => \App\Models\ServiceRequest::where('status', 'RESUELTA')->count()],
+                    ];
+                }
+                if(!isset($totalRequests)) {
+                    $totalRequests = \App\Models\ServiceRequest::count();
+                }
             @endphp
 
             @if($totalRequests > 0)
@@ -204,58 +212,55 @@
     </div>
 
     <!-- Solicitudes Recientes con filtros y búsqueda -->
-    <div class="bg-white rounded-lg shadow">
+    <div class="bg-white rounded-lg shadow" aria-labelledby="recent-requests-heading">
         <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-800 mb-2 sm:mb-0">Solicitudes Recientes</h2>
-            <div class="flex space-x-2">
+            <h2 id="recent-requests-heading" class="text-xl font-semibold text-gray-800 mb-2 sm:mb-0">Solicitudes Recientes</h2>
+            <div class="flex space-x-2 items-center" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
                 <div class="relative">
                     <input
                         type="text"
                         id="search-requests"
                         placeholder="Buscar solicitud..."
+                        aria-label="Buscar solicitud por ticket o título"
                         class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
                     >
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
-                <select id="filter-status" class="border border-gray-300 rounded-lg text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 rounded-lg text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">Todos los estados</option>
                     @foreach(array_keys($statuses) as $status)
                         <option value="{{ $status }}">{{ $status }}</option>
                     @endforeach
                 </select>
+                <button id="clear-filters" type="button" class="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Limpiar filtros">Limpiar</button>
+                <button id="toggle-density" type="button" class="border border-gray-300 rounded-lg text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Alternar densidad de filas">Densidad</button>
             </div>
         </div>
-
         @php
-            $recentRequests = \App\Models\ServiceRequest::with(['subService.service.family', 'requester'])
-                ->latest()
-                ->take(8)
-                ->get();
+            if(!isset($recentRequests)) {
+                $recentRequests = \App\Models\ServiceRequest::with(['subService.service.family', 'requester'])
+                    ->latest()
+                    ->take(8)
+                    ->get();
+            }
         @endphp
 
         @if($recentRequests->count() > 0)
             <div class="overflow-x-auto">
-                <table class="min-w-full" id="recent-requests-table">
+                <table class="min-w-full" id="recent-requests-table" role="table" aria-describedby="recent-requests-caption">
+                    <caption id="recent-requests-caption" class="sr-only">Tabla con las solicitudes recientes y su estado.</caption>
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="ticket">
-                                Ticket <i class="fas fa-sort ml-1 text-gray-400"></i>
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="title">
-                                Título <i class="fas fa-sort ml-1 text-gray-400"></i>
-                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="ticket" aria-sort="none" tabindex="0">Ticket <i class="fas fa-sort ml-1 text-gray-400"></i></th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="title" aria-sort="none" tabindex="0">Título <i class="fas fa-sort ml-1 text-gray-400"></i></th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Servicio</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status">
-                                Estado <i class="fas fa-sort ml-1 text-gray-400"></i>
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="date">
-                                Fecha <i class="fas fa-sort ml-1 text-gray-400"></i>
-                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status" aria-sort="none" tabindex="0">Estado <i class="fas fa-sort ml-1 text-gray-400"></i></th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="date" aria-sort="none" tabindex="0">Fecha <i class="fas fa-sort ml-1 text-gray-400"></i></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($recentRequests as $request)
-                            <tr class="hover:bg-gray-50 request-row" data-status="{{ $request->status }}" data-ticket="{{ $request->ticket_number }}" data-title="{{ strtolower($request->title) }}">
+                            <tr class="hover:bg-gray-50 request-row" data-status="{{ $request->status }}" data-ticket="{{ $request->ticket_number }}" data-title="{{ strtolower($request->title) }}" data-date="{{ $request->created_at->getTimestamp() }}" tabindex="0" role="row">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <a href="{{ route('service-requests.show', $request) }}" class="font-medium text-blue-600 hover:text-blue-900 flex items-center">
                                         {{ $request->ticket_number }}
@@ -315,8 +320,8 @@
             </div>
 
             <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                <div class="text-sm text-gray-500">
-                    Mostrando <span class="font-medium">{{ $recentRequests->count() }}</span> de <span class="font-medium">{{ \App\Models\ServiceRequest::count() }}</span> solicitudes
+                <div class="text-sm text-gray-500" aria-live="polite">
+                    Mostrando <span class="font-medium">{{ $recentRequests->count() }}</span> de <span class="font-medium">{{ $totalRequests }}</span> solicitudes
                 </div>
                 <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-800 font-medium flex items-center">
                     Ver todas las solicitudes
@@ -336,47 +341,145 @@
     </div>
 </div>
 
-<!-- Script para funcionalidades de UX -->
+<!-- Script para funcionalidades de UX mejoradas (filtrado + ordenamiento accesible + animaciones + persistencia) -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Filtrado de solicitudes
     const searchInput = document.getElementById('search-requests');
     const statusFilter = document.getElementById('filter-status');
-    const requestRows = document.querySelectorAll('.request-row');
+    const table = document.getElementById('recent-requests-table');
+    const tbody = table.querySelector('tbody');
+    let rows = Array.from(tbody.querySelectorAll('.request-row'));
+    const clearBtn = document.getElementById('clear-filters');
+    const densityBtn = document.getElementById('toggle-density');
+    const STORAGE_KEY = 'dashboard_filters_v1';
+    const densityClass = 'dense-rows';
+
+    // Restaurar filtros
+    try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if(stored) {
+            if(stored.search) searchInput.value = stored.search;
+            if(stored.status) statusFilter.value = stored.status;
+            if(stored.density) document.getElementById('recent-requests-table').classList.add(densityClass);
+        }
+    } catch(e) {}
 
     function filterRequests() {
         const searchTerm = searchInput.value.toLowerCase();
         const statusValue = statusFilter.value;
-
-        requestRows.forEach(row => {
-            const ticket = row.getAttribute('data-ticket');
-            const title = row.getAttribute('data-title');
-            const status = row.getAttribute('data-status');
-
+        rows.forEach(row => {
+            const ticket = row.dataset.ticket.toLowerCase();
+            const title = row.dataset.title;
+            const status = row.dataset.status;
             const matchesSearch = ticket.includes(searchTerm) || title.includes(searchTerm);
             const matchesStatus = statusValue === '' || status === statusValue;
-
-            if (matchesSearch && matchesStatus) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
         });
+        persistState();
     }
 
     searchInput.addEventListener('input', filterRequests);
     statusFilter.addEventListener('change', filterRequests);
 
-    // Ordenamiento de columnas (simplificado para demostración)
-    const sortableHeaders = document.querySelectorAll('.sortable');
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        statusFilter.value = '';
+        filterRequests();
+    });
 
-    sortableHeaders.forEach(header => {
-        header.addEventListener('click', function() {
-            const sortBy = this.getAttribute('data-sort');
-            alert(`Funcionalidad de ordenamiento por ${sortBy} - Esta funcionalidad requeriría implementación completa con JavaScript`);
-            // Aquí iría la lógica completa de ordenamiento de la tabla
+    densityBtn.addEventListener('click', () => {
+        table.classList.toggle(densityClass);
+        persistState();
+    });
+
+    const headers = table.querySelectorAll('.sortable');
+    let currentSort = { key: null, direction: 'asc' };
+
+    function sortRows(key) {
+        const direction = (currentSort.key === key && currentSort.direction === 'asc') ? 'desc' : 'asc';
+        currentSort = { key, direction };
+
+        headers.forEach(h => h.setAttribute('aria-sort', h.dataset.sort === key ? direction === 'asc' ? 'ascending' : 'descending' : 'none'));
+
+        const multiplier = direction === 'asc' ? 1 : -1;
+        rows.sort((a, b) => {
+            let aVal, bVal;
+            switch(key) {
+                case 'ticket':
+                    aVal = a.dataset.ticket.toLowerCase();
+                    bVal = b.dataset.ticket.toLowerCase();
+                    break;
+                case 'title':
+                    aVal = a.dataset.title;
+                    bVal = b.dataset.title;
+                    break;
+                case 'status':
+                    aVal = a.dataset.status;
+                    bVal = b.dataset.status;
+                    break;
+                case 'date':
+                    aVal = parseInt(a.dataset.date, 10);
+                    bVal = parseInt(b.dataset.date, 10);
+                    break;
+                default:
+                    aVal = '';
+                    bVal = '';
+            }
+            if (aVal < bVal) return -1 * multiplier;
+            if (aVal > bVal) return 1 * multiplier;
+            return 0;
+        });
+        // Reinsertar manteniendo sólo filas visibles (para no romper filtro)
+        const fragment = document.createDocumentFragment();
+        rows.forEach(r => fragment.appendChild(r));
+        tbody.appendChild(fragment);
+    }
+
+    headers.forEach(header => {
+        header.addEventListener('click', () => sortRows(header.dataset.sort));
+        header.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                sortRows(header.dataset.sort);
+            }
         });
     });
+
+    // Animación de contadores (IntersectionObserver)
+    const counters = document.querySelectorAll('.count-up');
+    const animateCounter = el => {
+        const target = parseInt(el.dataset.count, 10);
+        const duration = 800;
+        const start = performance.now();
+        const initial = 0;
+        function step(ts) {
+            const progress = Math.min((ts - start) / duration, 1);
+            const value = Math.floor(progress * (target - initial) + initial);
+            el.textContent = value.toLocaleString('es-ES');
+            if(progress < 1) requestAnimationFrame(step); else el.textContent = target.toLocaleString('es-ES');
+        }
+        requestAnimationFrame(step);
+    };
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if(entry.isIntersecting) {
+                animateCounter(entry.target);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.4 });
+    counters.forEach(c => observer.observe(c));
+
+    function persistState() {
+        const state = {
+            search: searchInput.value,
+            status: statusFilter.value,
+            density: table.classList.contains(densityClass)
+        };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    }
+    // Aplicar filtrado inicial (por si restauró valores)
+    filterRequests();
 });
 </script>
 
@@ -396,5 +499,9 @@ document.addEventListener('DOMContentLoaded', function() {
 .bg-purple-50 { background-color: #faf5ff; }
 .bg-orange-50 { background-color: #fff7ed; }
 .bg-green-50 { background-color: #f0fdf4; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0; }
+.sortable:focus { outline:2px solid #3b82f6; outline-offset:2px; }
+.dense-rows tbody tr td { padding-top:0.35rem; padding-bottom:0.35rem; }
+.request-row:focus { background-color:#f0f9ff; box-shadow:inset 0 0 0 2px #3b82f6; }
 </style>
 @endsection

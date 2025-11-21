@@ -19,3 +19,6 @@ Route::post('/service-requests/{service_request}/evidences', [ServiceRequestEvid
 
 // Ruta para cerrar solicitud por vencimiento
 Route::post('/service-requests/{service_request}/close-vencimiento', [ServiceRequestController::class, 'closeByVencimiento'])->name('service-requests.close-vencimiento');
+
+// Sugerencias de solicitantes (autocompletado filtros)
+Route::get('/service-requests/suggest-requesters', [ServiceRequestController::class, 'suggestRequesters'])->name('service-requests.suggest-requesters');
