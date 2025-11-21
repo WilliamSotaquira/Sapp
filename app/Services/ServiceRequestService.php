@@ -48,6 +48,36 @@ class ServiceRequestService
             $query->where('criticality_level', $filters['criticality']);
         }
 
+        // Filtro por solicitante (nombre o email parcial)
+        if (!empty($filters['requester'])) {
+            $term = trim($filters['requester']);
+            $query->whereHas('requester', function($q) use ($term) {
+                $q->where('name', 'LIKE', "%{$term}%")
+                  ->orWhere('email', 'LIKE', "%{$term}%");
+            });
+        }
+
+        // Filtro por rango de fechas (creación)
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
+        if ($startDate || $endDate) {
+            // Normalizar fechas; usar Carbon si disponibles
+            try {
+                $start = $startDate ? \Carbon\Carbon::parse($startDate)->startOfDay() : null;
+            } catch (\Exception $e) { $start = null; }
+            try {
+                $end = $endDate ? \Carbon\Carbon::parse($endDate)->endOfDay() : null;
+            } catch (\Exception $e) { $end = null; }
+
+            if ($start && $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            } elseif ($start) {
+                $query->where('created_at', '>=', $start);
+            } elseif ($end) {
+                $query->where('created_at', '<=', $end);
+            }
+        }
+
         return $query->latest()->paginate($perPage);
     }
 

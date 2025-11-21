@@ -48,7 +48,21 @@ class ServiceRequestController extends Controller
             'search' => $request->get('search'),
             'status' => $request->get('status'),
             'criticality' => $request->get('criticality'),
+            'requester' => $request->get('requester'), // nombre o email parcial
+            'start_date' => $request->get('start_date'),
+            'end_date' => $request->get('end_date'),
         ];
+
+        // Validación ligera de fechas (formato YYYY-MM-DD)
+        foreach (['start_date','end_date'] as $key) {
+            if (!empty($filters[$key]) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$key])) {
+                $filters[$key] = null; // descartar si formato inválido
+            }
+        }
+        // Si ambas presentes y rango invertido, intercambiar
+        if (!empty($filters['start_date']) && !empty($filters['end_date']) && $filters['start_date'] > $filters['end_date']) {
+            [$filters['start_date'], $filters['end_date']] = [$filters['end_date'], $filters['start_date']];
+        }
 
         // Obtener datos usando el service
         $serviceRequests = $this->serviceRequestService->getFilteredServiceRequests($filters, 15);
@@ -65,6 +79,33 @@ class ServiceRequestController extends Controller
         }
 
         return view('service-requests.index', $data);
+    }
+
+    /**
+     * Sugerencias de solicitantes para autocompletar.
+     */
+    public function suggestRequesters(Request $request)
+    {
+        $term = trim($request->get('term',''));
+        if ($term === '') {
+            return response()->json([]);
+        }
+        $query = \App\Models\Requester::active()
+            ->select(['id','name','email'])
+            ->where(function($q) use ($term) {
+                $q->where('name','LIKE',"%{$term}%")
+                  ->orWhere('email','LIKE',"%{$term}%");
+            })
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
+        $results = $query->map(fn($r)=>[
+            'id' => $r->id,
+            'name' => $r->name,
+            'email' => $r->email,
+            'display' => $r->name . ($r->email ? " ({$r->email})" : '')
+        ]);
+        return response()->json($results);
     }
 
     /**

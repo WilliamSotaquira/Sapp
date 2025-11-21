@@ -2,670 +2,50 @@
 
 @section('title', "Timeline - {$serviceRequest->ticket_number}")
 
-@section('content')
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">
-                        <i class="fas fa-history"></i>
-                        Línea de Tiempo - {{ $serviceRequest->ticket_number }}
-                    </h3>
-                    <div class="card-tools">
-                        <div class="btn-group">
-                            <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'pdf']) }}"
-                               class="btn btn-sm btn-light mr-2">
-                                <i class="fas fa-file-pdf"></i> Exportar PDF
-                            </a>
-                            <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'excel'])"
-                               class="btn btn-sm btn-light">
-                                <i class="fas fa-file-excel"></i> Exportar Excel
-                            </a>
-                            <a href="{{ route('service-requests.show', $serviceRequest->id) }}"
-                               class="btn btn-sm btn-light ml-2">
-                                <i class="fas fa-arrow-left"></i> Volver
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <!-- Header Info -->
-                    <div class="row mb-4">
-                        <div class="col-md-8">
-                            <div class="d-flex align-items-center">
-                                <div class="symbol symbol-circle symbol-50 mr-3">
-                                    <div class="symbol-label bg-light-primary">
-                                        <i class="fas fa-ticket-alt text-primary"></i>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 class="mb-1">{{ $serviceRequest->title }}</h4>
-                                    <div class="text-muted">
-                                        <span class="mr-3">
-                                            <i class="fas fa-hashtag"></i> {{ $serviceRequest->ticket_number }}
-                                        </span>
-                                        <span class="mr-3">
-                                            <i class="fas fa-calendar"></i>
-                                            {{ $serviceRequest->created_at->format('d/m/Y H:i') }}
-                                        </span>
-                                        <span class="mr-3">
-                                            <i class="fas fa-user"></i>
-                                            {{ $serviceRequest->requester->name ?? 'N/A' }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4 text-right">
-                            <div class="d-flex flex-column align-items-end">
-                                <span class="badge badge-{{ $serviceRequest->getStatusColor() }} badge-lg mb-2">
-                                    <i class="fas fa-{{ $this->getStatusIcon($serviceRequest->status) }} mr-1"></i>
-                                    {{ $serviceRequest->status }}
-                                </span>
-                                <span class="badge badge-{{ $serviceRequest->getPriorityColor() }}">
-                                    <i class="fas fa-{{ $serviceRequest->criticality_level == 'ALTA' ? 'exclamation-triangle' : 'flag' }} mr-1"></i>
-                                    {{ $serviceRequest->criticality_level }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Stats -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="info-box bg-gradient-info">
-                                <span class="info-box-icon"><i class="fas fa-clock"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Tiempo Total</span>
-                                    <span class="info-box-number">{{ $timeStatistics['total_time'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-gradient-success">
-                                <span class="info-box-icon"><i class="fas fa-play-circle"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Tiempo Activo</span>
-                                    <span class="info-box-number">{{ $timeStatistics['active_time'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-gradient-warning">
-                                <span class="info-box-icon"><i class="fas fa-pause-circle"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Tiempo Pausado</span>
-                                    <span class="info-box-number">{{ $timeStatistics['paused_time'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-box bg-gradient-{{ $timeStatistics['efficiency_raw'] > 80 ? 'success' : ($timeStatistics['efficiency_raw'] > 60 ? 'warning' : 'danger') }}">
-                                <span class="info-box-icon"><i class="fas fa-chart-line"></i></span>
-                                <div class="info-box-content">
-                                    <span class="info-box-text">Eficiencia</span>
-                                    <span class="info-box-number">{{ $timeStatistics['efficiency'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Timeline Navigation -->
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="timeline-navigation">
-                                <div class="nav nav-pills nav-pills-custom" id="v-pills-tab" role="tablist">
-                                    <a class="nav-link active" id="v-pills-timeline-tab" data-toggle="pill" href="#v-pills-timeline" role="tab">
-                                        <i class="fas fa-stream mr-2"></i>Línea de Tiempo
-                                    </a>
-                                    <a class="nav-link" id="v-pills-stats-tab" data-toggle="pill" href="#v-pills-stats" role="tab">
-                                        <i class="fas fa-chart-pie mr-2"></i>Estadísticas
-                                    </a>
-                                    <a class="nav-link" id="v-pills-details-tab" data-toggle="pill" href="#v-pills-details" role="tab">
-                                        <i class="fas fa-info-circle mr-2"></i>Detalles
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tab Content -->
-                    <div class="tab-content" id="v-pills-tabContent">
-                        <!-- Timeline Tab -->
-                        <div class="tab-pane fade show active" id="v-pills-timeline" role="tabpanel">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="card-title mb-0">
-                                        <i class="fas fa-stream text-primary"></i>
-                                        Cronología de Eventos
-                                        <span class="badge badge-primary ml-2">{{ count($timelineEvents) }} eventos</span>
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="timeline-vertical">
-                                        @foreach($timelineEvents as $event)
-                                        <div class="timeline-item-vertical">
-                                            <div class="timeline-marker-vertical bg-{{ $event['color'] ?? 'secondary' }}">
-                                                <i class="fas fa-{{ $event['icon'] }}"></i>
-                                            </div>
-                                            <div class="timeline-content-vertical">
-                                                <div class="timeline-header-vertical">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                            <h6 class="mb-1 text-{{ $event['color'] ?? 'secondary' }}">
-                                                                {{ $event['event'] }}
-                                                            </h6>
-                                                            <p class="mb-1 text-muted small">
-                                                                <i class="fas fa-clock mr-1"></i>
-                                                                {{ $event['timestamp']->format('d/m/Y H:i:s') }}
-                                                                <span class="mx-2">•</span>
-                                                                {{ $event['timestamp']->diffForHumans() }}
-                                                            </p>
-                                                        </div>
-                                                        @if(isset($timeInStatus[$event['status']]))
-                                                        <div class="text-right">
-                                                            <span class="badge badge-light">
-                                                                <i class="fas fa-hourglass-half mr-1"></i>
-                                                                {{ $timeInStatus[$event['status']]['formatted'] }}
-                                                            </span>
-                                                        </div>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                <div class="timeline-body-vertical">
-                                                    <p class="mb-2">{{ $event['description'] }}</p>
-                                                    @if($event['user'])
-                                                    <div class="d-flex align-items-center mt-2">
-                                                        <div class="symbol symbol-circle symbol-25 mr-2">
-                                                            <div class="symbol-label bg-light-{{ $event['color'] ?? 'secondary' }}">
-                                                                <i class="fas fa-user text-{{ $event['color'] ?? 'secondary' }}"></i>
-                                                            </div>
-                                                        </div>
-                                                        <small class="text-muted">
-                                                            <strong>Usuario:</strong> {{ $event['user']->name }}
-                                                        </small>
-                                                    </div>
-                                                    @endif
-                                                    @if(isset($event['evidence_type']))
-                                                    <div class="mt-2">
-                                                        <span class="badge badge-{{ $this->getEvidenceTypeColor($event['evidence_type']) }}">
-                                                            <i class="fas fa-{{ $this->getEvidenceTypeIcon($event['evidence_type']) }} mr-1"></i>
-                                                            {{ $this->getEvidenceTypeLabel($event['evidence_type']) }}
-                                                        </span>
-                                                    </div>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Statistics Tab -->
-                        <div class="tab-pane fade" id="v-pills-stats" role="tabpanel">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">
-                                                <i class="fas fa-chart-bar text-info"></i>
-                                                Distribución de Tiempos
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            @if(count($timeSummary) > 0)
-                                            <div class="table-responsive">
-                                                <table class="table table-sm table-bordered">
-                                                    <thead class="thead-light">
-                                                        <tr>
-                                                            <th>Tipo de Evento</th>
-                                                            <th width="25%">Duración</th>
-                                                            <th width="20%">Porcentaje</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach($timeSummary as $summary)
-                                                        <tr>
-                                                            <td>
-                                                                <i class="fas fa-{{ $this->getEventTypeIcon($summary['event_type']) }} text-muted mr-2"></i>
-                                                                {{ $summary['event_type'] }}
-                                                            </td>
-                                                            <td class="font-weight-bold">{{ $summary['duration'] }}</td>
-                                                            <td>
-                                                                <div class="progress" style="height: 20px;">
-                                                                    <div class="progress-bar
-                                                                        {{ $summary['percentage'] > 50 ? 'bg-success' :
-                                                                           ($summary['percentage'] > 25 ? 'bg-info' : 'bg-warning') }}"
-                                                                        role="progressbar"
-                                                                        style="width: {{ $summary['percentage'] }}%"
-                                                                        aria-valuenow="{{ $summary['percentage'] }}"
-                                                                        aria-valuemin="0"
-                                                                        aria-valuemax="100">
-                                                                        {{ $summary['percentage'] }}%
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                        @endforeach
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            @else
-                                            <div class="text-center text-muted py-4">
-                                                <i class="fas fa-chart-bar fa-3x mb-3"></i>
-                                                <p>No hay datos de distribución disponibles</p>
-                                            </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">
-                                                <i class="fas fa-tachometer-alt text-success"></i>
-                                                Métricas de Rendimiento
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="metrics-grid">
-                                                <div class="metric-item">
-                                                    <div class="metric-value text-primary">{{ $timeStatistics['total_time'] }}</div>
-                                                    <div class="metric-label">Tiempo Total</div>
-                                                </div>
-                                                <div class="metric-item">
-                                                    <div class="metric-value text-success">{{ $timeStatistics['active_time'] }}</div>
-                                                    <div class="metric-label">Tiempo Activo</div>
-                                                </div>
-                                                <div class="metric-item">
-                                                    <div class="metric-value text-warning">{{ $timeStatistics['paused_time'] }}</div>
-                                                    <div class="metric-label">Tiempo Pausado</div>
-                                                </div>
-                                                <div class="metric-item">
-                                                    <div class="metric-value {{ $timeStatistics['efficiency_raw'] > 80 ? 'text-success' : ($timeStatistics['efficiency_raw'] > 60 ? 'text-warning' : 'text-danger') }}">
-                                                        {{ $timeStatistics['efficiency'] }}
-                                                    </div>
-                                                    <div class="metric-label">Eficiencia</div>
-                                                </div>
-                                            </div>
-
-                                            <!-- SLA Compliance -->
-                                            @if($serviceRequest->sla)
-                                            <div class="sla-compliance mt-4">
-                                                <h6 class="text-muted mb-3">Cumplimiento de SLA</h6>
-                                                <div class="compliance-item">
-                                                    <span class="compliance-label">Aceptación:</span>
-                                                    <span class="compliance-status {{ $serviceRequest->accepted_at && $serviceRequest->acceptance_deadline && $serviceRequest->accepted_at->lte($serviceRequest->acceptance_deadline) ? 'text-success' : 'text-danger' }}">
-                                                        <i class="fas fa-{{ $serviceRequest->accepted_at && $serviceRequest->acceptance_deadline && $serviceRequest->accepted_at->lte($serviceRequest->acceptance_deadline) ? 'check' : 'times' }} mr-1"></i>
-                                                        {{ $serviceRequest->accepted_at ? $serviceRequest->accepted_at->format('d/m/Y H:i') : 'Pendiente' }}
-                                                    </span>
-                                                </div>
-                                                <div class="compliance-item">
-                                                    <span class="compliance-label">Respuesta:</span>
-                                                    <span class="compliance-status {{ $serviceRequest->responded_at && $serviceRequest->response_deadline && $serviceRequest->responded_at->lte($serviceRequest->response_deadline) ? 'text-success' : 'text-danger' }}">
-                                                        <i class="fas fa-{{ $serviceRequest->responded_at && $serviceRequest->response_deadline && $serviceRequest->responded_at->lte($serviceRequest->response_deadline) ? 'check' : 'times' }} mr-1"></i>
-                                                        {{ $serviceRequest->responded_at ? $serviceRequest->responded_at->format('d/m/Y H:i') : 'Pendiente' }}
-                                                    </span>
-                                                </div>
-                                                <div class="compliance-item">
-                                                    <span class="compliance-label">Resolución:</span>
-                                                    <span class="compliance-status {{ $serviceRequest->resolved_at && $serviceRequest->resolution_deadline && $serviceRequest->resolved_at->lte($serviceRequest->resolution_deadline) ? 'text-success' : 'text-danger' }}">
-                                                        <i class="fas fa-{{ $serviceRequest->resolved_at && $serviceRequest->resolution_deadline && $serviceRequest->resolved_at->lte($serviceRequest->resolution_deadline) ? 'check' : 'times' }} mr-1"></i>
-                                                        {{ $serviceRequest->resolved_at ? $serviceRequest->resolved_at->format('d/m/Y H:i') : 'Pendiente' }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Details Tab -->
-                        <div class="tab-pane fade" id="v-pills-details" role="tabpanel">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">
-                                                <i class="fas fa-info-circle text-primary"></i>
-                                                Información de la Solicitud
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <table class="table table-sm table-borderless">
-                                                <tr>
-                                                    <th width="40%" class="text-muted">Ticket #:</th>
-                                                    <td>
-                                                        <span class="badge badge-primary">{{ $serviceRequest->ticket_number }}</span>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Título:</th>
-                                                    <td class="font-weight-bold">{{ $serviceRequest->title }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Descripción:</th>
-                                                    <td>{{ $serviceRequest->description }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Estado:</th>
-                                                    <td>
-                                                        <span class="badge badge-{{ $serviceRequest->getStatusColor() }}">
-                                                            {{ $serviceRequest->status }}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Prioridad:</th>
-                                                    <td>
-                                                        <span class="badge badge-{{ $serviceRequest->getPriorityColor() }}">
-                                                            {{ $serviceRequest->criticality_level }}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">
-                                                <i class="fas fa-users text-success"></i>
-                                                Asignaciones y Servicio
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <table class="table table-sm table-borderless">
-                                                <tr>
-                                                    <th width="40%" class="text-muted">Solicitante:</th>
-                                                    <td>
-                                                        <div class="d-flex align-items-center">
-                                                            <div class="symbol symbol-circle symbol-30 mr-2">
-                                                                <div class="symbol-label bg-light-primary">
-                                                                    <i class="fas fa-user text-primary"></i>
-                                                                </div>
-                                                            </div>
-                                                            {{ $serviceRequest->requester->name ?? 'N/A' }}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Asignado a:</th>
-                                                    <td>
-                                                        @if($serviceRequest->assignee)
-                                                            <div class="d-flex align-items-center">
-                                                                <div class="symbol symbol-circle symbol-30 mr-2">
-                                                                    <div class="symbol-label bg-light-success">
-                                                                        <i class="fas fa-user-tie text-success"></i>
-                                                                    </div>
-                                                                </div>
-                                                                {{ $serviceRequest->assignee->name }}
-                                                            </div>
-                                                        @else
-                                                            <span class="text-muted font-italic">No asignado</span>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Sub-Servicio:</th>
-                                                    <td>{{ $serviceRequest->subService->name ?? 'N/A' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">SLA:</th>
-                                                    <td>{{ $serviceRequest->sla->name ?? 'N/A' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <th class="text-muted">Fecha Creación:</th>
-                                                    <td>{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</td>
-                                                </tr>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <a href="{{ route('service-requests.show', $serviceRequest->id) }}" class="btn btn-secondary">
-                                <i class="fas fa-arrow-left"></i> Volver a Detalles
-                            </a>
-                            <a href="{{ route('reports.timeline.index') }}" class="btn btn-info ml-2">
-                                <i class="fas fa-list"></i> Ver Todas las Solicitudes
-                            </a>
-                        </div>
-                        <div class="col-md-6 text-right">
-                            <small class="text-muted">
-                                <i class="fas fa-sync-alt"></i>
-                                Actualizado: {{ now()->format('d/m/Y H:i') }}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-.timeline-navigation .nav-pills-custom .nav-link {
-    border-radius: 25px;
-    margin-right: 10px;
-    margin-bottom: 10px;
-    padding: 10px 20px;
-    border: 1px solid #dee2e6;
-    background: white;
-    color: #6c757d;
-    transition: all 0.3s ease;
-}
-
-.timeline-navigation .nav-pills-custom .nav-link.active {
-    background: #007bff;
-    border-color: #007bff;
-    color: white;
-    box-shadow: 0 2px 5px rgba(0,123,255,0.3);
-}
-
-.timeline-vertical {
-    position: relative;
-    padding-left: 30px;
-}
-
-.timeline-vertical::before {
-    content: '';
-    position: absolute;
-    left: 15px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #e9ecef;
-}
-
-.timeline-item-vertical {
-    position: relative;
-    margin-bottom: 25px;
-    display: flex;
-    align-items: flex-start;
-}
-
-.timeline-marker-vertical {
-    position: absolute;
-    left: -30px;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 0.8rem;
-    z-index: 2;
-    box-shadow: 0 0 0 3px white;
-}
-
-.timeline-content-vertical {
-    flex: 1;
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 15px;
-    margin-left: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.timeline-header-vertical {
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.info-box {
-    box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2);
-    border-radius: 0.25rem;
-    background: #fff;
-    display: flex;
-    margin-bottom: 1rem;
-    min-height: 80px;
-    padding: 0.5rem;
-    position: relative;
-}
-
-.info-box .info-box-icon {
-    border-radius: 0.25rem;
-    align-items: center;
-    display: flex;
-    font-size: 1.875rem;
-    justify-content: center;
-    text-align: center;
-    width: 70px;
-}
-
-.info-box .info-box-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    line-height: 1.8;
-    flex: 1;
-    padding: 0 10px;
-}
-
-.info-box .info-box-text {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-transform: uppercase;
-    font-size: 0.875rem;
-}
-
-.info-box .info-box-number {
-    display: block;
-    font-weight: bold;
-    font-size: 1.5rem;
-}
-
-.metrics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-}
-
-.metric-item {
-    text-align: center;
-    padding: 15px;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    background: #f8f9fa;
-}
-
-.metric-value {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 5px;
-}
-
-.metric-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    text-transform: uppercase;
-}
-
-.sla-compliance .compliance-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #f8f9fa;
-}
-
-.compliance-label {
-    font-weight: 500;
-    color: #6c757d;
-}
-
-.compliance-status {
-    font-weight: bold;
-}
-
-.symbol {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-}
-
-.symbol-25 { width: 25px; height: 25px; }
-.symbol-30 { width: 30px; height: 30px; }
-.symbol-50 { width: 50px; height: 50px; }
-
-.symbol-label {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-}
-
-.bg-light-primary { background-color: #e1f0ff !important; }
-.bg-light-success { background-color: #e8f5e8 !important; }
-.bg-light-warning { background-color: #fff3cd !important; }
-.bg-light-danger { background-color: #f8d7da !important; }
-.bg-light-info { background-color: #d1ecf1 !important; }
-.bg-light-secondary { background-color: #e2e3e5 !important; }
-
-.badge-lg {
-    font-size: 0.9rem;
-    padding: 0.5rem 1rem;
-}
-
-.bg-gradient-info { background: linear-gradient(45deg, #17a2b8, #6f42c1) !important; color: white; }
-.bg-gradient-success { background: linear-gradient(45deg, #28a745, #20c997) !important; color: white; }
-.bg-gradient-warning { background: linear-gradient(45deg, #ffc107, #fd7e14) !important; color: white; }
-.bg-gradient-danger { background: linear-gradient(45deg, #dc3545, #e83e8c) !important; color: white; }
-
-@media (max-width: 768px) {
-    .metrics-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .timeline-navigation .nav-pills-custom .nav-link {
-        display: block;
-        margin-right: 0;
-        text-align: center;
-    }
-}
-</style>
-
 @php
+    $timeStatistics = array_merge([
+        'total_time' => '0m',
+        'active_time' => '0m',
+        'paused_time' => '0m',
+        'efficiency' => '0%',
+        'efficiency_raw' => 0
+    ], $timeStatistics ?? []);
+    $timeSummary = $timeSummary ?? [];
+
+    function twTone($color) {
+        $map = [
+            'primary' => 'red',
+            'info' => 'sky',
+            'success' => 'emerald',
+            'warning' => 'amber',
+            'danger' => 'rose',
+            'secondary' => 'slate',
+            'dark' => 'gray'
+        ];
+        return $map[$color] ?? 'slate';
+    }
+
+    function badgeTw($color) {
+        $tone = twTone($color);
+        return "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold bg-{$tone}-100 text-{$tone}-800 border-{$tone}-200";
+    }
+
+    function chipTw($color) {
+        $tone = twTone($color);
+        return "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium bg-{$tone}-50 text-{$tone}-700";
+    }
+
+    function markerTw($color) {
+        $tone = twTone($color);
+        return "bg-{$tone}-500";
+    }
+
+    function pillTw($isActive) {
+        return $isActive
+            ? 'sr-tab-btn bg-red-600 text-white border-red-600 shadow-sm'
+            : 'sr-tab-btn bg-white text-slate-600 border-slate-200 hover:border-red-300 hover:text-red-700';
+    }
+
     function getStatusIcon($status) {
         $icons = [
             'PENDIENTE' => 'clock',
@@ -725,4 +105,482 @@
         return $colors[$evidenceType] ?? 'secondary';
     }
 @endphp
+
+@section('content')
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-6">
+    <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-900 to-red-800 text-white shadow-lg">
+        <div class="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_20%,rgba(248,113,113,0.35),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(248,113,113,0.25),transparent_35%)]"></div>
+        <div class="relative p-5 sm:p-6 md:p-8 flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between">
+            <div class="space-y-2">
+                <p class="text-xs uppercase tracking-[0.2em] text-red-200/80">Línea de tiempo</p>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur text-xl">
+                        <i class="fas fa-ticket-alt"></i>
+                    </span>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-semibold flex items-center gap-2">
+                            Ticket {{ $serviceRequest->ticket_number }}
+                            <span class="text-xs font-medium uppercase tracking-wide text-red-100 bg-white/10 rounded-full px-2 py-1">
+                                {{ $serviceRequest->title }}
+                            </span>
+                        </h1>
+                        <div class="flex flex-wrap gap-3 text-sm text-red-100/90">
+                            <span class="flex items-center gap-2"><i class="fas fa-calendar"></i>{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</span>
+                            <span class="flex items-center gap-2"><i class="fas fa-user"></i>{{ $serviceRequest->requester->name ?? 'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2 md:justify-end">
+                <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'pdf']) }}" class="inline-flex items-center gap-2 rounded-full bg-white/90 text-slate-800 px-4 py-2 text-sm font-semibold shadow hover:bg-white">
+                    <i class="fas fa-file-pdf text-red-500"></i> PDF
+                </a>
+                <a href="{{ route('reports.timeline.export', [$serviceRequest->id, 'excel']) }}" class="inline-flex items-center gap-2 rounded-full bg-white/90 text-slate-800 px-4 py-2 text-sm font-semibold shadow hover:bg-white">
+                    <i class="fas fa-file-excel text-emerald-500"></i> Excel
+                </a>
+                <a href="{{ route('service-requests.show', $serviceRequest->id) }}" class="inline-flex items-center gap-2 rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+        <div class="relative border-t border-white/10 px-5 sm:px-6 md:px-8 pb-5 sm:pb-6 md:pb-8">
+            <div class="flex flex-wrap gap-2">
+                <span class="{{ badgeTw($serviceRequest->status_color ?? 'secondary') }}">
+                    <i class="fas fa-{{ getStatusIcon($serviceRequest->status) }}"></i>
+                    {{ $serviceRequest->status }}
+                </span>
+                <span class="{{ badgeTw($serviceRequest->criticality_level_color ?? 'secondary') }}">
+                    <i class="fas fa-{{ $serviceRequest->criticality_level == 'ALTA' ? 'exclamation-triangle' : 'flag' }}"></i>
+                    {{ $serviceRequest->criticality_level }}
+                </span>
+                @if($serviceRequest->sla)
+                <span class="{{ chipTw('info') }}">
+                    <i class="fas fa-stopwatch text-sky-500"></i>
+                    SLA: {{ $serviceRequest->sla->name }}
+                </span>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Tiempo Total</p>
+                    <p class="text-2xl font-semibold text-slate-900">{{ $timeStatistics['total_time'] ?? '0m' }}</p>
+                </div>
+                <span class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+                    <i class="fas fa-clock"></i>
+                </span>
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Tiempo Activo</p>
+                    <p class="text-2xl font-semibold text-slate-900">{{ $timeStatistics['active_time'] ?? '0m' }}</p>
+                </div>
+                <span class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <i class="fas fa-play"></i>
+                </span>
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Tiempo Pausado</p>
+                    <p class="text-2xl font-semibold text-slate-900">{{ $timeStatistics['paused_time'] ?? '0m' }}</p>
+                </div>
+                <span class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                    <i class="fas fa-pause"></i>
+                </span>
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            @php $eff = $timeStatistics['efficiency_raw'] ?? 0; @endphp
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Eficiencia</p>
+                    <p class="text-2xl font-semibold text-slate-900">{{ $timeStatistics['efficiency'] ?? '0%' }}</p>
+                </div>
+                <span class="flex h-10 w-10 items-center justify-center rounded-full {{ $eff > 80 ? 'bg-emerald-100 text-emerald-600' : ($eff > 60 ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600') }}">
+                    <i class="fas fa-chart-line"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
+            <div class="flex flex-wrap gap-2" role="tablist" aria-label="Navegación de timeline">
+                <button type="button" class="{{ pillTw(true) }}" data-tab-target="timeline" aria-controls="tab-timeline" aria-selected="true">
+                    <i class="fas fa-stream"></i>
+                    <span>Línea de tiempo</span>
+                </button>
+                <button type="button" class="{{ pillTw(false) }}" data-tab-target="stats" aria-controls="tab-stats" aria-selected="false">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Estadísticas</span>
+                </button>
+                <button type="button" class="{{ pillTw(false) }}" data-tab-target="details" aria-controls="tab-details" aria-selected="false">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Detalles</span>
+                </button>
+            </div>
+            <span class="text-xs font-medium text-slate-500">Actualizado: {{ now()->format('d/m/Y H:i') }}</span>
+        </div>
+
+        <div class="p-4 sm:p-6">
+            <div data-tab-panel="timeline" id="tab-timeline">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2 text-slate-700 font-semibold">
+                        <i class="fas fa-stream text-red-500"></i>
+                        Cronología de eventos
+                    </div>
+                    <span class="{{ chipTw('primary') }}">{{ count($timelineEvents) }} eventos</span>
+                </div>
+                <div class="timeline-shell">
+                    <div class="timeline-line"></div>
+                    @php $currentDate = null; @endphp
+                    @forelse($timelineEvents as $event)
+                        @php
+                            $tone = twTone($event['color'] ?? 'secondary');
+                            $eventDate = $event['timestamp']->format('d/m/Y');
+                        @endphp
+                        @if($currentDate !== $eventDate)
+                            <div class="timeline-date">
+                                <span>{{ $event['timestamp']->format('d/m/Y') }}</span>
+                                <span class="text-xs text-slate-400">{{ $event['timestamp']->diffForHumans() }}</span>
+                            </div>
+                            @php $currentDate = $eventDate; @endphp
+                        @endif
+                        <article class="timeline-item">
+                            <div class="timeline-dot {{ markerTw($event['color'] ?? 'secondary') }}">
+                                <span class="timeline-dot-inner"></span>
+                            </div>
+                            <div class="timeline-card">
+                                <div class="timeline-card-header">
+                                    <div>
+                                        <div class="flex items-center gap-2 text-sm font-semibold text-{{ $tone }}-700">
+                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-{{ $tone }}-100 text-{{ $tone }}-700 shadow-inner">
+                                                <i class="fas fa-{{ $event['icon'] }}"></i>
+                                            </span>
+                                            <span>{{ $event['event'] ?? 'Evento' }}</span>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                            <i class="fas fa-clock"></i>
+                                            {{ $event['timestamp']->format('H:i:s') }}
+                                            @if(isset($event['status']) && isset($timeInStatus[$event['status']]))
+                                                <span class="text-slate-400">•</span>
+                                                <span class="flex items-center gap-1">
+                                                    <i class="fas fa-hourglass-half text-slate-400"></i>
+                                                    {{ $timeInStatus[$event['status']]['formatted'] }}
+                                                </span>
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 items-center">
+                                        @if(isset($event['evidence_type']))
+                                            <span class="{{ chipTw(getEvidenceTypeColor($event['evidence_type'])) }}">
+                                                <i class="fas fa-{{ getEvidenceTypeIcon($event['evidence_type']) }}"></i>
+                                                {{ getEvidenceTypeLabel($event['evidence_type']) }}
+                                            </span>
+                                        @endif
+                                        @if(isset($event['status']))
+                                            <span class="{{ chipTw($event['color'] ?? 'secondary') }}">
+                                                <i class="fas fa-tag"></i>
+                                                {{ $event['status'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                @if(!empty($event['description']))
+                                    <p class="timeline-description">{{ $event['description'] }}</p>
+                                @endif
+
+                                @if(!empty($event['user']))
+                                    <div class="timeline-meta">
+                                        <div class="timeline-meta-item">
+                                            <span class="timeline-meta-icon bg-{{ $tone }}-100 text-{{ $tone }}-700">
+                                                <i class="fas fa-user"></i>
+                                            </span>
+                                            <div>
+                                                <p class="text-xs text-slate-500">Responsable</p>
+                                                <p class="text-sm font-semibold text-slate-800">
+                                                    @if(is_object($event['user']) && isset($event['user']->name))
+                                                        {{ $event['user']->name }}
+                                                    @elseif(is_array($event['user']) && isset($event['user']['name']))
+                                                        {{ $event['user']['name'] }}
+                                                    @else
+                                                        {{ (string) $event['user'] }}
+                                                    @endif
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </article>
+                    @empty
+                        <div class="text-center text-slate-500 py-8">
+                            <i class="fas fa-box-open text-2xl mb-2"></i>
+                            <p>No hay eventos registrados.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <div data-tab-panel="stats" id="tab-stats" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                        <div class="flex items-center gap-2 font-semibold text-slate-700 mb-3">
+                            <i class="fas fa-chart-bar text-sky-500"></i>
+                            Distribución de tiempos
+                        </div>
+                        @if(count($timeSummary) > 0)
+                        <div class="overflow-hidden border border-slate-200 rounded-lg">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-100 text-left text-xs font-semibold text-slate-600">
+                                    <tr>
+                                        <th class="px-3 py-2">Tipo de evento</th>
+                                        <th class="px-3 py-2 w-28">Duración</th>
+                                        <th class="px-3 py-2 w-32">Porcentaje</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 bg-white">
+                                    @foreach($timeSummary as $summary)
+                                        @if(is_array($summary) && isset($summary['event_type'], $summary['duration'], $summary['percentage']))
+                                            <tr>
+                                                <td class="px-3 py-2 flex items-center gap-2 text-slate-700">
+                                                    <i class="fas fa-{{ getEventTypeIcon($summary['event_type']) }} text-slate-400"></i>
+                                                    {{ $summary['event_type'] }}
+                                                </td>
+                                                <td class="px-3 py-2 font-semibold text-slate-800">{{ $summary['duration'] }}</td>
+                                                <td class="px-3 py-2">
+                                                    <div class="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+                                                        <div class="{{ $summary['percentage'] > 50 ? 'bg-emerald-400' : ($summary['percentage'] > 25 ? 'bg-sky-400' : 'bg-amber-400') }} h-3" style="width: {{ $summary['percentage'] }}%;"></div>
+                                                    </div>
+                                                    <span class="text-xs text-slate-600 font-medium">{{ $summary['percentage'] }}%</span>
+                                                </td>
+                                            </tr>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="text-center text-slate-500 py-6">
+                            <i class="fas fa-chart-bar text-xl mb-2"></i>
+                            <p>No hay datos de distribución disponibles</p>
+                        </div>
+                        @endif
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm space-y-4">
+                        <div class="flex items-center gap-2 font-semibold text-slate-700">
+                            <i class="fas fa-tachometer-alt text-emerald-500"></i>
+                            Métricas de rendimiento
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 text-center">
+                                <p class="text-xs uppercase text-slate-500">Tiempo Total</p>
+                                <p class="text-xl font-semibold text-slate-900">{{ $timeStatistics['total_time'] ?? '0m' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 text-center">
+                                <p class="text-xs uppercase text-slate-500">Tiempo Activo</p>
+                                <p class="text-xl font-semibold text-emerald-600">{{ $timeStatistics['active_time'] ?? '0m' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 text-center">
+                                <p class="text-xs uppercase text-slate-500">Tiempo Pausado</p>
+                                <p class="text-xl font-semibold text-amber-600">{{ $timeStatistics['paused_time'] ?? '0m' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 text-center">
+                                <p class="text-xs uppercase text-slate-500">Eficiencia</p>
+                                <p class="text-xl font-semibold {{ $eff > 80 ? 'text-emerald-600' : ($eff > 60 ? 'text-amber-600' : 'text-rose-600') }}">
+                                    {{ $timeStatistics['efficiency'] ?? '0%' }}
+                                </p>
+                            </div>
+                        </div>
+
+                        @if($serviceRequest->sla)
+                        <div class="border-t border-slate-200 pt-3">
+                            <p class="text-xs uppercase text-slate-500 mb-2">Cumplimiento de SLA</p>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600">Aceptación</span>
+                                    <span class="{{ ($serviceRequest->accepted_at && $serviceRequest->acceptance_deadline && $serviceRequest->accepted_at->lte($serviceRequest->acceptance_deadline)) ? 'text-emerald-600' : 'text-rose-600' }} font-semibold flex items-center gap-1">
+                                        <i class="fas fa-{{ ($serviceRequest->accepted_at && $serviceRequest->acceptance_deadline && $serviceRequest->accepted_at->lte($serviceRequest->acceptance_deadline)) ? 'check' : 'times' }}"></i>
+                                        {{ $serviceRequest->accepted_at ? $serviceRequest->accepted_at->format('d/m/Y H:i') : 'Pendiente' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600">Respuesta</span>
+                                    <span class="{{ ($serviceRequest->responded_at && $serviceRequest->response_deadline && $serviceRequest->responded_at->lte($serviceRequest->response_deadline)) ? 'text-emerald-600' : 'text-rose-600' }} font-semibold flex items-center gap-1">
+                                        <i class="fas fa-{{ ($serviceRequest->responded_at && $serviceRequest->response_deadline && $serviceRequest->responded_at->lte($serviceRequest->response_deadline)) ? 'check' : 'times' }}"></i>
+                                        {{ $serviceRequest->responded_at ? $serviceRequest->responded_at->format('d/m/Y H:i') : 'Pendiente' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600">Resolución</span>
+                                    <span class="{{ ($serviceRequest->resolved_at && $serviceRequest->resolution_deadline && $serviceRequest->resolved_at->lte($serviceRequest->resolution_deadline)) ? 'text-emerald-600' : 'text-rose-600' }} font-semibold flex items-center gap-1">
+                                        <i class="fas fa-{{ ($serviceRequest->resolved_at && $serviceRequest->resolution_deadline && $serviceRequest->resolved_at->lte($serviceRequest->resolution_deadline)) ? 'check' : 'times' }}"></i>
+                                        {{ $serviceRequest->resolved_at ? $serviceRequest->resolved_at->format('d/m/Y H:i') : 'Pendiente' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <div data-tab-panel="details" id="tab-details" class="hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                        <div class="flex items-center gap-2 font-semibold text-slate-700 mb-3">
+                            <i class="fas fa-info-circle text-red-500"></i>
+                            Información de la solicitud
+                        </div>
+                        <dl class="divide-y divide-slate-200 text-sm">
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Ticket #</dt>
+                                <dd class="font-semibold text-slate-800">{{ $serviceRequest->ticket_number }}</dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Título</dt>
+                                <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->title }}</dd>
+                            </div>
+                            <div class="py-2">
+                                <dt class="text-slate-500">Descripción</dt>
+                                <dd class="mt-1 text-slate-700 leading-relaxed">{{ $serviceRequest->description }}</dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Estado</dt>
+                                <dd><span class="{{ chipTw($serviceRequest->status_color ?? 'secondary') }}">{{ $serviceRequest->status }}</span></dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Prioridad</dt>
+                                <dd><span class="{{ chipTw($serviceRequest->criticality_level_color ?? 'secondary') }}">{{ $serviceRequest->criticality_level }}</span></dd>
+                            </div>
+                        </dl>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                        <div class="flex items-center gap-2 font-semibold text-slate-700 mb-3">
+                            <i class="fas fa-users text-emerald-500"></i>
+                            Asignaciones y servicio
+                        </div>
+                        <dl class="divide-y divide-slate-200 text-sm">
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Solicitante</dt>
+                                <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->requester->name ?? 'N/A' }}</dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Asignado a</dt>
+                                <dd class="text-right">
+                                    @if($serviceRequest->assignee)
+                                        <span class="font-semibold text-slate-800">{{ $serviceRequest->assignee->name }}</span>
+                                    @else
+                                        <span class="text-slate-500 italic">No asignado</span>
+                                    @endif
+                                </dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Sub-servicio</dt>
+                                <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->subService->name ?? 'N/A' }}</dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">SLA</dt>
+                                <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->sla->name ?? 'N/A' }}</dd>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <dt class="text-slate-500">Fecha creación</dt>
+                                <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-4">
+                    <a href="{{ route('service-requests.show', $serviceRequest->id) }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-red-300 hover:text-red-700">
+                        <i class="fas fa-arrow-left"></i> Volver a detalles
+                    </a>
+                    <a href="{{ route('reports.timeline.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-red-700">
+                        <i class="fas fa-list"></i> Ver todas las solicitudes
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('styles')
+<style type="text/tailwindcss">
+    @layer components {
+        .sr-tab-btn {
+            @apply inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-white;
+        }
+        .timeline-shell {
+            @apply relative pl-7 md:pl-10 space-y-6;
+        }
+        .timeline-line {
+            @apply absolute left-3.5 md:left-4 top-0 bottom-0 w-px bg-gradient-to-b from-red-200 via-slate-200 to-slate-200;
+        }
+        .timeline-date {
+            @apply inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200 shadow-sm;
+        }
+        .timeline-item {
+            @apply relative flex gap-3 md:gap-4;
+        }
+        .timeline-dot {
+            @apply absolute -left-[19px] md:-left-5 top-2 flex h-4 w-4 items-center justify-center rounded-full shadow-sm;
+        }
+        .timeline-dot-inner {
+            @apply h-2 w-2 rounded-full bg-white/90;
+        }
+        .timeline-card {
+            @apply flex-1 rounded-xl border border-slate-200 bg-white/90 backdrop-blur px-4 py-3 shadow-sm;
+        }
+        .timeline-card-header {
+            @apply flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-200;
+        }
+        .timeline-description {
+            @apply mt-3 text-sm text-slate-700 leading-relaxed;
+        }
+        .timeline-meta {
+            @apply mt-3 pt-3 border-t border-slate-200;
+        }
+        .timeline-meta-item {
+            @apply flex items-center gap-3;
+        }
+        .timeline-meta-icon {
+            @apply flex h-9 w-9 items-center justify-center rounded-full shadow-inner;
+        }
+    }
+</style>
+@endpush
+
+@section('scripts')
+<script>
+    (function() {
+        var tabButtons = document.querySelectorAll('[data-tab-target]');
+        var tabPanels = document.querySelectorAll('[data-tab-panel]');
+
+        function activateTab(target) {
+            tabButtons.forEach(function(btn) {
+                var isActive = btn.getAttribute('data-tab-target') === target;
+                btn.className = isActive ? ' ' + "{{ pillTw(true) }}" : ' ' + "{{ pillTw(false) }}";
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            tabPanels.forEach(function(panel) {
+                panel.classList.toggle('hidden', panel.getAttribute('data-tab-panel') !== target);
+            });
+        }
+
+        tabButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                activateTab(btn.getAttribute('data-tab-target'));
+            });
+        });
+    })();
+</script>
 @endsection
