@@ -49,6 +49,11 @@
             </div>
         @endif
 
+        @php
+            $availableRequesters = \App\Models\Requester::orderBy('name')
+                ->where('is_active', true)
+                ->get();
+        @endphp
         <div class="space-y-6">
             <!-- Solicitante -->
             <div class="flex items-center space-x-4">
@@ -57,9 +62,32 @@
                     {{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <label class="text-sm font-medium text-gray-500 block">Solicitante</label>
-                    <p class="text-gray-900 font-semibold">{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
-                    <p class="text-sm text-gray-500">{{ $serviceRequest->requester->email ?? '' }}</p>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-gray-500 block">Solicitante</label>
+                            <p class="text-gray-900 font-semibold">{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-500">{{ $serviceRequest->requester->email ?? '' }}</p>
+                        </div>
+                        @if($serviceRequest->status !== 'CERRADA')
+                        <div class="flex gap-2">
+                            <button type="button" data-request-id="{{ $serviceRequest->id }}"
+                                class="quick-requester-btn inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <i class="fas fa-user-edit mr-1"></i>
+                                {{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}
+                            </button>
+                            <a href="{{ route('service-requests.edit', $serviceRequest) }}"
+                                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>
+                                Editar
+                            </a>
+                        </div>
+                        @endif
+                    </div>
+                    @if(!$serviceRequest->requester)
+                        <p class="text-sm text-amber-600 font-medium mt-1">
+                            ⚠️ Asigna un solicitante para completar la información de contacto.
+                        </p>
+                    @endif
                 </div>
             </div>
 
@@ -182,10 +210,10 @@
                 <form id="quickAssignForm" method="POST">
                     @csrf
                     <div class="mb-4">
-                        <label for="assigned_to" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="quick_assign_assigned_to" class="block text-sm font-medium text-gray-700 mb-2">
                             Seleccionar Técnico
                         </label>
-                        <select name="assigned_to" id="assigned_to"
+                        <select name="assigned_to" id="quick_assign_assigned_to"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             required>
                             <option value="">Selecciona un técnico</option>
@@ -211,20 +239,86 @@
     </div>
 </div>
 
+<!-- Modal de Asignación de Solicitante -->
+<div id="quickRequesterModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Asignar Solicitante</h3>
+                <form id="quickRequesterForm" method="POST">
+                    @csrf
+                    <div class="mb-4">
+                        <label for="quick_assign_requester" class="block text-sm font-medium text-gray-700 mb-2">
+                            Seleccionar Solicitante
+                        </label>
+                        <select name="requester_id" id="quick_assign_requester"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                            required>
+                            <option value="">Selecciona un solicitante</option>
+                            @foreach ($availableRequesters as $requester)
+                                <option value="{{ $requester->id }}">
+                                    {{ $requester->name }}{{ $requester->email ? " - {$requester->email}" : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" id="closeRequesterModalButton"
+                            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors">
+                            Asignar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const modal = document.getElementById('quickAssignModal');
-        const form = document.getElementById('quickAssignForm');
-        const closeButton = document.getElementById('closeModalButton');
-        const assignButtons = document.querySelectorAll('.quick-assign-btn');
+        setupQuickAssignModal({
+            modalId: 'quickAssignModal',
+            formId: 'quickAssignForm',
+            selectId: 'quick_assign_assigned_to',
+            closeButtonId: 'closeModalButton',
+            buttonSelector: '.quick-assign-btn',
+            actionPath: (requestId) => `/service-requests/${requestId}/quick-assign`,
+            emptySelectMessage: 'Por favor selecciona un técnico antes de asignar.'
+        });
 
-        function openQuickAssignModal(serviceRequestId) {
-            form.action = `/service-requests/${serviceRequestId}/quick-assign`;
+        setupQuickAssignModal({
+            modalId: 'quickRequesterModal',
+            formId: 'quickRequesterForm',
+            selectId: 'quick_assign_requester',
+            closeButtonId: 'closeRequesterModalButton',
+            buttonSelector: '.quick-requester-btn',
+            actionPath: (requestId) => `/service-requests/${requestId}/quick-assign-requester`,
+            emptySelectMessage: 'Por favor selecciona un solicitante antes de asignar.'
+        });
+    });
+
+    function setupQuickAssignModal({ modalId, formId, selectId, closeButtonId, buttonSelector, actionPath, emptySelectMessage }) {
+        const modal = document.getElementById(modalId);
+        const form = document.getElementById(formId);
+        const closeButton = document.getElementById(closeButtonId);
+        const assignButtons = document.querySelectorAll(buttonSelector);
+        const selectField = document.getElementById(selectId);
+
+        if (!modal || !form || !closeButton || !assignButtons.length || !selectField) {
+            return;
+        }
+
+        function openModal(serviceRequestId) {
+            form.action = actionPath(serviceRequestId);
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
 
-        function closeQuickAssignModal() {
+        function closeModal() {
             modal.classList.add('hidden');
             document.body.style.overflow = 'auto';
             form.reset();
@@ -238,29 +332,29 @@
                     alert('Error: No se pudo identificar la solicitud');
                     return;
                 }
-                openQuickAssignModal(requestId);
+                openModal(requestId);
             });
         });
 
-        closeButton.addEventListener('click', closeQuickAssignModal);
+        closeButton.addEventListener('click', closeModal);
 
         modal.addEventListener('click', function(e) {
-            if (e.target === modal) closeQuickAssignModal();
+            if (e.target === modal) closeModal();
         });
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeQuickAssignModal();
+                closeModal();
             }
         });
 
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const selectedTechnician = document.getElementById('assigned_to').value;
+            const selectedValue = selectField.value;
 
-            if (!selectedTechnician) {
-                alert('Por favor selecciona un técnico antes de asignar.');
-                document.getElementById('assigned_to').focus();
+            if (!selectedValue) {
+                alert(emptySelectMessage);
+                selectField.focus();
                 return;
             }
 
@@ -280,7 +374,7 @@
 
                 if (result.success) {
                     alert('✅ ' + result.message);
-                    closeQuickAssignModal();
+                    closeModal();
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
                     alert('❌ ' + result.message);
@@ -290,5 +384,5 @@
                 console.error('Error:', error);
             }
         });
-    });
+    }
 </script>

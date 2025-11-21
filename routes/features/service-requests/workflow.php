@@ -51,4 +51,5 @@ Route::prefix('service-requests')
 
         // Asignación rápida
         Route::post('/{service_request}/quick-assign', [ServiceRequestController::class, 'quickAssign'])->name('quick-assign');
+        Route::post('/{service_request}/quick-assign-requester', [ServiceRequestController::class, 'quickAssignRequester'])->name('quick-assign-requester');
     });
