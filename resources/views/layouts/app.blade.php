@@ -8,13 +8,13 @@
     <title>@yield('title', 'Sistema de Servicios')</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfUdsYZAAAAAFnFtC01B3KQkS3qp6SSxhSoIiGE"></script>
-
-    <style type="text/tailwindcss">
+    <script type="text/tailwindcss">
         @theme {
             --color-clifford: #da373d;
         }
-    </style>
+    </script>
+    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfUdsYZAAAAAFnFtC01B3KQkS3qp6SSxhSoIiGE"></script>
+
     @stack('styles')
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
@@ -850,6 +850,7 @@
     </script>
 
     @yield('scripts')
+    @stack('scripts')
 
     <script src="//unpkg.com/alpinejs" defer></script>
 </body>

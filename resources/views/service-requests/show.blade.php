@@ -399,35 +399,40 @@
             document.body.removeChild(textArea);
         }
 
-        // Mostrar notificación de copia
-        function showCopyNotification(ticketNumber, success) {
-            // Crear elemento de notificación
+        function showCopyNotification(ticketNumber, success, options = {}) {
             const notification = document.createElement('div');
             notification.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 transform transition-all duration-300 ${
                 success ? 'bg-green-500' : 'bg-red-500'
             } text-white`;
 
+            const defaultSuccessTitle = '¡Link copiado!';
+            const defaultErrorTitle = 'Error al copiar';
+            const defaultSuccessMessage = 'El link público del ticket ' + ticketNumber + ' está en tu portapapeles';
+            const defaultErrorMessage = 'Por favor, copia el link manualmente';
+
+            const successTitle = options.successTitle || defaultSuccessTitle;
+            const errorTitle = options.errorTitle || defaultErrorTitle;
+            const successMessage = options.successMessage || defaultSuccessMessage;
+            const errorMessage = options.errorMessage || defaultErrorMessage;
+
+            const titleText = success ? successTitle : errorTitle;
+            const bodyText = success ? successMessage : errorMessage;
+
             notification.innerHTML = `
                 <i class="fas ${success ? 'fa-check-circle' : 'fa-exclamation-circle'} text-xl"></i>
                 <div>
-                    <div class="font-semibold">${success ? '¡Link copiado!' : 'Error al copiar'}</div>
-                    <div class="text-sm opacity-90">${
-                        success
-                            ? 'El link público del ticket ' + ticketNumber + ' está en tu portapapeles'
-                            : 'Por favor, copia el link manualmente'
-                    }</div>
+                    <div class="font-semibold">${titleText}</div>
+                    <div class="text-sm opacity-90">${bodyText}</div>
                 </div>
             `;
 
             document.body.appendChild(notification);
 
-            // Animar entrada
             setTimeout(() => {
                 notification.style.opacity = '1';
                 notification.style.transform = 'translateX(0)';
             }, 10);
 
-            // Remover después de 3 segundos
             setTimeout(() => {
                 notification.style.opacity = '0';
                 notification.style.transform = 'translateX(100%)';
@@ -435,6 +440,84 @@
                     document.body.removeChild(notification);
                 }, 300);
             }, 3000);
+        }
+
+        function copyTicketNumber(ticketNumber, button) {
+            if (!ticketNumber) {
+                return;
+            }
+
+            const iconElement = button ? button.querySelector('i') : null;
+            const defaultIconClass = button ? (button.getAttribute('data-default-icon') || 'fa-copy') : 'fa-copy';
+            const successIconClass = button ? (button.getAttribute('data-success-icon') || 'fa-check') : 'fa-check';
+
+            const showButtonFeedback = () => {
+                if (!button) {
+                    return;
+                }
+
+                button.classList.add('bg-white/40');
+                button.setAttribute('aria-label', 'Número copiado');
+                if (iconElement) {
+                    iconElement.classList.remove(defaultIconClass);
+                    iconElement.classList.add(successIconClass);
+                }
+
+                setTimeout(() => {
+                    button.classList.remove('bg-white/40');
+                    button.setAttribute('aria-label', 'Copiar número de ticket');
+                    if (iconElement) {
+                        iconElement.classList.remove(successIconClass);
+                        iconElement.classList.add(defaultIconClass);
+                    }
+                }, 1500);
+            };
+
+            const onCopySuccess = () => {
+                showButtonFeedback();
+                showCopyNotification(ticketNumber, true, {
+                    successTitle: 'Número copiado',
+                    successMessage: 'Número de ticket ' + ticketNumber + ' copiado al portapapeles',
+                });
+            };
+
+            const onCopyFailure = () => {
+                showCopyNotification(ticketNumber, false, {
+                    errorTitle: 'No se pudo copiar',
+                    errorMessage: 'No se pudo copiar el número de ticket. Por favor, cópialo manualmente.',
+                });
+            };
+
+            const fallbackCopy = () => {
+                const textArea = document.createElement('textarea');
+                textArea.value = ticketNumber;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        onCopySuccess();
+                    } else {
+                        onCopyFailure();
+                    }
+                } catch (err) {
+                    onCopyFailure();
+                }
+
+                document.body.removeChild(textArea);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(ticketNumber)
+                    .then(onCopySuccess)
+                    .catch(fallbackCopy);
+            } else {
+                fallbackCopy();
+            }
         }
     </script>
 @endpush
