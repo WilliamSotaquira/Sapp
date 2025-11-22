@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ServiceRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateServiceRequestRequest extends FormRequest
@@ -21,6 +22,7 @@ class UpdateServiceRequestRequest extends FormRequest
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
+            'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
         ];
     }
 
@@ -34,6 +36,8 @@ class UpdateServiceRequestRequest extends FormRequest
             'title.required' => 'El título es obligatorio.',
             'description.required' => 'La descripción es obligatoria.',
             'criticality_level.required' => 'El nivel de criticidad es obligatorio.',
+            'entry_channel.required' => 'El canal de entrada es obligatorio.',
+            'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
         ];
     }
 }

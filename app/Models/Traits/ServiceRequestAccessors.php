@@ -49,4 +49,11 @@ trait ServiceRequestAccessors
 
         return $colors[$this->status] ?? 'secondary';
     }
+
+    public function getEntryChannelLabelAttribute(): ?string
+    {
+        $options = self::getEntryChannelOptions();
+
+        return $options[$this->entry_channel]['label'] ?? null;
+    }
 }

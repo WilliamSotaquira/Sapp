@@ -50,12 +50,39 @@
             @endforeach
         </select>
 
-        <p class="mt-1 text-sm text-gray-500">
-            <i class="fas fa-info-circle mr-1"></i>
-            Seleccione la persona que realiza la solicitud
+        <p class="mt-1 text-sm text-gray-500 flex items-center gap-2">
+            <i class="fas fa-info-circle text-blue-500"></i>
+            <span>Seleccione la persona que realiza la solicitud</span>
         </p>
 
         @error('requester_id')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <!-- Canal de ingreso -->
+    @php
+        $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
+        $selectedEntryChannel = old('entry_channel', $serviceRequest->entry_channel ?? null);
+    @endphp
+    <div>
+        <label for="entry_channel" class="block text-sm font-medium text-gray-700 mb-2">
+            Canal de ingreso <span class="text-red-500">*</span>
+        </label>
+        <select name="entry_channel" id="entry_channel"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('entry_channel') border-red-500 @enderror"
+            required>
+            <option value="">Selecciona un canal</option>
+            @foreach ($entryChannelOptions as $value => $option)
+                <option value="{{ $value }}" {{ $selectedEntryChannel === $value ? 'selected' : '' }}>
+                    {{ $option['label'] }}
+                </option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-sm text-gray-500">
+            Usa este campo para saber desde qué canal se originó la solicitud.
+        </p>
+        @error('entry_channel')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </div>
@@ -308,6 +335,71 @@
         </div>
     </div>
 </div>
+
+@once
+    @push('styles')
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
+        <style>
+            .select2-container--default .select2-selection--single {
+                height: 48px;
+                border-radius: 0.5rem;
+                border-color: #d1d5db;
+                padding: 0.5rem 0.75rem;
+            }
+            .select2-container--default .select2-selection--single .select2-selection__rendered {
+                line-height: 28px;
+                color: #1f2937;
+            }
+            .select2-container--default .select2-selection--single .select2-selection__arrow {
+                height: 46px;
+                right: 0.75rem;
+            }
+            .select2-dropdown {
+                border-radius: 0.75rem;
+                border-color: #d1d5db;
+            }
+        </style>
+    @endpush
+
+    @push('scripts')
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+        <script>
+            (function setupSelect2() {
+                function initSelect2Fields() {
+                    if (!window.jQuery || !window.jQuery.fn.select2) {
+                        console.warn('Select2 no está disponible.');
+                        return;
+                    }
+
+                    const requesterSelect = window.jQuery('#requester_id');
+                    if (requesterSelect.length && !requesterSelect.data('select2')) {
+                        requesterSelect.select2({
+                            width: '100%',
+                            placeholder: 'Seleccione un solicitante',
+                            allowClear: true
+                        });
+                    }
+
+                    const entryChannelSelect = window.jQuery('#entry_channel');
+                    if (entryChannelSelect.length && !entryChannelSelect.data('select2')) {
+                        entryChannelSelect.select2({
+                            width: '100%',
+                            placeholder: 'Seleccione un canal',
+                            minimumResultsForSearch: Infinity
+                        });
+                    }
+                }
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initSelect2Fields, { once: true });
+                } else {
+                    initSelect2Fields();
+                }
+            })();
+        </script>
+    @endpush
+@endonce
 
 <style>
     /* Asegurar que los estilos de Tailwind se apliquen a los radios seleccionados */
