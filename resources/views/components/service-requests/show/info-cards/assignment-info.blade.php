@@ -31,14 +31,14 @@
                         <p class="text-amber-600 text-sm">La solicitud está aceptada pero requiere asignación de técnico
                             para iniciar el proceso.</p>
                         @if($serviceRequest->status !== 'CERRADA')
-                        <div class="mt-2 flex gap-2">
+                        <div class="mt-2 flex flex-wrap gap-2">
                             <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
                                 <i class="fas fa-edit mr-1"></i>
                                 Editar Solicitud
                             </a>
                             <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                class="quick-assign-btn inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                 <i class="fas fa-user-plus mr-1"></i>
                                 Asignar Técnico
                             </button>
@@ -56,27 +56,27 @@
         @endphp
         <div class="space-y-6">
             <!-- Solicitante -->
-            <div class="flex items-center space-x-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div
                     class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}
                 </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between">
-                        <div>
+                <div class="flex-1 min-w-0 w-full">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="space-y-1">
                             <label class="text-sm font-medium text-gray-500 block">Solicitante</label>
-                            <p class="text-gray-900 font-semibold">{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
-                            <p class="text-sm text-gray-500">{{ $serviceRequest->requester->email ?? '' }}</p>
+                            <p class="text-gray-900 font-semibold break-words">{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-500 break-words">{{ $serviceRequest->requester->email ?? '' }}</p>
                         </div>
                         @if($serviceRequest->status !== 'CERRADA')
-                        <div class="flex gap-2">
+                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
                             <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                class="quick-requester-btn inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="quick-requester-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <i class="fas fa-user-edit mr-1"></i>
-                                {{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}
+                                <span>{{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}</span>
                             </button>
                             <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <i class="fas fa-edit mr-1"></i>
                                 Editar
                             </a>
@@ -84,7 +84,7 @@
                         @endif
                     </div>
                     @if(!$serviceRequest->requester)
-                        <p class="text-sm text-amber-600 font-medium mt-1">
+                        <p class="text-sm text-amber-600 font-medium mt-2">
                             ⚠️ Asigna un solicitante para completar la información de contacto.
                         </p>
                     @endif
@@ -94,29 +94,29 @@
             <div class="border-t border-gray-200"></div>
 
             <!-- Asignado a -->
-            <div class="flex items-center space-x-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                 @if ($serviceRequest->assigned_to)
                     <div
                         class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                         {{ substr($serviceRequest->assignee->name ?? 'T', 0, 1) }}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
-                            <div>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="space-y-1">
                                 <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                                <p class="text-gray-900 font-semibold">{{ $serviceRequest->assignee->name ?? 'N/A' }}
+                                <p class="text-gray-900 font-semibold break-words">{{ $serviceRequest->assignee->name ?? 'N/A' }}
                                 </p>
-                                <p class="text-sm text-gray-500">{{ $serviceRequest->assignee->email ?? '' }}</p>
+                                <p class="text-sm text-gray-500 break-words">{{ $serviceRequest->assignee->email ?? '' }}</p>
                             </div>
                             @if($serviceRequest->status !== 'CERRADA')
-                            <div class="flex gap-2">
+                            <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
                                 <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                    class="quick-assign-btn inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                     <i class="fas fa-sync-alt mr-1"></i>
-                                    Reasignar
+                                    <span>Reasignar</span>
                                 </button>
                                 <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                     <i class="fas fa-edit mr-1"></i>
                                     Editar
                                 </a>
@@ -138,28 +138,28 @@
                         <i class="fas fa-user-plus text-lg"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                                <p
-                                    class="text-gray-900 font-semibold @if ($serviceRequest->status === 'EN_PROCESO') text-red-600 @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 @endif">
-                                    No asignado
-                                    @if ($serviceRequest->status === 'EN_PROCESO')
-                                        <i class="fas fa-exclamation-circle text-red-500 ml-2"></i>
-                                    @elseif($serviceRequest->status === 'ACEPTADA')
-                                        <i class="fas fa-info-circle text-amber-500 ml-2"></i>
-                                    @endif
-                                </p>
-                            </div>
-                            @if($serviceRequest->status !== 'CERRADA')
-                            <div class="flex gap-2">
-                                <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                    class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <i class="fas fa-edit mr-1"></i>
-                                    Editar Solicitud
-                                </a>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
+                            <p
+                                class="text-gray-900 font-semibold @if ($serviceRequest->status === 'EN_PROCESO') text-red-600 @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 @endif">
+                                No asignado
+                                @if ($serviceRequest->status === 'EN_PROCESO')
+                                    <i class="fas fa-exclamation-circle text-red-500 ml-2"></i>
+                                @elseif($serviceRequest->status === 'ACEPTADA')
+                                    <i class="fas fa-info-circle text-amber-500 ml-2"></i>
+                                @endif
+                            </p>
+                        </div>
+                        @if($serviceRequest->status !== 'CERRADA')
+                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+                            <a href="{{ route('service-requests.edit', $serviceRequest) }}"
+                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                <i class="fas fa-edit mr-1"></i>
+                                Editar Solicitud
+                            </a>
                                 <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                    class="quick-assign-btn inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                    class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                                     <i class="fas fa-user-plus mr-1"></i>
                                     Asignar Técnico
                                 </button>
