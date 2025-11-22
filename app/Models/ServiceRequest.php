@@ -16,7 +16,13 @@ class ServiceRequest extends Model
     use HasFactory, SoftDeletes;
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
-    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
+    public const ENTRY_CHANNEL_CORPORATE_EMAIL = 'email_corporativo';
+    public const ENTRY_CHANNEL_DIGITAL_EMAIL = 'email_digital';
+    public const ENTRY_CHANNEL_WHATSAPP = 'whatsapp';
+    public const ENTRY_CHANNEL_PHONE = 'telefono';
+    public const ENTRY_CHANNEL_MEETING = 'reunion';
+
+    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -39,6 +45,62 @@ class ServiceRequest extends Model
     ];
 
     protected $appends = ['step_by_step_evidences', 'file_evidences', 'is_overdue', 'time_remaining', 'criticality_level_color', 'status_color'];
+
+    public static function getEntryChannelOptions(): array
+    {
+        return [
+            self::ENTRY_CHANNEL_CORPORATE_EMAIL => [
+                'label' => 'Email corporativo',
+                'emoji' => '🏢📧',
+                'highlights' => [
+                    'Solicitudes formales',
+                    'Documentación oficial',
+                    'Requerimientos de alta dirección',
+                ],
+            ],
+            self::ENTRY_CHANNEL_DIGITAL_EMAIL => [
+                'label' => 'Memorando',
+                'emoji' => '📧',
+                'highlights' => [
+                    'Solicitudes automáticas',
+                    'Portal web y formularios',
+                    'Flujos digitales',
+                ],
+            ],
+            self::ENTRY_CHANNEL_WHATSAPP => [
+                'label' => 'WhatsApp',
+                'emoji' => '📱',
+                'highlights' => [
+                    'Solicitudes rápidas',
+                    'Coordinación inmediata',
+                    'Consultas operativas',
+                ],
+            ],
+            self::ENTRY_CHANNEL_PHONE => [
+                'label' => 'Teléfono',
+                'emoji' => '📞',
+                'highlights' => [
+                    'Urgencias',
+                    'Consultas específicas',
+                ],
+            ],
+            self::ENTRY_CHANNEL_MEETING => [
+                'label' => 'Reunión',
+                'emoji' => '👥',
+                'highlights' => [
+                    'Ordinarias (1 hora)',
+                    'Seguimiento (periódicas)',
+                    'Control (auditorías)',
+                    'Coordinación (dependencias)',
+                ],
+            ],
+        ];
+    }
+
+    public static function getEntryChannelValidationValues(): array
+    {
+        return array_keys(self::getEntryChannelOptions());
+    }
 
     /**
      * Boot del modelo

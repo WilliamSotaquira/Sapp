@@ -37,40 +37,66 @@
     @endphp
 
     <div class="space-y-4 sm:space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600 bg-white rounded-lg border border-gray-100 px-3 py-2"
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm text-slate-600 rounded-2xl px-4 py-3 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border border-blue-100/60 shadow"
             id="requestNavigation"
             data-prev-url="{{ $previousRequestNav ? route('service-requests.show', $previousRequestNav) : '' }}"
             data-next-url="{{ $nextRequestNav ? route('service-requests.show', $nextRequestNav) : '' }}" role="navigation"
             aria-label="Navegación entre solicitudes">
-            <div class="flex items-center gap-2 flex-1">
+            <div class="flex items-center flex-1">
                 @if ($previousRequestNav)
                     <a href="{{ route('service-requests.show', $previousRequestNav) }}"
-                        class="nav-direction inline-flex items-center gap-1"
+                        class="nav-direction nav-direction--prev focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
                         title="Ir a la solicitud #{{ $previousRequestNav->ticket_number }}"
                         aria-label="Ver solicitud anterior #{{ $previousRequestNav->ticket_number }}">
-                        <i class="fas fa-arrow-left text-[10px]"></i>
-                        <span>Anterior · #{{ $previousRequestNav->ticket_number }}</span>
+                        <span class="nav-direction__icon" aria-hidden="true">
+                            <i class="fas fa-arrow-left text-[10px]"></i>
+                        </span>
+                        <span class="nav-direction__content">
+                            <span class="nav-direction__eyebrow">Anterior</span>
+                            <span class="nav-direction__ticket">#{{ $previousRequestNav->ticket_number }}</span>
+                        </span>
                     </a>
                 @else
-                    <span class="inline-flex items-center gap-1 text-gray-400">
-                        <i class="fas fa-arrow-left text-[10px]"></i>
-                        <span>Anterior</span>
+                    <span class="nav-direction nav-direction--disabled nav-direction--prev" aria-disabled="true">
+                        <span class="nav-direction__icon" aria-hidden="true">
+                            <i class="fas fa-arrow-left text-[10px]"></i>
+                        </span>
+                        <span class="nav-direction__content">
+                            <span class="nav-direction__eyebrow">Anterior</span>
+                            <span class="nav-direction__ticket">No disponible</span>
+                        </span>
                     </span>
                 @endif
             </div>
-            <div class="flex items-center gap-2 flex-1 justify-end">
+            <div class="hidden sm:flex justify-center w-full sm:w-auto">
+                <div class="nav-pill-current" aria-live="polite">
+                    <span class="nav-pill-current__eyebrow">Solicitud actual</span>
+                    <span class="nav-pill-current__ticket">#{{ $serviceRequest->ticket_number }}</span>
+                </div>
+            </div>
+            <div class="flex items-center flex-1 justify-end">
                 @if ($nextRequestNav)
                     <a href="{{ route('service-requests.show', $nextRequestNav) }}"
-                        class="nav-direction inline-flex items-center gap-1 justify-end text-right"
+                        class="nav-direction nav-direction--reverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
                         title="Ir a la solicitud #{{ $nextRequestNav->ticket_number }}"
                         aria-label="Ver siguiente solicitud #{{ $nextRequestNav->ticket_number }}">
-                        <span>#{{ $nextRequestNav->ticket_number }} · Siguiente</span>
-                        <i class="fas fa-arrow-right text-[10px]"></i>
+                        <span class="nav-direction__icon" aria-hidden="true">
+                            <i class="fas fa-arrow-right text-[10px]"></i>
+                        </span>
+                        <span class="nav-direction__content">
+                            <span class="nav-direction__eyebrow">Siguiente</span>
+                            <span class="nav-direction__ticket">#{{ $nextRequestNav->ticket_number }}</span>
+                        </span>
                     </a>
                 @else
-                    <span class="inline-flex items-center gap-1 text-gray-400">
-                        <span>Siguiente</span>
-                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    <span class="nav-direction nav-direction--disabled nav-direction--reverse" aria-disabled="true">
+                        <span class="nav-direction__icon" aria-hidden="true">
+                            <i class="fas fa-arrow-right text-[10px]"></i>
+                        </span>
+                        <span class="nav-direction__content">
+                            <span class="nav-direction__eyebrow">Siguiente</span>
+                            <span class="nav-direction__ticket">No disponible</span>
+                        </span>
                     </span>
                 @endif
             </div>
@@ -123,38 +149,138 @@
 @section('styles')
     <style>
         .nav-direction {
-            color: #4b5563;
-            transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-            position: relative;
-            padding: 0.25rem 0.6rem;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
             border-radius: 9999px;
-            overflow: hidden;
-        }
-
-        .nav-direction::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 2px;
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), transparent);
-            opacity: 0;
-            transform: translateY(2px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            padding: 0.65rem 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.18);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 25px rgba(15, 23, 42, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .nav-direction:hover,
         .nav-direction:focus-visible {
-            color: #1d4ed8;
-            background-color: rgba(59, 130, 246, 0.12);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 15px 30px rgba(59, 130, 246, 0.2);
         }
 
-        .nav-direction:hover::after,
-        .nav-direction:focus-visible::after {
-            opacity: 1;
-            transform: translateY(0);
+        .nav-direction__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.25));
+            color: #1d4ed8;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.65);
+        }
+
+        .nav-direction__content {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            line-height: 1.2;
+        }
+
+        .nav-direction__eyebrow {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+
+        .nav-direction__ticket {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .nav-direction--reverse {
+            flex-direction: row-reverse;
+        }
+
+        .nav-direction--reverse .nav-direction__content {
+            text-align: right;
+        }
+
+        .nav-direction--disabled {
+            color: #94a3b8;
+            border-color: rgba(148, 163, 184, 0.35);
+            background: rgba(248, 250, 252, 0.9);
+            box-shadow: inset 0 0 0 rgba(255, 255, 255, 0);
+        }
+
+        .nav-pill-current {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.15rem;
+            min-width: 180px;
+            padding: 0.6rem 1rem;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #0f172a;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 12px rgba(15, 23, 42, 0.08);
+            text-align: center;
+        }
+
+        .nav-pill-current__eyebrow {
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+
+        .nav-pill-current__ticket {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        @media (max-width: 640px) {
+            #requestNavigation {
+                gap: 0.75rem;
+                padding: 0.75rem;
+            }
+
+            .nav-direction {
+                padding: 0.5rem 0.75rem;
+                border-radius: 1.25rem;
+                gap: 0.5rem;
+                min-height: 3.25rem;
+            }
+
+            .nav-direction__icon {
+                width: 2rem;
+                height: 2rem;
+            }
+
+            .nav-direction__eyebrow {
+                font-size: 0.6rem;
+            }
+
+            .nav-direction__ticket {
+                font-size: 0.85rem;
+            }
+
+            .nav-pill-current {
+                width: 100%;
+                min-width: 0;
+                padding: 0.55rem 0.85rem;
+            }
+
+            .nav-pill-current__ticket {
+                font-size: 0.9rem;
+            }
         }
 
         /* Timeline Styles */

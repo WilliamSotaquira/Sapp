@@ -34,6 +34,7 @@ class ServiceRequestFactory extends Factory
             'sub_service_id' => 1,
             'sla_id' => 1,
             'requested_by' => 1,
+            'entry_channel' => fake()->randomElement(ServiceRequest::getEntryChannelValidationValues()),
             'web_routes' => json_encode(['test-route']),
             'created_at' => now(),
             'updated_at' => now(),

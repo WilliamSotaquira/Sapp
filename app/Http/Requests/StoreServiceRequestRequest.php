@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ServiceRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceRequestRequest extends FormRequest
@@ -29,6 +30,7 @@ class StoreServiceRequestRequest extends FormRequest
             'family_id' => 'required|exists:service_families,id',
             'sla_id' => 'required|exists:service_level_agreements,id',
             'requested_by' => 'required|exists:users,id',
+            'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'web_routes' => 'required|string',
         ];
     }
@@ -56,6 +58,8 @@ class StoreServiceRequestRequest extends FormRequest
             'sla_id.exists' => 'El SLA seleccionado no es válido.',
             'requested_by.required' => 'Debe especificar quién solicita.',
             'requested_by.exists' => 'El usuario que solicita no es válido.',
+            'entry_channel.required' => 'Debe seleccionar un canal de entrada.',
+            'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
             'web_routes.required' => 'Las rutas web son obligatorias.',
         ];
     }
