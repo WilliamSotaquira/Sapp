@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ServiceRequestController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -52,4 +53,7 @@ Route::prefix('service-requests')
         // Asignación rápida
         Route::post('/{service_request}/quick-assign', [ServiceRequestController::class, 'quickAssign'])->name('quick-assign');
         Route::post('/{service_request}/quick-assign-requester', [ServiceRequestController::class, 'quickAssignRequester'])->name('quick-assign-requester');
+
+        // Creación rápida de tareas
+        Route::post('/{service_request}/quick-task', [TaskController::class, 'quickStoreForServiceRequest'])->name('quick-task');
     });

@@ -10,6 +10,7 @@ use App\Models\Subtask;
 use App\Models\TaskChecklist;
 use App\Services\TaskAssignmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
 class TaskController extends Controller
@@ -315,6 +316,97 @@ class TaskController extends Controller
 
         return redirect()->route('tasks.show', $task)
             ->with('success', $successMessage);
+    }
+
+    public function quickStoreForServiceRequest(Request $request, ServiceRequest $serviceRequest)
+    {
+        if (!auth()->user()->can('assign-service-requests')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permisos para crear tareas.',
+            ], 403);
+        }
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'priority' => 'required|in:low,medium,high,urgent',
+                'duration_minutes' => 'nullable|integer|min:5|max:480',
+                'type' => 'nullable|in:impact,regular',
+            ],
+            [
+                'title.required' => 'El título es obligatorio.',
+                'title.max' => 'El título no puede superar los 255 caracteres.',
+                'description.string' => 'La descripción debe ser un texto válido.',
+                'priority.required' => 'Selecciona la prioridad de la tarea.',
+                'priority.in' => 'La prioridad seleccionada no es válida.',
+                'duration_minutes.integer' => 'La duración debe ser un número entero.',
+                'duration_minutes.min' => 'La duración mínima es de 5 minutos.',
+                'duration_minutes.max' => 'La duración no puede exceder 480 minutos.',
+                'type.in' => 'El tipo de tarea seleccionado no es válido.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+
+        $technician = $serviceRequest->assigned_to
+            ? Technician::where('user_id', $serviceRequest->assigned_to)->first()
+            : null;
+
+        if (!$technician) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La solicitud no tiene técnico asignado. Asigna un técnico antes de crear tareas.',
+            ], 422);
+        }
+
+        $date = now()->hour < 18 ? now() : now()->addDay();
+        $durationMinutes = $validated['duration_minutes'] ?? 60;
+        $estimatedHours = round($durationMinutes / 60, 2);
+
+        $task = Task::create([
+            'type' => $validated['type'] ?? 'regular',
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'technician_id' => $technician->id,
+            'service_request_id' => $serviceRequest->id,
+            'sla_id' => $serviceRequest->sla_id,
+            'scheduled_date' => $date->format('Y-m-d'),
+            'scheduled_start_time' => $date->format('H:i'),
+            'scheduled_time' => $date->format('H:i'),
+            'estimated_duration_minutes' => $durationMinutes,
+            'estimated_hours' => $estimatedHours,
+            'priority' => $validated['priority'],
+            'status' => 'pending',
+        ]);
+
+        $task->addHistory('created', auth()->id(), 'Tarea creada rápidamente desde la solicitud.');
+
+        if ($task->technician_id) {
+            $task->addHistory('assigned', auth()->id(), "Asignada a {$task->technician->user->name}");
+        }
+
+        if ($task->service_request_id && $serviceRequest->sla_id) {
+            $this->createSlaCompliance($task);
+        }
+
+        $task->load(['technician.user', 'subtasks']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tarea creada correctamente.',
+            'html' => view('components.service-requests.show.content.partials.task-card', compact('task'))->render(),
+        ]);
     }
 
     /**
@@ -964,4 +1056,3 @@ class TaskController extends Controller
         }
     }
 }
-
