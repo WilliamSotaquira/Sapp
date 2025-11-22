@@ -1,210 +1,128 @@
 @props(['serviceRequest'])
 
 @php
-    // Obtener todas las tareas con sus subtareas
     $tasks = $serviceRequest->tasks()
         ->with(['technician.user', 'subtasks'])
         ->orderBy('created_at', 'desc')
         ->get();
+    $canManageTasks = in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO']);
+    $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
+    $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
 @endphp
 
-@if($tasks->isNotEmpty())
 <div class="bg-white shadow rounded-lg overflow-hidden">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center">
                 <div class="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg mr-3">
                     <i class="fas fa-tasks text-purple-600"></i>
                 </div>
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900">Tareas Asociadas</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">
+                    <p id="tasksCountLabel"
+                       data-count="{{ $tasks->count() }}"
+                       class="text-xs text-gray-500 mt-0.5">
                         {{ $tasks->count() }} tarea(s) {{ $tasks->count() === 1 ? 'registrada' : 'registradas' }}
                     </p>
                 </div>
             </div>
-            @if($serviceRequest->status === 'EN_PROCESO')
+            <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
-                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-700 active:bg-purple-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                    <i class="fas fa-plus mr-2"></i>
-                    Nueva Tarea
+                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    Abrir Gestor
                 </a>
-            @endif
+                <button type="button"
+                        class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
+                        data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}">
+                    <i class="fas fa-bolt mr-2"></i>
+                    Tarea Rápida
+                </button>
+            </div>
         </div>
+        @if(!$hasTechnicianAssigned)
+            <p class="mt-2 text-xs text-amber-600 flex items-center">
+                <i class="fas fa-info-circle mr-1"></i>
+                Debes asignar un técnico para poder crear tareas rápidas.
+            </p>
+        @endif
     </div>
 
     <div class="p-4 sm:p-6">
-        <div class="space-y-3">
+        <div id="tasksList" class="space-y-3 {{ $tasks->isEmpty() ? 'hidden' : '' }}">
             @foreach($tasks as $task)
-                <div class="border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200">
-                    <!-- Tarea Principal -->
-                    <div class="p-4 {{ $task->subtasks && $task->subtasks->count() > 0 ? 'border-b border-gray-100' : '' }}">
-                        <div class="flex items-start gap-3">
-                            <!-- Checkbox para marcar tarea completada -->
-                            <div class="flex-shrink-0 mt-1">
-                                <input type="checkbox"
-                                       id="task-{{ $task->id }}"
-                                       class="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
-                                       {{ $task->status === 'completed' ? 'checked' : '' }}
-                                       onchange="toggleTaskStatus({{ $task->id }}, this.checked)"
-                                       {{ $task->status === 'cancelled' ? 'disabled' : '' }}>
-                            </div>
-
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <!-- Código de tarea -->
-                                    <a href="{{ route('tasks.show', $task) }}"
-                                       class="font-mono text-sm font-semibold text-purple-600 hover:text-purple-800 hover:underline">
-                                        {{ $task->task_code }}
-                                    </a>
-
-                                    <!-- Badge de tipo -->
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                        {{ $task->type === 'impact' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
-                                        <i class="fas {{ $task->type === 'impact' ? 'fa-exclamation-triangle' : 'fa-clipboard-list' }} mr-1"></i>
-                                        {{ $task->type === 'impact' ? 'IMPACTO' : 'REGULAR' }}
-                                    </span>
-
-                                    <!-- Badge de status -->
-                                    @php
-                                        $statusConfig = [
-                                            'pending' => ['bg' => 'bg-yellow-100', 'text' => 'text-yellow-800', 'icon' => 'fa-clock', 'label' => 'Pendiente'],
-                                            'confirmed' => ['bg' => 'bg-green-100', 'text' => 'text-green-800', 'icon' => 'fa-check-circle', 'label' => 'Confirmada'],
-                                            'in_progress' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-800', 'icon' => 'fa-spinner', 'label' => 'En Proceso'],
-                                            'completed' => ['bg' => 'bg-gray-100', 'text' => 'text-gray-800', 'icon' => 'fa-check-double', 'label' => 'Completada'],
-                                            'cancelled' => ['bg' => 'bg-red-100', 'text' => 'text-red-800', 'icon' => 'fa-times-circle', 'label' => 'Cancelada'],
-                                        ];
-                                        $status = $statusConfig[$task->status] ?? $statusConfig['pending'];
-                                    @endphp
-                                    <span id="task-status-badge-{{ $task->id }}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $status['bg'] }} {{ $status['text'] }}">
-                                        <i class="fas {{ $status['icon'] }} mr-1"></i>
-                                        {{ $status['label'] }}
-                                    </span>
-
-                                    <!-- Badge de prioridad -->
-                                    @php
-                                        $priorityConfig = [
-                                            'LOW' => ['bg' => 'bg-gray-100', 'text' => 'text-gray-700', 'label' => 'Baja'],
-                                            'MEDIUM' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-700', 'label' => 'Media'],
-                                            'HIGH' => ['bg' => 'bg-orange-100', 'text' => 'text-orange-700', 'label' => 'Alta'],
-                                            'URGENT' => ['bg' => 'bg-red-100', 'text' => 'text-red-700', 'label' => 'Urgente'],
-                                        ];
-                                        $priority = $priorityConfig[$task->priority] ?? $priorityConfig['MEDIUM'];
-                                    @endphp
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $priority['bg'] }} {{ $priority['text'] }}">
-                                        {{ $priority['label'] }}
-                                    </span>
-                                </div>
-
-                                <!-- Título de tarea -->
-                                <h4 class="text-sm font-medium text-gray-900 mb-2 {{ $task->status === 'completed' ? 'line-through text-gray-500' : '' }}">
-                                    {{ $task->title }}
-                                </h4>
-
-                                <!-- Descripción (truncada) -->
-                                @if($task->description)
-                                    <p class="text-xs text-gray-600 line-clamp-2 mb-2 {{ $task->status === 'completed' ? 'text-gray-400' : '' }}">
-                                        {{ Str::limit($task->description, 150) }}
-                                    </p>
-                                @endif
-
-                                <!-- Información adicional -->
-                                <div class="flex flex-wrap gap-4 text-xs text-gray-500">
-                                    @if($task->technician)
-                                        <div class="flex items-center">
-                                            <i class="fas fa-user text-gray-400 mr-1"></i>
-                                            <span>{{ $task->technician->user->name }}</span>
-                                        </div>
-                                    @endif
-
-                                    @if($task->scheduled_date)
-                                        <div class="flex items-center">
-                                            <i class="fas fa-calendar text-gray-400 mr-1"></i>
-                                            <span>{{ \Carbon\Carbon::parse($task->scheduled_date)->format('d/m/Y') }}</span>
-                                        </div>
-                                    @endif
-
-                                    @if($task->estimated_hours)
-                                        <div class="flex items-center">
-                                            <i class="fas fa-clock text-gray-400 mr-1"></i>
-                                            <span>{{ $task->estimated_hours }}h estimadas</span>
-                                        </div>
-                                    @endif
-
-                                    <div class="flex items-center">
-                                        <i class="fas fa-calendar-plus text-gray-400 mr-1"></i>
-                                        <span>Creada {{ $task->created_at->diffForHumans() }}</span>
-                                    </div>
-
-                                    @if($task->subtasks && $task->subtasks->count() > 0)
-                                        @php
-                                            $completedSubtasks = $task->subtasks->where('is_completed', true)->count();
-                                            $totalSubtasks = $task->subtasks->count();
-                                        @endphp
-                                        <div class="flex items-center text-purple-600 font-medium">
-                                            <i class="fas fa-list-check text-purple-500 mr-1"></i>
-                                            <span>{{ $completedSubtasks }}/{{ $totalSubtasks }} subtareas completadas</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-
-                            <!-- Botón ver detalle -->
-                            <div class="flex-shrink-0">
-                                <a href="{{ route('tasks.show', $task) }}"
-                                   class="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors duration-200"
-                                   title="Ver detalle">
-                                    <i class="fas fa-arrow-right"></i>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Subtareas -->
-                    @if($task->subtasks && $task->subtasks->count() > 0)
-                        <div class="bg-gray-50 p-4">
-                            <h5 class="text-xs font-semibold text-gray-700 mb-3 flex items-center">
-                                <i class="fas fa-list-ul mr-2"></i>
-                                Subtareas ({{ $task->subtasks->count() }})
-                            </h5>
-                            <div class="space-y-2">
-                                @foreach($task->subtasks as $subtask)
-                                    <div class="flex items-start gap-3 p-2 bg-white rounded border border-gray-200 hover:border-purple-200 transition-colors">
-                                        <!-- Checkbox para subtarea -->
-                                        <div class="flex-shrink-0 mt-0.5">
-                                            <input type="checkbox"
-                                                   id="subtask-{{ $subtask->id }}"
-                                                   class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
-                                                   {{ $subtask->is_completed ? 'checked' : '' }}
-                                                   onchange="toggleSubtaskStatus({{ $task->id }}, {{ $subtask->id }}, this.checked)"
-                                                   {{ $task->status === 'cancelled' ? 'disabled' : '' }}>
-                                        </div>
-
-                                        <div class="flex-1">
-                                            <label for="subtask-{{ $subtask->id }}" class="text-sm {{ $subtask->is_completed ? 'line-through text-gray-500' : 'text-gray-700 cursor-pointer' }}">
-                                                {{ $subtask->title }}
-                                            </label>
-                                            @if($subtask->description)
-                                                <p class="text-xs text-gray-500 mt-1 {{ $subtask->is_completed ? 'text-gray-400' : '' }}">
-                                                    {{ Str::limit($subtask->description, 100) }}
-                                                </p>
-                                            @endif
-                                        </div>
-
-                                        <!-- Badge de prioridad subtarea -->
-                                        @php
-                                            $subPriority = $priorityConfig[$subtask->priority] ?? $priorityConfig['MEDIUM'];
-                                        @endphp
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $subPriority['bg'] }} {{ $subPriority['text'] }} flex-shrink-0">
-                                            {{ $subPriority['label'] }}
-                                        </span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                </div>
+                @include('components.service-requests.show.content.partials.task-card', ['task' => $task])
             @endforeach
+        </div>
+
+        <div id="tasksEmptyState" class="{{ $tasks->isNotEmpty() ? 'hidden' : '' }} py-10 text-center text-gray-500">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
+                <i class="fas fa-clipboard-list text-gray-400 text-xl"></i>
+            </div>
+            <p class="text-sm font-medium text-gray-600">No hay tareas asociadas a esta solicitud.</p>
+            @if($canManageTasks)
+                <p class="text-xs text-gray-500 mt-1">Utiliza “Tarea Rápida” para crear la primera sin salir de esta vista.</p>
+            @endif
+        </div>
+    </div>
+</div>
+
+<div id="quickTaskModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Nueva Tarea Rápida</h3>
+                    <p class="text-xs text-gray-500">Se vinculará automáticamente a la solicitud #{{ $serviceRequest->ticket_number }}</p>
+                </div>
+                <button type="button" class="close-quick-task text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <form id="quickTaskForm" action="{{ route('service-requests.quick-task', $serviceRequest) }}" method="POST" class="px-6 py-5 space-y-4">
+                @csrf
+                <div id="quickTaskError" class="hidden px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700"></div>
+                <div>
+                    <label for="quick_task_title" class="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                    <input type="text" id="quick_task_title" name="title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="Ej. Revisar logs del portal" required>
+                </div>
+                <div>
+                    <label for="quick_task_description" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <textarea id="quick_task_description" name="description" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="Contexto o pasos a ejecutar (opcional)"></textarea>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="quick_task_priority" class="block text-sm font-medium text-gray-700 mb-1">Prioridad *</label>
+                        <select id="quick_task_priority" name="priority" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            <option value="low">Baja</option>
+                            <option value="medium" selected>Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="quick_task_type" class="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
+                        <select id="quick_task_type" name="type" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            <option value="regular" selected>Regular (25 min)</option>
+                            <option value="impact">Impacto (90 min)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="quick_task_duration" class="block text-sm font-medium text-gray-700 mb-1">Duración estimada (minutos)</label>
+                    <input type="number" id="quick_task_duration" name="duration_minutes" min="5" max="480" value="60" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    <p class="text-xs text-gray-500 mt-1">Se programará automáticamente en la agenda del técnico asignado.</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-3 border-t border-gray-100">
+                    <button type="button" class="close-quick-task px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 flex items-center gap-2">
+                        <span id="quickTaskSubmitText">Crear Tarea</span>
+                        <span id="quickTaskSpinner" class="hidden">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -564,6 +482,153 @@ function showNotification(message, type) {
     }, 3000);
 }
 
+function setupQuickTaskModal() {
+    const modal = document.getElementById('quickTaskModal');
+    const form = document.getElementById('quickTaskForm');
+    const openButtons = document.querySelectorAll('.open-quick-task');
+    const closeButtons = document.querySelectorAll('.close-quick-task');
+    const submitText = document.getElementById('quickTaskSubmitText');
+    const spinner = document.getElementById('quickTaskSpinner');
+    const tasksList = document.getElementById('tasksList');
+    const emptyState = document.getElementById('tasksEmptyState');
+    const tasksCountLabel = document.getElementById('tasksCountLabel');
+    const typeSelect = document.getElementById('quick_task_type');
+    const durationInput = document.getElementById('quick_task_duration');
+    const errorBox = document.getElementById('quickTaskError');
+    const titleInput = document.getElementById('quick_task_title');
+
+    if (!modal || !form) {
+        return;
+    }
+
+    const toggleModal = (show) => {
+        if (show) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        } else {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            form.reset();
+            if (errorBox) {
+                errorBox.classList.add('hidden');
+                errorBox.textContent = '';
+            }
+            if (titleInput) {
+                titleInput.classList.remove('border-red-500');
+            }
+            submitText.textContent = 'Crear Tarea';
+            spinner.classList.add('hidden');
+        }
+    };
+
+    openButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            if (button.dataset.disabled === 'true') {
+                alert('Debes asignar un técnico y tener la solicitud en un estado editable para crear tareas rápidas.');
+                return;
+            }
+            toggleModal(true);
+            document.getElementById('quick_task_title').focus();
+        });
+    });
+
+    closeButtons.forEach(button => button.addEventListener('click', () => toggleModal(false)));
+
+    typeSelect?.addEventListener('change', () => {
+        if (typeSelect.value === 'impact') {
+            durationInput.value = 90;
+        } else {
+            durationInput.value = 25;
+        }
+    });
+
+    const updateTaskCount = (delta) => {
+        if (!tasksCountLabel) return;
+        const current = parseInt(tasksCountLabel.dataset.count || '0', 10) + delta;
+        tasksCountLabel.dataset.count = current;
+        tasksCountLabel.textContent = `${current} tarea(s) ${current === 1 ? 'registrada' : 'registradas'}`;
+    };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (errorBox) {
+            errorBox.classList.add('hidden');
+            errorBox.textContent = '';
+        }
+        submitText.textContent = 'Creando...';
+        spinner.classList.remove('hidden');
+        const formData = new FormData(form);
+        form.querySelectorAll('input, textarea, select, button').forEach(el => el.disabled = true);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                if (errorBox) {
+                    errorBox.textContent = data.message || 'Error al crear la tarea.';
+                    errorBox.classList.remove('hidden');
+                }
+                if (data.errors && data.errors.title && titleInput) {
+                    titleInput.focus();
+                    titleInput.classList.add('border-red-500');
+                } else if (titleInput) {
+                    titleInput.classList.remove('border-red-500');
+                }
+                return;
+            } else if (titleInput) {
+                titleInput.classList.remove('border-red-500');
+            }
+
+            if (tasksList && data.html) {
+                tasksList.insertAdjacentHTML('afterbegin', data.html);
+                tasksList.classList.remove('hidden');
+            }
+            emptyState?.classList.add('hidden');
+            updateTaskCount(1);
+            if (errorBox) {
+                errorBox.classList.add('hidden');
+                errorBox.textContent = '';
+            }
+
+            showNotification(data.message, 'success');
+            toggleModal(false);
+        } catch (error) {
+            console.error(error);
+            if (errorBox) {
+                errorBox.textContent = error.message || 'Error al crear la tarea.';
+                errorBox.classList.remove('hidden');
+            } else {
+                showNotification(error.message || 'Error al crear la tarea', 'error');
+            }
+        } finally {
+            spinner.classList.add('hidden');
+            submitText.textContent = 'Crear Tarea';
+            form.querySelectorAll('input, textarea, select, button').forEach(el => el.disabled = false);
+        }
+    });
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            toggleModal(false);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            toggleModal(false);
+        }
+    });
+}
+
 // Agregar estilos para animaciones
 const style = document.createElement('style');
 style.textContent = `
@@ -589,5 +654,6 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+document.addEventListener('DOMContentLoaded', setupQuickTaskModal);
 </script>
-@endif
