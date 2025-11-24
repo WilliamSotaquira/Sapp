@@ -216,9 +216,10 @@ class ServiceRequest extends Model
         $anyInProgress = $tasks->contains(fn($task) => $task->status === 'in_progress');
 
         if ($allCompleted) {
+            $this->ensureInProgressState($tasks);
             $this->resolve('Todas las tareas han sido completadas');
         } elseif ($anyInProgress && $this->status !== self::STATUS_IN_PROGRESS) {
-            $this->update(['status' => self::STATUS_IN_PROGRESS]);
+            $this->ensureInProgressState($tasks);
         }
     }
 
@@ -271,6 +272,34 @@ class ServiceRequest extends Model
             'status' => $this->status,
             'assigned_to' => $this->assigned_to,
         ];
+    }
+
+    protected function ensureInProgressState($tasks = null)
+    {
+        $tasks = $tasks ?: $this->tasks;
+
+        if ($this->status === self::STATUS_PENDING) {
+            $assignedUserId = $this->assigned_to;
+            if (!$assignedUserId) {
+                $firstTaskTechnician = $tasks->first()?->technician;
+                $assignedUserId = $firstTaskTechnician?->user_id ?? $firstTaskTechnician?->user?->id;
+            }
+
+            if ($assignedUserId) {
+                $this->assigned_to = $assignedUserId;
+            }
+
+            $this->status = self::STATUS_ACCEPTED;
+            $this->accepted_at = $this->accepted_at ?? now();
+            $this->save();
+        }
+
+        if ($this->status === self::STATUS_ACCEPTED || $this->status === self::STATUS_REOPENED) {
+            $this->status = self::STATUS_IN_PROGRESS;
+            $this->save();
+        } elseif ($this->status !== self::STATUS_IN_PROGRESS) {
+            $this->update(['status' => self::STATUS_IN_PROGRESS]);
+        }
     }
 
     /**
