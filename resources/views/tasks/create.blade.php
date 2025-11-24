@@ -3,9 +3,77 @@
 @section('title', 'Crear Nueva Tarea')
 
 @section('content')
+@php
+    $skipInitialModal = $shouldSkipInitialModal ?? false;
+    $selectedTechnicianId = old('technician_id', $preselectedTechnicianId ?? null);
+    $selectedServiceRequestId = old('service_request_id', optional($preselectedServiceRequest)->id);
+    $selectedPriority = old('priority', $preselectedPriority ?? null);
+
+    $providedEstimatedHours = $preselectedEstimatedHours ?? null;
+    $estimatedHoursValue = old(
+        'estimated_hours',
+        !is_null($providedEstimatedHours) ? number_format($providedEstimatedHours, 2, '.', '') : '1.5'
+    );
+
+    $durationValue = old('estimated_duration_value');
+    $durationUnit = old('estimated_duration_unit');
+
+    if (is_null($durationValue) && !is_null($providedEstimatedHours)) {
+        if ($providedEstimatedHours >= 1) {
+            $durationValue = number_format($providedEstimatedHours, 1, '.', '');
+            $durationUnit = $durationUnit ?? 'hours';
+        } else {
+            $durationValue = (string) max(1, round($providedEstimatedHours * 60));
+            $durationUnit = $durationUnit ?? 'minutes';
+        }
+    }
+
+    $durationValue = $durationValue ?? '90';
+    $durationUnit = $durationUnit ?? 'minutes';
+
+    $uiTimezone = config('app.ui_timezone', config('app.timezone', 'UTC'));
+    $currentDateTime = now($uiTimezone);
+
+    $defaultScheduledDate = old('scheduled_date');
+    $defaultScheduledTime = old('scheduled_start_time');
+
+    if (!$defaultScheduledDate || !$defaultScheduledTime) {
+        $suggested = $currentDateTime->copy();
+
+        if ($suggested->hour < 6) {
+            $suggested->setTime(9, 0);
+        } elseif ($suggested->hour >= 18) {
+            $suggested->addDay()->setTime(9, 0);
+        } else {
+            $suggested->addMinutes(15);
+            if ($suggested->hour >= 18) {
+                $suggested->addDay()->setTime(9, 0);
+            }
+        }
+
+        $defaultScheduledDate = $defaultScheduledDate ?? $suggested->format('Y-m-d');
+        $defaultScheduledTime = $defaultScheduledTime ?? $suggested->format('H:i');
+    }
+
+    $scheduledDateValue = $defaultScheduledDate ?? $currentDateTime->format('Y-m-d');
+    $scheduledTimeValue = $defaultScheduledTime ?? $currentDateTime->format('H:i');
+    $minScheduledDate = $currentDateTime->copy()->format('Y-m-d');
+
+    $taskCreationScriptContext = [
+        'skipInitialModal' => $skipInitialModal,
+        'preselectedServiceRequestId' => optional($preselectedServiceRequest)->id,
+        'preselectedTechnicianId' => $preselectedTechnicianId,
+        'preselectedPriority' => $preselectedPriority,
+        'preselectedEstimatedHours' => $preselectedEstimatedHours,
+        'hasValidationErrors' => $errors->any(),
+        'selectedServiceRequestId' => $selectedServiceRequestId,
+        'selectedTechnicianId' => $selectedTechnicianId,
+        'selectedPriority' => $selectedPriority,
+    ];
+@endphp
 <div class="max-w-4xl mx-auto">
     <!-- Modal de Validación Inicial -->
-    <div id="initialValidationModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-[9999]">
+    <div id="initialValidationModal" class="{{ $skipInitialModal ? 'hidden ' : '' }}fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-[9999]">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300">
             <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-lg">
                 <div class="flex items-center justify-between">
@@ -39,7 +107,7 @@
                             <option value="">Seleccione un técnico...</option>
                             @foreach($technicians as $technician)
                                 @if($technician->user)
-                                    <option value="{{ $technician->id }}">
+                                    <option value="{{ $technician->id }}" {{ (string) $selectedTechnicianId === (string) $technician->id ? 'selected' : '' }}>
                                         {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
                                     </option>
                                 @endif
@@ -124,7 +192,7 @@
     </div>
 
     <!-- Formulario Principal (Oculto inicialmente) -->
-    <div id="mainFormContainer" class="hidden">
+    <div id="mainFormContainer" class="{{ $skipInitialModal ? '' : 'hidden' }}">
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
                 <h2 class="text-2xl font-bold text-white flex items-center">
@@ -164,7 +232,7 @@
                         <input type="text"
                                name="title"
                                id="title"
-                               value="{{ old('title') }}"
+                               value="{{ old('title', optional($preselectedServiceRequest)->title ?? '') }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('title') border-red-500 @enderror"
                                required>
                         @error('title')
@@ -204,10 +272,10 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('priority') border-red-500 @enderror"
                                 required>
                             <option value="">Seleccione...</option>
-                            <option value="low" {{ old('priority') == 'low' ? 'selected' : '' }}>Baja</option>
-                            <option value="medium" {{ old('priority') == 'medium' ? 'selected' : '' }}>Media</option>
-                            <option value="high" {{ old('priority') == 'high' ? 'selected' : '' }}>Alta</option>
-                            <option value="urgent" {{ old('priority') == 'urgent' ? 'selected' : '' }}>Urgente</option>
+                            <option value="low" {{ $selectedPriority == 'low' ? 'selected' : '' }}>Baja</option>
+                            <option value="medium" {{ $selectedPriority == 'medium' ? 'selected' : '' }}>Media</option>
+                            <option value="high" {{ $selectedPriority == 'high' ? 'selected' : '' }}>Alta</option>
+                            <option value="urgent" {{ $selectedPriority == 'urgent' ? 'selected' : '' }}>Urgente</option>
                         </select>
                         @error('priority')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
@@ -223,7 +291,7 @@
                                   id="description"
                                   rows="4"
                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('description') border-red-500 @enderror"
-                                  required>{{ old('description') }}</textarea>
+                                  required>{{ old('description', optional($preselectedServiceRequest)->description ?? '') }}</textarea>
                         @error('description')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
@@ -267,7 +335,7 @@
                 </h3>
 
                 <!-- Alerta de información cuando viene desde modal -->
-                <div id="preselectedRequestAlert" class="hidden mb-4 bg-blue-50 border-l-4 border-blue-500 p-4">
+                <div id="preselectedRequestAlert" class="{{ $preselectedServiceRequest ? '' : 'hidden' }} mb-4 bg-blue-50 border-l-4 border-blue-500 p-4">
                     <div class="flex items-start">
                         <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
                         <div>
@@ -277,6 +345,11 @@
                             <p class="text-xs text-blue-700 mt-1">
                                 Los datos de técnico, prioridad y duración se cargaron desde la solicitud seleccionada.
                             </p>
+                            @if($preselectedServiceRequest)
+                                <p class="text-xs text-blue-600 mt-2 font-mono">
+                                    #{{ $preselectedServiceRequest->ticket_number }} · {{ Str::limit($preselectedServiceRequest->title, 70) }}
+                                </p>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -303,7 +376,7 @@
                                         data-technician="{{ $request->assignee?->technician?->id ?? '' }}"
                                         data-priority="{{ $request->criticality_level ?? '' }}"
                                         data-duration="{{ $estimatedHours }}"
-                                        {{ old('service_request_id') == $request->id ? 'selected' : '' }}>
+                                        {{ (string) $selectedServiceRequestId === (string) $request->id ? 'selected' : '' }}>
                                     #{{ $request->ticket_number }} - {{ Str::limit($request->title, 60) }}
                                     @if($request->assigned_to)
                                         (Técnico: {{ $request->assignee->name ?? 'N/A' }})
@@ -366,7 +439,7 @@
                             <option value="">Seleccione un técnico...</option>
                             @foreach($technicians as $technician)
                                 @if($technician->user)
-                                    <option value="{{ $technician->id }}" {{ old('technician_id') == $technician->id ? 'selected' : '' }}>
+                                    <option value="{{ $technician->id }}" {{ (string) $selectedTechnicianId === (string) $technician->id ? 'selected' : '' }}>
                                         {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
                                     </option>
                                 @endif
@@ -385,8 +458,8 @@
                         <input type="date"
                                name="scheduled_date"
                                id="scheduled_date"
-                               value="{{ old('scheduled_date', date('Y-m-d')) }}"
-                               min="{{ date('Y-m-d') }}"
+                               value="{{ $scheduledDateValue }}"
+                               min="{{ $minScheduledDate }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('scheduled_date') border-red-500 @enderror"
                                required>
                         @error('scheduled_date')
@@ -402,7 +475,7 @@
                         <input type="time"
                                name="scheduled_start_time"
                                id="scheduled_start_time"
-                               value="{{ old('scheduled_start_time', '09:00') }}"
+                               value="{{ $scheduledTimeValue }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('scheduled_start_time') border-red-500 @enderror"
                                required>
                         @error('scheduled_start_time')
@@ -419,7 +492,7 @@
                             <input type="number"
                                    name="estimated_duration_value"
                                    id="estimated_duration_value"
-                                   value="{{ old('estimated_duration_value', '90') }}"
+                                   value="{{ $durationValue }}"
                                    step="1"
                                    min="1"
                                    max="480"
@@ -428,11 +501,11 @@
                             <select name="estimated_duration_unit"
                                     id="estimated_duration_unit"
                                     class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
-                                <option value="minutes" selected>Minutos</option>
-                                <option value="hours">Horas</option>
+                                <option value="minutes" {{ $durationUnit === 'minutes' ? 'selected' : '' }}>Minutos</option>
+                                <option value="hours" {{ $durationUnit === 'hours' ? 'selected' : '' }}>Horas</option>
                             </select>
                         </div>
-                        <input type="hidden" name="estimated_hours" id="estimated_hours" value="{{ old('estimated_hours', '1.5') }}" required>
+                        <input type="hidden" name="estimated_hours" id="estimated_hours" value="{{ $estimatedHoursValue }}" required>
                         @error('estimated_hours')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
@@ -585,6 +658,7 @@
 </style>
 
 <script>
+    const taskCreationContext = @json($taskCreationScriptContext);
     // Contador de caracteres para descripción
     document.getElementById('description').addEventListener('input', function() {
         const charCount = this.value.length;
@@ -661,10 +735,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Título <span class="text-red-500">*</span></label>
                         <input type="text" name="subtasks[${subtaskCounter}][title]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500" required>
                     </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                        <textarea name="subtasks[${subtaskCounter}][description]" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"></textarea>
-                    </div>
+                   <div class="md:col-span-2">
+                       <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                        <textarea name="subtasks[${subtaskCounter}][notes]" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"></textarea>
+                   </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Duración estimada (min)</label>
                         <input type="number" name="subtasks[${subtaskCounter}][estimated_minutes]" value="15" min="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
@@ -681,6 +755,8 @@
             </div>
         `;
         container.insertAdjacentHTML('beforeend', subtaskHtml);
+        attachSubtaskDurationListeners();
+        recalculateDurationFromSubtasks();
     }
 
     window.removeSubtask = function(id) {
@@ -700,13 +776,70 @@
                     toggleSubtasksText.textContent = 'Agregar subtareas';
                     toggleSubtasksBtn.querySelector('i').classList.remove('fa-minus');
                     toggleSubtasksBtn.querySelector('i').classList.add('fa-plus');
+                    enableManualDuration();
+                } else {
+                    recalculateDurationFromSubtasks();
                 }
             }, 200);
         }
     };
 
     // Convertir tecnologías y accesos a JSON antes de enviar
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitBtnText');
+    const submitSpinner = document.getElementById('submitSpinner');
+
+    function setSubmitButtonState(isSubmitting) {
+        if (!submitBtn) return;
+        submitBtn.disabled = isSubmitting;
+
+        if (!submitText || !submitSpinner) {
+            return;
+        }
+
+        submitText.textContent = isSubmitting ? 'Creando...' : 'Crear Tarea';
+        submitSpinner.classList.toggle('hidden', !isSubmitting);
+    }
+
+    function parseDateInput(value) {
+        if (!value) {
+            return null;
+        }
+
+        const parts = value.split('-').map(Number);
+        if (parts.length !== 3 || parts.some(Number.isNaN)) {
+            return null;
+        }
+
+        const [year, month, day] = parts;
+        return new Date(year, month - 1, day);
+    }
+
+    function parseTimeInput(value) {
+        if (!value) {
+            return null;
+        }
+
+        const [hoursStr, minutesStr] = value.split(':');
+        const hours = Number(hoursStr);
+        const minutes = Number(minutesStr);
+
+        if (
+            Number.isNaN(hours) ||
+            Number.isNaN(minutes) ||
+            hours < 0 ||
+            hours > 23 ||
+            minutes < 0 ||
+            minutes > 59
+        ) {
+            return null;
+        }
+
+        return { hours, minutes };
+    }
+
     document.getElementById('taskForm').addEventListener('submit', function(e) {
+        setSubmitButtonState(true);
         // Procesar tecnologías
         const techInput = document.getElementById('technologies_input').value;
         const technologies = techInput ? techInput.split(',').map(t => t.trim()).filter(t => t) : [];
@@ -722,12 +855,24 @@
         const scheduledTime = document.getElementById('scheduled_start_time').value;
 
         if (scheduledDate && scheduledTime) {
-            const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+            const parsedDate = parseDateInput(scheduledDate);
+            const parsedTime = parseTimeInput(scheduledTime);
+
+            if (!parsedDate || !parsedTime) {
+                e.preventDefault();
+                alert('La fecha y hora seleccionadas no son válidas. Verifica el formato.');
+                setSubmitButtonState(false);
+                return false;
+            }
+
+            const scheduledDateTime = new Date(parsedDate);
+            scheduledDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
             const now = new Date();
 
             if (scheduledDateTime < now) {
                 e.preventDefault();
                 alert('No se puede asignar una tarea en una fecha y hora pasadas.');
+                setSubmitButtonState(false);
                 return false;
             }
 
@@ -736,12 +881,13 @@
             if (hour < 6 || hour >= 18) {
                 e.preventDefault();
                 alert('La hora debe estar dentro del horario laboral (6:00 - 18:00).');
+                setSubmitButtonState(false);
                 return false;
             }
 
             // Advertencias para horarios no hábiles
-            const selectedDate = new Date(scheduledDate);
-            const dayOfWeek = selectedDate.getDay();
+            const selectedDate = parsedDate;
+            const dayOfWeek = selectedDate ? selectedDate.getDay() : null;
             const warnings = [];
 
             // Domingo
@@ -761,6 +907,7 @@
                 const message = '⚠️ ADVERTENCIA DE HORARIO NO HÁBIL:\n\n' + warnings.join('\n') + '\n\n¿Desea continuar con la asignación?';
                 if (!confirm(message)) {
                     e.preventDefault();
+                    setSubmitButtonState(false);
                     return false;
                 }
             }
@@ -802,14 +949,19 @@
             // Cargar prioridad según criticidad
             const criticality = selectedOption.dataset.priority;
             if (criticality) {
-                // Mapear criticidad a prioridad
+                const normalizedCriticality = criticality.toString().toLowerCase();
                 const priorityMap = {
                     'low': 'low',
                     'medium': 'medium',
                     'high': 'high',
-                    'critical': 'urgent'
+                    'critical': 'urgent',
+                    'baja': 'low',
+                    'media': 'medium',
+                    'alta': 'high',
+                    'urgente': 'urgent',
+                    'critica': 'urgent'
                 };
-                prioritySelect.value = priorityMap[criticality] || 'medium';
+                prioritySelect.value = priorityMap[normalizedCriticality] || 'medium';
             }
 
             // Cargar duración estimada
@@ -904,13 +1056,19 @@
         const scheduledTime = document.getElementById('scheduled_start_time').value;
 
         if (scheduledDate && scheduledTime) {
-            const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-            const now = new Date();
+            const parsedDate = parseDateInput(scheduledDate);
+            const parsedTime = parseTimeInput(scheduledTime);
 
-            if (scheduledDateTime < now) {
-                e.preventDefault();
-                alert('No se puede asignar una tarea en una fecha y hora pasadas. Por favor, seleccione una fecha y hora futuras.');
-                return false;
+            if (parsedDate && parsedTime) {
+                const scheduledDateTime = new Date(parsedDate);
+                scheduledDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+                const now = new Date();
+
+                if (scheduledDateTime < now) {
+                    e.preventDefault();
+                    alert('No se puede asignar una tarea en una fecha y hora pasadas. Por favor, seleccione una fecha y hora futuras.');
+                    return false;
+                }
             }
         }
     });
@@ -921,15 +1079,21 @@
         const scheduledTime = document.getElementById('scheduled_start_time').value;
 
         if (scheduledDate && scheduledTime) {
-            const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-            const now = new Date();
+            const parsedDate = parseDateInput(scheduledDate);
+            const parsedTime = parseTimeInput(scheduledTime);
 
-            if (scheduledDateTime < now) {
-                document.getElementById('scheduled_date').setCustomValidity('La fecha y hora no pueden ser del pasado');
-                document.getElementById('scheduled_start_time').setCustomValidity('La fecha y hora no pueden ser del pasado');
-            } else {
-                document.getElementById('scheduled_date').setCustomValidity('');
-                document.getElementById('scheduled_start_time').setCustomValidity('');
+            if (parsedDate && parsedTime) {
+                const scheduledDateTime = new Date(parsedDate);
+                scheduledDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+                const now = new Date();
+
+                if (scheduledDateTime < now) {
+                    document.getElementById('scheduled_date').setCustomValidity('La fecha y hora no pueden ser del pasado');
+                    document.getElementById('scheduled_start_time').setCustomValidity('La fecha y hora no pueden ser del pasado');
+                } else {
+                    document.getElementById('scheduled_date').setCustomValidity('');
+                    document.getElementById('scheduled_start_time').setCustomValidity('');
+                }
             }
         }
     }
@@ -938,17 +1102,7 @@
     document.getElementById('scheduled_start_time').addEventListener('change', validateDateTime);
 
     // Mejorar feedback visual al enviar formulario
-    document.getElementById('taskForm').addEventListener('submit', function(e) {
-        const submitBtn = document.getElementById('submitBtn');
-        const submitText = document.getElementById('submitBtnText');
-        const submitSpinner = document.getElementById('submitSpinner');
-
-        if (submitBtn && submitText && submitSpinner) {
-            submitBtn.disabled = true;
-            submitText.textContent = 'Creando...';
-            submitSpinner.classList.remove('hidden');
-        }
-    });
+    // No extra submit listener needed; handled in main submit block
 
     // ===== GESTIÓN DEL MODAL DE VALIDACIÓN INICIAL =====
     const initialModal = document.getElementById('initialValidationModal');
@@ -957,9 +1111,9 @@
     const step2 = document.getElementById('step2');
     const step3 = document.getElementById('step3');
 
-    let selectedTechnicianId = null;
-    let selectedServiceRequestId = null;
-    let linkToRequest = false;
+    let selectedTechnicianId = taskCreationContext.selectedTechnicianId || null;
+    let selectedServiceRequestId = taskCreationContext.selectedServiceRequestId || null;
+    let linkToRequest = Boolean(taskCreationContext.preselectedServiceRequestId);
 
     // Paso 1 -> Paso 2
     document.getElementById('continueToStep2').addEventListener('click', function() {
@@ -1122,6 +1276,84 @@
             }, 300);
         }
     }
+
+    // Inicializar formulario si venimos desde una solicitud o tras errores previos
+    (function bootstrapTaskForm() {
+        if (taskCreationContext.skipInitialModal && initialModal && mainFormContainer) {
+            initialModal.classList.add('hidden');
+            mainFormContainer.classList.remove('hidden');
+        }
+
+        if (taskCreationContext.preselectedServiceRequestId) {
+            linkToRequest = true;
+            selectedServiceRequestId = taskCreationContext.preselectedServiceRequestId;
+
+            if (taskCreationContext.preselectedTechnicianId && !technicianSelect.value) {
+                technicianSelect.value = taskCreationContext.preselectedTechnicianId;
+                selectedTechnicianId = taskCreationContext.preselectedTechnicianId;
+            }
+
+            if (taskCreationContext.preselectedPriority && !prioritySelect.value) {
+                prioritySelect.value = taskCreationContext.preselectedPriority;
+            }
+
+            serviceRequestSelect.value = taskCreationContext.preselectedServiceRequestId;
+
+            const preselectedAlert = document.getElementById('preselectedRequestAlert');
+            if (preselectedAlert) {
+                preselectedAlert.classList.remove('hidden');
+            }
+
+            setTimeout(() => {
+                serviceRequestSelect.dispatchEvent(new Event('change'));
+            }, 0);
+        }
+    })();
+
+    function attachSubtaskDurationListeners() {
+        document.querySelectorAll('input[name^="subtasks"][name$="[estimated_minutes]"]').forEach(input => {
+            input.removeEventListener('input', handleSubtaskDurationChange);
+            input.addEventListener('input', handleSubtaskDurationChange);
+        });
+    }
+
+    function handleSubtaskDurationChange() {
+        recalculateDurationFromSubtasks();
+    }
+
+    function recalculateDurationFromSubtasks() {
+        const inputs = document.querySelectorAll('input[name^="subtasks"][name$="[estimated_minutes]"]');
+        let totalMinutes = 0;
+
+        inputs.forEach(input => {
+            const value = parseInt(input.value, 10);
+            if (!isNaN(value) && value > 0) {
+                totalMinutes += value;
+            }
+        });
+
+        if (totalMinutes > 0) {
+            const durationInput = document.getElementById('estimated_duration_value');
+            const durationUnit = document.getElementById('estimated_duration_unit');
+            durationInput.value = totalMinutes;
+            durationUnit.value = 'minutes';
+            durationInput.setAttribute('readonly', 'readonly');
+            durationUnit.setAttribute('disabled', 'disabled');
+            updateEstimatedHours();
+        } else {
+            enableManualDuration();
+        }
+    }
+
+    function enableManualDuration() {
+        const durationInput = document.getElementById('estimated_duration_value');
+        const durationUnit = document.getElementById('estimated_duration_unit');
+        durationInput.removeAttribute('readonly');
+        durationUnit.removeAttribute('disabled');
+    }
+
+    attachSubtaskDurationListeners();
+    recalculateDurationFromSubtasks();
 
 </script>
 @endsection

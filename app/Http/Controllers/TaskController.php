@@ -12,6 +12,7 @@ use App\Services\TaskAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Arr;
 
 class TaskController extends Controller
 {
@@ -61,7 +62,7 @@ class TaskController extends Controller
     /**
      * Crear nueva tarea
      */
-    public function create()
+    public function create(Request $request)
     {
         $technicians = Technician::with('user')
             ->active()
@@ -80,7 +81,55 @@ class TaskController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('tasks.create', compact('technicians', 'serviceRequests', 'projects'));
+        $preselectedServiceRequest = null;
+        $preselectedTechnicianId = null;
+        $preselectedPriority = null;
+        $preselectedEstimatedHours = null;
+
+        $requestedServiceRequestId = (int) $request->query('service_request_id');
+
+        if ($requestedServiceRequestId) {
+            $preselectedServiceRequest = $serviceRequests->firstWhere('id', $requestedServiceRequestId);
+
+            if (!$preselectedServiceRequest) {
+                $preselectedServiceRequest = ServiceRequest::with(['assignee.technician', 'sla'])
+                    ->where('id', $requestedServiceRequestId)
+                    ->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'])
+                    ->first();
+
+                if ($preselectedServiceRequest && !$serviceRequests->contains('id', $preselectedServiceRequest->id)) {
+                    $serviceRequests = $serviceRequests->prepend($preselectedServiceRequest);
+                }
+            }
+
+            if ($preselectedServiceRequest && empty($preselectedServiceRequest->assigned_to)) {
+                return redirect()
+                    ->route('service-requests.show', $preselectedServiceRequest)
+                    ->with('error', 'La solicitud seleccionada aún no tiene un técnico asignado. Asigna un técnico antes de crear la tarea.');
+            }
+
+            if ($preselectedServiceRequest) {
+                $preselectedTechnicianId = optional(optional($preselectedServiceRequest->assignee)->technician)->id;
+                $preselectedPriority = $this->mapCriticalityToTaskPriority($preselectedServiceRequest->criticality_level);
+
+                if ($preselectedServiceRequest->sla && $preselectedServiceRequest->sla->resolution_time_minutes) {
+                    $preselectedEstimatedHours = round($preselectedServiceRequest->sla->resolution_time_minutes / 60, 2);
+                }
+            }
+        }
+
+        $shouldSkipInitialModal = session()->has('_old_input') || ($preselectedServiceRequest && $preselectedTechnicianId);
+
+        return view('tasks.create', [
+            'technicians' => $technicians,
+            'serviceRequests' => $serviceRequests,
+            'projects' => $projects,
+            'preselectedServiceRequest' => $preselectedServiceRequest,
+            'preselectedTechnicianId' => $preselectedTechnicianId,
+            'preselectedPriority' => $preselectedPriority,
+            'preselectedEstimatedHours' => $preselectedEstimatedHours,
+            'shouldSkipInitialModal' => $shouldSkipInitialModal,
+        ]);
     }
 
     /**
@@ -97,7 +146,7 @@ class TaskController extends Controller
             'project_id' => 'nullable|exists:projects,id',
             'scheduled_date' => 'required|date',
             'scheduled_start_time' => 'required|date_format:H:i',
-            'estimated_hours' => 'required|numeric|min:0.1',
+            'estimated_hours' => 'nullable|numeric|min:0.1',
             'priority' => 'required|in:urgent,high,medium,low',
             'technical_complexity' => 'nullable|integer|min:1|max:5',
             'technologies' => 'nullable|string',
@@ -108,16 +157,73 @@ class TaskController extends Controller
             'subtasks' => 'nullable|array',
             'subtasks.*.title' => 'required|string|max:255',
             'subtasks.*.description' => 'nullable|string',
-            'subtasks.*.estimated_hours' => 'nullable|numeric|min:0.1',
+            'subtasks.*.estimated_minutes' => 'nullable|integer|min:5|max:480',
             'subtasks.*.priority' => 'nullable|in:urgent,high,medium,low',
             'checklist' => 'nullable|array',
             'checklist.*.item' => 'required_with:checklist|string|max:500',
             'checklist.*.order' => 'nullable|integer|min:0',
         ]);
 
+        $subtasksPayload = $validated['subtasks'] ?? [];
+        $checklistPayload = $validated['checklist'] ?? [];
+        unset($validated['subtasks'], $validated['checklist'], $validated['task_organization']);
+
+        $estimatedMinutes = $this->calculateEstimatedMinutes($validated, $subtasksPayload);
+        $scheduledTime = $validated['scheduled_start_time'];
+        $validated['estimated_duration_minutes'] = $estimatedMinutes;
+        $validated['scheduled_time'] = $scheduledTime;
+        $validated['estimated_hours'] = round($estimatedMinutes / 60, 2);
+
+        $nowUi = $this->nowInUiTimezone();
+        $preferredStart = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
+
+        if ($validated['priority'] === 'urgent') {
+            $preferredStart = $nowUi->copy()->addMinutes(5);
+        } elseif ($preferredStart->lt($nowUi)) {
+            $preferredStart = $nowUi->copy();
+        }
+
+        $technician = !empty($validated['technician_id'])
+            ? Technician::find($validated['technician_id'])
+            : null;
+
+        if ($technician) {
+            $slotOptions = [
+                'search_days' => $validated['priority'] === 'urgent' ? 1 : 5,
+                'work_start' => $validated['type'] === 'impact' ? 8 : 6,
+                'work_end' => $validated['type'] === 'impact' ? 16 : 18,
+                'slot_size' => 5,
+            ];
+
+            $nextSlot = $this->assignmentService->findNextAvailableSlot(
+                $technician,
+                $preferredStart,
+                $estimatedMinutes,
+                $slotOptions
+            );
+
+            if ($nextSlot) {
+                $preferredStart = $nextSlot->copy();
+                $validated['scheduled_date'] = $preferredStart->format('Y-m-d');
+                $scheduledTime = $preferredStart->format('H:i');
+                $validated['scheduled_start_time'] = $scheduledTime;
+            }
+        }
+
+        $validated['estimated_duration_minutes'] = $estimatedMinutes;
+        $validated['scheduled_time'] = $scheduledTime;
+
         // Validar que la fecha y hora no sean del pasado
-        $scheduledDateTime = \Carbon\Carbon::parse($validated['scheduled_date'] . ' ' . $validated['scheduled_start_time']);
-        if ($scheduledDateTime->isPast()) {
+        $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
+        $currentDateTime = $this->nowInUiTimezone();
+        if ($scheduledDateTime->lt($currentDateTime)) {
+            \Log::warning('Intento de creación de tarea con fecha pasada', [
+                'scheduled' => $scheduledDateTime->toDateTimeString(),
+                'current' => $currentDateTime->toDateTimeString(),
+                'timezone' => $this->getUiTimezone(),
+                'input_date' => $validated['scheduled_date'],
+                'input_time' => $validated['scheduled_start_time'],
+            ]);
             return back()->withErrors([
                 'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
             ])->withInput();
@@ -131,11 +237,10 @@ class TaskController extends Controller
             ])->withInput();
         }
 
-        // Si hay solicitud de servicio asociada, marcar para asignación automática a agenda
-        $autoAssignToCalendar = false;
-        if (!empty($validated['service_request_id']) && !empty($validated['technician_id'])) {
-            $autoAssignToCalendar = true;
-            // La tarea se confirmará automáticamente
+        // Si hay técnico asignado, marcaremos para enviar a agenda
+        $autoAssignToCalendar = !empty($validated['technician_id']);
+        if ($autoAssignToCalendar && !empty($validated['service_request_id'])) {
+            // La tarea se confirmará automáticamente cuando viene de una solicitud
             $validated['status'] = 'confirmed';
         }
 
@@ -147,7 +252,7 @@ class TaskController extends Controller
         // Crear tarea con generación atómica de código
         \Log::info("=== INICIO CREACIÓN DE TAREA ===");
 
-        $date = \Carbon\Carbon::parse($validated['scheduled_date']);
+        $date = $this->makeUiDate($validated['scheduled_date']);
         $prefix = $validated['type'] === 'impact' ? 'IMP' : 'REG';
         $dateStr = $date->format('Ymd');
         $lockName = "task_code_gen_{$prefix}_{$dateStr}";
@@ -204,8 +309,14 @@ class TaskController extends Controller
                 'validated_code' => $validated['task_code']
             ]);
 
+            $taskData = Arr::except($validated, ['subtasks', 'checklist', 'task_organization']);
+
+            \Log::debug('Insert task payload keys', [
+                'keys' => array_keys($taskData)
+            ]);
+
             // Insertar directamente
-            \DB::table('tasks')->insert($validated);
+            \DB::table('tasks')->insert($taskData);
 
             // Commit de la transacción
             \DB::commit();
@@ -228,9 +339,13 @@ class TaskController extends Controller
         // Liberar lock DESPUÉS de todo
         \DB::selectOne("SELECT RELEASE_LOCK(?)", [$lockName]);
 
+        if ($autoAssignToCalendar && $task) {
+            $this->assignmentService->createScheduleBlock($task);
+        }
+
         // Crear subtareas si se seleccionó
-        if (!empty($validated['subtasks']) && is_array($validated['subtasks'])) {
-            foreach ($validated['subtasks'] as $subtaskData) {
+        if (!empty($subtasksPayload) && is_array($subtasksPayload)) {
+            foreach ($subtasksPayload as $subtaskData) {
                 $task->subtasks()->create(array_merge($subtaskData, [
                     'technician_id' => $validated['technician_id'],
                     'status' => 'pending',
@@ -239,8 +354,8 @@ class TaskController extends Controller
         }
 
         // Crear checklist si se seleccionó
-        if (!empty($validated['checklist']) && is_array($validated['checklist'])) {
-            foreach ($validated['checklist'] as $index => $checklistItem) {
+        if (!empty($checklistPayload) && is_array($checklistPayload)) {
+            foreach ($checklistPayload as $index => $checklistItem) {
                 // Filtrar items vacíos
                 if (empty($checklistItem['item'])) {
                     continue;
@@ -255,7 +370,7 @@ class TaskController extends Controller
 
         // Detectar horarios no hábiles
         $nonWorkingWarnings = [];
-        $scheduledDate = \Carbon\Carbon::parse($validated['scheduled_date']);
+        $scheduledDate = $this->makeUiDate($validated['scheduled_date']);
 
         if ($scheduledDate->dayOfWeek === 0) {
             $nonWorkingWarnings[] = 'Domingo';
@@ -269,8 +384,10 @@ class TaskController extends Controller
 
         // Registrar en el historial
         $notes = 'Tarea creada';
-        if ($autoAssignToCalendar) {
+        if ($autoAssignToCalendar && !empty($validated['service_request_id'])) {
             $notes .= ' y asignada automáticamente a la agenda del técnico desde solicitud de servicio';
+        } elseif ($autoAssignToCalendar) {
+            $notes .= ' y agendada automáticamente en la agenda del técnico';
         }
         if (!empty($nonWorkingWarnings)) {
             $notes .= ' (HORARIO NO HÁBIL: ' . implode(', ', $nonWorkingWarnings) . ')';
@@ -310,8 +427,10 @@ class TaskController extends Controller
         }
 
         $successMessage = 'Tarea creada exitosamente';
-        if ($autoAssignToCalendar) {
+        if ($autoAssignToCalendar && !empty($validated['service_request_id'])) {
             $successMessage .= ' y confirmada en la agenda del técnico.';
+        } elseif ($autoAssignToCalendar) {
+            $successMessage .= ' y agendada en la agenda del técnico.';
         }
 
         return redirect()->route('tasks.show', $task)
@@ -496,8 +615,9 @@ class TaskController extends Controller
         }
 
         // Validar que la fecha y hora no sean del pasado
-        $scheduledDateTime = \Carbon\Carbon::parse($validated['scheduled_date'] . ' ' . $validated['scheduled_start_time']);
-        if ($scheduledDateTime->isPast()) {
+        $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
+        $currentDateTime = $this->nowInUiTimezone();
+        if ($scheduledDateTime->lt($currentDateTime)) {
             return back()->withErrors([
                 'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
             ])->withInput();
@@ -524,7 +644,7 @@ class TaskController extends Controller
 
         // Detectar horarios no hábiles
         $nonWorkingWarnings = [];
-        $scheduledDate = \Carbon\Carbon::parse($validated['scheduled_date']);
+        $scheduledDate = $this->makeUiDate($validated['scheduled_date']);
 
         if ($scheduledDate->dayOfWeek === 0) {
             $nonWorkingWarnings[] = 'Domingo';
@@ -570,8 +690,8 @@ class TaskController extends Controller
 
         // Validar que la fecha y hora no sean del pasado
         if ($date && $time) {
-            $scheduledDateTime = \Carbon\Carbon::parse($date . ' ' . $time);
-            if ($scheduledDateTime->isPast()) {
+            $scheduledDateTime = $this->makeUiDateTime($date, $time);
+            if ($scheduledDateTime->lt($this->nowInUiTimezone())) {
                 return back()->withErrors([
                     'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
                 ])->withInput();
@@ -638,6 +758,12 @@ class TaskController extends Controller
 
         $task->complete($validated['technical_notes'] ?? null);
 
+        $task->subtasks()->update([
+            'status' => 'completed',
+            'is_completed' => true,
+            'completed_at' => now(),
+        ]);
+
         if (isset($validated['actual_duration_minutes'])) {
             $task->update(['actual_duration_minutes' => $validated['actual_duration_minutes']]);
         }
@@ -686,8 +812,9 @@ class TaskController extends Controller
         ]);
 
         // Validar que la fecha y hora no sean del pasado
-        $scheduledDateTime = \Carbon\Carbon::parse($validated['scheduled_date'] . ' ' . $validated['scheduled_start_time']);
-        if ($scheduledDateTime->isPast()) {
+        $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
+        $currentDateTime = $this->nowInUiTimezone();
+        if ($scheduledDateTime->lt($currentDateTime)) {
             // Si es AJAX, devolver error JSON
             if ($request->expectsJson()) {
                 return response()->json([
@@ -726,7 +853,7 @@ class TaskController extends Controller
 
         // Detectar horarios no hábiles
         $nonWorkingWarnings = [];
-        $scheduledDate = \Carbon\Carbon::parse($validated['scheduled_date']);
+        $scheduledDate = $this->makeUiDate($validated['scheduled_date']);
 
         if ($scheduledDate->dayOfWeek === 0) {
             $nonWorkingWarnings[] = 'Domingo';
@@ -831,6 +958,85 @@ class TaskController extends Controller
         ]);
     }
 
+    protected function calculateEstimatedMinutes(array $data, array $subtasks = []): int
+    {
+        $subtaskMinutes = 0;
+        foreach ($subtasks as $subtask) {
+            if (!empty($subtask['estimated_minutes']) && is_numeric($subtask['estimated_minutes'])) {
+                $subtaskMinutes += max(5, (int) $subtask['estimated_minutes']);
+            }
+        }
+
+        if ($subtaskMinutes > 0) {
+            return $subtaskMinutes;
+        }
+
+        if (!empty($data['estimated_hours'])) {
+            return max(15, (int) round((float) $data['estimated_hours'] * 60));
+        }
+
+        return ($data['type'] ?? 'regular') === 'impact' ? 90 : 25;
+    }
+
+    /**
+     * Mapear la criticidad de la solicitud al tipo de prioridad de tareas
+     */
+    protected function mapCriticalityToTaskPriority(?string $criticality): ?string
+    {
+        if (empty($criticality)) {
+            return null;
+        }
+
+        $map = [
+            'BAJA' => 'low',
+            'MEDIA' => 'medium',
+            'ALTA' => 'high',
+            'URGENTE' => 'urgent',
+            'CRITICA' => 'urgent',
+            'LOW' => 'low',
+            'MEDIUM' => 'medium',
+            'HIGH' => 'high',
+            'CRITICAL' => 'urgent',
+        ];
+
+        $key = strtoupper($criticality);
+
+        return $map[$key] ?? null;
+    }
+
+    protected function getUiTimezone(): string
+    {
+        $timezone = config('app.ui_timezone');
+
+        if (empty($timezone) || $timezone === 'UTC') {
+            $envTimezone = env('APP_UI_TIMEZONE', env('APP_TIMEZONE'));
+            if (!empty($envTimezone)) {
+                $timezone = $envTimezone;
+            }
+        }
+
+        if (empty($timezone) || $timezone === 'UTC') {
+            $timezone = 'America/Bogota';
+        }
+
+        return $timezone;
+    }
+
+    protected function nowInUiTimezone(): Carbon
+    {
+        return Carbon::now($this->getUiTimezone());
+    }
+
+    protected function makeUiDateTime(string $date, string $time): Carbon
+    {
+        return Carbon::createFromFormat('Y-m-d H:i', "{$date} {$time}", $this->getUiTimezone());
+    }
+
+    protected function makeUiDate(string $date): Carbon
+    {
+        return Carbon::createFromFormat('Y-m-d', $date, $this->getUiTimezone());
+    }
+
     // =============================================================================
     // GESTIÓN DE SUBTAREAS
     // =============================================================================
@@ -840,10 +1046,26 @@ class TaskController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'priority' => 'required|in:high,medium,low',
+            'estimated_minutes' => 'nullable|integer|min:5|max:480',
         ]);
 
         $validated['order'] = $task->subtasks()->max('order') + 1;
-        $task->subtasks()->create($validated);
+        $subtask = $task->subtasks()->create($validated);
+
+        if ($task->status === 'completed') {
+            $task->update([
+                'status' => 'in_progress',
+                'completed_at' => null,
+            ]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'subtask' => $subtask,
+                'task_status' => $task->status,
+            ]);
+        }
 
         return back()->with('success', 'Subtarea creada');
     }
@@ -986,6 +1208,7 @@ class TaskController extends Controller
                 // Marcar todas las subtareas como completadas
                 $task->subtasks()->update([
                     'is_completed' => true,
+                    'status' => 'completed',
                     'completed_at' => now(),
                 ]);
 
@@ -1000,6 +1223,7 @@ class TaskController extends Controller
                 // Desmarcar todas las subtareas
                 $task->subtasks()->update([
                     'is_completed' => false,
+                    'status' => 'pending',
                     'completed_at' => null,
                 ]);
 
@@ -1032,12 +1256,40 @@ class TaskController extends Controller
                 ], 403);
             }
 
-            $isCompleted = $request->input('is_completed', false);
+            $previousStatus = $task->status;
+            $isCompleted = filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
 
             $subtask->update([
                 'is_completed' => $isCompleted,
+                'status' => $isCompleted ? 'completed' : 'pending',
                 'completed_at' => $isCompleted ? now() : null,
             ]);
+
+            if (!$isCompleted && $task->status === 'completed') {
+                $task->update([
+                    'status' => 'in_progress',
+                    'completed_at' => null,
+                ]);
+            }
+
+            $totalSubtasks = $task->subtasks()->count();
+            $pendingSubtasks = $task->subtasks()->where('is_completed', false)->count();
+
+            if ($totalSubtasks > 0 && $pendingSubtasks === 0 && $task->status !== 'completed') {
+                $task->refresh();
+                if ($task->status !== 'completed') {
+                    $task->complete();
+                }
+            }
+
+            if ($pendingSubtasks > 0 && $task->status === 'completed') {
+                $task->update([
+                    'status' => 'in_progress',
+                    'completed_at' => null,
+                ]);
+            }
+
+            $task->refresh();
 
             $message = $isCompleted
                 ? 'Subtarea marcada como completada'
@@ -1046,7 +1298,9 @@ class TaskController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $message,
-                'is_completed' => $subtask->is_completed
+                'is_completed' => $subtask->is_completed,
+                'task_status' => $task->status,
+                'status_changed' => $previousStatus !== $task->status,
             ]);
         } catch (\Exception $e) {
             return response()->json([

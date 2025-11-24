@@ -301,6 +301,97 @@ class TaskAssignmentService
     }
 
     /**
+     * Encontrar el siguiente espacio disponible en la agenda del técnico
+     */
+    public function findNextAvailableSlot(
+        Technician $technician,
+        Carbon $preferredStart,
+        int $durationMinutes,
+        array $options = []
+    ): ?Carbon {
+        $timezoneName = $preferredStart->getTimezone()->getName();
+        $searchDays = $options['search_days'] ?? 5;
+        $workStartHour = $options['work_start'] ?? 6;
+        $workEndHour = $options['work_end'] ?? 18;
+        $slotMinutes = $options['slot_size'] ?? 5;
+
+        $now = Carbon::now($timezoneName);
+        if ($preferredStart->lt($now)) {
+            $preferredStart = $now->copy();
+        }
+        $preferredStart = $this->roundToSlot($preferredStart, $slotMinutes);
+
+        for ($dayOffset = 0; $dayOffset <= $searchDays; $dayOffset++) {
+            $day = $preferredStart->copy()->addDays($dayOffset);
+            $dayStart = $day->copy()->setTime($workStartHour, 0, 0, 0);
+            $dayEnd = $day->copy()->setTime($workEndHour, 0, 0, 0);
+
+            $candidate = $dayOffset === 0 ? $preferredStart->copy() : $dayStart->copy();
+            if ($candidate->lt($dayStart)) {
+                $candidate = $dayStart->copy();
+            }
+            $candidate = $this->roundToSlot($candidate, $slotMinutes);
+
+            if ($candidate->gt($dayEnd)) {
+                continue;
+            }
+
+            $dayTasks = $technician->tasks()
+                ->whereDate('scheduled_date', $dayStart->format('Y-m-d'))
+                ->whereNotIn('status', ['cancelled'])
+                ->get()
+                ->sortBy(function ($task) {
+                    return $task->scheduled_start_time ?? $task->scheduled_time ?? '23:59';
+                });
+
+            foreach ($dayTasks as $existingTask) {
+                $taskStartRaw = $existingTask->scheduled_start_time ?? $existingTask->scheduled_time;
+                if (!$taskStartRaw) {
+                    continue;
+                }
+
+                if ($taskStartRaw instanceof \DateTimeInterface) {
+                    $taskStart = Carbon::instance($taskStartRaw)->setTimezone($timezoneName);
+                    $taskStart->setDate(
+                        (int) $dayStart->format('Y'),
+                        (int) $dayStart->format('m'),
+                        (int) $dayStart->format('d')
+                    );
+                } else {
+                    $parsedTime = Carbon::parse((string) $taskStartRaw, $timezoneName);
+                    $taskStart = $parsedTime->copy()->setDate(
+                        (int) $dayStart->format('Y'),
+                        (int) $dayStart->format('m'),
+                        (int) $dayStart->format('d')
+                    );
+                }
+                $taskDuration = $existingTask->estimated_duration_minutes
+                    ?? ($existingTask->type === 'impact' ? 90 : 25);
+                $taskEnd = $taskStart->copy()->addMinutes($taskDuration);
+
+                if ($candidate->copy()->addMinutes($durationMinutes)->lte($taskStart)) {
+                    return $candidate;
+                }
+
+                if ($candidate->lt($taskEnd)) {
+                    $candidate = $taskEnd->copy();
+                    $candidate = $this->roundToSlot($candidate, $slotMinutes);
+                }
+
+                if ($candidate->gt($dayEnd)) {
+                    continue 2;
+                }
+            }
+
+            if ($candidate->copy()->addMinutes($durationMinutes)->lte($dayEnd)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Generar slots de mañana (tareas de impacto)
      */
     protected function generateMorningSlots($date, $occupiedBlocks, $duration)
@@ -440,5 +531,17 @@ class TaskAssignmentService
             'slot' => $firstSlot,
             'score' => $bestMatch['score'],
         ];
+    }
+
+    protected function roundToSlot(Carbon $time, int $slotMinutes = 5): Carbon
+    {
+        $rounded = $time->copy();
+        $minutes = (int) ceil($rounded->minute / $slotMinutes) * $slotMinutes;
+        if ($minutes >= 60) {
+            $rounded->addHour();
+            $minutes = 0;
+        }
+
+        return $rounded->setTime($rounded->hour, $minutes, 0, 0);
     }
 }

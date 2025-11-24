@@ -113,16 +113,27 @@
             @if($task->subtasks->count() > 0)
                 <div class="space-y-1.5">
                     @foreach($task->subtasks as $subtask)
-                        <div class="group flex items-center gap-2 p-2 border rounded hover:bg-gray-50 transition-colors"
+                        <div class="group flex items-center gap-3 p-2 border rounded hover:bg-gray-50 transition-colors"
                              id="subtask-item-{{ $subtask->id }}">
-                            <button type="button"
-                                    class="subtask-toggle text-lg {{ $subtask->isCompleted() ? 'text-green-600' : 'text-gray-300' }}"
-                                    data-task-id="{{ $task->id }}"
-                                    data-subtask-id="{{ $subtask->id }}"
-                                    data-url="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}">
-                                <i class="fas {{ $subtask->isCompleted() ? 'fa-check-circle' : 'fa-circle' }}"></i>
-                            </button>
-                            <span class="flex-1 subtask-title text-sm {{ $subtask->isCompleted() ? 'line-through text-gray-500' : 'text-gray-700' }}">
+                            <div class="flex items-center gap-2">
+                                <button type="button"
+                                        class="subtask-toggle text-lg {{ $subtask->isCompleted() ? 'text-green-600' : 'text-gray-300' }}"
+                                        data-task-id="{{ $task->id }}"
+                                        data-subtask-id="{{ $subtask->id }}"
+                                        data-url="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}"
+                                        {{ $task->status === 'completed' ? 'disabled' : '' }}>
+                                    <i class="fas {{ $subtask->isCompleted() ? 'fa-check-circle' : 'fa-circle' }}"></i>
+                                </button>
+                                <button type="button"
+                                        class="subtask-action px-3 py-1 rounded-full text-xs font-semibold border transition-colors {{ $subtask->isCompleted() ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-100' }}"
+                                        data-task-id="{{ $task->id }}"
+                                        data-subtask-id="{{ $subtask->id }}"
+                                        data-url="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}"
+                                        {{ $task->status === 'completed' ? 'disabled' : '' }}>
+                                    {{ $subtask->isCompleted() ? 'Completada' : 'Marcar como completa' }}
+                                </button>
+                            </div>
+                            <span class="flex-1 subtask-title text-sm break-words whitespace-pre-line {{ $subtask->isCompleted() ? 'line-through text-gray-500' : 'text-gray-700' }}">
                                 {{ $subtask->title }}
                             </span>
                             @php
@@ -133,7 +144,9 @@
                                 ];
                                 $priority = $priorityConfig[$subtask->priority] ?? $priorityConfig['medium'];
                             @endphp
-                            <span class="text-xs">{{ $priority['icon'] }}</span>
+                            <span class="subtask-indicator text-xs {{ $subtask->isCompleted() ? 'text-green-500' : 'text-red-500' }}" data-default-icon="{{ $priority['icon'] }}">
+                                {{ $subtask->isCompleted() ? '✓' : $priority['icon'] }}
+                            </span>
                             <button type="button"
                                     class="subtask-delete opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 transition-opacity"
                                     data-task-id="{{ $task->id }}"
@@ -277,6 +290,12 @@
             </dl>
         </div>
 
+        @php
+            $totalSubtasks = $task->subtasks->count();
+            $pendingSubtasks = $task->subtasks->where('status', '!=', 'completed')->count();
+            $shouldShowCompleteButton = $totalSubtasks === 0 || $pendingSubtasks > 0;
+        @endphp
+
         <!-- Acciones -->
         @if($task->status !== 'completed' && $task->status !== 'cancelled')
             <div class="bg-white shadow rounded-lg p-4">
@@ -296,6 +315,7 @@
                     @endif
 
                     @if($task->status === 'in_progress')
+                        @if($shouldShowCompleteButton)
                         <form action="{{ route('tasks.complete', $task) }}" method="POST" class="inline">
                             @csrf
                             <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
@@ -303,6 +323,7 @@
                                 Completar
                             </button>
                         </form>
+                        @endif
 
                         <form action="{{ route('tasks.block', $task) }}" method="POST" class="inline">
                             @csrf
@@ -387,15 +408,18 @@ function updateProgress() {
 
 document.addEventListener('DOMContentLoaded', function() {
     // Toggle subtareas
-    document.querySelectorAll('.subtask-toggle').forEach(button => {
+    document.querySelectorAll('.subtask-toggle, .subtask-action').forEach(button => {
         button.addEventListener('click', function() {
             const url = this.dataset.url;
             const subtaskId = this.dataset.subtaskId;
-            const icon = this.querySelector('i');
             const item = document.getElementById(`subtask-item-${subtaskId}`);
+            const icon = item.querySelector('.subtask-toggle i');
+            const toggleBtn = item.querySelector('.subtask-toggle');
+            const actionBtn = item.querySelector('.subtask-action');
             const title = item.querySelector('.subtask-title');
+            const willComplete = !icon.classList.contains('fa-check-circle');
 
-            this.disabled = true;
+            [toggleBtn, actionBtn].forEach(btn => btn.disabled = true);
 
             fetch(url, {
                 method: 'POST',
@@ -403,7 +427,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ is_completed: willComplete })
             })
             .then(response => response.json())
             .then(data => {
@@ -411,28 +436,50 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.is_completed) {
                         icon.classList.remove('fa-circle');
                         icon.classList.add('fa-check-circle');
-                        this.classList.remove('text-gray-300');
-                        this.classList.add('text-green-600');
+                        toggleBtn.classList.remove('text-gray-300');
+                        toggleBtn.classList.add('text-green-600');
                         title.classList.add('line-through', 'text-gray-500');
                         title.classList.remove('text-gray-700');
+                        actionBtn.textContent = 'Completada';
+                        actionBtn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-100');
+                        actionBtn.classList.add('bg-green-100', 'text-green-700', 'border-green-200');
                         showToast('✓ Completada', 'success');
                     } else {
                         icon.classList.remove('fa-check-circle');
                         icon.classList.add('fa-circle');
-                        this.classList.remove('text-green-600');
-                        this.classList.add('text-gray-300');
+                        toggleBtn.classList.remove('text-green-600');
+                        toggleBtn.classList.add('text-gray-300');
                         title.classList.remove('line-through', 'text-gray-500');
                         title.classList.add('text-gray-700');
+                        actionBtn.textContent = 'Marcar como completa';
+                        actionBtn.classList.remove('bg-green-100', 'text-green-700', 'border-green-200');
+                        actionBtn.classList.add('bg-blue-50', 'text-blue-600', 'border-blue-100');
                         showToast('Pendiente', 'info');
                     }
                     updateProgress();
+                    const indicator = item.querySelector('.subtask-indicator');
+                    if (indicator) {
+                        if (data.is_completed) {
+                            indicator.textContent = '✓';
+                            indicator.classList.remove('text-red-500');
+                            indicator.classList.add('text-green-500');
+                        } else {
+                            indicator.textContent = indicator.dataset.defaultIcon || '🟡';
+                            indicator.classList.remove('text-green-500');
+                            indicator.classList.add('text-red-500');
+                        }
+                    }
+                    if (data.status_changed) {
+                        window.location.reload();
+                        return;
+                    }
                 }
-                this.disabled = false;
+                [toggleBtn, actionBtn].forEach(btn => btn.disabled = false);
             })
             .catch(error => {
                 console.error('Error:', error);
                 showToast('Error', 'error');
-                this.disabled = false;
+                [toggleBtn, actionBtn].forEach(btn => btn.disabled = false);
             });
         });
     });
