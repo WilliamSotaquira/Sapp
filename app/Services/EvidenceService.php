@@ -24,9 +24,15 @@ class EvidenceService
         $uploadedFiles = [];
         $errors = [];
 
-        foreach ($files as $file) {
+        // Contador para generar sufijos alfabéticos por ticket
+        $baseCount = $serviceRequest->evidences()
+            ->where('evidence_type', 'ARCHIVO')
+            ->count();
+
+        foreach ($files as $index => $file) {
             try {
-                $evidence = $this->uploadSingleEvidence($serviceRequest, $file);
+                $sequenceNumber = $baseCount + $index + 1;
+                $evidence = $this->uploadSingleEvidence($serviceRequest, $file, $sequenceNumber);
                 if ($evidence) {
                     $uploadedFiles[] = $evidence;
                 }
@@ -53,7 +59,7 @@ class EvidenceService
     /**
      * Subir un archivo individual
      */
-    private function uploadSingleEvidence(ServiceRequest $serviceRequest, UploadedFile $file): ?ServiceRequestEvidence
+    private function uploadSingleEvidence(ServiceRequest $serviceRequest, UploadedFile $file, int $sequenceNumber): ?ServiceRequestEvidence
     {
         Log::info('Procesando archivo:', [
             'name' => $file->getClientOriginalName(),
@@ -68,14 +74,15 @@ class EvidenceService
             throw new \Exception('El archivo excede el tamaño máximo permitido');
         }
 
-        // Generar nombre único
-        $fileName = $this->generateUniqueFileName($serviceRequest, $file);
+        // Generar nombre y carpeta por ticket
+        $ticketFolder = $this->buildTicketFolder($serviceRequest->ticket_number);
+        $fileName = $this->generateTicketFileName($serviceRequest->ticket_number, $file, $sequenceNumber);
 
         // Crear directorio si no existe
-        $this->ensureDirectoryExists();
+        $this->ensureDirectoryExists($ticketFolder);
 
         // Guardar archivo
-        $filePath = $file->storeAs(self::EVIDENCE_DIRECTORY, $fileName, self::EVIDENCE_DISK);
+        $filePath = $file->storeAs($ticketFolder, $fileName, self::EVIDENCE_DISK);
 
         if (!$filePath) {
             throw new \Exception('No se pudo guardar el archivo');
@@ -108,11 +115,11 @@ class EvidenceService
     /**
      * Asegurar que existe el directorio
      */
-    private function ensureDirectoryExists(): void
+    private function ensureDirectoryExists(string $path): void
     {
-        if (!Storage::disk(self::EVIDENCE_DISK)->exists(self::EVIDENCE_DIRECTORY)) {
-            Storage::disk(self::EVIDENCE_DISK)->makeDirectory(self::EVIDENCE_DIRECTORY);
-            Log::info('Directorio creado: ' . self::EVIDENCE_DIRECTORY);
+        if (!Storage::disk(self::EVIDENCE_DISK)->exists($path)) {
+            Storage::disk(self::EVIDENCE_DISK)->makeDirectory($path);
+            Log::info('Directorio creado: ' . $path);
         }
     }
 
@@ -258,5 +265,39 @@ class EvidenceService
         $mimeType = $mimeTypes[$extension] ?? 'image/jpeg';
 
         return "data:$mimeType;base64,$imageData";
+    }
+
+    /**
+     * Construir carpeta por ticket
+     */
+    private function buildTicketFolder(string $ticketNumber): string
+    {
+        $cleanTicket = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketNumber);
+        return self::EVIDENCE_DIRECTORY . '/' . $cleanTicket;
+    }
+
+    /**
+     * Generar nombre basado en ticket y letra alfabética (A, B, C...)
+     */
+    private function generateTicketFileName(string $ticketNumber, UploadedFile $file, int $sequenceNumber): string
+    {
+        $base = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketNumber);
+        $letter = $this->sequenceToLetter($sequenceNumber);
+        $extension = $file->getClientOriginalExtension();
+        return "{$base}-{$letter}.{$extension}";
+    }
+
+    /**
+     * Convertir número a letra secuencial (1=A, 2=B, ... 27=AA)
+     */
+    private function sequenceToLetter(int $number): string
+    {
+        $letters = '';
+        while ($number > 0) {
+            $number--; // Ajuste para que 1 => A
+            $letters = chr(65 + ($number % 26)) . $letters;
+            $number = intdiv($number, 26);
+        }
+        return $letters;
     }
 }

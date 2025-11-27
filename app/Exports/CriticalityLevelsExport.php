@@ -23,7 +23,8 @@ class CriticalityLevelsExport implements FromCollection, WithHeadings, WithMappi
 
     public function collection()
     {
-        return ServiceRequest::whereBetween('created_at', [$this->startDate, $this->endDate])
+        return ServiceRequest::reportable()
+            ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->selectRaw('criticality_level, COUNT(*) as count')
             ->groupBy('criticality_level')
             ->get();
@@ -40,7 +41,9 @@ class CriticalityLevelsExport implements FromCollection, WithHeadings, WithMappi
 
     public function map($data): array
     {
-        $total = ServiceRequest::whereBetween('created_at', [$this->startDate, $this->endDate])->count();
+        $total = ServiceRequest::reportable()
+            ->whereBetween('created_at', [$this->startDate, $this->endDate])
+            ->count();
         $percentage = $total > 0 ? round(($data->count / $total) * 100, 2) : 0;
 
         return [

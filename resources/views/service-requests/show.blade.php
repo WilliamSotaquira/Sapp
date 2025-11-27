@@ -16,7 +16,7 @@
             <li aria-current="page">
                 <div class="flex items-center">
                     <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                    <span class="text-gray-500">Solicitud #{{ $serviceRequest->ticket_number }}</span>
+                    <span class="text-gray-500">Solicitud {{ $serviceRequest->ticket_number }}</span>
                 </div>
             </li>
         </ol>
@@ -46,14 +46,14 @@
                 @if ($previousRequestNav)
                     <a href="{{ route('service-requests.show', $previousRequestNav) }}"
                         class="nav-direction nav-direction--prev focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
-                        title="Ir a la solicitud #{{ $previousRequestNav->ticket_number }}"
-                        aria-label="Ver solicitud anterior #{{ $previousRequestNav->ticket_number }}">
+                        title="Ir a la solicitud {{ $previousRequestNav->ticket_number }}"
+                        aria-label="Ver solicitud anterior {{ $previousRequestNav->ticket_number }}">
                         <span class="nav-direction__icon" aria-hidden="true">
                             <i class="fas fa-arrow-left text-[10px]"></i>
                         </span>
                         <span class="nav-direction__content">
                             <span class="nav-direction__eyebrow">Anterior</span>
-                            <span class="nav-direction__ticket">#{{ $previousRequestNav->ticket_number }}</span>
+                            <span class="nav-direction__ticket">{{ $previousRequestNav->ticket_number }}</span>
                         </span>
                     </a>
                 @else
@@ -71,21 +71,21 @@
             <div class="hidden sm:flex justify-center w-full sm:w-auto">
                 <div class="nav-pill-current" aria-live="polite">
                     <span class="nav-pill-current__eyebrow">Solicitud actual</span>
-                    <span class="nav-pill-current__ticket">#{{ $serviceRequest->ticket_number }}</span>
+                    <span class="nav-pill-current__ticket">{{ $serviceRequest->ticket_number }}</span>
                 </div>
             </div>
             <div class="flex items-center flex-1 justify-end">
                 @if ($nextRequestNav)
                     <a href="{{ route('service-requests.show', $nextRequestNav) }}"
                         class="nav-direction nav-direction--reverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
-                        title="Ir a la solicitud #{{ $nextRequestNav->ticket_number }}"
-                        aria-label="Ver siguiente solicitud #{{ $nextRequestNav->ticket_number }}">
+                        title="Ir a la solicitud {{ $nextRequestNav->ticket_number }}"
+                        aria-label="Ver siguiente solicitud {{ $nextRequestNav->ticket_number }}">
                         <span class="nav-direction__icon" aria-hidden="true">
                             <i class="fas fa-arrow-right text-[10px]"></i>
                         </span>
                         <span class="nav-direction__content">
                             <span class="nav-direction__eyebrow">Siguiente</span>
-                            <span class="nav-direction__ticket">#{{ $nextRequestNav->ticket_number }}</span>
+                            <span class="nav-direction__ticket">{{ $nextRequestNav->ticket_number }}</span>
                         </span>
                     </a>
                 @else

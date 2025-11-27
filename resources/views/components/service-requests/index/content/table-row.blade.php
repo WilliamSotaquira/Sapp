@@ -9,7 +9,7 @@
     <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
         <a href="{{ route('service-requests.show', $request) }}"
            class="font-mono text-gray-600 hover:text-gray-800 font-semibold text-[10px] sm:text-xs">
-            #{{ $request->ticket_number }}
+            {{ $request->ticket_number }}
         </a>
     </td>
 

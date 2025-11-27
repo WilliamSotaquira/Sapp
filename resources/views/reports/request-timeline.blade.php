@@ -79,7 +79,7 @@
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3">
                                 <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                                    #{{ $request->ticket_number }}
+                                    {{ $request->ticket_number }}
                                 </span>
                             </td>
                             <td class="px-4 py-3">

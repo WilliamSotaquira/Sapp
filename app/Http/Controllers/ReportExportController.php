@@ -92,6 +92,7 @@ class ReportExportController extends Controller
     private function getSlaComplianceData($dateRange)
     {
         return ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')
@@ -115,7 +116,8 @@ class ReportExportController extends Controller
 
     private function getRequestsByStatusData($dateRange)
     {
-        return ServiceRequest::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+        return ServiceRequest::reportable()
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->get();
@@ -123,7 +125,8 @@ class ReportExportController extends Controller
 
     private function getCriticalityLevelsData($dateRange)
     {
-        return ServiceRequest::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+        return ServiceRequest::reportable()
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('criticality_level, COUNT(*) as count')
             ->groupBy('criticality_level')
             ->get();

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Reporte de Timeline - Ticket #{{ $request->ticket_number ?? 'N/A' }}</title>
+    <title>Reporte de Timeline - Ticket {{ $request->ticket_number ?? 'N/A' }}</title>
     <style>
         /* ESTILOS GENERALES */
         body {
@@ -270,7 +270,7 @@
     <!-- ENCABEZADO -->
     <div class="header">
         <h1>📋 REPORTE DE TIMELINE DETALLADO</h1>
-        <p>Ticket #{{ $request->ticket_number ?? 'N/A' }} - Generado el {{ now()->format('d/m/Y H:i:s') }}</p>
+        <p>Ticket {{ $request->ticket_number ?? 'N/A' }} - Generado el {{ now()->format('d/m/Y H:i:s') }}</p>
 
         <div class="header-info">
             <div>

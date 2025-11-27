@@ -15,6 +15,7 @@ class PerformanceReportController extends ReportController
         $dateRange = $this->getDateRange($request);
 
         $servicePerformance = ServiceRequest::with(['subService.service.family'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('subService.service.family.name')
@@ -55,7 +56,8 @@ class PerformanceReportController extends ReportController
             $startDate = Carbon::now()->subMonths($i)->startOfMonth();
             $endDate = Carbon::now()->subMonths($i)->endOfMonth();
 
-            $monthData = ServiceRequest::whereBetween('created_at', [$startDate, $endDate])
+            $monthData = ServiceRequest::reportable()
+                ->whereBetween('created_at', [$startDate, $endDate])
                 ->selectRaw('
                     COUNT(*) as total_requests,
                     SUM(CASE WHEN status = "CERRADA" THEN 1 ELSE 0 END) as closed_requests,
@@ -84,6 +86,7 @@ class PerformanceReportController extends ReportController
     public function getServicePerformanceData($dateRange)
     {
         return ServiceRequest::with(['subService.service.family'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('subService.service.family.name')

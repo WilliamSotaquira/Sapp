@@ -103,6 +103,7 @@ class TimelineReportController extends ReportController
         $dateRange = $this->getDateRange($request);
 
         $requests = ServiceRequest::with(['subService', 'requester', 'assignee', 'sla'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -123,7 +124,9 @@ class TimelineReportController extends ReportController
             'sla',
             'evidences.uploadedBy',
             'breachLogs'
-        ])->findOrFail($id);
+        ])
+        ->reportable()
+        ->findOrFail($id);
 
         $timelineEvents = $request->getTimelineEvents();
         $timeInStatus = $request->getTimeInEachStatus();
@@ -148,6 +151,7 @@ class TimelineReportController extends ReportController
     {
         // Obtener algunos tickets de ejemplo para mostrar en la ayuda
         $sampleTickets = ServiceRequest::select('ticket_number', 'title')
+            ->reportable()
             ->orderBy('created_at', 'desc')
             ->take(3)
             ->get();
@@ -172,7 +176,9 @@ class TimelineReportController extends ReportController
                 'sla',
                 'evidences.uploadedBy',
                 'breachLogs'
-            ])->findOrFail($id);
+            ])
+            ->reportable()
+            ->findOrFail($id);
 
             // Obtener datos del timeline
             $timelineEvents = $request->getTimelineEvents();
@@ -469,6 +475,7 @@ class TimelineReportController extends ReportController
 
             // Buscar el ServiceRequest
             $serviceRequest = ServiceRequest::where('ticket_number', $ticketNumber)
+                ->reportable()
                 ->with([
                     'subService.service.family',
                     'requester',
@@ -483,6 +490,7 @@ class TimelineReportController extends ReportController
             if (!$serviceRequest) {
                 // Buscar con variaciones comunes del ticket number
                 $serviceRequest = ServiceRequest::where('ticket_number', 'LIKE', "%{$ticketNumber}%")
+                    ->reportable()
                     ->orWhere('id', $ticketNumber)
                     ->with([
                         'subService.service.family',
@@ -501,6 +509,7 @@ class TimelineReportController extends ReportController
 
                 // Sugerir algunos tickets disponibles
                 $suggestedTickets = ServiceRequest::select('ticket_number', 'title')
+                    ->reportable()
                     ->orderBy('created_at', 'desc')
                     ->take(3)
                     ->get()

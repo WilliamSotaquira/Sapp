@@ -19,7 +19,7 @@
                 </div>
                 <div class="flex flex-col max-w-full sm:max-w-md lg:max-w-lg">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <h1 class="text-lg sm:text-xl md:text-2xl font-bold">Solicitud #{{ $serviceRequest->ticket_number }}</h1>
+                        <h1 class="text-lg sm:text-xl md:text-2xl font-bold">Solicitud {{ $serviceRequest->ticket_number }}</h1>
                         <button type="button"
                             class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition text-white border border-white/40 focus:outline-none focus:ring-2 focus:ring-white/60"
                             data-default-icon="fa-copy"

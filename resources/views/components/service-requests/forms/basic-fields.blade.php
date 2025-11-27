@@ -64,6 +64,7 @@
     @php
         $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
         $selectedEntryChannel = old('entry_channel', $serviceRequest->entry_channel ?? null);
+        $isReportable = old('is_reportable', $serviceRequest->is_reportable ?? true);
     @endphp
     <div>
         <label for="entry_channel" class="block text-sm font-medium text-gray-700 mb-2">
@@ -85,6 +86,26 @@
         @error('entry_channel')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
+    </div>
+
+    <!-- Configuración de reportes -->
+    <div>
+        <div class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div class="flex items-center h-6">
+                <input type="hidden" name="is_reportable" value="1">
+                <input id="is_reportable" name="is_reportable" type="checkbox" value="0"
+                    class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    {{ $isReportable ? '' : 'checked' }}>
+            </div>
+            <div class="flex-1">
+                <label for="is_reportable" class="block text-sm font-semibold text-gray-800">
+                    Excluir esta solicitud de los reportes
+                </label>
+                <p class="text-sm text-gray-600">
+                    Activa esta casilla si la solicitud no debe contarse ni mostrarse en los reportes y exportaciones.
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- Resto del formulario permanece igual -->

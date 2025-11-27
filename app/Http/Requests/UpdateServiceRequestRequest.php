@@ -23,6 +23,7 @@ class UpdateServiceRequestRequest extends FormRequest
             'description' => 'required|string',
             'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
+            'is_reportable' => 'sometimes|boolean',
         ];
     }
 

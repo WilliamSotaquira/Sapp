@@ -76,7 +76,7 @@
                 </h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($fileEvidences as $evidence)
-                    <x-service-requests.show.evidences.evidence-card :evidence="$evidence" />
+                    <x-service-requests.show.evidences.evidence-card :evidence="$evidence" :serviceRequest="$serviceRequest" />
                     @endforeach
                 </div>
             </div>
@@ -144,3 +144,58 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    document.querySelectorAll('.delete-evidence-btn').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const url = this.dataset.deleteUrl;
+            const card = this.closest('.bg-white');
+            const self = this;
+
+            if (!confirm('¿Eliminar esta evidencia?')) {
+                return;
+            }
+
+            self.disabled = true;
+            self.classList.add('opacity-50');
+
+            try {
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    // ignore parse errors
+                }
+
+                if (response.ok && data?.success && card) {
+                    card.remove();
+                } else {
+                    const message = data?.message || 'No se pudo eliminar la evidencia';
+                    alert(message);
+                    self.disabled = false;
+                    self.classList.remove('opacity-50');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error al eliminar la evidencia');
+                self.disabled = false;
+                self.classList.remove('opacity-50');
+            }
+        });
+    });
+});
+</script>
+@endpush

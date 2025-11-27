@@ -158,6 +158,14 @@ class ServiceRequestEvidence extends Model
     }
 
     /**
+     * Método helper para compatibilidad con controladores/vistas
+     */
+    public function hasFile(): bool
+    {
+        return (bool) $this->has_file;
+    }
+
+    /**
      * Verificar si la evidencia puede ser eliminada
      */
     public function canBeDeleted()

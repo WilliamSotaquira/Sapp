@@ -24,6 +24,7 @@ class ServicePerformanceExport implements FromCollection, WithHeadings, WithMapp
     public function collection()
     {
         $data = ServiceRequest::with(['subService.service.family'])
+            ->reportable()
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->get()
             ->groupBy('subService.service.family.name')

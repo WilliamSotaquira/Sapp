@@ -14,7 +14,8 @@ class CriticalityReportController extends ReportController
     {
         $dateRange = $this->getDateRange($request);
 
-        $criticalityData = ServiceRequest::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+        $criticalityData = ServiceRequest::reportable()
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('criticality_level, COUNT(*) as count')
             ->groupBy('criticality_level')
             ->get()
@@ -28,7 +29,8 @@ class CriticalityReportController extends ReportController
      */
     public function getCriticalityLevelsData($dateRange)
     {
-        return ServiceRequest::whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
+        return ServiceRequest::reportable()
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('criticality_level, COUNT(*) as count')
             ->groupBy('criticality_level')
             ->get();
