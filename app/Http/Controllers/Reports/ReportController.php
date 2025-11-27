@@ -24,10 +24,10 @@ class ReportController extends Controller
     {
         // Estadísticas generales para el dashboard de reportes
         $stats = [
-            'total_requests' => ServiceRequest::count(),
-            'pending_requests' => ServiceRequest::where('status', 'PENDIENTE')->count(),
-            'resolved_requests' => ServiceRequest::where('status', 'RESUELTA')->count(),
-            'overdue_requests' => ServiceRequest::whereNotNull('resolution_deadline')
+            'total_requests' => ServiceRequest::reportable()->count(),
+            'pending_requests' => ServiceRequest::reportable()->where('status', 'PENDIENTE')->count(),
+            'resolved_requests' => ServiceRequest::reportable()->where('status', 'RESUELTA')->count(),
+            'overdue_requests' => ServiceRequest::reportable()->whereNotNull('resolution_deadline')
                 ->where('resolution_deadline', '<', now())
                 ->whereNotIn('status', ['RESUELTA', 'CERRADA'])
                 ->count()
@@ -52,6 +52,7 @@ class ReportController extends Controller
 
         $query = ServiceRequest::query()
             ->with(['sla', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$dateFrom, $dateTo]);
 
         if ($request->filled('service_id')) {
@@ -118,6 +119,7 @@ class ReportController extends Controller
             COUNT(*) as count,
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
+        ->reportable()
         ->whereBetween('created_at', [$dateFrom, $dateTo])
         ->groupBy('status')
         ->get();
@@ -155,6 +157,7 @@ class ReportController extends Controller
             COUNT(*) as count,
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
+        ->reportable()
         ->whereBetween('created_at', [$dateFrom, $dateTo])
         ->groupBy('criticality_level')
         ->get();
@@ -191,6 +194,7 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
         ")
+        ->reportable()
         ->join('sub_services', 'service_requests.sub_service_id', '=', 'sub_services.id')
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
@@ -220,6 +224,7 @@ class ReportController extends Controller
             COUNT(CASE WHEN status = 'RESUELTA' THEN 1 END) as resolved_requests,
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
+        ->reportable()
         ->where('created_at', '>=', now()->subMonths($months))
         ->groupBy('month')
         ->orderBy('month')
@@ -484,6 +489,7 @@ class ReportController extends Controller
     {
         $requests = ServiceRequest::query()
             ->with(['sla', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get();
 
@@ -515,6 +521,7 @@ class ReportController extends Controller
             COUNT(*) as count,
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
+        ->reportable()
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('status')
         ->get();
@@ -530,6 +537,7 @@ class ReportController extends Controller
             COUNT(*) as count,
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
+        ->reportable()
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('criticality_level')
         ->get()
@@ -548,6 +556,7 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
         ")
+        ->reportable()
         ->join('sub_services', 'service_requests.sub_service_id', '=', 'sub_services.id')
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')

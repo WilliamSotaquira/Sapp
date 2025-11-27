@@ -149,7 +149,7 @@
     <!-- Encabezado -->
     <div class="header">
         <h1>REPORTE DE SOLICITUD DE SERVICIO</h1>
-        <div><strong>Ticket:</strong> #{{ $serviceRequest->ticket_number }}</div>
+        <div><strong>Ticket:</strong> {{ $serviceRequest->ticket_number }}</div>
         <div><strong>Generado el:</strong> {{ $generated_at }}</div>
     </div>
 
@@ -158,7 +158,7 @@
         <div class="section-title">INFORMACIÓN BÁSICA</div>
         <div class="info-grid">
             <div class="info-item">
-                <span class="info-label">Ticket:</span> #{{ $serviceRequest->ticket_number }}
+                <span class="info-label">Ticket:</span> {{ $serviceRequest->ticket_number }}
             </div>
             <div class="info-item">
                 <span class="info-label">Estado:</span>

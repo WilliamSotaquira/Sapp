@@ -43,8 +43,20 @@
                         No registrado
                     </span>
                 @endif
-
-
+            </div>
+            <div>
+                <label class="text-sm font-medium text-gray-500 block mb-2">Incluida en reportes</label>
+                @if (!$serviceRequest->is_reportable)
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 text-sm font-semibold">
+                        <i class="fas fa-ban"></i>
+                        Excluida de reportes
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-100 text-sm font-semibold">
+                        <i class="fas fa-check-circle"></i>
+                        Incluida en reportes
+                    </span>
+                @endif
             </div>
         </div>
 

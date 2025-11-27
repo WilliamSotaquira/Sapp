@@ -15,6 +15,7 @@ class SlaReportController extends ReportController
         $dateRange = $this->getDateRange($request);
 
         $slaCompliance = ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')
@@ -44,6 +45,7 @@ class SlaReportController extends ReportController
     public function getSlaComplianceData($dateRange)
     {
         return ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')

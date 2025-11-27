@@ -1,4 +1,4 @@
-@props(['evidence'])
+@props(['evidence', 'serviceRequest'])
 
 <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
     <!-- Header -->
@@ -22,13 +22,13 @@
     @if($evidence->evidence_type === 'ARCHIVO' && $evidence->has_file)
         @if($evidence->is_image)
             <!-- Imagen -->
-            <div class="mb-3 rounded-lg overflow-hidden border border-gray-200">
+            <a href="{{ $evidence->file_url }}" target="_blank" class="block mb-3 rounded-lg overflow-hidden border border-gray-200 hover:shadow-sm">
                 <img
                     src="{{ $evidence->file_url }}"
                     alt="{{ $evidence->title }}"
                     class="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
                 >
-            </div>
+            </a>
         @else
             <!-- Archivo -->
             <div class="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 mb-3">
@@ -88,12 +88,24 @@
             <i class="far fa-clock mr-1.5"></i>
             <span>{{ $evidence->created_at->format('d/m/Y H:i') }}</span>
         </div>
-        @if($evidence->user)
-        <div class="flex items-center">
-            <i class="fas fa-user mr-1.5"></i>
-            <span>{{ $evidence->user->name }}</span>
+        <div class="flex items-center space-x-3">
+            @if($evidence->user)
+            <div class="flex items-center">
+                <i class="fas fa-user mr-1.5"></i>
+                <span>{{ $evidence->user->name }}</span>
+            </div>
+            @endif
+            @if(!in_array($serviceRequest->status, ['CERRADA', 'CANCELADA']))
+            <button
+                type="button"
+                class="text-red-600 hover:text-red-700 font-semibold delete-evidence-btn"
+                data-evidence-id="{{ $evidence->id }}"
+                data-delete-url="{{ route('service-requests.evidences.destroy', [$serviceRequest, $evidence]) }}"
+                title="Eliminar evidencia">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+            @endif
         </div>
-        @endif
     </div>
 </div>
 

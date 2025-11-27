@@ -32,6 +32,7 @@ class StoreServiceRequestRequest extends FormRequest
             'requested_by' => 'required|exists:users,id',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'web_routes' => 'required|string',
+            'is_reportable' => 'sometimes|boolean',
         ];
     }
 

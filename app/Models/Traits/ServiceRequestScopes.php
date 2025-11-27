@@ -29,6 +29,14 @@ trait ServiceRequestScopes
         return $query->where('status', self::STATUS_CANCELLED);
     }
 
+    public function scopeReportable($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('is_reportable')
+              ->orWhere('is_reportable', true);
+        });
+    }
+
     public function scopeOverdue($query)
     {
         return $query->where(function ($q) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestEvidence;
+use App\Services\EvidenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -59,102 +60,23 @@ class ServiceRequestEvidenceController extends Controller
 
             \Log::info('✅ Validation passed');
 
-            $uploadedFiles = [];
-
-            if ($request->hasFile('files')) {
-                \Log::info('Files count: ' . count($request->file('files')));
-
-                foreach ($request->file('files') as $file) {
-                    \Log::info('Processing file: ' . $file->getClientOriginalName());
-
-                    if (!$file->isValid()) {
-                        \Log::error('❌ Archivo no válido: ' . $file->getClientOriginalName());
-                        continue;
-                    }
-
-                    // **NUEVO SISTEMA DE NOMBRES** - Sin carpeta por registro
-                    $serviceCode = $serviceRequest->code ?? 'SR' . $serviceRequest->id;
-                    $timestamp = now()->format('Ymd-His');
-                    $microtime = substr(str_replace('.', '', microtime(true)), -6);
-                    $extension = $file->getClientOriginalExtension();
-
-                    // Limpiar el código de servicio
-                    $cleanServiceCode = preg_replace('/[^a-zA-Z0-9]/', '-', $serviceCode);
-                    $cleanServiceCode = substr($cleanServiceCode, 0, 20);
-
-                    // Formato con guiones: ServicioCode-Fecha-Hora-Microtime
-                    $fileName = "{$cleanServiceCode}-{$timestamp}-{$microtime}.{$extension}";
-
-                    // **VERIFICAR Y CREAR DIRECTORIO SI NO EXISTE**
-                    $directory = 'evidences';
-                    if (!Storage::disk('public')->exists($directory)) {
-                        Storage::disk('public')->makeDirectory($directory);
-                        \Log::info('📁 Directorio creado: ' . $directory);
-                    }
-
-                    // **GUARDAR EN CARPETA GENERAL 'evidences'** - Sin subcarpetas por registro
-                    $filePath = $file->storeAs($directory, $fileName, 'public');
-
-                    \Log::info('📁 File stored at: ' . $filePath);
-
-                    // Verificar que el archivo se guardó correctamente
-                    if (!Storage::disk('public')->exists($filePath)) {
-                        \Log::error('❌ El archivo no existe en storage después de guardar: ' . $filePath);
-                        continue;
-                    }
-
-                    // Verificar tamaño del archivo guardado
-                    $storedFileSize = Storage::disk('public')->size($filePath);
-                    \Log::info('📊 Archivo guardado - Tamaño original: ' . $file->getSize() . ', Tamaño guardado: ' . $storedFileSize);
-
-                    if ($storedFileSize === 0) {
-                        \Log::error('❌ El archivo se guardó con tamaño 0: ' . $filePath);
-                        Storage::disk('public')->delete($filePath);
-                        continue;
-                    }
-
-                    // Crear registro en la base de datos
-                    $evidenceData = [
-                        'service_request_id' => $serviceRequest->id,
-                        'title' => $fileName,
-                        'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
-                        'evidence_type' => 'ARCHIVO',
-                        'file_path' => $filePath,
-                        'file_original_name' => $file->getClientOriginalName(),
-                        'file_mime_type' => $file->getMimeType(),
-                        'file_size' => $storedFileSize, // Usar el tamaño real guardado
-                        'user_id' => auth()->id(),
-                    ];
-
-                    \Log::info('Creating evidence with data:', $evidenceData);
-
-                    try {
-                        $evidence = ServiceRequestEvidence::create($evidenceData);
-                        $evidence->load('user');
-
-                        \Log::info('💾 Evidence created with ID: ' . $evidence->id);
-                        $uploadedFiles[] = $evidence;
-                    } catch (\Exception $dbException) {
-                        \Log::error('❌ Error al crear registro en BD: ' . $dbException->getMessage());
-                        // Eliminar archivo si falla la BD
-                        Storage::disk('public')->delete($filePath);
-                        continue;
-                    }
-                }
-
-                \Log::info('🎉 Upload completed: ' . count($uploadedFiles) . ' files');
-
-                if (count($uploadedFiles) > 0) {
-                    return redirect()
-                        ->back()
-                        ->with('success', count($uploadedFiles) . ' archivo(s) subido(s) correctamente.');
-                } else {
-                    return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
-                }
+            if (!$request->hasFile('files')) {
+                \Log::warning('⚠️ No files to process');
+                return redirect()->back()->with('error', 'No se seleccionaron archivos.');
             }
 
-            \Log::warning('⚠️ No files to process');
-            return redirect()->back()->with('error', 'No se seleccionaron archivos.');
+            $evidenceService = app(EvidenceService::class);
+            $result = $evidenceService->uploadEvidences($serviceRequest, $request->file('files'));
+
+            if ($result['success_count'] > 0) {
+                $message = $result['success_count'] . ' archivo(s) subido(s) correctamente.';
+                if ($result['error_count'] > 0) {
+                    $message .= ' ' . $result['error_count'] . ' archivo(s) con errores.';
+                }
+                return redirect()->back()->with('success', $message);
+            }
+
+            return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
         } catch (\Exception $e) {
             \Log::error('❌ STORE EVIDENCE ERROR: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
@@ -222,9 +144,15 @@ class ServiceRequestEvidenceController extends Controller
             abort(404);
         }
 
-        // Solo permitir eliminar en estados específicos
-        if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO'])) {
-            return redirect()->back()->with('error', 'No se pueden eliminar evidencias en el estado actual de la solicitud.');
+        // Solo permitir eliminar si no está cerrada/cancelada
+        if (in_array($serviceRequest->status, ['CERRADA', 'CANCELADA'])) {
+            $message = 'No se pueden eliminar evidencias en el estado actual de la solicitud.';
+
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            return redirect()->back()->with('error', $message);
         }
 
         try {
@@ -237,8 +165,16 @@ class ServiceRequestEvidenceController extends Controller
                 $evidence->delete();
             });
 
+            if (request()->expectsJson()) {
+                return response()->json(['success' => true]);
+            }
+
             return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Evidencia eliminada correctamente.');
         } catch (\Exception $e) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+
             return redirect()
                 ->back()
                 ->with('error', 'Error al eliminar la evidencia: ' . $e->getMessage());

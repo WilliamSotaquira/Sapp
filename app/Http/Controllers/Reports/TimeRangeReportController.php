@@ -89,8 +89,10 @@ class TimeRangeReportController extends Controller
             'requester',
             'assignee',
             'evidences.uploadedBy',
+            'tasks',
             'sla'
         ])
+        ->reportable()
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
         // Filtrar por familias de servicios si se especifican
@@ -297,12 +299,13 @@ class TimeRangeReportController extends Controller
                 if ($evidence->file_path && Storage::exists($evidence->file_path)) {
                     try {
                         $filePath = Storage::path($evidence->file_path);
-                        $safeFileName = $this->sanitizeFileName($evidence->file_original_name);
+                        $storedName = basename($evidence->file_path);
+                        $safeFileName = $this->sanitizeFileName($storedName ?: $evidence->file_original_name);
 
-                        $evidenceFolderName = sprintf(
-                            "evidencias/SR-%s",
-                            $evidence->service_request_id
-                        );
+                        $ticketFolder = $evidence->serviceRequest->ticket_number ?? ('SR-' . $evidence->service_request_id);
+                        $ticketFolder = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketFolder);
+
+                        $evidenceFolderName = "evidencias/{$ticketFolder}";
 
                         // Leer el contenido del archivo y agregarlo al ZIP
                         $fileContent = file_get_contents($filePath);

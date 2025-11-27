@@ -24,6 +24,7 @@ class SlaComplianceExport implements FromCollection, WithHeadings, WithMapping, 
     public function collection()
     {
         $data = ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
+            ->reportable()
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->get()
             ->groupBy('sla.serviceFamily.name')
