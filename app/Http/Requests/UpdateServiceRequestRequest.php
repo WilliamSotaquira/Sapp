@@ -21,7 +21,7 @@ class UpdateServiceRequestRequest extends FormRequest
             'assigned_to' => 'nullable|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,CRITICA',
+            'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,URGENTE,CRITICA',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'is_reportable' => 'sometimes|boolean',
         ];
@@ -37,6 +37,7 @@ class UpdateServiceRequestRequest extends FormRequest
             'title.required' => 'El título es obligatorio.',
             'description.required' => 'La descripción es obligatoria.',
             'criticality_level.required' => 'El nivel de criticidad es obligatorio.',
+            'criticality_level.in' => 'El nivel de criticidad seleccionado no es válido.',
             'entry_channel.required' => 'El canal de entrada es obligatorio.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
         ];
