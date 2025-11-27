@@ -1,22 +1,22 @@
 @props(['serviceRequest'])
 
 @php
-    // Verificar si la solicitud está cerrada
-    $isClosed = $serviceRequest->status === 'CERRADA';
+    // Verificar si la solicitud permite agregar evidencias
+    $isInProcess = $serviceRequest->status === 'EN_PROCESO';
 @endphp
 
-@if($isClosed)
-<!-- Mensaje cuando la solicitud está cerrada -->
+@if(!$isInProcess)
+<!-- Mensaje cuando la solicitud no permite agregar evidencias -->
 <div class="border-2 border-gray-300 rounded-2xl p-6 text-center bg-gray-50">
     <div class="max-w-md mx-auto">
         <i class="fas fa-lock text-3xl text-gray-400 mb-4"></i>
         <h4 class="text-lg font-semibold text-gray-700 mb-2">Evidencias Bloqueadas</h4>
         <p class="text-gray-500 text-sm mb-4">
-            No se pueden agregar más evidencias a una solicitud cerrada
+            Solo puedes agregar evidencias cuando la solicitud está en estado <strong>EN PROCESO</strong>.
         </p>
         <div class="inline-flex items-center px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm">
             <i class="fas fa-info-circle mr-2"></i>
-            <span>La solicitud está en estado: <strong>CERRADA</strong></span>
+            <span>Estado actual: <strong>{{ $serviceRequest->status }}</strong></span>
         </div>
     </div>
 </div>

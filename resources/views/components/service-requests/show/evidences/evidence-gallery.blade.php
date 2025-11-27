@@ -103,7 +103,7 @@
         @endif
 
         <!-- Sección de subida de archivos -->
-        @if($serviceRequest->status !== 'CERRADA')
+        @if($serviceRequest->status === 'EN_PROCESO')
         <div class="{{ $fileEvidences->count() > 0 ? 'mt-8 pt-6 border-t border-gray-200' : '' }}">
             <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div class="flex items-center justify-between mb-4">
@@ -121,13 +121,13 @@
             </div>
         </div>
         @else
-        <!-- Mensaje cuando la solicitud está cerrada -->
+        <!-- Mensaje cuando la solicitud no permite evidencias -->
         <div class="mt-8 pt-6 border-t border-gray-200">
             <div class="bg-gray-100 rounded-xl p-6 border border-gray-300 text-center">
                 <i class="fas fa-lock text-gray-400 text-3xl mb-3"></i>
-                <h4 class="text-md font-semibold text-gray-700 mb-2">Solicitud Cerrada</h4>
+                <h4 class="text-md font-semibold text-gray-700 mb-2">Solicitud sin posibilidad de evidencias</h4>
                 <p class="text-sm text-gray-600">
-                    No se pueden agregar más evidencias a esta solicitud porque está en estado <strong>CERRADA</strong>
+                    Solo se pueden agregar evidencias cuando la solicitud está en estado <strong>EN PROCESO</strong>. Estado actual: <strong>{{ $serviceRequest->status }}</strong>.
                 </p>
             </div>
         </div>

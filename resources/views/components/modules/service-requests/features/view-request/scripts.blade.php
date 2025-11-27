@@ -68,7 +68,7 @@
         @if(isset($serviceRequest) && $serviceRequest)
             console.log('Estado de la solicitud:', '{{ $serviceRequest->status }}');
             console.log('¿Puede aceptar?', '{{ $serviceRequest->status === "PENDIENTE" ? "true" : "false" }}');
-            console.log('¿Puede agregar evidencias?', '{{ in_array($serviceRequest->status, ["ACEPTADA", "EN_PROCESO"]) ? "true" : "false" }}');
+            console.log('¿Puede agregar evidencias?', '{{ $serviceRequest->status === "EN_PROCESO" ? "true" : "false" }}');
         @else
             console.log('✅ Modo creación - No hay solicitud existente');
             console.log('Estado de la solicitud:', 'No aplica');

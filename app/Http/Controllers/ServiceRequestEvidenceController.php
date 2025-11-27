@@ -18,14 +18,11 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function create(ServiceRequest $serviceRequest)
     {
-        // Verificar que la solicitud está en estado adecuado para agregar evidencias
-        if (!in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA'])) {
-            return redirect()->route('service-requests.show', $serviceRequest)->with('error', 'No se pueden agregar evidencias en el estado actual de la solicitud.');
-        }
-
-        // No permitir agregar evidencias si la solicitud está cerrada
-        if ($serviceRequest->status === 'CERRADA') {
-            return redirect()->route('service-requests.show', $serviceRequest)->with('error', 'No se pueden agregar evidencias a una solicitud cerrada.');
+        // Solo permitir agregar evidencias cuando la solicitud está en proceso
+        if ($serviceRequest->status !== 'EN_PROCESO') {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso.');
         }
 
         // Obtener el siguiente número de paso
@@ -45,11 +42,11 @@ class ServiceRequestEvidenceController extends Controller
         \Log::info('Request data:', $request->all());
         \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
 
-        // Validar que la solicitud no esté cerrada
-        if ($serviceRequest->status === 'CERRADA') {
+        // Solo permitir carga de evidencias cuando la solicitud está en proceso
+        if ($serviceRequest->status !== 'EN_PROCESO') {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('error', 'No se pueden agregar evidencias a una solicitud cerrada.');
+                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso.');
         }
 
         try {
