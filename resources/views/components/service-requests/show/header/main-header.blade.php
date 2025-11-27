@@ -4,10 +4,15 @@
 @php
     use App\Models\User;
     $technicians = User::orderBy('name')->get();
+
+    $headerGradient = match($serviceRequest->status) {
+        'CERRADA', 'CANCELADA', 'RECHAZADA' => 'from-gray-700 to-gray-900',
+        default => 'from-blue-600 to-indigo-700',
+    };
 @endphp
 
 <!-- Header Principal -->
-<div class="bg-gradient-to-r from-blue-600 to-indigo-700 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 md:mb-8 w-full">
+<div class="bg-gradient-to-r {{ $headerGradient }} shadow-xl rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 md:mb-8 w-full">
     <div class="px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 text-white">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-1">
