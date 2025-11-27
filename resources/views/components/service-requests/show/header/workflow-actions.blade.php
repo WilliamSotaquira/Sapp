@@ -9,7 +9,6 @@
 @php
     $workflowConfig = [
         'PENDIENTE' => [
-            // Botón provisional para crear el nuevo servicio
             [
                 'action' => 'create-service',
                 'route' => 'service-requests.create',
@@ -130,6 +129,15 @@
             ],
         ],
         'CERRADA' => [
+            [
+                'action' => 'create-service',
+                'route' => 'service-requests.create',
+                'color' => 'green',
+                'icon' => 'plus-circle',
+                'method' => 'GET',
+                'label' => 'Crear Nuevo Servicio',
+                'condition' => true,
+            ],
             [
                 'action' => 'download-pdf',
                 'route' => 'service-requests.download-report',
