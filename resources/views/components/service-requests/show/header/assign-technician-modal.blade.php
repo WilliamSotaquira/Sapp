@@ -127,11 +127,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.ok) {
                     return response.json().then(data => {
                         console.log('✅ Asignación exitosa:', data);
-                        // Cerrar modal y recargar
                         document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}').classList.add('hidden');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
+
+                        // Abrir el modal de aceptación sin recargar
+                        const selectedOption = technicianSelect.options[technicianSelect.selectedIndex];
+                        const selectedText = selectedOption ? selectedOption.textContent.trim() : '';
+                        const acceptModal = document.getElementById('accept-modal-{{ $serviceRequest->id }}');
+                        if (acceptModal) {
+                            const assigneeTarget = acceptModal.querySelector('[data-accept-assignee]');
+                            if (assigneeTarget && selectedText) {
+                                assigneeTarget.textContent = selectedText;
+                                assigneeTarget.classList.remove('text-red-600');
+                                assigneeTarget.classList.add('text-green-600', 'font-medium');
+                            }
+                            acceptModal.classList.remove('hidden');
+                        } else {
+                            console.warn('No se encontró el modal de aceptación para esta solicitud');
+                        }
                     });
                 } else {
                     return response.json().then(errorData => {

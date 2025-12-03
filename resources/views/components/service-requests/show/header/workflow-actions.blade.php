@@ -255,13 +255,13 @@
             'serviceRequest' => $serviceRequest,
         ])
     @endif
-    @if ($currentStatus === 'PENDIENTE' && !$serviceRequest->assigned_to)
-        @include('components.service-requests.show.header.assign-technician-modal', [
-            'serviceRequest' => $serviceRequest,
-            'technicians' => $technicians,
-        ])
-    @endif
-    @if ($currentStatus === 'PENDIENTE' && $serviceRequest->assigned_to)
+    @if ($currentStatus === 'PENDIENTE')
+        @if (!$serviceRequest->assigned_to)
+            @include('components.service-requests.show.header.assign-technician-modal', [
+                'serviceRequest' => $serviceRequest,
+                'technicians' => $technicians,
+            ])
+        @endif
         @include('components.service-requests.show.header.accept-modal', [
             'serviceRequest' => $serviceRequest,
         ])
