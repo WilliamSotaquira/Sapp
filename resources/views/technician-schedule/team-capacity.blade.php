@@ -34,7 +34,7 @@
         <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-3 sm:gap-4">
             <div class="flex-1">
                 <p class="text-sm sm:text-base text-gray-600">
-                    <i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($date)->format('l, j \d\e F \d\e Y') }}
+                    <i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($date)->locale('es')->translatedFormat('l, j \\d\\e F \\d\\e Y') }}
                 </p>
                 <p class="text-xs sm:text-sm text-blue-600 mt-2">
                     <i class="fas fa-info-circle"></i> Mostrando solo las tareas programadas para este día.
