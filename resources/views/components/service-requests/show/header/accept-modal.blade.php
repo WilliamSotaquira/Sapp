@@ -33,17 +33,20 @@
         <!-- Detalles de la solicitud -->
         <div class="mb-4 bg-gray-50 rounded-md p-3">
             <h4 class="text-sm font-medium text-gray-700 mb-2">Resumen de la solicitud:</h4>
-            <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="grid grid-cols-[120px,1fr] gap-2 text-sm items-start">
                 <div class="text-gray-600">Ticket:</div>
                 <div class="font-mono text-gray-900">{{ $serviceRequest->ticket_number }}</div>
 
                 <div class="text-gray-600">Técnico asignado:</div>
                 <div>
-                    @if ($serviceRequest->assignee)
-                        <span class="text-green-600 font-medium">{{ $serviceRequest->assignee->name }}</span>
-                    @else
-                        <span class="text-red-600">Sin asignar</span>
-                    @endif
+                    @php
+                        $assigneeName = $serviceRequest->assignee?->name;
+                    @endphp
+                    <span
+                        data-accept-assignee
+                        class="block break-all whitespace-normal leading-tight {{ $assigneeName ? 'text-green-600 font-medium' : 'text-red-600' }}">
+                        {{ $assigneeName ?? 'Sin asignar' }}
+                    </span>
                 </div>
 
                 <div class="text-gray-600">Criticidad:</div>

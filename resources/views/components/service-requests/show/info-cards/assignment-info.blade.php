@@ -374,8 +374,25 @@
 
                 if (result.success) {
                     alert('✅ ' + result.message);
+                    const requestId = this.action.match(/service-requests\/(\\d+)/)?.[1];
+                    const selectedText = selectField.options[selectField.selectedIndex]?.textContent?.trim();
                     closeModal();
-                    setTimeout(() => window.location.reload(), 1500);
+
+                    // Abrir el modal de aceptación sin recargar
+                    if (requestId) {
+                        const acceptModal = document.getElementById(`accept-modal-${requestId}`);
+                        if (acceptModal) {
+                            const assigneeTarget = acceptModal.querySelector('[data-accept-assignee]');
+                            if (assigneeTarget && selectedText) {
+                                assigneeTarget.textContent = selectedText;
+                                assigneeTarget.classList.remove('text-red-600');
+                                assigneeTarget.classList.add('text-green-600', 'font-medium');
+                            }
+                            acceptModal.classList.remove('hidden');
+                        } else {
+                            console.warn('No se encontró el modal de aceptación para la solicitud', requestId);
+                        }
+                    }
                 } else {
                     alert('❌ ' + result.message);
                 }
