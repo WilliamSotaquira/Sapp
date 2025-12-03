@@ -3,8 +3,8 @@
     <x-service-requests.index.stats-cards.create-action />
     <x-service-requests.index.stats-cards.critical-stats :count="$criticalCount ?? 0" />
     <x-service-requests.index.stats-cards.pending-stats :count="$pendingCount ?? 0" />
-    <x-service-requests.index.stats-cards.closed-stats :count="$closedCount ?? 0" />
-    <x-service-requests.index.stats-cards.total-stats :count="$serviceRequests->total()" />
+    <x-service-requests.index.stats-cards.open-stats :count="$openCount ?? 0" />
+    <x-service-requests.index.stats-cards.total-stats :count="$totalCount ?? $serviceRequests->total()" />
 </div>
 
 <!-- Filtros eliminados: ahora integrados en la barra superior de la tabla para evitar duplicados -->

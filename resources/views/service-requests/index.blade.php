@@ -36,11 +36,11 @@
             <!-- Tarjeta 3: Pendientes -->
             <x-service-requests.index.stats-cards.pending-stats :count="$pendingCount ?? 0" />
 
-            <!-- Tarjeta 4: Cerradas -->
-            <x-service-requests.index.stats-cards.closed-stats :count="$closedCount ?? 0" />
+            <!-- Tarjeta 4: Abiertas -->
+            <x-service-requests.index.stats-cards.open-stats :count="$openCount ?? 0" />
 
             <!-- Tarjeta 5: Total -->
-            <x-service-requests.index.stats-cards.total-stats :count="$serviceRequests->total()" />
+            <x-service-requests.index.stats-cards.total-stats :count="$totalCount ?? $serviceRequests->total()" />
 
         </div>
 
@@ -74,6 +74,7 @@
             requester: document.getElementById('requesterFilter'),
             startDate: document.getElementById('startDateFilter'),
             endDate: document.getElementById('endDateFilter'),
+            open: document.getElementById('openFilter'),
             suggestions: document.getElementById('requesterSuggestions'),
             badge: document.getElementById('filtersActiveBadge'),
             spinner: document.getElementById('loadingSpinner')
@@ -88,6 +89,7 @@
         if(el.requester && el.requester.value.trim()) c++;
         if(el.startDate && el.startDate.value) c++;
         if(el.endDate && el.endDate.value) c++;
+        if(el.open && el.open.value) c++;
         return c;
     }
 
@@ -111,7 +113,8 @@
             criticality: el.criticality ? el.criticality.value : '',
             requester: el.requester ? el.requester.value : '',
             start_date: el.startDate ? el.startDate.value : '',
-            end_date: el.endDate ? el.endDate.value : ''
+            end_date: el.endDate ? el.endDate.value : '',
+            open: el.open ? el.open.value : ''
         };
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
     }
@@ -128,6 +131,7 @@
             if(el.requester && !el.requester.value) el.requester.value = state.requester || '';
             if(el.startDate && !el.startDate.value) el.startDate.value = state.start_date || '';
             if(el.endDate && !el.endDate.value) el.endDate.value = state.end_date || '';
+            if(el.open && state.open) el.open.value = state.open;
             updateBadge();
         } catch(e) {}
     }
@@ -149,6 +153,7 @@
         if (el.requester && el.requester.value.trim()) params.append('requester', el.requester.value.trim());
         if (el.startDate && el.startDate.value) params.append('start_date', el.startDate.value);
         if (el.endDate && el.endDate.value) params.append('end_date', el.endDate.value);
+        if (el.open && el.open.value) params.append('open', el.open.value);
         return params;
     }
 

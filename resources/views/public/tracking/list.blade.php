@@ -79,7 +79,7 @@
                                         'EN_PROGRESO' => ['class' => 'bg-purple-100 text-purple-800 border-purple-200', 'icon' => 'fa-cog'],
                                         'RESUELTA' => ['class' => 'bg-teal-100 text-teal-800 border-teal-200', 'icon' => 'fa-check-circle'],
                                         'CERRADA' => ['class' => 'bg-gray-100 text-gray-800 border-gray-200', 'icon' => 'fa-lock'],
-                                        'RECHAZADA' => ['class' => 'bg-red-100 text-red-800 border-red-200', 'icon' => 'fa-times-circle'],
+                                        'RECHAZADA' => ['class' => 'bg-gray-100 text-gray-800 border-gray-200', 'icon' => 'fa-lock'],
                                         'PAUSADA' => ['class' => 'bg-orange-100 text-orange-800 border-orange-200', 'icon' => 'fa-pause-circle'],
                                     ];
                                     $config = $statusConfig[$request->status] ?? ['class' => 'bg-gray-100 text-gray-800 border-gray-200', 'icon' => 'fa-question'];

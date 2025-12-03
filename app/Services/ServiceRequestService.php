@@ -40,7 +40,9 @@ class ServiceRequestService
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (!empty($filters['open'])) {
+            $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA']);
+        } elseif (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -88,17 +90,21 @@ class ServiceRequestService
     {
         // Una sola consulta para obtener todas las estadísticas
         $stats = ServiceRequest::selectRaw("
+            COUNT(*) as total_count,
             COUNT(CASE WHEN status = 'PENDIENTE' THEN 1 END) as pending_count,
             COUNT(CASE WHEN criticality_level = 'CRITICA' THEN 1 END) as critical_count,
             COUNT(CASE WHEN status = 'RESUELTA' THEN 1 END) as resolved_count,
-            COUNT(CASE WHEN status = 'CERRADA' THEN 1 END) as closed_count
+            COUNT(CASE WHEN status = 'CERRADA' THEN 1 END) as closed_count,
+            COUNT(CASE WHEN status IN ('PENDIENTE','ACEPTADA','EN_PROCESO','PAUSADA') THEN 1 END) as open_count
         ")->first();
 
         return [
+            'totalCount' => $stats->total_count ?? 0,
             'pendingCount' => $stats->pending_count ?? 0,
             'criticalCount' => $stats->critical_count ?? 0,
             'resolvedCount' => $stats->resolved_count ?? 0,
             'closedCount' => $stats->closed_count ?? 0,
+            'openCount' => $stats->open_count ?? 0,
         ];
     }
 

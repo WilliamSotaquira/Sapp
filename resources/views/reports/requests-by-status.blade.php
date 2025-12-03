@@ -90,7 +90,8 @@
                             'EN_PROCESO' => 'bg-purple-100 text-purple-800',
                             'RESUELTA' => 'bg-green-100 text-green-800',
                             'CERRADA' => 'bg-gray-100 text-gray-800',
-                            'CANCELADA' => 'bg-red-100 text-red-800'
+                            'CANCELADA' => 'bg-red-100 text-red-800',
+                            'RECHAZADA' => 'bg-gray-100 text-gray-800'
                         ];
                     @endphp
 
@@ -145,6 +146,7 @@
                                         @elseif($status === 'RESUELTA') bg-green-500
                                         @elseif($status === 'CERRADA') bg-gray-500
                                         @elseif($status === 'CANCELADA') bg-red-500
+                                        @elseif($status === 'RECHAZADA') bg-gray-500
                                         @else bg-gray-400 @endif"
                                          style="width: {{ $totalRequests > 0 ? ($data->count / $totalRequests) * 100 : 0 }}%">
                                     </div>
