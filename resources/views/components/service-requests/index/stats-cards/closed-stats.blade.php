@@ -1,6 +1,6 @@
 @props(['count' => 0])
 
-<div class="bg-white rounded-lg shadow border-l-4 border-emerald-500 overflow-hidden hover:shadow-md transition-shadow">
+<a href="{{ route('service-requests.index', ['status' => 'CERRADA']) }}" class="block bg-white rounded-lg shadow border-l-4 border-emerald-500 overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-emerald-300">
     <div class="bg-emerald-50/50 p-2.5 md:p-4 lg:p-5">
         <div class="flex lg:flex-col items-center text-center gap-2.5 lg:gap-2">
             <div class="flex-shrink-0 bg-emerald-100 rounded-lg p-1.5 lg:p-2">
@@ -16,4 +16,4 @@
             </div>
         </div>
     </div>
-</div>
+</a>

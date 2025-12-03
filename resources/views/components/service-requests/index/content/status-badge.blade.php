@@ -29,6 +29,10 @@
         'CANCELADA' => [
             'class' => 'bg-red-100 text-red-800',
             'icon' => 'fa-times-circle'
+        ],
+        'RECHAZADA' => [
+            'class' => 'bg-gray-100 text-gray-800',
+            'icon' => 'fa-lock'
         ]
     ];
 

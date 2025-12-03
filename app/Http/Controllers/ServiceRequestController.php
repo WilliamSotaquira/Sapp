@@ -51,6 +51,7 @@ class ServiceRequestController extends Controller
             'requester' => $request->get('requester'), // nombre o email parcial
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
+            'open' => $request->boolean('open'),
         ];
 
         // Validación ligera de fechas (formato YYYY-MM-DD)

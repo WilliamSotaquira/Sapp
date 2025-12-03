@@ -34,6 +34,9 @@
     <!-- Barra de Filtros Integrada -->
     <div class="px-3 sm:px-4 py-2 bg-white border-b border-gray-200 relative" role="toolbar" aria-label="Filtros de solicitudes">
         <form id="inlineFiltersForm" class="grid grid-cols-2 md:grid-cols-6 gap-2" action="{{ route('service-requests.index') }}" method="GET" onsubmit="return false;">
+            @if(request('open'))
+                <input type="hidden" id="openFilter" name="open" value="1">
+            @endif
             <div>
                 <label for="searchFilter" class="sr-only">Buscar</label>
                 <input id="searchFilter" name="search" value="{{ request('search') }}" type="text" placeholder="Buscar..." class="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />

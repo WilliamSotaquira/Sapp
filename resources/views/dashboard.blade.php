@@ -26,150 +26,139 @@
         </div>
     </div>
 
-    <!-- Estadísticas Principales (ideal pasar $stats desde controlador y cachear resultados) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        @php
-            // Si no se pasa $stats desde el controlador, se define aquí (fallback).
-            if(!isset($stats)) {
-                $stats = [
-                    [
-                        'title' => 'Familias de Servicio',
-                        'count' => \App\Models\ServiceFamily::count(),
-                        'color' => 'blue',
-                        'icon' => 'fas fa-layer-group',
-                        'route' => route('service-families.index')
-                    ],
-                    [
-                        'title' => 'Servicios',
-                        'count' => \App\Models\Service::count(),
-                        'color' => 'green',
-                        'icon' => 'fas fa-cogs',
-                        'route' => route('services.index')
-                    ],
-                    [
-                        'title' => 'Sub-Servicios',
-                        'count' => \App\Models\SubService::count(),
-                        'color' => 'purple',
-                        'icon' => 'fas fa-list-alt',
-                        'route' => route('sub-services.index')
-                    ],
-                    [
-                        'title' => 'Total Solicitudes',
-                        'count' => \App\Models\ServiceRequest::count(),
-                        'color' => 'orange',
-                        'icon' => 'fas fa-tasks',
-                        'route' => route('service-requests.index')
-                    ]
-                ];
-            }
-        @endphp
-
-        @foreach($stats as $stat)
-        <a href="{{ $stat['route'] }}" class="block transform transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-{{ $stat['color'] }}-500 rounded-lg" aria-label="Ir a {{ $stat['title'] }}">
-            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-{{ $stat['color'] }}-500 h-full relative">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="p-3 bg-{{ $stat['color'] }}-100 rounded-lg">
-                            <i class="{{ $stat['icon'] }} text-{{ $stat['color'] }}-600 text-lg" aria-hidden="true"></i>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-xs sm:text-sm font-medium text-gray-600">{{ $stat['title'] }}</p>
-                            <p class="text-xl sm:text-2xl font-semibold text-gray-900 count-up" data-count="{{ $stat['count'] }}">{{ $stat['count'] }}</p>
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-right text-{{ $stat['color'] }}-400 text-sm" aria-hidden="true"></i>
-                </div>
-                <span class="absolute top-2 right-2 text-xs text-gray-400" aria-hidden="true">→</span>
+    <div class="bg-white rounded-2xl shadow p-6 border border-gray-100 mb-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <p class="text-[11px] uppercase tracking-wider text-gray-400">Productividad</p>
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Acciones Rápidas</h2>
             </div>
-        </a>
-        @endforeach
+            <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
+        </div>
+        <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 overflow-x-auto pb-2 text-sm">
+            <a href="http://sapp.local:8000/service-requests/create" class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 hover:bg-blue-50 transition">
+                <div class="p-2 rounded-lg bg-white text-blue-600 shadow-inner">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-semibold text-blue-900 truncate">Nueva Solicitud</p>
+                    <span class="text-xs text-blue-700">Alta inmediata</span>
+                </div>
+                <i class="fas fa-arrow-right text-blue-500 ml-auto"></i>
+            </a>
+            <a href="http://sapp.local:8000/service-families/create" class="flex items-center gap-3 rounded-xl border border-green-100 bg-green-50/50 px-4 py-3 hover:bg-green-50 transition">
+                <div class="p-2 rounded-lg bg-white text-green-600 shadow-inner">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-semibold text-green-900 truncate">Nueva Familia</p>
+                    <span class="text-xs text-green-700">Agregar catálogo</span>
+                </div>
+                <i class="fas fa-arrow-right text-green-500 ml-auto"></i>
+            </a>
+            <a href="http://sapp.local:8000/service-requests" class="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3 hover:bg-purple-50 transition">
+                <div class="p-2 rounded-lg bg-white text-purple-600 shadow-inner">
+                    <i class="fas fa-list"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-semibold text-purple-900 truncate">Ver Solicitudes</p>
+                    <span class="text-xs text-purple-700">Panel operativo</span>
+                </div>
+                <i class="fas fa-arrow-right text-purple-500 ml-auto"></i>
+            </a>
+            <a href="http://sapp.local:8000/slas" class="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3 hover:bg-orange-50 transition">
+                <div class="p-2 rounded-lg bg-white text-orange-600 shadow-inner">
+                    <i class="fas fa-handshake"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-semibold text-orange-900 truncate">Gestionar SLAs</p>
+                    <span class="text-xs text-orange-700">Compromisos</span>
+                </div>
+                <i class="fas fa-arrow-right text-orange-500 ml-auto"></i>
+            </a>
+        </div>
     </div>
 
-    <!-- Dos Columnas: Acciones Rápidas y Resumen de Solicitudes -->
+    <!-- Dos Columnas: Agenda y Resumen de Solicitudes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Acciones Rápidas mejoradas -->
+        <!-- Agenda -->
         <div class="bg-white rounded-2xl shadow p-6 border border-gray-100">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between mb-4">
                 <div>
-                    <p class="text-[11px] uppercase tracking-wider text-gray-400">Productividad</p>
-                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Acciones Rápidas</h2>
+                    <p class="text-[11px] uppercase tracking-wider text-gray-400">Hoy</p>
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Mi Agenda</h2>
                 </div>
-                <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
+                <span class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">Próximos</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                @php
-                    $quickActions = [
-                        [
-                            'title' => 'Nueva Solicitud',
-                            'description' => 'Crear una nueva solicitud de servicio',
-                            'route' => route('service-requests.create'),
-                            'color' => 'blue',
-                            'icon' => 'fas fa-plus-circle',
-                            'badge' => 'Alta'
-                        ],
-                        [
-                            'title' => 'Nueva Familia',
-                            'description' => 'Agregar familia de servicio',
-                            'route' => route('service-families.create'),
-                            'color' => 'green',
-                            'icon' => 'fas fa-layer-group',
-                            'badge' => 'Catálogo'
-                        ],
-                        [
-                            'title' => 'Ver Solicitudes',
-                            'description' => 'Gestionar todas las solicitudes',
-                            'route' => route('service-requests.index'),
-                            'color' => 'purple',
-                            'icon' => 'fas fa-list',
-                            'badge' => 'Operación'
-                        ],
-                        [
-                            'title' => 'Gestionar SLAs',
-                            'description' => 'Configurar acuerdos de nivel de servicio',
-                            'route' => route('slas.index'),
-                            'color' => 'orange',
-                            'icon' => 'fas fa-handshake',
-                            'badge' => 'Compromisos'
-                        ]
-                    ];
-                @endphp
-
-                @foreach($quickActions as $action)
-                    <a href="{{ $action['route'] }}" aria-label="{{ $action['title'] }}"
-                        class="group rounded-2xl border border-{{ $action['color'] }}-100/70 bg-gradient-to-br from-white via-white to-{{ $action['color'] }}-50/40 p-4 shadow-sm hover:shadow-{{ $action['color'] }}-200/80 transition-all duration-200">
-                        <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-{{ $action['color'] }}-600">
-                            <span>{{ $action['badge'] }}</span>
-                            <span class="inline-flex items-center text-{{ $action['color'] }}-500">
-                                <span class="mr-1">Ir</span>
-                                <i class="fas fa-chevron-right text-xs group-hover:translate-x-1 transition-transform duration-200"></i>
-                            </span>
-                        </div>
-                        <div class="mt-2.5 flex items-start space-x-3">
-                            <div class="p-2.5 rounded-xl bg-{{ $action['color'] }}-100 text-{{ $action['color'] }}-600 shadow-inner shadow-white/60 group-hover:scale-110 transition-transform duration-200">
-                                <i class="{{ $action['icon'] }} text-lg"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-semibold text-{{ $action['color'] }}-900 text-sm leading-tight truncate">
-                                    {{ $action['title'] }}
-                                </p>
-                                <p class="text-xs text-{{ $action['color'] }}-600 mt-1">
-                                    {{ $action['description'] }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between text-xs text-{{ $action['color'] }}-600">
-                            <span class="flex items-center gap-1">
-                                <i class="fas fa-clock text-[10px]"></i>
-                                Disponible 24/7
-                            </span>
-                            <span class="flex items-center gap-1 group-hover:text-{{ $action['color'] }}-800 transition-colors duration-200">
-                                <i class="fas fa-arrow-right text-[10px]"></i>
-                                Acceder
-                            </span>
-                        </div>
+            @php
+                if(!isset($agenda)) {
+                    $technicianId = auth()->user()?->technician?->id ?? null;
+                    if($technicianId) {
+                        $agenda = \App\Models\Task::with('serviceRequest')
+                            ->where('technician_id', $technicianId)
+                            ->whereDate('scheduled_date', '>=', now()->toDateString())
+                            ->orderBy('scheduled_date')
+                            ->orderByRaw("COALESCE(scheduled_start_time, scheduled_time, '23:59')")
+                            ->take(6)
+                            ->get()
+                            ->map(function($task) {
+                                return [
+                                    'time' => $task->scheduled_start_time ?? $task->scheduled_time ?? '—',
+                                    'date' => optional($task->scheduled_date)->format('d/m') ?? '',
+                                    'title' => $task->title ?? 'Tarea sin título',
+                                    'location' => $task->serviceRequest?->ticket_number ? 'Ticket '.$task->serviceRequest->ticket_number : 'Sin ticket',
+                                    'status' => $task->status ? ucfirst(str_replace('_', ' ', $task->status)) : 'Pendiente',
+                                    'url' => route('tasks.show', $task),
+                                ];
+                            })
+                            ->toArray();
+                    } else {
+                        $agenda = [];
+                    }
+                }
+                $statusColors = [
+                    'Pendiente' => 'bg-amber-100 text-amber-800',
+                    'Programada' => 'bg-blue-100 text-blue-800',
+                    'En curso' => 'bg-green-100 text-green-800',
+                ];
+            @endphp
+            @if(count($agenda) > 0)
+                <ul class="space-y-3">
+                    @foreach($agenda as $item)
+                        <li>
+                            <a href="{{ $item['url'] ?? '#' }}" class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-100 hover:bg-indigo-50/40 transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <div class="flex flex-col items-center justify-center w-20 rounded-lg bg-gray-50 text-gray-900 font-semibold">
+                                    <span class="text-xs text-gray-500">Fecha</span>
+                                    <span class="text-sm">{{ $item['date'] ?? '' }}</span>
+                                    <span class="text-xs text-gray-600">{{ $item['time'] ?? '' }}</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-medium text-gray-900 truncate">{{ $item['title'] }}</p>
+                                    <p class="text-xs text-gray-500">{{ $item['location'] }}</p>
+                                </div>
+                                <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full {{ $statusColors[$item['status']] ?? 'bg-gray-100 text-gray-700' }}">
+                                    {{ $item['status'] }}
+                                </span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+                <div class="mt-4 text-right">
+                    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center">
+                        Ver calendario
+                        <i class="fas fa-arrow-right ml-1"></i>
                     </a>
-                @endforeach
-            </div>
+                </div>
+            @else
+                <div class="text-center py-8 text-gray-600">
+                    <i class="fas fa-sun text-3xl text-amber-300 mb-3"></i>
+                    <p class="font-semibold text-gray-800">Sin tareas pendientes 🎉</p>
+                    <p class="text-sm text-gray-500">Aprovecha para adelantar documentación o capacitarte.</p>
+                    <a href="{{ route('technician-schedule.my-agenda') }}" class="mt-3 inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                        Abrir calendario
+                        <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+            @endif
         </div>
 
         <!-- Resumen de Solicitudes por Estado (pasar $statuses y $totalRequests desde controlador para optimizar) -->
@@ -232,7 +221,9 @@
             <!-- Lista de estados -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @foreach($statuses as $status => $data)
-                <div class="flex items-center justify-between p-2.5 rounded-2xl border border-{{ $data['color'] }}-100 bg-{{ $data['color'] }}-50/40 shadow hover:-translate-y-0.5 transition-transform duration-200">
+                <a href="{{ route('service-requests.index', ['status' => $status]) }}"
+                   class="flex items-center justify-between p-2.5 rounded-2xl border border-{{ $data['color'] }}-100 bg-{{ $data['color'] }}-50/40 shadow hover:-translate-y-0.5 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-{{ $data['color'] }}-400"
+                   aria-label="Ver solicitudes en estado {{ $status }}">
                     <div class="flex items-center">
                         <div class="p-1.5 rounded-xl bg-white/70 text-{{ $data['color'] }}-600 mr-3">
                             <i class="{{ $data['icon'] }} text-sm"></i>
@@ -250,7 +241,7 @@
                             </span>
                         @endif
                     </div>
-                </div>
+                </a>
                 @endforeach
             </div>
         </div>
@@ -339,7 +330,8 @@
                                             'PAUSADA' => 'bg-orange-100 text-orange-800',
                                             'RESUELTA' => 'bg-green-100 text-green-800',
                                             'CERRADA' => 'bg-gray-100 text-gray-800',
-                                            'CANCELADA' => 'bg-red-100 text-red-800'
+                                            'CANCELADA' => 'bg-red-100 text-red-800',
+                                            'RECHAZADA' => 'bg-gray-100 text-gray-800'
                                         ];
                                     @endphp
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800' }} flex items-center w-fit">

@@ -45,7 +45,7 @@
                                     'EN_PROGRESO' => ['class' => 'bg-purple-500', 'icon' => 'fa-cog fa-spin'],
                                     'RESUELTA' => ['class' => 'bg-teal-500', 'icon' => 'fa-check-circle'],
                                     'CERRADA' => ['class' => 'bg-gray-500', 'icon' => 'fa-lock'],
-                                    'RECHAZADA' => ['class' => 'bg-red-500', 'icon' => 'fa-times-circle'],
+                                    'RECHAZADA' => ['class' => 'bg-gray-500', 'icon' => 'fa-lock'],
                                     'PAUSADA' => ['class' => 'bg-orange-500', 'icon' => 'fa-pause-circle'],
                                 ];
                                 $config = $statusConfig[$serviceRequest->status] ?? ['class' => 'bg-gray-500', 'icon' => 'fa-question'];
