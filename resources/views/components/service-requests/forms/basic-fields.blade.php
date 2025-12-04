@@ -24,7 +24,39 @@
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
     <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
     <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
-    <input type="hidden" name="requested_by" value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
+    <input type="hidden" name="requested_by"
+        value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
+
+    <!-- Campo Título -->
+    <div>
+        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+            Título de la Solicitud <span class="text-red-500">*</span>
+        </label>
+        <input type="text" name="title" id="title" value="{{ old('title', $serviceRequest->title ?? '') }}"
+            placeholder="Ingrese un título descriptivo para la solicitud"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('title') border-red-500 @enderror"
+            required maxlength="255">
+        @error('title')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+        <p class="mt-1 text-sm text-gray-500">Máximo 255 caracteres</p>
+    </div>
+
+
+    <!-- Campo Descripción -->
+    <div>
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+            Descripción Detallada <span class="text-red-500">*</span>
+        </label>
+        <textarea name="description" id="description" rows="6"
+            placeholder="Describa en detalle el problema o requerimiento..."
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('description') border-red-500 @enderror"
+            required>{{ old('description', $serviceRequest->description ?? '') }}</textarea>
+        @error('description')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+        <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
+    </div>
 
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
     <div>
@@ -43,7 +75,7 @@
             @foreach ($requesters as $requester)
                 <option value="{{ $requester->id }}" {{ $currentRequesterId == $requester->id ? 'selected' : '' }}>
                     {{ $requester->name }} - {{ $requester->email }}
-                    @if($requester->department)
+                    @if ($requester->department)
                         ({{ $requester->department }})
                     @endif
                 </option>
@@ -88,56 +120,10 @@
         @enderror
     </div>
 
-    <!-- Configuración de reportes -->
-    <div>
-        <div class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-            <div class="flex items-center h-6">
-                <input type="hidden" name="is_reportable" value="1">
-                <input id="is_reportable" name="is_reportable" type="checkbox" value="0"
-                    class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    {{ $isReportable ? '' : 'checked' }}>
-            </div>
-            <div class="flex-1">
-                <label for="is_reportable" class="block text-sm font-semibold text-gray-800">
-                    Excluir esta solicitud de los reportes
-                </label>
-                <p class="text-sm text-gray-600">
-                    Activa esta casilla si la solicitud no debe contarse ni mostrarse en los reportes y exportaciones.
-                </p>
-            </div>
-        </div>
-    </div>
 
     <!-- Resto del formulario permanece igual -->
-    <!-- Campo Título -->
-    <div>
-        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
-            Título de la Solicitud <span class="text-red-500">*</span>
-        </label>
-        <input type="text" name="title" id="title" value="{{ old('title', $serviceRequest->title ?? '') }}"
-            placeholder="Ingrese un título descriptivo para la solicitud"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('title') border-red-500 @enderror"
-            required maxlength="255">
-        @error('title')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-        <p class="mt-1 text-sm text-gray-500">Máximo 255 caracteres</p>
-    </div>
 
-    <!-- Campo Descripción -->
-    <div>
-        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
-            Descripción Detallada <span class="text-red-500">*</span>
-        </label>
-        <textarea name="description" id="description" rows="6"
-            placeholder="Describa en detalle el problema o requerimiento..."
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('description') border-red-500 @enderror"
-            required>{{ old('description', $serviceRequest->description ?? '') }}</textarea>
-        @error('description')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-        <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
-    </div>
+
 
     <!-- COMPONENTE REDISEÑADO: Búsqueda en tiempo real para Subservicios AGRUPADOS -->
     <div>
@@ -267,8 +253,7 @@
             @foreach (['BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA'] as $level)
                 <label class="relative flex cursor-pointer criticality-level-option">
                     <input type="radio" name="criticality_level" value="{{ $level }}"
-                        {{ $currentCriticality == $level ? 'checked' : '' }}
-                        class="sr-only peer" required>
+                        {{ $currentCriticality == $level ? 'checked' : '' }} class="sr-only peer" required>
                     <div
                         class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md">
                         <div class="flex flex-col items-center space-y-2">
@@ -355,6 +340,27 @@
             <p class="text-sm text-red-600"></p>
         </div>
     </div>
+
+
+    <!-- Configuración de reportes -->
+    <div>
+        <div class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div class="flex items-center h-6">
+                <input type="hidden" name="is_reportable" value="1">
+                <input id="is_reportable" name="is_reportable" type="checkbox" value="0"
+                    class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    {{ $isReportable ? '' : 'checked' }}>
+            </div>
+            <div class="flex-1">
+                <label for="is_reportable" class="block text-sm font-semibold text-gray-800">
+                    Excluir esta solicitud de los reportes
+                </label>
+                <p class="text-sm text-gray-600">
+                    Activa esta casilla si la solicitud no debe contarse ni mostrarse en los reportes y exportaciones.
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
 
 @once
@@ -367,14 +373,17 @@
                 border-color: #d1d5db;
                 padding: 0.5rem 0.75rem;
             }
+
             .select2-container--default .select2-selection--single .select2-selection__rendered {
                 line-height: 28px;
                 color: #1f2937;
             }
+
             .select2-container--default .select2-selection--single .select2-selection__arrow {
                 height: 46px;
                 right: 0.75rem;
             }
+
             .select2-dropdown {
                 border-radius: 0.75rem;
                 border-color: #d1d5db;
@@ -413,11 +422,14 @@
                 }
 
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initSelect2Fields, { once: true });
+                    document.addEventListener('DOMContentLoaded', initSelect2Fields, {
+                        once: true
+                    });
                 } else {
                     initSelect2Fields();
                 }
-            })();
+            })
+            ();
         </script>
     @endpush
 @endonce
@@ -873,7 +885,7 @@
                     e.preventDefault();
                     alert(
                         '❌ Error: Faltan datos requeridos. Por favor, seleccione un subservicio válido.'
-                        );
+                    );
                     return false;
                 }
 
