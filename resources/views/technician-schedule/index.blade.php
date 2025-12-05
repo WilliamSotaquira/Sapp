@@ -26,16 +26,24 @@
     <div class="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
             <p class="text-gray-600 text-sm sm:text-base">Gestión de tiempos y capacidad del equipo</p>
+            <p class="text-xs text-gray-400 mt-1"><kbd class="bg-gray-100 px-1.5 py-0.5 rounded">T</kbd> Hoy &nbsp;<kbd class="bg-gray-100 px-1.5 py-0.5 rounded">←</kbd><kbd class="bg-gray-100 px-1.5 py-0.5 rounded">→</kbd> Navegar &nbsp;<kbd class="bg-gray-100 px-1.5 py-0.5 rounded">N</kbd> Nueva tarea</p>
         </div>
         <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-            <a href="{{ route('tasks.create') }}" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
-                <i class="fas fa-plus"></i> <span class="hidden sm:inline">Nueva Tarea</span><span class="sm:hidden">Tarea</span>
+            <a href="{{ route('technician-schedule.my-agenda') }}" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                <i class="fas fa-clipboard-list"></i> <span class="hidden lg:inline">Mi Agenda</span>
             </a>
-            <a href="{{ route('technician-schedule.team-capacity') }}" class="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm">
-                <i class="fas fa-chart-bar"></i> <span class="hidden sm:inline">Capacidad</span><span class="sm:hidden">Cap.</span>
+            <a href="{{ route('technician-schedule.gantt') }}?date={{ $date }}" class="flex-1 sm:flex-none bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                <i class="fas fa-stream"></i> <span class="hidden lg:inline">Gantt</span>
+            </a>
+            <a href="{{ route('tasks.create') }}" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                <i class="fas fa-plus"></i> <span class="hidden sm:inline">Nueva Tarea</span>
+            </a>
+            <a href="{{ route('technician-schedule.team-capacity') }}" class="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                <i class="fas fa-chart-bar"></i> <span class="hidden sm:inline">Capacidad</span>
             </a>
         </div>
     </div>
+
 
     <!-- Filtros y Controles -->
     <div class="bg-white rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
@@ -552,12 +560,59 @@
         }, 4000);
     }
 
+    // ======================================
+    // ATAJOS DE TECLADO
+    // ======================================
+    document.addEventListener('keydown', function(e) {
+        // Ignorar si está escribiendo en un input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            return;
+        }
+
+        switch(e.key.toLowerCase()) {
+            case 't': // T = Ir a Hoy
+                e.preventDefault();
+                navigateDate('today');
+                break;
+            case 'arrowleft': // ← = Día/Semana anterior
+                e.preventDefault();
+                navigateDate('prev');
+                break;
+            case 'arrowright': // → = Día/Semana siguiente
+                e.preventDefault();
+                navigateDate('next');
+                break;
+            case 'n': // N = Nueva Tarea
+                e.preventDefault();
+                window.location.href = '{{ route("tasks.create") }}';
+                break;
+            case 'g': // G = Vista Gantt
+                e.preventDefault();
+                window.location.href = '{{ route("technician-schedule.gantt") }}?date=' + document.getElementById('dateSelector').value;
+                break;
+            case 'm': // M = Mi Agenda
+                e.preventDefault();
+                window.location.href = '{{ route("technician-schedule.my-agenda") }}';
+                break;
+            case 'd': // D = Vista Día
+                e.preventDefault();
+                document.getElementById('viewSelector').value = 'day';
+                updateCalendar();
+                break;
+            case 'w': // W = Vista Semana
+                e.preventDefault();
+                document.getElementById('viewSelector').value = 'week';
+                updateCalendar();
+                break;
+        }
+    });
+
     // Inicializar cuando la página cargue
     document.addEventListener('DOMContentLoaded', function() {
-        correctTaskDurations(); // Corregir duraciones al cargar
+        correctTaskDurations();
         initializeDragAndDrop();
         initializeResize();
     });
 </script>
-</script>
 @endsection
+

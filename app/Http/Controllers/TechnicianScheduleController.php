@@ -54,17 +54,18 @@ class TechnicianScheduleController extends Controller
 
         $tasks = $query->orderBy('scheduled_start_time')->get();
 
-        $scheduleBlocks = ScheduleBlock::with(['technician.user', 'task'])
+        $blocksQuery = ScheduleBlock::with(['technician.user', 'task'])
             ->forDate($date);
 
         if ($technicianId) {
-            $scheduleBlocks->where('technician_id', $technicianId);
+            $blocksQuery->where('technician_id', $technicianId);
         }
 
-        $blocks = $scheduleBlocks->orderBy('start_time')->get();
+        $scheduleBlocks = $blocksQuery->orderBy('start_time')->get();
 
-        return compact('tasks', 'blocks', 'date');
+        return compact('tasks', 'scheduleBlocks', 'date');
     }
+
 
     /**
      * Vista de semana
@@ -344,15 +345,99 @@ class TechnicianScheduleController extends Controller
     protected function getUtilizationStatus($percentage)
     {
         if ($percentage >= 90) {
-            return 'overloaded'; // Sobrecargado
+            return 'overloaded';
         } elseif ($percentage >= 75) {
-            return 'high'; // Alta utilización
+            return 'high';
         } elseif ($percentage >= 50) {
-            return 'optimal'; // Óptimo
+            return 'optimal';
         } elseif ($percentage >= 25) {
-            return 'low'; // Baja utilización
+            return 'low';
+        }
+        return 'underutilized';
+    }
+
+    /**
+     * Guardar un bloqueo de horario
+     */
+    public function storeBlock(Request $request)
+    {
+        $validated = $request->validate([
+            'block_date' => 'required|date',
+            'block_type' => 'required|string',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i|after:start_time',
+        ]);
+
+        $user = auth()->user();
+        $technician = Technician::where('user_id', $user->id)->first();
+
+        if (!$technician && !$user->isAdmin()) {
+            return back()->with('error', 'No tienes un perfil de técnico.');
         }
 
-        return 'underutilized'; // Subutilizado
+        // Si es admin sin perfil técnico, usar technician_id del request si existe
+        $technicianId = $technician?->id ?? $request->input('technician_id');
+
+        if (!$technicianId) {
+            return back()->with('error', 'Debes especificar un técnico.');
+        }
+
+        ScheduleBlock::create([
+            'technician_id' => $technicianId,
+            'block_date' => $validated['block_date'],
+            'block_type' => $validated['block_type'],
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'start_time' => $validated['start_time'],
+            'end_time' => $validated['end_time'],
+            'color' => ScheduleBlock::$blockTypes[$validated['block_type']]['color'] ?? '#6B7280',
+        ]);
+
+        return back()->with('success', 'Bloqueo de horario creado exitosamente.');
+    }
+
+    /**
+     * Eliminar un bloqueo de horario
+     */
+    public function destroyBlock(ScheduleBlock $block)
+    {
+        $user = auth()->user();
+        $technician = Technician::where('user_id', $user->id)->first();
+
+        if (!$user->isAdmin() && $block->technician_id !== $technician?->id) {
+            return back()->with('error', 'No tienes permiso para eliminar este bloqueo.');
+        }
+
+        $block->delete();
+        return back()->with('success', 'Bloqueo eliminado.');
+    }
+
+    /**
+     * Vista Gantt multi-técnico
+     */
+    public function ganttView(Request $request)
+    {
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $technicians = Technician::with('user')->active()->get();
+
+        $tasks = Task::with(['technician.user', 'serviceRequest'])
+            ->forDate($date)
+            ->orderBy('scheduled_start_time')
+            ->get()
+            ->groupBy('technician_id');
+
+        $blocks = ScheduleBlock::with('technician')
+            ->forDate($date)
+            ->get()
+            ->groupBy('technician_id');
+
+        $hours = [];
+        for ($h = 6; $h <= 18; $h++) {
+            $hours[] = sprintf('%02d:00', $h);
+        }
+
+        return view('technician-schedule.gantt', compact('technicians', 'tasks', 'blocks', 'date', 'hours'));
     }
 }

@@ -78,6 +78,11 @@
         </div>
     </div>
 
+    <!-- Alertas de Tareas Críticas (solo para admin) -->
+    @if(auth()->user()?->isAdmin())
+        @include('partials.task-alerts')
+    @endif
+
     <!-- Dos Columnas: Agenda y Resumen de Solicitudes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Agenda -->

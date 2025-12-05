@@ -71,6 +71,7 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
                 <select name="priority" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
                     <option value="">Todas</option>
+                    <option value="critical" {{ request('priority') == 'critical' ? 'selected' : '' }}>Crítica</option>
                     <option value="urgent" {{ request('priority') == 'urgent' ? 'selected' : '' }}>Urgente</option>
                     <option value="high" {{ request('priority') == 'high' ? 'selected' : '' }}>Alta</option>
                     <option value="medium" {{ request('priority') == 'medium' ? 'selected' : '' }}>Media</option>
@@ -106,7 +107,10 @@
                     @forelse($tasks as $task)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm font-mono text-gray-900">{{ $task->task_code }}</span>
+                                <a href="{{ route('tasks.show', $task) }}" 
+                                   class="text-sm font-mono text-blue-600 hover:text-blue-800 hover:underline font-semibold">
+                                    {{ $task->task_code }}
+                                </a>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-sm font-medium text-gray-900">{{ $task->title }}</div>
@@ -136,14 +140,22 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @php
                                     $priorityColors = [
+                                        'critical' => 'bg-red-600 text-white',
                                         'urgent' => 'bg-red-100 text-red-800',
                                         'high' => 'bg-orange-100 text-orange-800',
                                         'medium' => 'bg-yellow-100 text-yellow-800',
                                         'low' => 'bg-green-100 text-green-800'
                                     ];
+                                    $priorityLabels = [
+                                        'critical' => 'Crítica',
+                                        'urgent' => 'Urgente',
+                                        'high' => 'Alta',
+                                        'medium' => 'Media',
+                                        'low' => 'Baja'
+                                    ];
                                 @endphp
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $priorityColors[$task->priority] ?? 'bg-gray-100 text-gray-800' }}">
-                                    {{ ucfirst($task->priority) }}
+                                    {{ $priorityLabels[$task->priority] ?? ucfirst($task->priority) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

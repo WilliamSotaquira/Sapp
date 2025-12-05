@@ -96,7 +96,24 @@ Route::prefix('technician-schedule')->name('technician-schedule.')->group(functi
     // Capacidad del equipo
     Route::get('/team-capacity', [TechnicianScheduleController::class, 'teamCapacity'])->name('team-capacity');
 
+    // Vista Gantt multi-técnico
+    Route::get('/gantt', [TechnicianScheduleController::class, 'ganttView'])->name('gantt');
+
     // API para calendario
     Route::get('/events', [TechnicianScheduleController::class, 'getEvents'])->name('events');
     Route::post('/tasks/{task}/move', [TechnicianScheduleController::class, 'moveTask'])->name('move-task');
+
+    // Bloqueos de horario
+    Route::post('/blocks', [TechnicianScheduleController::class, 'storeBlock'])->name('store-block');
+    Route::delete('/blocks/{block}', [TechnicianScheduleController::class, 'destroyBlock'])->name('destroy-block');
+});
+
+// Alertas de tareas
+Route::prefix('task-alerts')->name('task-alerts.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\TaskAlertController::class, 'index'])->name('index');
+    Route::post('/{alert}/read', [\App\Http\Controllers\TaskAlertController::class, 'markAsRead'])->name('read');
+    Route::post('/{alert}/dismiss', [\App\Http\Controllers\TaskAlertController::class, 'dismiss'])->name('dismiss');
+    Route::post('/mark-all-read', [\App\Http\Controllers\TaskAlertController::class, 'markAllAsRead'])->name('mark-all-read');
+    Route::get('/unread-count', [\App\Http\Controllers\TaskAlertController::class, 'getUnreadCount'])->name('unread-count');
+    Route::post('/generate', [\App\Http\Controllers\TaskAlertController::class, 'generate'])->name('generate');
 });

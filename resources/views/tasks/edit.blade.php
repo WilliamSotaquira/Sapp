@@ -40,23 +40,6 @@
                         @enderror
                     </div>
 
-                    <!-- Tipo de Tarea -->
-                    <div>
-                        <label for="type" class="block text-sm font-medium text-gray-700 mb-2">
-                            Tipo de Tarea <span class="text-red-500">*</span>
-                        </label>
-                        <select name="type"
-                                id="type"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('type') border-red-500 @enderror"
-                                required>
-                            <option value="impact" {{ old('type', $task->type) == 'impact' ? 'selected' : '' }}>Impacto (90 min)</option>
-                            <option value="regular" {{ old('type', $task->type) == 'regular' ? 'selected' : '' }}>Regular (25 min)</option>
-                        </select>
-                        @error('type')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                     <!-- Prioridad -->
                     <div>
                         <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">
@@ -70,8 +53,33 @@
                             <option value="medium" {{ old('priority', $task->priority) == 'medium' ? 'selected' : '' }}>Media</option>
                             <option value="high" {{ old('priority', $task->priority) == 'high' ? 'selected' : '' }}>Alta</option>
                             <option value="urgent" {{ old('priority', $task->priority) == 'urgent' ? 'selected' : '' }}>Urgente</option>
+                            <option value="critical" {{ old('priority', $task->priority) == 'critical' ? 'selected' : '' }}>Crítica</option>
                         </select>
                         @error('priority')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-xs text-gray-500">Las tareas críticas/altas con fecha de vencimiento se programan por la mañana</p>
+                    </div>
+
+                    <!-- Estado -->
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
+                            Estado <span class="text-red-500">*</span>
+                        </label>
+                        <select name="status"
+                                id="status"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('status') border-red-500 @enderror"
+                                required>
+                            <option value="pending" {{ old('status', $task->status) == 'pending' ? 'selected' : '' }}>Pendiente</option>
+                            <option value="confirmed" {{ old('status', $task->status) == 'confirmed' ? 'selected' : '' }}>Confirmada</option>
+                            <option value="in_progress" {{ old('status', $task->status) == 'in_progress' ? 'selected' : '' }}>En Progreso</option>
+                            <option value="blocked" {{ old('status', $task->status) == 'blocked' ? 'selected' : '' }}>Bloqueada</option>
+                            <option value="in_review" {{ old('status', $task->status) == 'in_review' ? 'selected' : '' }}>En Revisión</option>
+                            <option value="completed" {{ old('status', $task->status) == 'completed' ? 'selected' : '' }}>Completada</option>
+                            <option value="cancelled" {{ old('status', $task->status) == 'cancelled' ? 'selected' : '' }}>Cancelada</option>
+                            <option value="rescheduled" {{ old('status', $task->status) == 'rescheduled' ? 'selected' : '' }}>Reprogramada</option>
+                        </select>
+                        @error('status')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
                     </div>
@@ -172,29 +180,73 @@
                         @error('estimated_hours')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
-                        <p class="mt-1 text-xs text-gray-500">Impacto: 90 min (1.5h) | Regular: 25 min (0.42h)</p>
+                        <p class="mt-1 text-xs text-gray-500">La duración se calcula automáticamente según las subtareas (unidad: 25 min)</p>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Estado -->
+            <!-- Control y Seguimiento -->
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-calendar-check mr-2 text-yellow-600"></i>
+                    Control y Seguimiento
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Fecha Límite -->
                     <div>
-                        <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
-                            Estado <span class="text-red-500">*</span>
+                        <label for="due_date" class="block text-sm font-medium text-gray-700 mb-2">
+                            Fecha Límite
                         </label>
-                        <select name="status"
-                                id="status"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('status') border-red-500 @enderror"
-                                required>
-                            <option value="pending" {{ old('status', $task->status) == 'pending' ? 'selected' : '' }}>Pendiente</option>
-                            <option value="in_progress" {{ old('status', $task->status) == 'in_progress' ? 'selected' : '' }}>En Progreso</option>
-                            <option value="blocked" {{ old('status', $task->status) == 'blocked' ? 'selected' : '' }}>Bloqueada</option>
-                            <option value="in_review" {{ old('status', $task->status) == 'in_review' ? 'selected' : '' }}>En Revisión</option>
-                            <option value="completed" {{ old('status', $task->status) == 'completed' ? 'selected' : '' }}>Completada</option>
-                            <option value="cancelled" {{ old('status', $task->status) == 'cancelled' ? 'selected' : '' }}>Cancelada</option>
-                            <option value="rescheduled" {{ old('status', $task->status) == 'rescheduled' ? 'selected' : '' }}>Reprogramada</option>
-                        </select>
-                        @error('status')
+                        <input type="date"
+                               name="due_date"
+                               id="due_date"
+                               value="{{ old('due_date', $task->due_date ? $task->due_date->format('Y-m-d') : '') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('due_date') border-red-500 @enderror">
+                        @error('due_date')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
+                    </div>
+
+                    <!-- Hora Límite -->
+                    <div>
+                        <label for="due_time" class="block text-sm font-medium text-gray-700 mb-2">
+                            Hora Límite
+                        </label>
+                        <input type="time"
+                               name="due_time"
+                               id="due_time"
+                               value="{{ old('due_time', $task->due_time ? substr($task->due_time, 0, 5) : '') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('due_time') border-red-500 @enderror">
+                        @error('due_time')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Tarea Crítica -->
+                    <div class="flex items-center">
+                        <input type="checkbox"
+                               name="is_critical"
+                               id="is_critical"
+                               value="1"
+                               {{ old('is_critical', $task->is_critical) ? 'checked' : '' }}
+                               class="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500">
+                        <label for="is_critical" class="ml-2 text-sm font-medium text-gray-700">
+                            Marcar como tarea crítica
+                        </label>
+                    </div>
+
+                    <!-- Requiere Evidencia -->
+                    <div class="flex items-center">
+                        <input type="checkbox"
+                               name="requires_evidence"
+                               id="requires_evidence"
+                               value="1"
+                               {{ old('requires_evidence', $task->requires_evidence) ? 'checked' : '' }}
+                               class="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500">
+                        <label for="requires_evidence" class="ml-2 text-sm font-medium text-gray-700">
+                            Requiere evidencia obligatoria
+                        </label>
                     </div>
                 </div>
             </div>
