@@ -47,8 +47,11 @@ class TaskController extends Controller
             $query->forDate($request->date);
         }
 
-        $tasks = $query->orderBy('scheduled_date')
-            ->orderBy('scheduled_time')
+        if ($request->has('priority') && $request->priority) {
+            $query->where('priority', $request->priority);
+        }
+
+        $tasks = $query->orderBy('created_at', 'desc')
             ->paginate(20);
 
         $technicians = Technician::with('user')
@@ -138,7 +141,7 @@ class TaskController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type' => 'required|in:impact,regular',
+            'type' => 'nullable|in:impact,regular',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'technician_id' => 'nullable|exists:technicians,id',
@@ -146,8 +149,12 @@ class TaskController extends Controller
             'project_id' => 'nullable|exists:projects,id',
             'scheduled_date' => 'required|date',
             'scheduled_start_time' => 'required|date_format:H:i',
+            'due_date' => 'nullable|date',
+            'due_time' => 'nullable|date_format:H:i',
             'estimated_hours' => 'nullable|numeric|min:0.1',
-            'priority' => 'required|in:urgent,high,medium,low',
+            'priority' => 'required|in:urgent,high,medium,low,critical',
+            'is_critical' => 'nullable|boolean',
+            'requires_evidence' => 'nullable|boolean',
             'technical_complexity' => 'nullable|integer|min:1|max:5',
             'technologies' => 'nullable|string',
             'required_accesses' => 'nullable|string',
@@ -156,13 +163,27 @@ class TaskController extends Controller
             'task_organization' => 'nullable|in:none,subtasks,checklist',
             'subtasks' => 'nullable|array',
             'subtasks.*.title' => 'required|string|max:255',
-            'subtasks.*.description' => 'nullable|string',
+            'subtasks.*.notes' => 'nullable|string',
             'subtasks.*.estimated_minutes' => 'nullable|integer|min:5|max:480',
             'subtasks.*.priority' => 'nullable|in:urgent,high,medium,low',
             'checklist' => 'nullable|array',
             'checklist.*.item' => 'required_with:checklist|string|max:500',
             'checklist.*.order' => 'nullable|integer|min:0',
         ]);
+
+        // Convertir checkboxes a booleanos
+        $validated['is_critical'] = $request->has('is_critical');
+        $validated['requires_evidence'] = $request->has('requires_evidence');
+
+        // Valor por defecto para type
+        $validated['type'] = $validated['type'] ?? 'regular';
+
+        // Auto-marcar como crítica si tiene prioridad crítica o (alta/urgente con fecha de vencimiento)
+        if ($validated['priority'] === 'critical' || 
+            (in_array($validated['priority'], ['high', 'urgent']) && !empty($validated['due_date']))) {
+            $validated['is_critical'] = true;
+        }
+
 
         $subtasksPayload = $validated['subtasks'] ?? [];
         $checklistPayload = $validated['checklist'] ?? [];
@@ -588,7 +609,7 @@ class TaskController extends Controller
     public function update(Request $request, Task $task)
     {
         $validated = $request->validate([
-            'type' => 'required|in:impact,regular',
+            'type' => 'nullable|in:impact,regular',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'technician_id' => 'nullable|exists:technicians,id',
@@ -597,8 +618,12 @@ class TaskController extends Controller
             'scheduled_date' => 'required|date',
             'scheduled_start_time' => 'required|date_format:H:i',
             'estimated_hours' => 'required|numeric|min:0.1',
-            'priority' => 'required|in:critical,high,medium,low',
-            'status' => 'required|in:pending,in_progress,blocked,in_review,completed,cancelled,rescheduled',
+            'due_date' => 'nullable|date',
+            'due_time' => 'nullable|date_format:H:i',
+            'priority' => 'required|in:critical,high,medium,low,urgent',
+            'is_critical' => 'nullable|boolean',
+            'requires_evidence' => 'nullable|boolean',
+            'status' => 'required|in:pending,confirmed,in_progress,blocked,in_review,completed,cancelled,rescheduled',
             'technical_complexity' => 'nullable|integer|min:1|max:5',
             'technologies' => 'nullable|string',
             'required_accesses' => 'nullable|string',
@@ -612,6 +637,27 @@ class TaskController extends Controller
         }
         if (empty($validated['project_id'])) {
             $validated['project_id'] = null;
+        }
+        if (empty($validated['due_date'])) {
+            $validated['due_date'] = null;
+        }
+        if (empty($validated['due_time'])) {
+            $validated['due_time'] = null;
+        }
+
+        // Asignar valor por defecto para type si no se proporciona
+        if (empty($validated['type'])) {
+            $validated['type'] = 'regular';
+        }
+
+        // Convertir checkboxes a booleanos
+        $validated['is_critical'] = $request->has('is_critical') && $request->input('is_critical') == '1';
+        $validated['requires_evidence'] = $request->has('requires_evidence') && $request->input('requires_evidence') == '1';
+
+        // Auto-marcar como crítica si la prioridad es "critical" o si es "high"/"urgent" con fecha de vencimiento
+        if ($validated['priority'] === 'critical' || 
+            (in_array($validated['priority'], ['high', 'urgent']) && !empty($validated['due_date']))) {
+            $validated['is_critical'] = true;
         }
 
         // Validar que la fecha y hora no sean del pasado
@@ -642,6 +688,10 @@ class TaskController extends Controller
             $changes[] = "Prioridad cambió de {$task->priority} a {$validated['priority']}";
         }
 
+        if ($task->is_critical != $validated['is_critical']) {
+            $changes[] = $validated['is_critical'] ? 'Marcada como crítica' : 'Desmarcada como crítica';
+        }
+
         // Detectar horarios no hábiles
         $nonWorkingWarnings = [];
         $scheduledDate = $this->makeUiDate($validated['scheduled_date']);
@@ -660,6 +710,13 @@ class TaskController extends Controller
             $changes[] = "ADVERTENCIA: Horario no hábil (" . implode(', ', $nonWorkingWarnings) . ")";
         }
 
+        // Log temporal para depuración
+        \Log::info('Actualizando tarea', [
+            'task_id' => $task->id,
+            'validated_data' => $validated,
+            'changes' => $changes
+        ]);
+
         $task->update($validated);
 
         // Registrar en historial si hubo cambios significativos
@@ -667,8 +724,13 @@ class TaskController extends Controller
             $task->addHistory('updated', auth()->id(), implode('. ', $changes));
         }
 
+        $successMessage = 'Tarea actualizada exitosamente';
+        if (!empty($changes)) {
+            $successMessage .= ': ' . implode(', ', $changes);
+        }
+
         return redirect()->route('tasks.show', $task)
-            ->with('success', 'Tarea actualizada exitosamente');
+            ->with('success', $successMessage);
     }
 
     /**

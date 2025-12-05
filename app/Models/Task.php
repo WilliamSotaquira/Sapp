@@ -11,6 +11,11 @@ class Task extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * Unidad básica de tiempo en minutos (25 min)
+     */
+    const TIME_BLOCK_MINUTES = 25;
+
     protected $fillable = [
         'task_code',
         'type',
@@ -19,15 +24,20 @@ class Task extends Model
         'service_request_id',
         'technician_id',
         'project_id',
+        'standard_task_id',
         'sla_id',
         'scheduled_date',
         'scheduled_time',
         'scheduled_start_time',
+        'due_date',
+        'due_time',
         'estimated_duration_minutes',
         'actual_duration_minutes',
         'estimated_hours',
         'actual_hours',
+        'time_blocks',
         'priority',
+        'is_critical',
         'status',
         'technical_complexity',
         'required_accesses',
@@ -38,6 +48,8 @@ class Task extends Model
         'git_pr_url',
         'environment',
         'technical_notes',
+        'requires_evidence',
+        'evidence_completed',
         'research_time_minutes',
         'started_at',
         'blocked_at',
@@ -47,33 +59,35 @@ class Task extends Model
 
     protected $casts = [
         'scheduled_date' => 'date',
+        'due_date' => 'date',
         'estimated_duration_minutes' => 'integer',
         'actual_duration_minutes' => 'integer',
-        'estimated_hours' => 'decimal:1',
-        'actual_hours' => 'decimal:1',
+        'estimated_hours' => 'decimal:2',
+        'actual_hours' => 'decimal:2',
+        'time_blocks' => 'integer',
         'technical_complexity' => 'integer',
         'required_accesses' => 'array',
         'dependencies' => 'array',
         'technologies' => 'array',
         'research_time_minutes' => 'integer',
+        'is_critical' => 'boolean',
+        'requires_evidence' => 'boolean',
+        'evidence_completed' => 'boolean',
         'started_at' => 'datetime',
         'blocked_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 
-    protected $appends = ['is_overdue', 'time_spent', 'status_color', 'priority_color'];
+    protected $appends = ['is_overdue', 'time_spent', 'status_color', 'priority_color', 'calculated_duration', 'is_due_soon'];
 
-    // Boot del modelo
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($model) {
-            // Solo generar código si no viene ya asignado
             if (empty($model->task_code)) {
-                // Generar código sin transacción adicional (ya debe estar en una transacción)
                 $date = $model->scheduled_date ? Carbon::parse($model->scheduled_date) : now();
-                $prefix = $model->type === 'impact' ? 'IMP' : 'REG';
+                $prefix = $model->is_critical ? 'CRI' : ($model->type === 'impact' ? 'IMP' : 'REG');
                 $dateStr = $date->format('Ymd');
 
                 $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
@@ -89,28 +103,113 @@ class Task extends Model
 
                 $model->task_code = sprintf('%s-%s-%03d', $prefix, $dateStr, $sequence);
             }
+
+            // Determinar si es crítica basado en prioridad
+            if (in_array($model->priority, ['critical', 'high']) && $model->due_date) {
+                $model->is_critical = true;
+            }
+
+            // Calcular bloques de tiempo
+            $model->calculateTimeBlocks();
+        });
+
+        static::saving(function ($model) {
+            // Recalcular bloques de tiempo cuando se guarda
+            $model->calculateTimeBlocks();
+
+            // Actualizar is_critical basado en prioridad y fecha vencimiento
+            if (in_array($model->priority, ['critical', 'high']) && $model->due_date) {
+                $model->is_critical = true;
+            }
         });
     }
 
-    // Generación automática de código de tarea (método helper)
-    public static function generateTaskCode($type, $date = null)
+    /**
+     * Calcula el número de bloques de 25 minutos necesarios
+     */
+    public function calculateTimeBlocks()
     {
-        $date = $date ? Carbon::parse($date) : now();
-        $prefix = $type === 'impact' ? 'IMP' : 'REG';
-        $dateStr = $date->format('Ymd');
+        $totalMinutes = $this->getCalculatedDurationAttribute();
+        $this->time_blocks = max(1, ceil($totalMinutes / self::TIME_BLOCK_MINUTES));
+        return $this->time_blocks;
+    }
 
-        $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
-            ->lockForUpdate()
-            ->orderBy('task_code', 'desc')
-            ->first();
-
-        $sequence = 1;
-        if ($lastTask) {
-            $parts = explode('-', $lastTask->task_code);
-            $sequence = isset($parts[2]) ? intval($parts[2]) + 1 : 1;
+    /**
+     * Calcula la duración total basada en subtareas
+     */
+    public function getCalculatedDurationAttribute()
+    {
+        // Si tiene subtareas, usar la suma de sus tiempos
+        if ($this->relationLoaded('subtasks') && $this->subtasks->count() > 0) {
+            return $this->subtasks->sum('estimated_minutes');
         }
 
-        return sprintf('%s-%s-%03d', $prefix, $dateStr, $sequence);
+        // Cargar subtareas si no están cargadas
+        $subtasksSum = $this->subtasks()->sum('estimated_minutes');
+        if ($subtasksSum > 0) {
+            return $subtasksSum;
+        }
+
+        // Fallback a estimated_hours o estimated_duration_minutes
+        if ($this->estimated_hours) {
+            return round($this->estimated_hours * 60);
+        }
+
+        return $this->estimated_duration_minutes ?? self::TIME_BLOCK_MINUTES;
+    }
+
+    /**
+     * Determina la hora de programación según si es crítica o no
+     * Críticas: Jornada de mañana (8:00 - 12:00)
+     * No críticas: Jornada de tarde (13:00 - 17:00)
+     */
+    public function getSuggestedScheduleTime()
+    {
+        if ($this->is_critical) {
+            return '08:00'; // Mañana para críticas
+        }
+        return '13:00'; // Tarde para no críticas
+    }
+
+    /**
+     * Verifica si tiene toda la evidencia requerida
+     */
+    public function checkEvidenceComplete()
+    {
+        if (!$this->requires_evidence) {
+            return true;
+        }
+
+        // Verificar que todas las subtareas tengan evidencia
+        $subtasksWithoutEvidence = $this->subtasks()
+            ->where('requires_evidence', true)
+            ->where('evidence_completed', false)
+            ->count();
+
+        return $subtasksWithoutEvidence === 0;
+    }
+
+    /**
+     * Divide la tarea en bloques de 25 minutos
+     */
+    public function getTimeBlocksArray()
+    {
+        $blocks = [];
+        $totalMinutes = $this->calculated_duration;
+        $blockNumber = 1;
+
+        while ($totalMinutes > 0) {
+            $blockMinutes = min(self::TIME_BLOCK_MINUTES, $totalMinutes);
+            $blocks[] = [
+                'number' => $blockNumber,
+                'minutes' => $blockMinutes,
+                'label' => "Bloque {$blockNumber} ({$blockMinutes} min)",
+            ];
+            $totalMinutes -= $blockMinutes;
+            $blockNumber++;
+        }
+
+        return $blocks;
     }
 
     // Relaciones
@@ -127,6 +226,11 @@ class Task extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function standardTask()
+    {
+        return $this->belongsTo(StandardTask::class);
     }
 
     public function sla()
@@ -179,6 +283,11 @@ class Task extends Model
         return $this->hasOne(ScheduleBlock::class);
     }
 
+    public function alerts()
+    {
+        return $this->hasMany(TaskAlert::class);
+    }
+
     // Scopes
     public function scopePending($query)
     {
@@ -220,6 +329,54 @@ class Task extends Model
         return $query->whereIn('priority', ['critical', 'high']);
     }
 
+    public function scopeCritical($query)
+    {
+        return $query->where('is_critical', true);
+    }
+
+    public function scopeNonCritical($query)
+    {
+        return $query->where('is_critical', false);
+    }
+
+    public function scopeOverdue($query)
+    {
+        return $query->whereNotNull('due_date')
+            ->whereDate('due_date', '<', now())
+            ->whereNotIn('status', ['completed', 'cancelled']);
+    }
+
+    public function scopeDueSoon($query, $hours = 24)
+    {
+        return $query->whereNotNull('due_date')
+            ->whereBetween('due_date', [now(), now()->addHours($hours)])
+            ->whereNotIn('status', ['completed', 'cancelled']);
+    }
+
+    public function scopeNeedsEvidence($query)
+    {
+        return $query->where('requires_evidence', true)
+            ->where('evidence_completed', false)
+            ->where('status', 'completed');
+    }
+
+    /**
+     * Scope para tareas visibles según el usuario
+     * Administrador: ve todas
+     * Técnico: no ve las del administrador
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        if ($user->isAdmin()) {
+            return $query; // Admin ve todo
+        }
+
+        // Técnico: excluir tareas de administradores
+        return $query->whereHas('technician.user', function ($q) {
+            $q->where('role', '!=', 'admin');
+        });
+    }
+
     // Métodos de utilidad
     public function start()
     {
@@ -235,10 +392,14 @@ class Task extends Model
     {
         $duration = $this->started_at ? now()->diffInMinutes($this->started_at) : null;
 
+        // Verificar evidencia antes de completar
+        $this->evidence_completed = $this->checkEvidenceComplete();
+
         $this->update([
             'status' => 'completed',
             'completed_at' => now(),
             'actual_duration_minutes' => $duration,
+            'evidence_completed' => $this->evidence_completed,
         ]);
 
         if ($notes) {
@@ -247,7 +408,6 @@ class Task extends Model
 
         $this->addHistory('completed', auth()->id(), $notes);
 
-        // Actualizar service request relacionado
         if ($this->serviceRequest) {
             $this->serviceRequest->updateStatusFromTasks();
         }
@@ -262,6 +422,14 @@ class Task extends Model
         ]);
 
         $this->addHistory('blocked', auth()->id(), $reason);
+
+        // Crear alerta de bloqueo
+        TaskAlert::create([
+            'task_id' => $this->id,
+            'alert_type' => 'blocked',
+            'message' => "Tarea bloqueada: {$reason}",
+            'alert_at' => now(),
+        ]);
     }
 
     public function unblock()
@@ -288,14 +456,22 @@ class Task extends Model
     // Accessors
     public function getIsOverdueAttribute()
     {
-        if (!$this->scheduled_date || in_array($this->status, ['completed', 'cancelled'])) {
+        if (!$this->due_date || in_array($this->status, ['completed', 'cancelled'])) {
             return false;
         }
 
-        // Usar scheduled_start_time si existe, sino usar inicio del día
-        $time = $this->scheduled_start_time ?? '00:00:00';
-        $scheduledDateTime = Carbon::parse($this->scheduled_date->format('Y-m-d') . ' ' . $time);
-        return now()->gt($scheduledDateTime);
+        $dueDateTime = Carbon::parse($this->due_date->format('Y-m-d') . ' ' . ($this->due_time ?? '23:59:59'));
+        return now()->gt($dueDateTime);
+    }
+
+    public function getIsDueSoonAttribute()
+    {
+        if (!$this->due_date || in_array($this->status, ['completed', 'cancelled'])) {
+            return false;
+        }
+
+        $dueDateTime = Carbon::parse($this->due_date->format('Y-m-d') . ' ' . ($this->due_time ?? '23:59:59'));
+        return now()->diffInHours($dueDateTime, false) <= 24 && now()->lt($dueDateTime);
     }
 
     public function getTimeSpentAttribute()
@@ -334,41 +510,55 @@ class Task extends Model
 
     public function getTypeIconAttribute()
     {
-        return $this->type === 'impact' ? '🔴' : '🟡';
+        if ($this->is_critical) {
+            return '🔴';
+        }
+        return $this->type === 'impact' ? '🟠' : '🟡';
     }
 
     public function getScheduledTimeAttribute()
     {
-        // Accessor para backward compatibility: scheduled_time retorna scheduled_start_time
         return $this->attributes['scheduled_time'] ?? $this->attributes['scheduled_start_time'] ?? null;
     }
 
     public function getFormattedDurationAttribute()
     {
-        // Priorizar estimated_hours si existe
-        if ($this->estimated_hours) {
-            // Usar minutos exactos sin redondear a múltiplos de 5
-            $totalMins = round($this->estimated_hours * 60);
-            $hours = floor($totalMins / 60);
-            $mins = $totalMins % 60;
+        $totalMins = $this->calculated_duration;
+        $hours = floor($totalMins / 60);
+        $mins = $totalMins % 60;
 
-            if ($hours > 0 && $mins > 0) {
-                return "{$hours}h {$mins}min";
-            } elseif ($hours > 0) {
-                return "{$hours}h";
-            } else {
-                return "{$mins}min";
-            }
-        }
-
-        // Fallback a estimated_duration_minutes
-        $minutes = $this->estimated_duration_minutes ?? 0;
-        $hours = floor($minutes / 60);
-        $mins = $minutes % 60;
-
-        if ($hours > 0) {
+        if ($hours > 0 && $mins > 0) {
             return "{$hours}h {$mins}min";
+        } elseif ($hours > 0) {
+            return "{$hours}h";
+        } else {
+            return "{$mins}min";
         }
-        return "{$mins}min";
+    }
+
+    public function getTimeBlocksLabelAttribute()
+    {
+        $blocks = $this->time_blocks ?? 1;
+        return $blocks . ' ' . ($blocks === 1 ? 'bloque' : 'bloques') . ' (25 min c/u)';
+    }
+
+    public function getSubtasksProgressAttribute()
+    {
+        $total = $this->subtasks()->count();
+        if ($total === 0) {
+            return 100;
+        }
+
+        $completed = $this->subtasks()->where('status', 'completed')->count();
+        return round(($completed / $total) * 100);
+    }
+
+    public function getEvidenceStatusAttribute()
+    {
+        if (!$this->requires_evidence) {
+            return 'not_required';
+        }
+
+        return $this->evidence_completed ? 'complete' : 'pending';
     }
 }

@@ -28,7 +28,7 @@
         }
     }
 
-    $durationValue = $durationValue ?? '90';
+    $durationValue = $durationValue ?? '25';
     $durationUnit = $durationUnit ?? 'minutes';
 
     $uiTimezone = config('app.ui_timezone', config('app.timezone', 'UTC'));
@@ -240,28 +240,6 @@
                         @enderror
                     </div>
 
-                    <!-- Tipo de Tarea -->
-                    <div>
-                        <label for="type" class="block text-sm font-medium text-gray-700 mb-2">
-                            Tipo de Tarea <span class="text-red-500">*</span>
-                        </label>
-                        <select name="type"
-                                id="type"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('type') border-red-500 @enderror"
-                                required>
-                            <option value="">Seleccione...</option>
-                            <option value="impact" {{ old('type') == 'impact' ? 'selected' : '' }}>
-                                <i class="fas fa-star"></i> Impacto (90 min)
-                            </option>
-                            <option value="regular" {{ old('type') == 'regular' ? 'selected' : '' }}>
-                                Regular (25 min)
-                            </option>
-                        </select>
-                        @error('type')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                     <!-- Prioridad -->
                     <div>
                         <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">
@@ -272,15 +250,22 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('priority') border-red-500 @enderror"
                                 required>
                             <option value="">Seleccione...</option>
-                            <option value="low" {{ $selectedPriority == 'low' ? 'selected' : '' }}>Baja</option>
-                            <option value="medium" {{ $selectedPriority == 'medium' ? 'selected' : '' }}>Media</option>
-                            <option value="high" {{ $selectedPriority == 'high' ? 'selected' : '' }}>Alta</option>
-                            <option value="urgent" {{ $selectedPriority == 'urgent' ? 'selected' : '' }}>Urgente</option>
+                            <option value="low" {{ $selectedPriority == 'low' ? 'selected' : '' }}>🟢 Baja</option>
+                            <option value="medium" {{ $selectedPriority == 'medium' ? 'selected' : '' }}>🟡 Media</option>
+                            <option value="high" {{ $selectedPriority == 'high' ? 'selected' : '' }}>🟠 Alta</option>
+                            <option value="critical" {{ $selectedPriority == 'critical' ? 'selected' : '' }}>🔴 Crítica</option>
                         </select>
+                        <p class="mt-1 text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Tareas críticas/altas con fecha de vencimiento se programan en horario de mañana
+                        </p>
                         @error('priority')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    <!-- Campo oculto para type (valor por defecto) -->
+                    <input type="hidden" name="type" value="regular">
 
                     <!-- Descripción -->
                     <div class="md:col-span-2">
@@ -509,10 +494,79 @@
                         @error('estimated_hours')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
-                        <p class="mt-1 text-xs text-gray-500">Impacto: 90 min (1.5h) | Regular: 25 min (0.42h)</p>
+                        <p class="mt-1 text-xs text-gray-500">Unidad básica: 25 min | Se calculará automáticamente desde subtareas si las hay</p>
+                    </div>
+
+                    <!-- Fecha de Vencimiento -->
+                    <div>
+                        <label for="due_date" class="block text-sm font-medium text-gray-700 mb-2">
+                            Fecha de Vencimiento
+                            <i class="fas fa-info-circle text-gray-400 ml-1 cursor-help" title="Define cuándo debe estar completada la tarea"></i>
+                        </label>
+                        <input type="date"
+                               name="due_date"
+                               id="due_date"
+                               value="{{ old('due_date') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('due_date') border-red-500 @enderror">
+                        @error('due_date')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Hora de Vencimiento -->
+                    <div>
+                        <label for="due_time" class="block text-sm font-medium text-gray-700 mb-2">
+                            Hora Límite
+                        </label>
+                        <input type="time"
+                               name="due_time"
+                               id="due_time"
+                               value="{{ old('due_time', '17:00') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                    </div>
+
+                    <!-- Configuración de Tarea Crítica -->
+                    <div class="md:col-span-2">
+                        <div class="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-4">
+                            <div class="flex flex-wrap items-center gap-6">
+                                <!-- Es Tarea Crítica -->
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" 
+                                           name="is_critical" 
+                                           id="is_critical"
+                                           value="1"
+                                           {{ old('is_critical') ? 'checked' : '' }}
+                                           class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                                    <span class="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                        <i class="fas fa-fire text-red-500"></i>
+                                        Tarea Crítica
+                                    </span>
+                                </label>
+                                <span class="text-xs text-gray-500">(Se programa en horario de mañana)</span>
+
+                                <!-- Requiere Evidencia -->
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" 
+                                           name="requires_evidence" 
+                                           id="requires_evidence"
+                                           value="1"
+                                           {{ old('requires_evidence', true) ? 'checked' : '' }}
+                                           class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                    <span class="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                        <i class="fas fa-file-alt text-blue-500"></i>
+                                        Requiere Evidencia
+                                    </span>
+                                </label>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Las tareas críticas con fecha de vencimiento generarán alertas automáticas al administrador.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
+
 
             <!-- Información Técnica (Colapsable) -->
             <div class="border-b pb-4">
@@ -741,7 +795,7 @@
                    </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Duración estimada (min)</label>
-                        <input type="number" name="subtasks[${subtaskCounter}][estimated_minutes]" value="15" min="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                        <input type="number" name="subtasks[${subtaskCounter}][estimated_minutes]" value="25" min="5" step="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
