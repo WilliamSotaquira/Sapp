@@ -13,24 +13,13 @@ use Illuminate\Pagination\LengthAwarePaginator;
 class ServiceRequestService
 {
     /**
-     * Obtener solicitudes con filtros y paginación optimizada
+     * Construir query base con los filtros aplicados
      */
-    public function getFilteredServiceRequests(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    private function buildFilteredQuery(array $filters = [])
     {
-        $query = ServiceRequest::query()
-            ->with([
-                'subService:id,name,service_id',
-                'subService.service:id,name,service_family_id',
-                'subService.service.family:id,name',
-                'requester:id,name,email'
-            ])
-            ->select([
-                'id', 'ticket_number', 'title', 'description', 'status',
-                'criticality_level', 'requester_id', 'sub_service_id',
-                'created_at', 'updated_at'
-            ]);
+        $query = ServiceRequest::query();
 
-        // Aplicar filtros
+        // Búsqueda general
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -40,17 +29,29 @@ class ServiceRequestService
             });
         }
 
+        // Estado / abiertas
         if (!empty($filters['open'])) {
             $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA']);
         } elseif (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
+        // Criticidad
         if (!empty($filters['criticality'])) {
             $query->where('criticality_level', $filters['criticality']);
         }
 
-        // Filtro por solicitante (nombre o email parcial)
+        // Servicio
+        if (!empty($filters['service_id'])) {
+            $serviceId = (int) $filters['service_id'];
+            if ($serviceId > 0) {
+                $query->whereHas('subService.service', function ($q) use ($serviceId) {
+                    $q->where('id', $serviceId);
+                });
+            }
+        }
+
+        // Solicitante (nombre o email parcial)
         if (!empty($filters['requester'])) {
             $term = trim($filters['requester']);
             $query->whereHas('requester', function($q) use ($term) {
@@ -59,11 +60,10 @@ class ServiceRequestService
             });
         }
 
-        // Filtro por rango de fechas (creación)
+        // Rango de fechas (creación)
         $startDate = $filters['start_date'] ?? null;
         $endDate = $filters['end_date'] ?? null;
         if ($startDate || $endDate) {
-            // Normalizar fechas; usar Carbon si disponibles
             try {
                 $start = $startDate ? \Carbon\Carbon::parse($startDate)->startOfDay() : null;
             } catch (\Exception $e) { $start = null; }
@@ -80,6 +80,27 @@ class ServiceRequestService
             }
         }
 
+        return $query;
+    }
+
+    /**
+     * Obtener solicitudes con filtros y paginación optimizada
+     */
+    public function getFilteredServiceRequests(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->buildFilteredQuery($filters)
+            ->with([
+                'subService:id,name,service_id',
+                'subService.service:id,name,service_family_id',
+                'subService.service.family:id,name',
+                'requester:id,name,email'
+            ])
+            ->select([
+                'id', 'ticket_number', 'title', 'description', 'status',
+                'criticality_level', 'requester_id', 'sub_service_id',
+                'created_at', 'updated_at'
+            ]);
+
         return $query->latest()->paginate($perPage);
     }
 
@@ -90,6 +111,32 @@ class ServiceRequestService
     {
         // Una sola consulta para obtener todas las estadísticas
         $stats = ServiceRequest::selectRaw("
+            COUNT(*) as total_count,
+            COUNT(CASE WHEN status = 'PENDIENTE' THEN 1 END) as pending_count,
+            COUNT(CASE WHEN criticality_level = 'CRITICA' THEN 1 END) as critical_count,
+            COUNT(CASE WHEN status = 'RESUELTA' THEN 1 END) as resolved_count,
+            COUNT(CASE WHEN status = 'CERRADA' THEN 1 END) as closed_count,
+            COUNT(CASE WHEN status IN ('PENDIENTE','ACEPTADA','EN_PROCESO','PAUSADA') THEN 1 END) as open_count
+        ")->first();
+
+        return [
+            'totalCount' => $stats->total_count ?? 0,
+            'pendingCount' => $stats->pending_count ?? 0,
+            'criticalCount' => $stats->critical_count ?? 0,
+            'resolvedCount' => $stats->resolved_count ?? 0,
+            'closedCount' => $stats->closed_count ?? 0,
+            'openCount' => $stats->open_count ?? 0,
+        ];
+    }
+
+    /**
+     * Obtener estadísticas basadas en los mismos filtros del listado
+     */
+    public function getFilteredStats(array $filters = []): array
+    {
+        $query = $this->buildFilteredQuery($filters);
+
+        $stats = $query->selectRaw("
             COUNT(*) as total_count,
             COUNT(CASE WHEN status = 'PENDIENTE' THEN 1 END) as pending_count,
             COUNT(CASE WHEN criticality_level = 'CRITICA' THEN 1 END) as critical_count,

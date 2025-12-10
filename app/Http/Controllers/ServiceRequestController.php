@@ -16,6 +16,7 @@ use App\Models\ServiceRequestEvidence;
 use App\Services\ServiceRequestService;
 use App\Services\ServiceRequestWorkflowService;
 use App\Services\EvidenceService;
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,7 @@ class ServiceRequestController extends Controller
             'status' => $request->get('status'),
             'criticality' => $request->get('criticality'),
             'requester' => $request->get('requester'), // nombre o email parcial
+            'service_id' => $request->get('service_id'),
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
             'open' => $request->boolean('open'),
@@ -67,10 +69,17 @@ class ServiceRequestController extends Controller
 
         // Obtener datos usando el service
         $serviceRequests = $this->serviceRequestService->getFilteredServiceRequests($filters, 15);
-        $stats = $this->serviceRequestService->getDashboardStats();
+        // Estadísticas ajustadas a los mismos filtros de la tabla
+        $stats = $this->serviceRequestService->getFilteredStats($filters);
+
+        // Servicios para filtro avanzado
+        $services = Service::active()
+            ->ordered()
+            ->with('family:id,name')
+            ->get(['id', 'name', 'service_family_id']);
 
         $data = array_merge(
-            compact('serviceRequests'),
+            compact('serviceRequests', 'services'),
             $stats
         );
 
