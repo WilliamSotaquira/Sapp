@@ -1,4 +1,4 @@
-@props(['serviceRequests'])
+@props(['serviceRequests', 'services' => null])
 
 <div class="bg-white rounded-lg shadow-sm border border-gray-200" role="region" aria-labelledby="requests-table-title">
     <!-- Header Compacto -->
@@ -151,6 +151,21 @@
                             @foreach(['BAJA','MEDIA','ALTA','CRITICA'] as $crit)
                                 <option value="{{ $crit }}" {{ request('criticality')===$crit?'selected':'' }}>{{ ucfirst(strtolower($crit)) }}</option>
                             @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Servicio -->
+                    <div>
+                        <label for="serviceFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Servicio</label>
+                        <select id="serviceFilterAdv" name="service_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Todos los servicios</option>
+                            @isset($services)
+                                @foreach($services as $service)
+                                    <option value="{{ $service->id }}" {{ (string) request('service_id') === (string) $service->id ? 'selected' : '' }}>
+                                        {{ $service->family->name ?? 'Sin familia' }} - {{ $service->name }}
+                                    </option>
+                                @endforeach
+                            @endisset
                         </select>
                     </div>
 
@@ -559,6 +574,7 @@ function gatherFilters() {
         search: document.getElementById('searchFilter')?.value || '',
         status: document.getElementById('statusFilterAdv')?.value || '',
         criticality: document.getElementById('criticalityFilterAdv')?.value || '',
+        service_id: document.getElementById('serviceFilterAdv')?.value || '',
         requester: document.getElementById('requesterFilterAdv')?.value || '',
         start_date: document.getElementById('startDateFilterAdv')?.value || '',
         end_date: document.getElementById('endDateFilterAdv')?.value || ''

@@ -162,6 +162,7 @@ function gatherFilters() {
         search: document.getElementById('searchFilter')?.value || '',
         status: document.getElementById('statusFilterAdv')?.value || '',
         criticality: document.getElementById('criticalityFilterAdv')?.value || '',
+        service_id: document.getElementById('serviceFilterAdv')?.value || '',
         requester: document.getElementById('requesterFilterAdv')?.value || '',
         start_date: document.getElementById('startDateFilterAdv')?.value || '',
         end_date: document.getElementById('endDateFilterAdv')?.value || ''

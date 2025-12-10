@@ -44,9 +44,22 @@ class TimeRangeReportController extends Controller
         ]);
 
         try {
+            $uiTimezone = config('app.ui_timezone', config('app.timezone'));
+            $appTimezone = config('app.timezone');
+
+            // Interpretar fechas en la zona horaria de la interfaz
+            $start = Carbon::parse($request->start_date, $uiTimezone)->startOfDay();
+            $end = Carbon::parse($request->end_date, $uiTimezone)->endOfDay();
+
+            // Ajuste horario: si el rango es de un solo día,
+            // incluir también la madrugada del día siguiente (hasta las 06:00)
+            if ($start->isSameDay($end)) {
+                $end = (clone $end)->addHours(6);
+            }
+
             $dateRange = [
-                'start' => Carbon::parse($request->start_date)->startOfDay(),
-                'end' => Carbon::parse($request->end_date)->endOfDay()
+                'start' => $start->setTimezone($appTimezone),
+                'end' => $end->setTimezone($appTimezone),
             ];
 
             $serviceFamilyIds = $request->input('families', []);

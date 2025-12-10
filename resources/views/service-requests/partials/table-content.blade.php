@@ -10,7 +10,7 @@
 <!-- Filtros eliminados: ahora integrados en la barra superior de la tabla para evitar duplicados -->
 
 <!-- Tabla -->
-<x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" />
+<x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" />
 
 <!-- Paginación -->
 @if ($serviceRequests->hasPages())

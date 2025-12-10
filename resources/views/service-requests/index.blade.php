@@ -47,7 +47,7 @@
         <!-- Filtros movidos dentro de la tabla -->
 
         <!-- Fila 3: Lista de Solicitudes -->
-        <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" />
+        <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" />
 
         <!-- Fila 4: Paginación -->
         @if ($serviceRequests->hasPages())
