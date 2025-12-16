@@ -142,9 +142,137 @@
         <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
     </div>
 
+    <!-- Accesibilidad: anuncios y feedback sin recargar -->
+    <div id="srLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="srToast" class="fixed bottom-4 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+    var liveRegion = document.getElementById('srLiveRegion');
+    var toastEl = document.getElementById('srToast');
+    var returnFocus = new Map();
+
+    function announce(message) {
+        if (!liveRegion) return;
+        liveRegion.textContent = '';
+        setTimeout(function(){ liveRegion.textContent = message || ''; }, 20);
+    }
+
+    function toast(message, type) {
+        if (!toastEl) return;
+        toastEl.textContent = message || '';
+        toastEl.className = 'fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ' +
+            ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
+        toastEl.classList.remove('hidden');
+        setTimeout(function(){ toastEl.classList.add('hidden'); }, 3000);
+    }
+
+    function getFocusable(container) {
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
+            .filter(function(n){ return !n.disabled && n.offsetParent !== null; });
+    }
+
+    function bindModal(modal) {
+        if (!modal || modal.dataset.srBound) return;
+        modal.dataset.srBound = '1';
+
+        modal.addEventListener('click', function(e){
+            if (e.target === modal) window.closeModal(modal.id);
+        });
+
+        modal.addEventListener('keydown', function(e){
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                window.closeModal(modal.id);
+                return;
+            }
+            if (e.key === 'Tab') {
+                var focusables = getFocusable(modal);
+                if (focusables.length === 0) return;
+                var first = focusables[0];
+                var last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+    }
+
+    window.openModal = function(modalId, triggerEl) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+        bindModal(modal);
+        returnFocus.set(modalId, triggerEl || document.activeElement);
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
+        if (!modal.hasAttribute('role')) modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        document.body.classList.add('overflow-hidden');
+
+        var focusables = getFocusable(modal);
+        setTimeout(function(){
+            if (focusables.length > 0) focusables[0].focus();
+            else modal.focus();
+        }, 0);
+    };
+
+    window.closeModal = function(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('overflow-hidden');
+        var el = returnFocus.get(modalId);
+        returnFocus.delete(modalId);
+        if (el && typeof el.focus === 'function') {
+            setTimeout(function(){ el.focus(); }, 0);
+        }
+    };
+
+    window.srNotify = function(success, message) {
+        if (!message) return;
+        announce(message);
+        toast(message, success ? 'success' : 'error');
+    };
+
+    // Mejorar formularios AJAX existentes (si retornan JSON con message)
+    document.addEventListener('submit', function(e){
+        var form = e.target;
+        if (!form || !form.matches || !form.matches('form[data-sr-ajax="1"]')) return;
+        e.preventDefault();
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        form.setAttribute('aria-busy','true');
+        fetch(form.action, {
+            method: (form.getAttribute('method') || 'POST').toUpperCase(),
+            headers: {'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+            body: new FormData(form)
+        })
+            .then(function(r){ return r.json().catch(function(){ return null; }).then(function(data){ return { ok:r.ok, data:data, status:r.status }; }); })
+            .then(function(res){
+                if (res.ok && res.data && typeof res.data.message === 'string') srNotify(true, res.data.message);
+                else if (!res.ok) srNotify(false, (res.data && res.data.message) || 'No se pudo completar la acción.');
+            })
+            .catch(function(){ srNotify(false, 'No se pudo completar la acción.'); })
+            .finally(function(){
+                if (submitBtn) submitBtn.disabled = false;
+                form.removeAttribute('aria-busy');
+            });
+    }, true);
+})();
+</script>
+@endpush
 
 @section('styles')
     <style>

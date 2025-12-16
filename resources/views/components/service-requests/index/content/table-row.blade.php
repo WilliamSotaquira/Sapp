@@ -56,7 +56,7 @@
     <!-- Fecha con formato relativo -->
     <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap hidden xl:table-cell">
         <div class="text-xs text-gray-900">{{ $request->created_at->format('d/m/Y') }}</div>
-        <div class="text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</div>
+        <div class="text-xs text-gray-500">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
     </td>
 
     <!-- Acciones -->

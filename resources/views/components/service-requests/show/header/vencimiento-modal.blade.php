@@ -1,6 +1,11 @@
 <!-- Modal de Cierre por Vencimiento -->
 <div id="vencimiento-modal-{{ $serviceRequest->id }}"
-    class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+    class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="vencimiento-modal-title-{{ $serviceRequest->id }}"
+    tabindex="-1">
     <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <!-- Header -->
         <div class="flex justify-between items-center mb-4">
@@ -8,13 +13,14 @@
                 <div class="flex items-center justify-center w-8 h-8 bg-red-100 rounded-full mr-3">
                     <i class="fas fa-clock text-red-600 text-sm"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900">
+                <h3 id="vencimiento-modal-title-{{ $serviceRequest->id }}" class="text-lg font-medium text-gray-900">
                     Cerrar por Vencimiento
                 </h3>
             </div>
             <button type="button"
-                onclick="document.getElementById('vencimiento-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
-                class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200">
+                onclick="closeModal('vencimiento-modal-{{ $serviceRequest->id }}')"
+                class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200"
+                aria-label="Cerrar diálogo">
                 ✕
             </button>
         </div>
@@ -89,7 +95,7 @@
             <!-- Botones de acción -->
             <div class="flex justify-end space-x-3 mt-6">
                 <button type="button"
-                    onclick="document.getElementById('vencimiento-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
+                    onclick="closeModal('vencimiento-modal-{{ $serviceRequest->id }}')"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
                     Cancelar
                 </button>

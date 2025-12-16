@@ -316,7 +316,7 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-xs font-medium text-gray-900 truncate">{{ $name }}</div>
-                                    <div class="text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</div>
+                                    <div class="text-xs text-gray-500">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
                                 </div>
                             </div>
                             
@@ -597,6 +597,9 @@ function applyFilters() {
 }
 
 function clearAllFilters() {
+    // Limpieza del estado persistido por el filtro AJAX (resources/views/service-requests/index.blade.php)
+    // para que al recargar no se re-apliquen filtros antiguos desde localStorage.
+    try { localStorage.removeItem('sr_filters_v1'); } catch(e) {}
     window.location.href = '{{ route("service-requests.index") }}';
 }
 
@@ -676,6 +679,15 @@ if (clearSearchBtn) {
             searchInput.value = '';
             this.classList.add('hidden');
         }
+        // Evitar que el filtro AJAX restaure la búsqueda anterior al recargar.
+        try {
+            const raw = localStorage.getItem('sr_filters_v1');
+            if (raw) {
+                const state = JSON.parse(raw) || {};
+                state.search = '';
+                localStorage.setItem('sr_filters_v1', JSON.stringify(state));
+            }
+        } catch(e) {}
         const params = new URLSearchParams(window.location.search);
         params.delete('search');
         window.location.href = '{{ route("service-requests.index") }}?' + (params.toString() || '');
