@@ -47,13 +47,14 @@
         </button>
         <div class="sr-more-menu absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow text-xs hidden z-10">
             <a href="{{ route('service-requests.timeline', $request) }}" class="block px-3 py-2 hover:bg-gray-50" aria-label="Ver línea de tiempo">Línea de tiempo</a>
-            <a href="{{ route('service-requests.reassign', $request) }}" class="block px-3 py-2 hover:bg-gray-50" aria-label="Reasignar">Reasignar</a>
-            @if(in_array($request->status,['EN_PROCESO']))
-                <form method="POST" action="{{ route('service-requests.pause', $request) }}" class="sr-action-form">
+             <a href="{{ route('service-requests.reassign', $request) }}" class="block px-3 py-2 hover:bg-gray-50" aria-label="Reasignar">Reasignar</a>
+             @if(in_array($request->status,['EN_PROCESO']))
+                <form method="POST" action="{{ route('service-requests.pause', $request) }}" class="sr-action-form" data-action="pause">
                     @csrf
+                    <input type="hidden" name="pause_reason" value="" />
                     <button type="submit" class="w-full text-left px-3 py-2 hover:bg-gray-50" aria-label="Pausar solicitud">Pausar</button>
                 </form>
-            @endif
+             @endif
             @if(in_array($request->status,['PAUSADA']))
                 <form method="POST" action="{{ route('service-requests.resume', $request) }}" class="sr-action-form">
                     @csrf

@@ -1,6 +1,11 @@
 <!-- Modal de Asignación de Técnico - VERSIÓN CORREGIDA -->
 <div id="assign-technician-modal-{{ $serviceRequest->id }}"
-     class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+     class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-labelledby="assign-technician-modal-title-{{ $serviceRequest->id }}"
+     tabindex="-1">
     <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <!-- Header -->
         <div class="flex justify-between items-center mb-4">
@@ -8,13 +13,14 @@
                 <div class="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full mr-3">
                     <i class="fas fa-user-plus text-blue-600 text-sm"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900">
+                <h3 id="assign-technician-modal-title-{{ $serviceRequest->id }}" class="text-lg font-medium text-gray-900">
                     Asignar Técnico
                 </h3>
             </div>
             <button type="button"
-                    onclick="document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200">
+                     onclick="closeModal('assign-technician-modal-{{ $serviceRequest->id }}')"
+                     class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200"
+                     aria-label="Cerrar diálogo">
                 ✕
             </button>
         </div>
@@ -70,7 +76,7 @@
             <!-- Botones de acción -->
             <div class="flex justify-end space-x-3 mt-6">
                 <button type="button"
-                        onclick="document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
+                        onclick="closeModal('assign-technician-modal-{{ $serviceRequest->id }}')"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
                     Cancelar
                 </button>
@@ -93,23 +99,22 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            console.log('🔍 Iniciando asignación de técnico...');
-
             const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
             const technicianSelect = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
 
             // Validar que se seleccionó un técnico
             if (!technicianSelect.value) {
-                alert('❌ Por favor selecciona un técnico');
+                if (typeof window.srNotify === 'function') window.srNotify(false, 'Por favor selecciona un técnico.');
                 return;
             }
 
-            console.log('✅ Técnico seleccionado:', technicianSelect.value);
-
             // Mostrar loading
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Asignando...';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Asignando...';
+            }
+            form.setAttribute('aria-busy', 'true');
 
             // Enviar formulario
             fetch(form.action, {
@@ -122,12 +127,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .then(response => {
-                console.log('📨 Respuesta del servidor:', response.status);
-
                 if (response.ok) {
                     return response.json().then(data => {
-                        console.log('✅ Asignación exitosa:', data);
-                        document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}').classList.add('hidden');
+                        if (typeof window.srNotify === 'function') window.srNotify(true, data.message || 'Técnico asignado.');
+                        closeModal('assign-technician-modal-{{ $serviceRequest->id }}');
 
                         // Abrir el modal de aceptación sin recargar
                         const selectedOption = technicianSelect.options[technicianSelect.selectedIndex];
@@ -140,23 +143,26 @@ document.addEventListener('DOMContentLoaded', function() {
                                 assigneeTarget.classList.remove('text-red-600');
                                 assigneeTarget.classList.add('text-green-600', 'font-medium');
                             }
-                            acceptModal.classList.remove('hidden');
+                            openModal('accept-modal-{{ $serviceRequest->id }}', technicianSelect);
                         } else {
-                            console.warn('No se encontró el modal de aceptación para esta solicitud');
+                            if (typeof window.srNotify === 'function') window.srNotify(false, 'No se encontró el modal de aceptación.');
                         }
                     });
                 } else {
                     return response.json().then(errorData => {
-                        console.error('❌ Error del servidor:', errorData);
                         throw new Error(errorData.message || 'Error en la asignación');
                     });
                 }
             })
             .catch(error => {
-                console.error('❌ Error:', error);
-                alert('❌ Error al asignar técnico: ' + error.message);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+                if (typeof window.srNotify === 'function') window.srNotify(false, 'Error al asignar técnico: ' + error.message);
+            })
+            .finally(() => {
+                form.removeAttribute('aria-busy');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
             });
         });
     }

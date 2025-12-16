@@ -25,7 +25,11 @@ class ServiceRequestService
             $query->where(function ($q) use ($search) {
                 $q->where('ticket_number', 'LIKE', "%{$search}%")
                     ->orWhere('title', 'LIKE', "%{$search}%")
-                    ->orWhere('description', 'LIKE', "%{$search}%");
+                    ->orWhere('description', 'LIKE', "%{$search}%")
+                    ->orWhereHas('requester', function ($rq) use ($search) {
+                        $rq->where('name', 'LIKE', "%{$search}%")
+                           ->orWhere('email', 'LIKE', "%{$search}%");
+                    });
             });
         }
 

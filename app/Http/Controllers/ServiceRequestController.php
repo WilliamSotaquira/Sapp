@@ -234,9 +234,13 @@ class ServiceRequestController extends Controller
     /**
      * Aceptar una solicitud de servicio
      */
-    public function accept(ServiceRequest $serviceRequest)
+    public function accept(Request $request, ServiceRequest $serviceRequest)
     {
         $result = $this->workflowService->acceptRequest($serviceRequest);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($result);
+        }
 
         return redirect()->back()->with(
             $result['success'] ? 'success' : 'error',
@@ -263,6 +267,10 @@ class ServiceRequestController extends Controller
     {
         $useStandardTasks = $request->input('use_standard_tasks', '0') === '1';
         $result = $this->workflowService->startProcessing($serviceRequest, $useStandardTasks);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($result);
+        }
 
         return redirect()->back()->with(
             $result['success'] ? 'success' : 'error',
@@ -357,14 +365,22 @@ class ServiceRequestController extends Controller
             $request->validated()['pause_reason']
         );
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($result);
+        }
+
         return redirect()
             ->route('service-requests.show', $serviceRequest)
             ->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
-    public function resume(ServiceRequest $serviceRequest)
+    public function resume(Request $request, ServiceRequest $serviceRequest)
     {
         $result = $this->workflowService->resumeRequest($serviceRequest);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($result);
+        }
 
         return redirect()
             ->route('service-requests.show', $serviceRequest)

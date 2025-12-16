@@ -202,11 +202,16 @@
 </div>
 
 <!-- Modal de Asignación Rápida - CORREGIDO -->
-<div id="quickAssignModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden">
+<div id="quickAssignModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-labelledby="quickAssignTitle"
+     tabindex="-1">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Asignar Técnico</h3>
+                <h3 id="quickAssignTitle" class="text-lg font-medium text-gray-900 mb-4">Asignar Técnico</h3>
                 <form id="quickAssignForm" method="POST">
                     @csrf
                     <div class="mb-4">
@@ -240,11 +245,16 @@
 </div>
 
 <!-- Modal de Asignación de Solicitante -->
-<div id="quickRequesterModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden">
+<div id="quickRequesterModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-labelledby="quickRequesterTitle"
+     tabindex="-1">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Asignar Solicitante</h3>
+                <h3 id="quickRequesterTitle" class="text-lg font-medium text-gray-900 mb-4">Asignar Solicitante</h3>
                 <form id="quickRequesterForm" method="POST">
                     @csrf
                     <div class="mb-4">
@@ -307,44 +317,47 @@
         const closeButton = document.getElementById(closeButtonId);
         const assignButtons = document.querySelectorAll(buttonSelector);
         const selectField = document.getElementById(selectId);
+        let lastTrigger = null;
 
         if (!modal || !form || !closeButton || !assignButtons.length || !selectField) {
             return;
         }
 
-        function openModal(serviceRequestId) {
+        function openQuickModal(serviceRequestId) {
             form.action = actionPath(serviceRequestId);
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
+            window.openModal ? window.openModal(modalId, lastTrigger) : modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => selectField.focus(), 0);
         }
 
-        function closeModal() {
-            modal.classList.add('hidden');
-            document.body.style.overflow = 'auto';
+        function closeQuickModal() {
+            window.closeModal ? window.closeModal(modalId) : modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
             form.reset();
         }
 
         assignButtons.forEach(button => {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
+                lastTrigger = this;
                 const requestId = this.getAttribute('data-request-id');
                 if (!requestId) {
-                    alert('Error: No se pudo identificar la solicitud');
+                    if (typeof window.srNotify === 'function') window.srNotify(false, 'No se pudo identificar la solicitud.');
                     return;
                 }
-                openModal(requestId);
+                openQuickModal(requestId);
             });
         });
 
-        closeButton.addEventListener('click', closeModal);
+        closeButton.addEventListener('click', closeQuickModal);
 
         modal.addEventListener('click', function(e) {
-            if (e.target === modal) closeModal();
+            if (e.target === modal) closeQuickModal();
         });
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeModal();
+                closeQuickModal();
             }
         });
 
@@ -353,12 +366,13 @@
             const selectedValue = selectField.value;
 
             if (!selectedValue) {
-                alert(emptySelectMessage);
+                if (typeof window.srNotify === 'function') window.srNotify(false, emptySelectMessage);
                 selectField.focus();
                 return;
             }
 
             try {
+                form.setAttribute('aria-busy','true');
                 const response = await fetch(this.action, {
                     method: 'POST',
                     headers: {
@@ -373,10 +387,10 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('✅ ' + result.message);
+                    if (typeof window.srNotify === 'function') window.srNotify(true, result.message || 'Actualizado.');
                     const requestId = this.action.match(/service-requests\/(\\d+)/)?.[1];
                     const selectedText = selectField.options[selectField.selectedIndex]?.textContent?.trim();
-                    closeModal();
+                    closeQuickModal();
 
                     // Abrir el modal de aceptación sin recargar
                     if (requestId) {
@@ -388,17 +402,18 @@
                                 assigneeTarget.classList.remove('text-red-600');
                                 assigneeTarget.classList.add('text-green-600', 'font-medium');
                             }
-                            acceptModal.classList.remove('hidden');
+                            window.openModal ? window.openModal(`accept-modal-${requestId}`, lastTrigger) : acceptModal.classList.remove('hidden');
                         } else {
-                            console.warn('No se encontró el modal de aceptación para la solicitud', requestId);
+                            if (typeof window.srNotify === 'function') window.srNotify(false, 'No se encontró el modal de aceptación.');
                         }
                     }
                 } else {
-                    alert('❌ ' + result.message);
+                    if (typeof window.srNotify === 'function') window.srNotify(false, result.message || 'No se pudo completar la acción.');
                 }
             } catch (error) {
-                alert('❌ Error de conexión');
-                console.error('Error:', error);
+                if (typeof window.srNotify === 'function') window.srNotify(false, 'Error de conexión.');
+            } finally {
+                form.removeAttribute('aria-busy');
             }
         });
     }

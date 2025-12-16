@@ -55,6 +55,37 @@
         @endif
 
     </div>
+
+    <!-- Región para anuncios accesibles (mensajes sin recargar) -->
+    <div id="srLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Toast visual (complementa aria-live) -->
+    <div id="srToast" class="fixed bottom-4 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Diálogo accesible para pausar (evita prompt/alert) -->
+    <div id="pauseReasonModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="pauseReasonTitle" aria-describedby="pauseReasonDesc">
+        <div class="absolute inset-0 bg-black/40" data-modal-overlay></div>
+        <div class="relative mx-auto mt-24 w-[92%] max-w-lg rounded-lg bg-white shadow-lg border border-gray-200">
+            <div class="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div>
+                    <h2 id="pauseReasonTitle" class="text-sm font-semibold text-gray-900">Pausar solicitud</h2>
+                    <p id="pauseReasonDesc" class="text-xs text-gray-600 mt-1">Indica el motivo de la pausa (mínimo 10 caracteres).</p>
+                </div>
+                <button type="button" class="text-gray-500 hover:text-gray-700" data-modal-close aria-label="Cerrar diálogo">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="px-5 py-4">
+                <label for="pauseReasonInput" class="block text-xs font-medium text-gray-700 mb-2">Motivo</label>
+                <textarea id="pauseReasonInput" rows="3" minlength="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ej: Esperando información del solicitante"></textarea>
+                <p id="pauseReasonError" class="text-xs text-red-600 mt-2 hidden" role="alert"></p>
+            </div>
+            <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex gap-3 justify-end">
+                <button type="button" class="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-100" data-modal-cancel>Cancelar</button>
+                <button type="button" class="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700" data-modal-confirm>Confirmar pausa</button>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('scripts')
@@ -65,6 +96,9 @@
     var isUpdating = false;
     var STORAGE_KEY = 'sr_filters_v1';
     var suggestionIndex = -1;
+    var pauseModal = document.getElementById('pauseReasonModal');
+    var activePauseForm = null;
+    var lastActiveElement = null;
 
     function getFilterElements() {
         return {
@@ -105,6 +139,89 @@
         }
     }
 
+    function placeCaretAtEnd(input) {
+        if (!input) return;
+        try {
+            var len = input.value ? input.value.length : 0;
+            input.setSelectionRange(len, len);
+        } catch(e) {}
+    }
+
+    function announce(message) {
+        var live = document.getElementById('srLiveRegion');
+        if (!live) return;
+        live.textContent = '';
+        setTimeout(function(){ live.textContent = message || ''; }, 20);
+    }
+
+    function toast(message, type) {
+        var el = document.getElementById('srToast');
+        if (!el) return;
+        el.textContent = message || '';
+        el.className = 'fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ' +
+            ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
+        el.classList.remove('hidden');
+        setTimeout(function(){
+            el.classList.add('hidden');
+        }, 3000);
+    }
+
+    function setPauseError(message) {
+        var el = document.getElementById('pauseReasonError');
+        if (!el) return;
+        if (!message) {
+            el.textContent = '';
+            el.classList.add('hidden');
+            return;
+        }
+        el.textContent = message;
+        el.classList.remove('hidden');
+    }
+
+    function getFocusable(container) {
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex=\"-1\"])'))
+            .filter(function(n){ return !n.disabled && n.offsetParent !== null; });
+    }
+
+    function openPauseModal(form, triggerEl) {
+        if (!pauseModal) return;
+        activePauseForm = form;
+        lastActiveElement = triggerEl || document.activeElement;
+        setPauseError('');
+
+        // Cerrar menú "Más opciones" si aplica
+        var menu = form && form.closest ? form.closest('.sr-more-menu') : null;
+        if (menu) {
+            menu.classList.add('hidden');
+            var btn = menu.parentElement && menu.parentElement.querySelector('.sr-more-btn');
+            if (btn) btn.setAttribute('aria-expanded','false');
+        }
+
+        pauseModal.classList.remove('hidden');
+        var input = document.getElementById('pauseReasonInput');
+        if (input) {
+            input.value = '';
+            setTimeout(function(){ input.focus(); }, 0);
+        }
+    }
+
+    function closePauseModal() {
+        if (!pauseModal) return;
+        pauseModal.classList.add('hidden');
+        activePauseForm = null;
+        setPauseError('');
+        if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
+            setTimeout(function(){ lastActiveElement.focus(); }, 0);
+        }
+    }
+
+    function validatePauseReason(value) {
+        var v = (value || '').trim();
+        if (v.length < 10) return null;
+        return v;
+    }
+
     function persistState() {
         var el = getFilterElements();
         var state = {
@@ -133,6 +250,7 @@
             if(el.endDate && !el.endDate.value) el.endDate.value = state.end_date || '';
             if(el.open && state.open) el.open.value = state.open;
             updateBadge();
+            if (el.search && document.activeElement === el.search) placeCaretAtEnd(el.search);
         } catch(e) {}
     }
 
@@ -161,6 +279,9 @@
         if (isUpdating) return;
         isUpdating = true;
         var el = getFilterElements();
+        // Persistir ANTES de re-renderizar: si el usuario borró el search,
+        // evitamos que restoreState() vuelva a poner el valor anterior.
+        persistState();
         if(el.spinner){ el.spinner.classList.remove('hidden'); el.spinner.classList.add('flex'); }
         var params = buildParams(el);
         if(el.search) el.search.style.borderColor = '#3b82f6';
@@ -172,6 +293,7 @@
                 if (newEls.search) {
                     newEls.search.focus();
                     newEls.search.style.borderColor = '#d1d5db';
+                    placeCaretAtEnd(newEls.search);
                 }
                 restoreState();
                 updateBadge();
@@ -339,6 +461,139 @@
             }
         }
     });
+
+    // Acciones workflow desde el listado sin recargar la página (AJAX).
+    resultsContainer.addEventListener('submit', function(e){
+        var form = e.target && e.target.closest ? e.target.closest('form.sr-action-form') : null;
+        if (!form) return;
+        e.preventDefault();
+
+        // Pausar requiere motivo (mín. 10 chars): pedirlo en diálogo accesible.
+        if (form.dataset && form.dataset.action === 'pause') {
+            var input = form.querySelector('input[name=\"pause_reason\"]');
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'pause_reason';
+                form.appendChild(input);
+            }
+            var current = (input.value || '').trim();
+            if (current.length < 10) {
+                openPauseModal(form, e.submitter || form.querySelector('button[type=\"submit\"]'));
+                return;
+            }
+        }
+
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        form.setAttribute('aria-busy', 'true');
+
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+            .then(function(r){
+                // Para validaciones (422) Laravel devolverá JSON con errors.
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (ct.indexOf('application/json') !== -1) {
+                    return r.json().catch(function(){ return null; }).then(function(data){
+                        return { ok: r.ok, status: r.status, data: data };
+                    });
+                }
+                return r.text().then(function(){
+                    return { ok: false, status: r.status, data: null };
+                });
+            })
+            .then(function(res){
+                if (!res.ok) {
+                    var msg = (res.data && (res.data.message || res.data.error)) || 'No se pudo completar la acción.';
+                    announce(msg);
+                    toast(msg, 'error');
+                    return;
+                }
+                if (res.data && res.data.message) {
+                    announce(res.data.message);
+                    toast(res.data.message, 'success');
+                }
+            })
+            .catch(function(){
+                announce('No se pudo completar la acción.');
+                toast('No se pudo completar la acción.', 'error');
+            })
+            .finally(function(){
+                if (submitBtn) submitBtn.disabled = false;
+                form.removeAttribute('aria-busy');
+                // Cerrar menú "Más opciones" si aplica
+                var menu = form.closest('.sr-more-menu');
+                if (menu) {
+                    menu.classList.add('hidden');
+                    var btn = menu.parentElement && menu.parentElement.querySelector('.sr-more-btn');
+                    if (btn) btn.setAttribute('aria-expanded','false');
+                }
+                updateResults();
+            });
+    });
+
+    // === Modal Pausar: cierre, foco y confirmación ===
+    if (pauseModal) {
+        pauseModal.addEventListener('click', function(e){
+            if (!e.target) return;
+            if (e.target.matches('[data-modal-overlay]') || e.target.closest('[data-modal-close]') || e.target.closest('[data-modal-cancel]')) {
+                e.preventDefault();
+                closePauseModal();
+            }
+        });
+
+        pauseModal.addEventListener('keydown', function(e){
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closePauseModal();
+                return;
+            }
+            if (e.key === 'Tab') {
+                var focusables = getFocusable(pauseModal);
+                if (focusables.length === 0) return;
+                var first = focusables[0];
+                var last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+
+        var confirmBtn = pauseModal.querySelector('[data-modal-confirm]');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function(){
+                if (!activePauseForm) return;
+                var input = document.getElementById('pauseReasonInput');
+                var reason = validatePauseReason(input ? input.value : '');
+                if (!reason) {
+                    setPauseError('Escribe un motivo de al menos 10 caracteres.');
+                    if (input) input.focus();
+                    return;
+                }
+                var hidden = activePauseForm.querySelector('input[name=\"pause_reason\"]');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'pause_reason';
+                    activePauseForm.appendChild(hidden);
+                }
+                hidden.value = reason;
+                closePauseModal();
+                if (activePauseForm.requestSubmit) activePauseForm.requestSubmit();
+                else activePauseForm.submit();
+            });
+        }
+    }
 
     // ESC global para cerrar menús Más opciones
     document.addEventListener('keydown', function(e){

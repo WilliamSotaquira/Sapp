@@ -1,6 +1,11 @@
 <!-- Modal de Cerrar Solicitud - Sin validación de evidencias -->
 <div id="close-modal-{{ $serviceRequest->id }}"
-    class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+    class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="close-modal-title-{{ $serviceRequest->id }}"
+    tabindex="-1">
     <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <!-- Header -->
         <div class="flex justify-between items-center mb-4">
@@ -8,13 +13,14 @@
                 <div class="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-full mr-3">
                     <i class="fas fa-lock text-purple-600 text-sm"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900">
+                <h3 id="close-modal-title-{{ $serviceRequest->id }}" class="text-lg font-medium text-gray-900">
                     Cerrar Solicitud
                 </h3>
             </div>
             <button type="button"
-                onclick="document.getElementById('close-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
-                class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200">
+                onclick="closeModal('close-modal-{{ $serviceRequest->id }}')"
+                class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200"
+                aria-label="Cerrar diálogo">
                 ✕
             </button>
         </div>
@@ -65,10 +71,10 @@
 
         <!-- En close-modal.blade.php - Campo corregido -->
         <div class="mb-4">
-            <label for="resolution_description" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="resolution_description_close_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                 Descripción de Acciones Realizadas (Opcional)
             </label>
-            <textarea name="resolution_description" id="resolution_description" rows="3"
+            <textarea name="resolution_description" id="resolution_description_close_{{ $serviceRequest->id }}" rows="3"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
                 placeholder="Describe las acciones realizadas para resolver esta solicitud (opcional)...">{{ old('resolution_description') }}</textarea>
         </div>
@@ -94,7 +100,7 @@
 
             <div class="flex justify-end space-x-3">
                 <button type="button"
-                    onclick="document.getElementById('close-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
+                    onclick="closeModal('close-modal-{{ $serviceRequest->id }}')"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
                     Cancelar
                 </button>
@@ -107,25 +113,3 @@
         </form>
     </div>
 </div>
-
-<!-- Script para mejorar experiencia -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Cerrar modal con Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const modals = document.querySelectorAll('[id^="close-modal-"]');
-                modals.forEach(modal => {
-                    modal.classList.add('hidden');
-                });
-            }
-        });
-
-        // Cerrar modal al hacer clic fuera
-        document.addEventListener('click', function(e) {
-            if (e.target.matches('[id^="close-modal-"]')) {
-                e.target.classList.add('hidden');
-            }
-        });
-    });
-</script>

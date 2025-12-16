@@ -1,19 +1,25 @@
 <!-- Modal de Resolución - SOLO EL MODAL -->
 <div id="resolve-modal-{{ $serviceRequest->id }}"
-     class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+     class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-labelledby="resolve-modal-title-{{ $serviceRequest->id }}"
+     tabindex="-1">
     <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
         <div class="flex justify-between items-center mb-4">
             <div class="flex items-center">
                 <div class="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full mr-3">
                     <i class="fas fa-check-circle text-green-600 text-sm"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900">
+                <h3 id="resolve-modal-title-{{ $serviceRequest->id }}" class="text-lg font-medium text-gray-900">
                     Resolver Solicitud
                 </h3>
             </div>
             <button type="button"
-                    onclick="document.getElementById('resolve-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200">
+                    onclick="closeModal('resolve-modal-{{ $serviceRequest->id }}')"
+                    class="text-gray-400 hover:text-gray-500 text-xl transition-colors duration-200"
+                    aria-label="Cerrar diálogo">
                 ✕
             </button>
         </div>
@@ -43,11 +49,11 @@
             <div class="space-y-4">
                 <!-- Descripción de acciones realizadas -->
                 <div>
-                    <label for="resolution_description" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="resolution_description_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                         Descripción de acciones realizadas *
                     </label>
                     <textarea name="resolution_description"
-                            id="resolution_description"
+                            id="resolution_description_{{ $serviceRequest->id }}"
                             rows="4"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
                             placeholder="Describe detalladamente las acciones realizadas para resolver la solicitud..."
@@ -60,11 +66,11 @@
 
                 <!-- Notas adicionales -->
                 <div>
-                    <label for="resolution_notes" class="block text-sm font-medium text-gray-700 mb-1">
+                    <label for="resolution_notes_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                         Notas adicionales (opcional)
                     </label>
                     <textarea name="resolution_notes"
-                            id="resolution_notes"
+                            id="resolution_notes_{{ $serviceRequest->id }}"
                             rows="3"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
                             placeholder="Agrega cualquier información adicional relevante...">{{ old('resolution_notes') }}</textarea>
@@ -86,7 +92,7 @@
 
             <div class="flex justify-end space-x-3 mt-6">
                 <button type="button"
-                        onclick="document.getElementById('resolve-modal-{{ $serviceRequest->id }}').classList.add('hidden')"
+                        onclick="closeModal('resolve-modal-{{ $serviceRequest->id }}')"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
                     Cancelar
                 </button>

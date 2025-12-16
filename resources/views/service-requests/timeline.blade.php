@@ -250,7 +250,7 @@
                         @if($currentDate !== $eventDate)
                             <div class="timeline-date">
                                 <span>{{ $event['timestamp']->format('d/m/Y') }}</span>
-                                <span class="text-xs text-slate-400">{{ $event['timestamp']->diffForHumans() }}</span>
+                                <span class="text-xs text-slate-400">{{ $event['timestamp']->locale('es')->diffForHumans() }}</span>
                             </div>
                             @php $currentDate = $eventDate; @endphp
                         @endif
