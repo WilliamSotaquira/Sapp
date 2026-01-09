@@ -138,18 +138,18 @@
         }
 
         .logo-large {
-            height: 4rem;
+            height: 3rem;
             width: auto;
         }
 
         .logo-small {
-            height: 2rem;
+            height: 1.5rem;
             width: auto;
         }
 
         .logo-large:hover,
         .logo-small:hover {
-            transform: scale(1.05) rotate(2deg);
+            transform: scale(1.03) rotate(1deg);
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)) brightness(1.1);
         }
 
@@ -168,7 +168,7 @@
             }
 
             50% {
-                transform: scale(1.03);
+                transform: scale(1.02);
             }
         }
 
@@ -431,12 +431,12 @@
                         class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
                         <!-- Icono grande para escritorio con efectos -->
                         <div class="logo-border-animation mr-2">
-                            <img src="/icon-sapp_lg.svg" alt="Sistema Sapp" class="logo-large logo-glow logo-pulse"
+                            <img src="/sapp_logo_lg.png" alt="Sistema Sapp" class="logo-large logo-glow logo-pulse rounded-md"
                                 id="logoLarge">
                         </div>
                         <!-- Icono pequeño para móvil con efectos -->
                         <div class="logo-border-animation mr-2">
-                            <img src="/icon-sapp_xs.svg" alt="Sistema Sapp" class="logo-small logo-glow logo-pulse"
+                            <img src="/logo_sapp_xs.png" alt="Sistema Sapp" class="logo-small logo-glow logo-pulse rounded-md"
                                 id="logoSmall">
                         </div>
                         {{-- <span class="hidden sm:inline transition-colors duration-300 hover:text-red-200">Sistema Sapp</span> --}}
