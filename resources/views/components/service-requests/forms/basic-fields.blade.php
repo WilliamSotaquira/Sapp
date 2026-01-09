@@ -125,32 +125,15 @@
 
 
 
-    <!-- COMPONENTE REDISEÑADO: Búsqueda en tiempo real para Subservicios AGRUPADOS -->
+    <!-- SELECT2: Selector de Subservicios (con búsqueda integrada) -->
     <div>
-        <label for="sub_service_search" class="block text-sm font-medium text-gray-700 mb-2">
+        <label for="sub_service_id" class="block text-sm font-medium text-gray-700 mb-2">
             Subservicio <span class="text-red-500">*</span>
         </label>
 
-        <!-- Campo de búsqueda -->
-        <div class="relative mb-2">
-            <input type="text" id="sub_service_search" placeholder="Buscar subservicio..."
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror">
-            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-            </div>
-        </div>
-
-        <!-- Contenedor de resultados -->
-        <div id="sub_service_results"
-            class="hidden max-h-80 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-lg z-10">
-            <!-- Los resultados se cargarán aquí dinámicamente -->
-        </div>
-
-        <!-- Campo oculto para almacenar el valor seleccionado -->
-        <select name="sub_service_id" id="sub_service_id" class="hidden" required>
+        <select name="sub_service_id" id="sub_service_id"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror"
+            required>
             <option value="">Seleccione un subservicio</option>
             @php
                 // Agrupar los subservicios
@@ -196,25 +179,6 @@
                 </optgroup>
             @endforeach
         </select>
-
-        <!-- Elemento para mostrar la selección actual -->
-        <div id="selected_subservice" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
-            <div class="flex justify-between items-center">
-                <div>
-                    <span class="font-medium" id="selected_name"></span>
-                    <div class="text-sm text-gray-600">
-                        <span id="selected_family"></span> - <span id="selected_service"></span>
-                    </div>
-                </div>
-                <button type="button" id="clear_selection" class="text-red-500 hover:text-red-700">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
-            </div>
-        </div>
 
         @error('sub_service_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -374,6 +338,14 @@
                 padding: 0.5rem 0.75rem;
             }
 
+            /* Foco visible (teclado) */
+            .select2-container--default.select2-container--focus .select2-selection--single,
+            .select2-container--default .select2-selection--single:focus {
+                border-color: #2563eb; /* blue-600 */
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+                outline: none;
+            }
+
             .select2-container--default .select2-selection--single .select2-selection__rendered {
                 line-height: 28px;
                 color: #1f2937;
@@ -387,6 +359,35 @@
             .select2-dropdown {
                 border-radius: 0.75rem;
                 border-color: #d1d5db;
+            }
+
+            /* Dropdown: opción resaltada (hover / teclado) con contraste accesible */
+            .select2-container--default .select2-results__option--highlighted[aria-selected] {
+                background-color: #e0f2fe; /* sky-100 */
+                color: #0c4a6e;           /* sky-900 */
+            }
+
+            /* Dropdown: opción seleccionada */
+            .select2-container--default .select2-results__option[aria-selected='true'] {
+                background-color: #f1f5f9; /* slate-100 */
+                color: #0f172a;            /* slate-900 */
+            }
+
+            /* Mejorar visibilidad del botón limpiar */
+            .select2-container--default .select2-selection--single .select2-selection__clear {
+                color: #6b7280; /* gray-500 */
+                font-size: 18px;
+                line-height: 1;
+                margin-right: 0.25rem;
+            }
+
+            .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+                color: #111827; /* gray-900 */
+            }
+
+            /* Separación del texto seleccionado para que no choque con la X */
+            .select2-container--default .select2-selection--single .select2-selection__rendered {
+                padding-right: 2.25rem;
             }
         </style>
     @endpush
@@ -419,6 +420,138 @@
                             minimumResultsForSearch: Infinity
                         });
                     }
+
+                    const subServiceSelect = window.jQuery('#sub_service_id');
+                    if (subServiceSelect.length && !subServiceSelect.data('select2')) {
+                        function escapeHtml(value) {
+                            return String(value ?? '')
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#039;');
+                        }
+
+                        function normalizeText(value) {
+                            const raw = String(value ?? '').toLowerCase().trim();
+                            // Quitar tildes/diacríticos para búsquedas tipo "publicacion" == "publicación"
+                            try {
+                                return raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                            } catch (e) {
+                                return raw;
+                            }
+                        }
+
+                        function subServiceMatcher(params, data) {
+                            const term = normalizeText(params.term);
+
+                            // Si no hay término, no filtramos
+                            if (!term) {
+                                return data;
+                            }
+
+                            // Optgroup: filtrar hijos (si no filtramos hijos, parece que "no busca")
+                            if (data.children && data.children.length) {
+                                const filteredChildren = [];
+                                for (const child of data.children) {
+                                    const match = subServiceMatcher(params, child);
+                                    if (match) filteredChildren.push(match);
+                                }
+
+                                if (filteredChildren.length) {
+                                    const modified = window.jQuery.extend(true, {}, data);
+                                    modified.children = filteredChildren;
+                                    return modified;
+                                }
+
+                                return null;
+                            }
+
+                            // Placeholder / items sin elemento
+                            if (!data || !data.id) {
+                                return null;
+                            }
+
+                            const el = data.element;
+                            const name = normalizeText(data.text || '');
+                            const family = normalizeText(el?.dataset?.familyName || '');
+                            const service = normalizeText(el?.dataset?.serviceName || '');
+                            const slaId = normalizeText(el?.dataset?.slaId || '');
+                            const criticality = normalizeText(el?.dataset?.criticalityLevel || '');
+
+                            const haystack = `${name} ${family} ${service} ${slaId} ${criticality}`;
+                            return haystack.includes(term) ? data : null;
+                        }
+
+                        subServiceSelect.select2({
+                            width: '100%',
+                            placeholder: 'Seleccione un subservicio',
+                            allowClear: true,
+                            matcher: subServiceMatcher,
+                            templateResult: function(data) {
+                                if (!data || !data.id) {
+                                    return data.text;
+                                }
+
+                                const el = data.element;
+                                const family = el?.dataset?.familyName || '';
+                                const service = el?.dataset?.serviceName || '';
+                                const criticality = (el?.dataset?.criticalityLevel || '').toUpperCase();
+                                const slaId = el?.dataset?.slaId || '';
+
+                                const badgeClassByCriticality = {
+                                    'BAJA': 'bg-green-100 text-green-800',
+                                    'MEDIA': 'bg-yellow-100 text-yellow-800',
+                                    'ALTA': 'bg-orange-100 text-orange-800',
+                                    'URGENTE': 'bg-red-100 text-red-800',
+                                    'CRITICA': 'bg-red-200 text-red-900'
+                                };
+
+                                const badgeClass = badgeClassByCriticality[criticality] || 'bg-gray-100 text-gray-700';
+                                const familyHtml = family ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded bg-blue-50 text-blue-800 border border-blue-100">${escapeHtml(family)}</span>` : '';
+                                const serviceHtml = service ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded bg-indigo-50 text-indigo-800 border border-indigo-100">${escapeHtml(service)}</span>` : '';
+                                const slaHtml = slaId ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded bg-gray-50 text-gray-700 border border-gray-200">SLA #${escapeHtml(slaId)}</span>` : '';
+                                const badgeHtml = criticality
+                                    ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded ${badgeClass}">${criticality}</span>`
+                                    : '';
+
+                                return window.jQuery(
+                                    `<div class="py-1">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <div class="font-medium text-gray-900">${escapeHtml(data.text)}</div>
+                                            ${badgeHtml}
+                                        </div>
+                                        <div class="mt-1 flex flex-wrap gap-1.5">
+                                            ${familyHtml}
+                                            ${serviceHtml}
+                                            ${slaHtml}
+                                        </div>
+                                    </div>`
+                                );
+                            },
+                            templateSelection: function(data) {
+                                if (!data || !data.id) {
+                                    return data.text;
+                                }
+
+                                const el = data.element;
+                                const family = el?.dataset?.familyName || '';
+                                const service = el?.dataset?.serviceName || '';
+                                const slaId = el?.dataset?.slaId || '';
+                                const contextParts = [family, service].filter(Boolean);
+                                if (slaId) contextParts.push(`SLA #${slaId}`);
+                                const context = contextParts.join(' · ');
+
+                                const name = escapeHtml(data.text);
+                                const ctx = escapeHtml(context);
+                                return context ? `${name} — ${ctx}` : name;
+                            },
+                            escapeMarkup: function(markup) {
+                                // Permitimos HTML seguro (viene de nuestros propios data/text)
+                                return markup;
+                            }
+                        });
+                    }
                 }
 
                 if (document.readyState === 'loading') {
@@ -447,257 +580,8 @@
         background-color: #dbeafe !important;
     }
 </style>
-
+ 
 <script>
-    // =============================================
-    // FUNCIONALIDAD DE BÚSQUEDA EN TIEMPO REAL
-    // =============================================
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('sub_service_search');
-        const resultsContainer = document.getElementById('sub_service_results');
-        const hiddenSelect = document.getElementById('sub_service_id');
-        const selectedDisplay = document.getElementById('selected_subservice');
-        const selectedName = document.getElementById('selected_name');
-        const selectedFamily = document.getElementById('selected_family');
-        const selectedService = document.getElementById('selected_service');
-        const clearButton = document.getElementById('clear_selection');
-
-        // Cargar datos de las opciones
-        const optionsData = [];
-        const optgroups = hiddenSelect.querySelectorAll('optgroup');
-
-        optgroups.forEach(optgroup => {
-            const groupLabel = optgroup.getAttribute('label');
-            const [familyName, serviceName] = groupLabel.split(' - ');
-
-            optgroup.querySelectorAll('option').forEach(option => {
-                if (option.value) {
-                    optionsData.push({
-                        id: option.value,
-                        name: option.textContent,
-                        familyName: familyName,
-                        serviceName: serviceName,
-                        serviceId: option.getAttribute('data-service-id'),
-                        familyId: option.getAttribute('data-family-id'),
-                        criticalityLevel: option.getAttribute('data-criticality-level'),
-                        slaId: option.getAttribute('data-sla-id'),
-                        element: option
-                    });
-                }
-            });
-        });
-
-        // Mostrar selección actual si existe
-        const selectedOption = hiddenSelect.querySelector('option[selected]');
-        if (selectedOption && selectedOption.value) {
-            showSelectedSubservice(
-                selectedOption.value,
-                selectedOption.textContent,
-                selectedOption.getAttribute('data-family-name'),
-                selectedOption.getAttribute('data-service-name')
-            );
-        }
-
-        // Función para filtrar opciones
-        function filterOptions(searchTerm) {
-            const normalizedTerm = searchTerm.toLowerCase().trim();
-
-            if (normalizedTerm === '') {
-                return [];
-            }
-
-            // Filtrar opciones que coincidan con el término de búsqueda
-            return optionsData.filter(option =>
-                option.name.toLowerCase().includes(normalizedTerm) ||
-                option.familyName.toLowerCase().includes(normalizedTerm) ||
-                option.serviceName.toLowerCase().includes(normalizedTerm)
-            );
-        }
-
-        // Función para mostrar resultados
-        function displayResults(results) {
-            resultsContainer.innerHTML = '';
-
-            if (results.length === 0) {
-                const noResults = document.createElement('div');
-                noResults.className = 'p-3 text-gray-500 text-center';
-                noResults.textContent = 'No se encontraron resultados';
-                resultsContainer.appendChild(noResults);
-            } else {
-                // Agrupar resultados por familia y servicio
-                const groupedResults = {};
-
-                results.forEach(result => {
-                    const groupKey = `${result.familyName}|${result.serviceName}`;
-
-                    if (!groupedResults[groupKey]) {
-                        groupedResults[groupKey] = {
-                            familyName: result.familyName,
-                            serviceName: result.serviceName,
-                            items: []
-                        };
-                    }
-
-                    groupedResults[groupKey].items.push(result);
-                });
-
-                // Crear elementos para cada grupo
-                Object.values(groupedResults).forEach(group => {
-                    const groupHeader = document.createElement('div');
-                    groupHeader.className = 'p-2 bg-gray-100 font-medium text-gray-700 border-b';
-                    groupHeader.textContent = `${group.familyName} - ${group.serviceName}`;
-                    resultsContainer.appendChild(groupHeader);
-
-                    group.items.forEach(item => {
-                        const resultItem = document.createElement('div');
-                        resultItem.className = 'p-3 hover:bg-blue-50 cursor-pointer border-b';
-                        resultItem.dataset.id = item.id;
-
-                        resultItem.innerHTML = `
-                            <div class="font-medium">${item.name}</div>
-                            <div class="text-sm text-gray-600">${item.familyName} - ${item.serviceName}</div>
-                        `;
-
-                        resultItem.addEventListener('click', function() {
-                            selectSubservice(item);
-                        });
-
-                        resultsContainer.appendChild(resultItem);
-                    });
-                });
-            }
-
-            resultsContainer.classList.remove('hidden');
-        }
-
-        // Función para seleccionar un subservicio
-        function selectSubservice(subservice) {
-            // Actualizar el select oculto
-            hiddenSelect.value = subservice.id;
-
-            // Mostrar la selección
-            showSelectedSubservice(
-                subservice.id,
-                subservice.name,
-                subservice.familyName,
-                subservice.serviceName
-            );
-
-            // Actualizar todos los campos del formulario
-            updateFormFields();
-
-            // Limpiar búsqueda y ocultar resultados
-            searchInput.value = '';
-            resultsContainer.classList.add('hidden');
-        }
-
-        // Función para mostrar la selección actual
-        function showSelectedSubservice(id, name, family, service) {
-            selectedName.textContent = name;
-            selectedFamily.textContent = family;
-            selectedService.textContent = service;
-            selectedDisplay.classList.remove('hidden');
-        }
-
-        // Función para limpiar la selección
-        function clearSelection() {
-            hiddenSelect.value = '';
-            selectedDisplay.classList.add('hidden');
-            searchInput.value = '';
-            resultsContainer.classList.add('hidden');
-            updateFormFields();
-        }
-
-        // Event listeners para búsqueda
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value;
-
-            if (searchTerm.length >= 2) {
-                const results = filterOptions(searchTerm);
-                displayResults(results);
-            } else {
-                resultsContainer.classList.add('hidden');
-            }
-        });
-
-        searchInput.addEventListener('focus', function() {
-            if (this.value.length >= 2) {
-                const results = filterOptions(this.value);
-                displayResults(results);
-            }
-        });
-
-        clearButton.addEventListener('click', clearSelection);
-
-        // Cerrar resultados al hacer clic fuera
-        document.addEventListener('click', function(event) {
-            if (!searchInput.contains(event.target) && !resultsContainer.contains(event.target)) {
-                resultsContainer.classList.add('hidden');
-            }
-        });
-
-        // Permitir navegación con teclado
-        searchInput.addEventListener('keydown', function(event) {
-            const visibleResults = resultsContainer.querySelectorAll('div[data-id]');
-
-            if (visibleResults.length === 0) return;
-
-            if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                if (resultsContainer.querySelector('.highlighted')) {
-                    const current = resultsContainer.querySelector('.highlighted');
-                    const next = current.nextElementSibling;
-
-                    if (next && next.dataset.id) {
-                        current.classList.remove('highlighted', 'bg-blue-100');
-                        next.classList.add('highlighted', 'bg-blue-100');
-                        next.scrollIntoView({
-                            block: 'nearest'
-                        });
-                    }
-                } else {
-                    const first = visibleResults[0];
-                    first.classList.add('highlighted', 'bg-blue-100');
-                }
-            } else if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                if (resultsContainer.querySelector('.highlighted')) {
-                    const current = resultsContainer.querySelector('.highlighted');
-                    const prev = current.previousElementSibling;
-
-                    // Si el elemento anterior es un encabezado de grupo, buscar el anterior
-                    if (prev && !prev.dataset.id) {
-                        const prevPrev = prev.previousElementSibling;
-                        if (prevPrev && prevPrev.dataset.id) {
-                            current.classList.remove('highlighted', 'bg-blue-100');
-                            prevPrev.classList.add('highlighted', 'bg-blue-100');
-                            prevPrev.scrollIntoView({
-                                block: 'nearest'
-                            });
-                        }
-                    } else if (prev && prev.dataset.id) {
-                        current.classList.remove('highlighted', 'bg-blue-100');
-                        prev.classList.add('highlighted', 'bg-blue-100');
-                        prev.scrollIntoView({
-                            block: 'nearest'
-                        });
-                    }
-                }
-            } else if (event.key === 'Enter') {
-                event.preventDefault();
-                const highlighted = resultsContainer.querySelector('.highlighted');
-                if (highlighted) {
-                    const id = highlighted.dataset.id;
-                    const subservice = optionsData.find(opt => opt.id === id);
-                    if (subservice) {
-                        selectSubservice(subservice);
-                    }
-                }
-            }
-        });
-    });
-
     // =============================================
     // FUNCIONALIDAD EXISTENTE DEL FORMULARIO
     // =============================================
@@ -857,6 +741,12 @@
     // INICIALIZACIÓN
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 DOM Cargado - Inicializando formulario...');
+
+        // Mantener sincronizados familia/servicio/SLA/criticidad al cambiar subservicio
+        const subServiceSelect = document.getElementById('sub_service_id');
+        if (subServiceSelect) {
+            subServiceSelect.addEventListener('change', updateFormFields);
+        }
 
         // Ejecutar inmediatamente para establecer valores iniciales
         setTimeout(updateFormFields, 100);
