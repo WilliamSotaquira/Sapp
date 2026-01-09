@@ -121,9 +121,12 @@ class ServiceRequestController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(Request $request)
     {
-        $data = $this->serviceRequestService->getCreateFormData();
+        $selectedSubServiceId = $request->old('sub_service_id');
+        $selectedSubServiceId = $selectedSubServiceId ? (int) $selectedSubServiceId : null;
+
+        $data = $this->serviceRequestService->getCreateFormData($selectedSubServiceId);
 
         return view('service-requests.create', $data);
     }
@@ -162,7 +165,7 @@ class ServiceRequestController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(ServiceRequest $serviceRequest)
+    public function edit(Request $request, ServiceRequest $serviceRequest)
     {
         $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
 
@@ -172,7 +175,10 @@ class ServiceRequestController extends Controller
                 ->with('error', 'No se pueden editar solicitudes en estado: ' . $serviceRequest->status);
         }
 
-        $data = $this->serviceRequestService->getEditFormData();
+        $selectedSubServiceId = $request->old('sub_service_id');
+        $selectedSubServiceId = $selectedSubServiceId ? (int) $selectedSubServiceId : (int) $serviceRequest->sub_service_id;
+
+        $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId);
 
         return view('service-requests.edit', compact('serviceRequest') + $data);
     }

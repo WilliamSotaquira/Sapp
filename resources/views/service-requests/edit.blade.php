@@ -18,6 +18,7 @@
                 @include('components.service-requests.forms.basic-fields', [
                     'serviceRequest' => $serviceRequest,
                     'subServices' => $subServices,
+                    'selectedSubService' => $selectedSubService ?? null,
                     'requesters' => $requesters,
                     'errors' => $errors,
                     'mode' => 'edit'

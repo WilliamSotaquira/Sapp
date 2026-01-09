@@ -192,12 +192,19 @@ class ServiceRequestService
     /**
      * Obtener datos para el formulario de creación
      */
-    public function getCreateFormData(): array
+    public function getCreateFormData(?int $selectedSubServiceId = null): array
     {
-        return [
-            'subServices' => SubService::with(['service.family', 'slas'])
+        $selectedSubService = null;
+        if ($selectedSubServiceId) {
+            $selectedSubService = SubService::with(['service.family', 'slas'])
                 ->where('is_active', true)
-                ->get(),
+                ->find($selectedSubServiceId);
+        }
+
+        return [
+            // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
+            'subServices' => collect(),
+            'selectedSubService' => $selectedSubService,
             'requesters' => \App\Models\Requester::active()->orderBy('name')->get(),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
         ];
@@ -227,17 +234,23 @@ class ServiceRequestService
     /**
      * Obtener datos para el formulario de edición
      */
-    public function getEditFormData(): array
+    public function getEditFormData(?int $selectedSubServiceId = null): array
     {
-        $subServices = SubService::with(['service.family'])
-            ->where('is_active', true)
-            ->get();
+        $selectedSubService = null;
+        if ($selectedSubServiceId) {
+            $selectedSubService = SubService::with(['service.family', 'slas'])
+                ->where('is_active', true)
+                ->find($selectedSubServiceId);
+        }
+
+        // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
+        $subServices = collect();
 
         $users = User::select(['id', 'name', 'email'])->orderBy('name')->get();
         $requesters = \App\Models\Requester::active()->orderBy('name')->get();
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
 
-        return compact('subServices', 'users', 'requesters', 'criticalityLevels');
+        return compact('subServices', 'selectedSubService', 'users', 'requesters', 'criticalityLevels');
     }
 
     /**
