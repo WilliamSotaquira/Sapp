@@ -7,6 +7,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Sistema de Servicios')</title>
 
+    <link rel="icon" type="image/png" href="{{ asset('logo_sapp_xs.png') }}?v={{ filemtime(public_path('logo_sapp_xs.png')) }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v={{ filemtime(public_path('favicon.ico')) }}">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="text/tailwindcss">
         @theme {
