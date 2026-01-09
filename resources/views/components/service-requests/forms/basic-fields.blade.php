@@ -565,11 +565,8 @@
                             width: '100%',
                             placeholder: 'Seleccione un subservicio',
                             allowClear: true,
-                            minimumInputLength: 1,
+                            minimumInputLength: 0,
                             language: {
-                                inputTooShort: function() {
-                                    return 'Escriba para buscar subservicios';
-                                },
                                 searching: function() {
                                     return 'Buscando...';
                                 },
@@ -578,7 +575,7 @@
                                 }
                             },
                             ajax: {
-                                url: '/api/sub-services/search',
+                                url: '{{ url('api/sub-services/search') }}',
                                 dataType: 'json',
                                 delay: 250,
                                 data: function(params) {
