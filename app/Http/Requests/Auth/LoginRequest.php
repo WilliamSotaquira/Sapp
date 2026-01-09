@@ -32,6 +32,11 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
         ];
 
+        // En tests automatizados no exigimos reCAPTCHA para poder autenticar sin dependencias externas.
+        if (app()->environment('testing')) {
+            return $rules;
+        }
+
         // Solo requerir reCAPTCHA si está completamente configurado (ambas claves)
         $siteKey = config('services.recaptcha.site_key');
         $secretKey = config('services.recaptcha.secret_key');
@@ -60,6 +65,10 @@ class LoginRequest extends FormRequest
      */
     public function withValidator($validator): void
     {
+        if (app()->environment('testing')) {
+            return;
+        }
+
         $validator->after(function ($validator) {
             // Solo validar reCAPTCHA si está completamente configurado
             $siteKey = config('services.recaptcha.site_key');

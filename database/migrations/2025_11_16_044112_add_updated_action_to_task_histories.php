@@ -12,6 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $driver = DB::connection()->getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE task_histories MODIFY COLUMN action ENUM('created', 'assigned', 'started', 'paused', 'resumed', 'completed', 'cancelled', 'rescheduled', 'blocked', 'unblocked', 'updated')");
     }
 
@@ -20,6 +25,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = DB::connection()->getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE task_histories MODIFY COLUMN action ENUM('created', 'assigned', 'started', 'paused', 'resumed', 'completed', 'cancelled', 'rescheduled', 'blocked', 'unblocked')");
     }
 };

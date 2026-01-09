@@ -3,16 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Models\ServiceRequest;
+use App\Services\RecaptchaEnterpriseService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class PublicTrackingController extends Controller
 {
+    private const TRACKING_TICKET_SESSION_PREFIX = 'public_tracking_ticket_';
+    private const TRACKING_EMAIL_SESSION_KEY = 'public_tracking_email';
+    private const TRACKING_SESSION_MAX_AGE_MINUTES = 30;
+
     /**
      * Mostrar formulario de consulta pública
      */
     public function index()
     {
         return view('public.tracking.index');
+    }
+
+    private function grantTicketAccess(Request $request, string $ticketNumber): void
+    {
+        $request->session()->put(self::TRACKING_TICKET_SESSION_PREFIX . $ticketNumber, [
+            'granted_at' => now()->timestamp,
+        ]);
+    }
+
+    private function hasValidTicketAccess(Request $request, string $ticketNumber): bool
+    {
+        $value = $request->session()->get(self::TRACKING_TICKET_SESSION_PREFIX . $ticketNumber);
+        if (!is_array($value) || empty($value['granted_at']) || !is_numeric($value['granted_at'])) {
+            return false;
+        }
+
+        $grantedAt = Carbon::createFromTimestamp((int) $value['granted_at']);
+        return $grantedAt->diffInMinutes(now()) <= self::TRACKING_SESSION_MAX_AGE_MINUTES;
     }
 
     /**
@@ -27,11 +51,11 @@ class PublicTrackingController extends Controller
 
         $messages = [];
 
-        // Solo requerir reCAPTCHA si está completamente configurado (ambas claves)
+        // No exigir reCAPTCHA durante tests automatizados.
         $siteKey = config('services.recaptcha.site_key');
         $secretKey = config('services.recaptcha.secret_key');
 
-        if (!empty($siteKey) && !empty($secretKey)) {
+        if (!app()->environment('testing') && !empty($siteKey) && !empty($secretKey)) {
             $rules['g-recaptcha-response'] = 'required';
             $messages['g-recaptcha-response.required'] = 'Por favor completa la verificación de seguridad (reCAPTCHA).';
         }
@@ -39,7 +63,7 @@ class PublicTrackingController extends Controller
         $validated = $request->validate($rules, $messages);
 
         // Verificar reCAPTCHA solo si está completamente configurado
-        if (!empty($siteKey) && !empty($secretKey) && $request->has('g-recaptcha-response')) {
+        if (!app()->environment('testing') && !empty($siteKey) && !empty($secretKey) && $request->has('g-recaptcha-response')) {
             $recaptchaResponse = $request->input('g-recaptcha-response');
 
             // Usar reCAPTCHA Enterprise si está habilitado
@@ -103,7 +127,11 @@ class PublicTrackingController extends Controller
                 return back()->with('error', 'No se encontró ninguna solicitud con ese número de ticket.');
             }
 
-            return view('public.tracking.show', compact('serviceRequest'));
+            // Otorgar acceso temporal para ver el detalle por URL
+            $this->grantTicketAccess($request, $serviceRequest->ticket_number);
+
+            // Redirigir al detalle usando el ticket exacto
+            return redirect()->route('public.tracking.show', $serviceRequest->ticket_number);
         } else {
             // Buscar por email del solicitante
             $serviceRequests = ServiceRequest::with([
@@ -120,6 +148,9 @@ class PublicTrackingController extends Controller
             if ($serviceRequests->isEmpty()) {
                 return back()->with('error', 'No se encontraron solicitudes para ese correo electrónico.');
             }
+
+            // Guardar email en sesión para permitir acceder a detalles desde el listado
+            $request->session()->put(self::TRACKING_EMAIL_SESSION_KEY, strtolower(trim($query)));
 
             return view('public.tracking.list', compact('serviceRequests', 'query'));
         }
@@ -143,7 +174,18 @@ class PublicTrackingController extends Controller
         ->where('ticket_number', $ticketNumber)
         ->firstOrFail();
 
-        // Mostrar la solicitud directamente (la verificación ya se hizo en el search con reCAPTCHA)
+        // Bloquear acceso directo por URL si no proviene de una búsqueda válida
+        $hasTicketAccess = $this->hasValidTicketAccess($request, $ticketNumber);
+        $sessionEmail = $request->session()->get(self::TRACKING_EMAIL_SESSION_KEY);
+        $requesterEmail = $serviceRequest->requester?->email ? strtolower(trim($serviceRequest->requester->email)) : null;
+        $hasEmailAccess = !empty($sessionEmail) && !empty($requesterEmail) && $sessionEmail === $requesterEmail;
+
+        if (!$hasTicketAccess && !$hasEmailAccess) {
+            return redirect()
+                ->route('public.tracking.index')
+                ->with('error', 'Acceso no autorizado. Realiza la consulta desde el formulario de búsqueda.');
+        }
+
         return view('public.tracking.show', compact('serviceRequest'));
     }
 

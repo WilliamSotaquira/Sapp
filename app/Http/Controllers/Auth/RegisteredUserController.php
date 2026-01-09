@@ -29,33 +29,44 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'g-recaptcha-response' => ['required'],
-        ], [
+        ];
+
+        $siteKey = config('services.recaptcha.site_key');
+        $secretKey = config('services.recaptcha.secret_key');
+        $shouldVerifyRecaptcha = !app()->environment('testing') && !empty($siteKey) && !empty($secretKey);
+
+        if ($shouldVerifyRecaptcha) {
+            $rules['g-recaptcha-response'] = ['required'];
+        }
+
+        $request->validate($rules, [
             'g-recaptcha-response.required' => 'Por favor completa la verificación de seguridad (reCAPTCHA).',
         ]);
 
-        // Verificar reCAPTCHA
-        $recaptchaResponse = $request->input('g-recaptcha-response');
-        $recaptchaSecret = config('services.recaptcha.secret_key');
+        if ($shouldVerifyRecaptcha) {
+            // Verificar reCAPTCHA v2 estándar
+            $recaptchaResponse = $request->input('g-recaptcha-response');
+            $recaptchaSecret = $secretKey;
 
-        $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
+            $verifyResponse = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
 
-        if ($verifyResponse === false) {
-            return back()
-                ->withInput()
-                ->withErrors(['g-recaptcha-response' => 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.']);
-        }
+            if ($verifyResponse === false) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['g-recaptcha-response' => 'No se pudo verificar el reCAPTCHA. Por favor intenta nuevamente.']);
+            }
 
-        $responseData = json_decode($verifyResponse);
+            $responseData = json_decode($verifyResponse);
 
-        if (!$responseData || !$responseData->success) {
-            return back()
-                ->withInput()
-                ->withErrors(['g-recaptcha-response' => 'La verificación de seguridad falló. Por favor intenta nuevamente.']);
+            if (!$responseData || !$responseData->success) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['g-recaptcha-response' => 'La verificación de seguridad falló. Por favor intenta nuevamente.']);
+            }
         }
 
         $user = User::create([

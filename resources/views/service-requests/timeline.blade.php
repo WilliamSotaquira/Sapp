@@ -584,3 +584,14 @@
     })();
 </script>
 @endsection
+
+<style>
+    #main-wrapper .content .title{
+        font-family: work-sans !important;
+        font-weight: 600;
+        font-size: 28px;
+        color: #4c531e;
+        margin-bottom: 20px;
+    }
+
+</style>

@@ -12,7 +12,10 @@ Route::get('/', function () {
 });
 
 // Consulta pública de solicitudes (sin autenticación)
-Route::prefix('consultar')->name('public.tracking.')->group(function () {
+Route::prefix('consultar')
+    ->name('public.tracking.')
+    ->middleware('throttle:30,1')
+    ->group(function () {
     Route::get('/', [PublicTrackingController::class, 'index'])->name('index');
     Route::post('/search', [PublicTrackingController::class, 'search'])->name('search');
     Route::get('/{ticketNumber}', [PublicTrackingController::class, 'show'])->name('show');

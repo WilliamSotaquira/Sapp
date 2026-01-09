@@ -9,13 +9,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Cambiar a VARCHAR temporalmente para limpiar los datos
-        DB::statement("ALTER TABLE service_requests MODIFY COLUMN criticality_level VARCHAR(15) NOT NULL DEFAULT 'MEDIA'");
-
-        // Actualizar cualquier valor vacío
+        // Actualizar cualquier valor vacío (compatible con cualquier driver)
         DB::table('service_requests')
             ->where('criticality_level', '')
             ->update(['criticality_level' => 'MEDIA']);
+
+        // Ajuste de tipo/ENUM solo para MySQL/MariaDB
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
+        // Cambiar a VARCHAR temporalmente para limpiar los datos
+        DB::statement("ALTER TABLE service_requests MODIFY COLUMN criticality_level VARCHAR(15) NOT NULL DEFAULT 'MEDIA'");
 
         // Finalmente cambiar a ENUM con los valores correctos
         DB::statement("ALTER TABLE service_requests MODIFY COLUMN criticality_level ENUM('BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA') NOT NULL DEFAULT 'MEDIA'");
@@ -23,6 +29,11 @@ return new class extends Migration
 
     public function down(): void
     {
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE service_requests MODIFY COLUMN criticality_level ENUM('BAJA', 'MEDIA', 'ALTA', 'CRITICA') NOT NULL DEFAULT 'MEDIA'");
     }
 };

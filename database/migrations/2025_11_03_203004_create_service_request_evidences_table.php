@@ -30,11 +30,6 @@ return new class extends Migration
                 $table->index(['service_request_id', 'evidence_type']);
                 $table->index(['service_request_id', 'step_number']);
             });
-
-            // Mensaje de confirmación
-            echo "Tabla service_request_evidences creada exitosamente.\n";
-        } else {
-            echo "La tabla service_request_evidences ya existe.\n";
         }
     }
 
