@@ -90,7 +90,7 @@ Route::prefix('api')->name('api.')->group(function () {
                     'service:id,name,service_family_id',
                     'service.family:id,name',
                     // Traer SLAs activos; usamos el primero como referencia
-                    'slas:id,name,criticality_level'
+                    'slas'
                 ]);
 
             if ($term !== '') {
