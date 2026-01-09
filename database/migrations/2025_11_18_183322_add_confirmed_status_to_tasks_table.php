@@ -12,7 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Cambiar el tipo de la columna status para incluir 'confirmed'
+        // Cambiar el tipo de la columna status para incluir 'confirmed' (solo MySQL/MariaDB)
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM('pending', 'confirmed', 'in_progress', 'blocked', 'in_review', 'completed', 'cancelled', 'rescheduled') DEFAULT 'pending'");
     }
 
@@ -21,7 +26,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revertir al enum original sin 'confirmed'
+        // Revertir al enum original sin 'confirmed' (solo MySQL/MariaDB)
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE tasks MODIFY COLUMN status ENUM('pending', 'in_progress', 'blocked', 'in_review', 'completed', 'cancelled', 'rescheduled') DEFAULT 'pending'");
     }
 };

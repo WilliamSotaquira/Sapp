@@ -202,6 +202,12 @@ class ServiceRequest extends Model
         return $this->hasMany(\App\Models\Task::class);
     }
 
+    public function cuts()
+    {
+        return $this->belongsToMany(Cut::class, 'cut_service_request')
+            ->withTimestamps();
+    }
+
     /**
      * Actualizar estado basado en tareas
      */

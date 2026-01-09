@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Reports\ReportController as ReportsController;
+use App\Http\Controllers\Reports\CutController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -21,6 +22,23 @@ Route::prefix('reports')->name('reports.')->group(function () {
     // Generación de reportes
     Route::prefix('generate')->name('generate.')->group(function () {
         Route::post('/summary', [ReportsController::class, 'generateSummary'])->name('summary');
+    });
+
+    // Cortes (periodos) - agrupar solicitudes por actividad
+    Route::prefix('cuts')->name('cuts.')->group(function () {
+        Route::get('/', [CutController::class, 'index'])->name('index');
+        Route::get('/create', [CutController::class, 'create'])->name('create');
+        Route::post('/', [CutController::class, 'store'])->name('store');
+        Route::get('/{cut}', [CutController::class, 'show'])->name('show');
+
+        // Gestión manual de solicitudes asociadas
+        Route::get('/{cut}/requests', [CutController::class, 'requests'])->name('requests');
+        Route::post('/{cut}/requests', [CutController::class, 'updateRequests'])->name('requests.update');
+        Route::post('/{cut}/requests/add-ticket', [CutController::class, 'addRequestByTicket'])->name('requests.add-ticket');
+        Route::delete('/{cut}/requests/{service_request}', [CutController::class, 'removeRequest'])->name('requests.remove');
+
+        Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
+        Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');
     });
 
     // Ruta de prueba (puedes eliminarla en producción)

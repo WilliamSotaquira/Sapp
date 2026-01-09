@@ -12,7 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modificar el ENUM para agregar RECHAZADA
+        // Modificar el ENUM para agregar RECHAZADA (solo MySQL/MariaDB)
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE service_requests MODIFY COLUMN status ENUM('PENDIENTE','ACEPTADA','EN_PROCESO','PAUSADA','RESUELTA','CERRADA','CANCELADA','RECHAZADA') NOT NULL DEFAULT 'PENDIENTE'");
     }
 
@@ -21,7 +26,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revertir quitando RECHAZADA del ENUM
+        // Revertir quitando RECHAZADA del ENUM (solo MySQL/MariaDB)
+        $driver = DB::getDriverName();
+        if (!in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("ALTER TABLE service_requests MODIFY COLUMN status ENUM('PENDIENTE','ACEPTADA','EN_PROCESO','PAUSADA','RESUELTA','CERRADA','CANCELADA') NOT NULL DEFAULT 'PENDIENTE'");
     }
 };
