@@ -351,6 +351,21 @@
                 color: #1f2937;
             }
 
+            /* Render del valor seleccionado: compacto y truncable */
+            .select2-container--default .select2-selection--single .select2-selection__rendered {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                min-width: 0;
+            }
+
+            .select2-container--default .select2-selection--single .select2-selection__rendered .ss-name {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             .select2-container--default .select2-selection--single .select2-selection__arrow {
                 height: 46px;
                 right: 0.75rem;
@@ -535,20 +550,46 @@
                                 }
 
                                 const el = data.element;
-                                const family = el?.dataset?.familyName || '';
-                                const service = el?.dataset?.serviceName || '';
+                                const criticality = (el?.dataset?.criticalityLevel || '').toUpperCase();
                                 const slaId = el?.dataset?.slaId || '';
-                                const contextParts = [family, service].filter(Boolean);
-                                if (slaId) contextParts.push(`SLA #${slaId}`);
-                                const context = contextParts.join(' · ');
+
+                                const badgeClassByCriticality = {
+                                    'BAJA': 'bg-green-100 text-green-800',
+                                    'MEDIA': 'bg-yellow-100 text-yellow-800',
+                                    'ALTA': 'bg-orange-100 text-orange-800',
+                                    'URGENTE': 'bg-red-100 text-red-800',
+                                    'CRITICA': 'bg-red-200 text-red-900'
+                                };
+                                const badgeClass = badgeClassByCriticality[criticality] || 'bg-gray-100 text-gray-700';
 
                                 const name = escapeHtml(data.text);
-                                const ctx = escapeHtml(context);
-                                return context ? `${name} — ${ctx}` : name;
+                                const slaHtml = slaId
+                                    ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded bg-gray-50 text-gray-700 border border-gray-200">SLA #${escapeHtml(slaId)}</span>`
+                                    : '';
+                                const critHtml = criticality
+                                    ? `<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded ${badgeClass}">${criticality}</span>`
+                                    : '';
+
+                                return window.jQuery(
+                                    `<span class="flex items-center gap-2 min-w-0">
+                                        <span class="ss-name">${name}</span>
+                                        ${slaHtml}
+                                        ${critHtml}
+                                    </span>`
+                                );
                             },
                             escapeMarkup: function(markup) {
                                 // Permitimos HTML seguro (viene de nuestros propios data/text)
                                 return markup;
+                            }
+                        });
+
+                        // Asegurar autodiligenciado al seleccionar/limpiar en Select2
+                        subServiceSelect.on('select2:select select2:clear', function() {
+                            if (typeof window.updateFormFields === 'function') {
+                                window.updateFormFields();
+                            } else if (typeof updateFormFields === 'function') {
+                                updateFormFields();
                             }
                         });
                     }
