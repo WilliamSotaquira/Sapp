@@ -1,7 +1,8 @@
 {{-- resources/views/components/service-requests/forms/basic-fields.blade.php --}}
 @props([
     'serviceRequest' => null,
-    'subServices' => [], // Lista de subservicios
+    'subServices' => [], // Lista de subservicios (opcional; puede ser vacía si usamos Select2 AJAX)
+    'selectedSubService' => null, // Subservicio precargado para mostrar selección inicial
     'requesters' => [], // Lista de solicitantes para seleccionar solicitante
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
@@ -136,48 +137,74 @@
             required>
             <option value="">Seleccione un subservicio</option>
             @php
-                // Agrupar los subservicios
-                $groupedSubServices = [];
-                foreach ($subServices as $subService) {
-                    $familyName = $subService->service->family->name ?? 'Sin Familia';
-                    $serviceName = $subService->service->name ?? 'Sin Servicio';
-                    $groupKey = $familyName . '|' . $serviceName;
-
-                    if (!isset($groupedSubServices[$groupKey])) {
-                        $groupedSubServices[$groupKey] = [
-                            'family_name' => $familyName,
-                            'service_name' => $serviceName,
-                            'subservices' => [],
-                        ];
-                    }
-                    $groupedSubServices[$groupKey]['subservices'][] = $subService;
-                }
+                $selectedId = old('sub_service_id', $serviceRequest->sub_service_id ?? null);
             @endphp
 
-            @foreach ($groupedSubServices as $group)
-                <optgroup label="{{ $group['family_name'] }} - {{ $group['service_name'] }}">
-                    @foreach ($group['subservices'] as $subService)
-                        @php
-                            $criticalityLevel = 'MEDIA';
-                            $slaId = '1';
+            @if (!empty($subServices))
+                @php
+                    // Agrupar los subservicios
+                    $groupedSubServices = [];
+                    foreach ($subServices as $subService) {
+                        $familyName = $subService->service->family->name ?? 'Sin Familia';
+                        $serviceName = $subService->service->name ?? 'Sin Servicio';
+                        $groupKey = $familyName . '|' . $serviceName;
 
-                            if ($subService->relationLoaded('slas') && $subService->slas->isNotEmpty()) {
-                                $sla = $subService->slas->first();
-                                $criticalityLevel = $sla->criticality_level ?? 'MEDIA';
-                                $slaId = $sla->id ?? '1';
-                            }
-                        @endphp
-                        <option value="{{ $subService->id }}" data-service-id="{{ $subService->service_id }}"
-                            data-service-name="{{ $subService->service->name }}"
-                            data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
-                            data-family-id="{{ $subService->service->family->id ?? '' }}"
-                            data-criticality-level="{{ $criticalityLevel }}" data-sla-id="{{ $slaId }}"
-                            {{ old('sub_service_id', $serviceRequest->sub_service_id ?? '') == $subService->id ? 'selected' : '' }}>
-                            {{ $subService->name }}
-                        </option>
-                    @endforeach
-                </optgroup>
-            @endforeach
+                        if (!isset($groupedSubServices[$groupKey])) {
+                            $groupedSubServices[$groupKey] = [
+                                'family_name' => $familyName,
+                                'service_name' => $serviceName,
+                                'subservices' => [],
+                            ];
+                        }
+                        $groupedSubServices[$groupKey]['subservices'][] = $subService;
+                    }
+                @endphp
+
+                @foreach ($groupedSubServices as $group)
+                    <optgroup label="{{ $group['family_name'] }} - {{ $group['service_name'] }}">
+                        @foreach ($group['subservices'] as $subService)
+                            @php
+                                $criticalityLevel = 'MEDIA';
+                                $slaId = null;
+
+                                if ($subService->relationLoaded('slas') && $subService->slas->isNotEmpty()) {
+                                    $sla = $subService->slas->first();
+                                    $criticalityLevel = $sla->criticality_level ?? 'MEDIA';
+                                    $slaId = $sla->id;
+                                }
+                            @endphp
+                            <option value="{{ $subService->id }}" data-service-id="{{ $subService->service_id }}"
+                                data-service-name="{{ $subService->service->name }}"
+                                data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
+                                data-family-id="{{ $subService->service->family->id ?? '' }}"
+                                data-criticality-level="{{ $criticalityLevel }}" data-sla-id="{{ $slaId }}"
+                                {{ (string)$selectedId === (string)$subService->id ? 'selected' : '' }}>
+                                {{ $subService->name }}
+                            </option>
+                        @endforeach
+                    </optgroup>
+                @endforeach
+            @elseif ($selectedSubService)
+                @php
+                    $criticalityLevel = 'MEDIA';
+                    $slaId = null;
+
+                    if ($selectedSubService->relationLoaded('slas') && $selectedSubService->slas->isNotEmpty()) {
+                        $sla = $selectedSubService->slas->first();
+                        $criticalityLevel = $sla->criticality_level ?? 'MEDIA';
+                        $slaId = $sla->id;
+                    }
+                @endphp
+                <option value="{{ $selectedSubService->id }}" selected
+                    data-service-id="{{ $selectedSubService->service_id }}"
+                    data-service-name="{{ $selectedSubService->service->name ?? '' }}"
+                    data-family-name="{{ $selectedSubService->service->family->name ?? '' }}"
+                    data-family-id="{{ $selectedSubService->service->family->id ?? '' }}"
+                    data-criticality-level="{{ $criticalityLevel }}"
+                    data-sla-id="{{ $slaId }}">
+                    {{ $selectedSubService->name }}
+                </option>
+            @endif
         </select>
 
         @error('sub_service_id')
@@ -457,15 +484,34 @@
                             }
                         }
 
+                        function getMetaFromSelect2Item(data) {
+                            const el = data?.element;
+
+                            const familyName = el?.dataset?.familyName ?? data?.familyName ?? '';
+                            const serviceName = el?.dataset?.serviceName ?? data?.serviceName ?? '';
+                            const criticalityLevel = (el?.dataset?.criticalityLevel ?? data?.criticalityLevel ?? '').toUpperCase();
+                            const slaId = el?.dataset?.slaId ?? data?.slaId ?? '';
+
+                            const familyId = el?.dataset?.familyId ?? data?.familyId ?? '';
+                            const serviceId = el?.dataset?.serviceId ?? data?.serviceId ?? '';
+
+                            return {
+                                familyName,
+                                serviceName,
+                                criticalityLevel,
+                                slaId,
+                                familyId,
+                                serviceId,
+                            };
+                        }
+
                         function subServiceMatcher(params, data) {
                             const term = normalizeText(params.term);
 
-                            // Si no hay término, no filtramos
                             if (!term) {
                                 return data;
                             }
 
-                            // Optgroup: filtrar hijos (si no filtramos hijos, parece que "no busca")
                             if (data.children && data.children.length) {
                                 const filteredChildren = [];
                                 for (const child of data.children) {
@@ -482,37 +528,91 @@
                                 return null;
                             }
 
-                            // Placeholder / items sin elemento
                             if (!data || !data.id) {
                                 return null;
                             }
 
-                            const el = data.element;
+                            const meta = getMetaFromSelect2Item(data);
                             const name = normalizeText(data.text || '');
-                            const family = normalizeText(el?.dataset?.familyName || '');
-                            const service = normalizeText(el?.dataset?.serviceName || '');
-                            const slaId = normalizeText(el?.dataset?.slaId || '');
-                            const criticality = normalizeText(el?.dataset?.criticalityLevel || '');
+                            const family = normalizeText(meta.familyName);
+                            const service = normalizeText(meta.serviceName);
+                            const slaId = normalizeText(meta.slaId);
+                            const criticality = normalizeText(meta.criticalityLevel);
 
                             const haystack = `${name} ${family} ${service} ${slaId} ${criticality}`;
                             return haystack.includes(term) ? data : null;
+                        }
+
+                        function upsertSelectedOptionMeta(selectEl, item) {
+                            if (!selectEl || !item || !item.id) return;
+
+                            let option = selectEl.querySelector(`option[value="${String(item.id)}"]`);
+                            if (!option) {
+                                option = new Option(item.text || String(item.id), item.id, true, true);
+                                selectEl.appendChild(option);
+                            }
+
+                            const meta = getMetaFromSelect2Item(item);
+                            option.dataset.familyName = meta.familyName || option.dataset.familyName || '';
+                            option.dataset.serviceName = meta.serviceName || option.dataset.serviceName || '';
+                            option.dataset.familyId = meta.familyId || option.dataset.familyId || '';
+                            option.dataset.serviceId = meta.serviceId || option.dataset.serviceId || '';
+                            option.dataset.criticalityLevel = meta.criticalityLevel || option.dataset.criticalityLevel || '';
+                            option.dataset.slaId = meta.slaId || option.dataset.slaId || '';
                         }
 
                         subServiceSelect.select2({
                             width: '100%',
                             placeholder: 'Seleccione un subservicio',
                             allowClear: true,
+                            minimumInputLength: 1,
+                            language: {
+                                inputTooShort: function() {
+                                    return 'Escriba para buscar subservicios';
+                                },
+                                searching: function() {
+                                    return 'Buscando...';
+                                },
+                                noResults: function() {
+                                    return 'No se encontraron resultados';
+                                }
+                            },
+                            ajax: {
+                                url: '/api/sub-services/search',
+                                dataType: 'json',
+                                delay: 250,
+                                data: function(params) {
+                                    return {
+                                        term: params.term || '',
+                                        page: params.page || 1,
+                                        per_page: 20,
+                                    };
+                                },
+                                processResults: function(payload, params) {
+                                    const results = Array.isArray(payload?.results) ? payload.results : [];
+                                    const more = Boolean(payload?.pagination?.more);
+
+                                    return {
+                                        results,
+                                        pagination: {
+                                            more
+                                        }
+                                    };
+                                },
+                                cache: true,
+                            },
+                            // Fallback si se carga lista local en algún contexto
                             matcher: subServiceMatcher,
                             templateResult: function(data) {
                                 if (!data || !data.id) {
                                     return data.text;
                                 }
 
-                                const el = data.element;
-                                const family = el?.dataset?.familyName || '';
-                                const service = el?.dataset?.serviceName || '';
-                                const criticality = (el?.dataset?.criticalityLevel || '').toUpperCase();
-                                const slaId = el?.dataset?.slaId || '';
+                                const meta = getMetaFromSelect2Item(data);
+                                const family = meta.familyName;
+                                const service = meta.serviceName;
+                                const criticality = meta.criticalityLevel;
+                                const slaId = meta.slaId;
 
                                 const badgeClassByCriticality = {
                                     'BAJA': 'bg-green-100 text-green-800',
@@ -549,9 +649,9 @@
                                     return data.text;
                                 }
 
-                                const el = data.element;
-                                const criticality = (el?.dataset?.criticalityLevel || '').toUpperCase();
-                                const slaId = el?.dataset?.slaId || '';
+                                const meta = getMetaFromSelect2Item(data);
+                                const criticality = meta.criticalityLevel;
+                                const slaId = meta.slaId;
 
                                 const badgeClassByCriticality = {
                                     'BAJA': 'bg-green-100 text-green-800',
@@ -579,13 +679,23 @@
                                 );
                             },
                             escapeMarkup: function(markup) {
-                                // Permitimos HTML seguro (viene de nuestros propios data/text)
                                 return markup;
                             }
                         });
 
-                        // Asegurar autodiligenciado al seleccionar/limpiar en Select2
-                        subServiceSelect.on('select2:select select2:clear', function() {
+                        subServiceSelect.on('select2:select', function(e) {
+                            const rawSelect = subServiceSelect.get(0);
+                            const selectedItem = e?.params?.data;
+                            upsertSelectedOptionMeta(rawSelect, selectedItem);
+
+                            if (typeof window.updateFormFields === 'function') {
+                                window.updateFormFields();
+                            } else if (typeof updateFormFields === 'function') {
+                                updateFormFields();
+                            }
+                        });
+
+                        subServiceSelect.on('select2:clear', function() {
                             if (typeof window.updateFormFields === 'function') {
                                 window.updateFormFields();
                             } else if (typeof updateFormFields === 'function') {
@@ -664,12 +774,39 @@
         }
 
         // Obtener datos de los atributos data
-        const serviceId = selectedOption.getAttribute('data-service-id') || '';
-        const familyId = selectedOption.getAttribute('data-family-id') || '';
-        const serviceName = selectedOption.getAttribute('data-service-name') || 'Servicio';
-        const familyName = selectedOption.getAttribute('data-family-name') || 'Familia';
-        const criticalityLevel = selectedOption.getAttribute('data-criticality-level') || 'MEDIA';
-        const slaId = selectedOption.getAttribute('data-sla-id') || '1';
+        let serviceId = selectedOption.getAttribute('data-service-id') || '';
+        let familyId = selectedOption.getAttribute('data-family-id') || '';
+        let serviceName = selectedOption.getAttribute('data-service-name') || '';
+        let familyName = selectedOption.getAttribute('data-family-name') || '';
+        let criticalityLevel = selectedOption.getAttribute('data-criticality-level') || '';
+        let slaId = selectedOption.getAttribute('data-sla-id') || '';
+
+        // Fallback: si el select está en modo Select2 AJAX y no tenemos data-* aún,
+        // tomamos la metadata desde el item seleccionado en Select2.
+        if ((!serviceId || !familyId) && window.jQuery && window.jQuery.fn?.select2) {
+            try {
+                const $s2 = window.jQuery('#sub_service_id');
+                if ($s2.length && $s2.data('select2')) {
+                    const data = $s2.select2('data');
+                    const selected = Array.isArray(data) ? data[0] : null;
+                    if (selected) {
+                        serviceId = serviceId || String(selected.serviceId ?? '');
+                        familyId = familyId || String(selected.familyId ?? '');
+                        serviceName = serviceName || String(selected.serviceName ?? '');
+                        familyName = familyName || String(selected.familyName ?? '');
+                        criticalityLevel = criticalityLevel || String(selected.criticalityLevel ?? '');
+                        slaId = slaId || String(selected.slaId ?? '');
+                    }
+                }
+            } catch (e) {
+                // No hacemos nada, usamos los valores existentes
+            }
+        }
+
+        serviceName = serviceName || 'Servicio';
+        familyName = familyName || 'Familia';
+        criticalityLevel = criticalityLevel || 'MEDIA';
+        slaId = slaId || '1';
 
         console.log('📋 Datos extraídos:', {
             serviceId,

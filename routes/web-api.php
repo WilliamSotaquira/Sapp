@@ -76,6 +76,85 @@ Route::prefix('api')->name('api.')->group(function () {
         }
     })->name('sub-services.standard-tasks');
 
+    // Buscar subservicios (para Select2 / autocompletado)
+    Route::get('/sub-services/search', function (Request $request) {
+        try {
+            $term = trim((string)($request->get('term', $request->get('q', ''))));
+            $page = max(1, (int)$request->get('page', 1));
+            $perPage = (int)$request->get('per_page', 20);
+            $perPage = max(5, min(50, $perPage));
+
+            $query = SubService::query()
+                ->where('is_active', true)
+                ->with([
+                    'service:id,name,service_family_id',
+                    'service.family:id,name',
+                    // Traer SLAs activos; usamos el primero como referencia
+                    'slas:id,name,criticality_level'
+                ]);
+
+            if ($term !== '') {
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'LIKE', "%{$term}%")
+                        ->orWhere('code', 'LIKE', "%{$term}%")
+                        ->orWhereHas('service', function ($sq) use ($term) {
+                            $sq->where('name', 'LIKE', "%{$term}%")
+                                ->orWhereHas('family', function ($fq) use ($term) {
+                                    $fq->where('name', 'LIKE', "%{$term}%");
+                                });
+                        });
+                });
+            }
+
+            // Orden estable
+            $query->orderBy('name');
+
+            $items = $query
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage + 1)
+                ->get();
+
+            $hasMore = $items->count() > $perPage;
+            $items = $items->take($perPage);
+
+            $results = $items->map(function (SubService $subService) {
+                $familyName = $subService->service?->family?->name ?? 'Sin Familia';
+                $serviceName = $subService->service?->name ?? 'Sin Servicio';
+                $familyId = $subService->service?->family?->id;
+                $serviceId = $subService->service?->id;
+
+                $sla = $subService->relationLoaded('slas') ? $subService->slas->first() : null;
+                $criticalityLevel = $sla?->criticality_level ?? 'MEDIA';
+                $slaId = $sla?->id;
+
+                return [
+                    'id' => $subService->id,
+                    'text' => $subService->name,
+                    'familyName' => $familyName,
+                    'serviceName' => $serviceName,
+                    'familyId' => $familyId,
+                    'serviceId' => $serviceId,
+                    'criticalityLevel' => $criticalityLevel,
+                    'slaId' => $slaId,
+                ];
+            });
+
+            return response()->json([
+                'results' => $results,
+                'pagination' => [
+                    'more' => $hasMore,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error en búsqueda de subservicios: ' . $e->getMessage());
+            return response()->json([
+                'results' => [],
+                'pagination' => ['more' => false],
+                'error' => 'Error al buscar subservicios'
+            ], 500);
+        }
+    })->name('sub-services.search');
+
     // =========================================================================
     // SERVICE SUB SERVICE - FIND OR CREATE
     // =========================================================================
