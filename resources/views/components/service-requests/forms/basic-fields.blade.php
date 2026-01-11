@@ -49,7 +49,7 @@
         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
             Descripción <span class="text-red-500">*</span>
         </label>
-        <textarea name="description" id="description" rows="6"
+        <textarea name="description" id="description" rows="4"
             placeholder="Describa en detalle el problema o requerimiento..."
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('description') border-red-500 @enderror"
             required>{{ old('description', $serviceRequest->description ?? '') }}</textarea>
