@@ -86,7 +86,7 @@
                                 <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
                                 <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
                             </select>
-                            
+
                         </div>
 
                         <div class="flex gap-3 justify-start sm:justify-end">
@@ -322,6 +322,60 @@
             return Math.round(minutes / 5) * 5;
         }
 
+        function parseMinutesFromSubtaskTitle(title) {
+            const rawTitle = String(title ?? '').trim();
+            if (!rawTitle) return null;
+
+            const matches = Array.from(rawTitle.matchAll(/\(([^()]*)\)/g));
+            if (!matches.length) return null;
+
+            // Tomar el último paréntesis (lo más común es que la duración vaya al final)
+            const inside = String(matches[matches.length - 1][1] ?? '').trim().toLowerCase();
+            if (!inside) return null;
+
+            const text = inside.replace(/\s+/g, ' ');
+
+            let totalMinutes = 0;
+            let hasAny = false;
+
+            // Soportar formatos: "1 hora", "1,5 horas", "2h", "30 min", "1 hora 30 min"
+            const hourMatch = text.match(/(\d+(?:[\.,]\d+)?)\s*(h|hr|hrs|hora|horas)\b/);
+            if (hourMatch) {
+                const hours = Number(String(hourMatch[1]).replace(',', '.'));
+                if (Number.isFinite(hours) && hours > 0) {
+                    totalMinutes += hours * 60;
+                    hasAny = true;
+                }
+            }
+
+            const minuteMatch = text.match(/(\d+(?:[\.,]\d+)?)\s*(m|min|mins|minuto|minutos)\b/);
+            if (minuteMatch) {
+                const mins = Number(String(minuteMatch[1]).replace(',', '.'));
+                if (Number.isFinite(mins) && mins > 0) {
+                    totalMinutes += mins;
+                    hasAny = true;
+                }
+            }
+
+            // Soportar formato "1:30" => 1h30m
+            if (!hasAny) {
+                const hm = text.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
+                if (hm) {
+                    const hh = Number(hm[1]);
+                    const mm = Number(hm[2]);
+                    if (Number.isFinite(hh) && Number.isFinite(mm) && hh >= 0 && mm >= 0) {
+                        totalMinutes = hh * 60 + mm;
+                        hasAny = true;
+                    }
+                }
+            }
+
+            if (!hasAny || !Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
+
+            // Redondeo consistente (pasos de 5)
+            return Math.round(totalMinutes / 5) * 5;
+        }
+
         function bindTaskEstimateSync(row) {
             const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
             const hoursEl = row.querySelector('[data-field="estimated_hours"]');
@@ -471,6 +525,12 @@
             if (!minutesEl) return;
 
             minutesEl.addEventListener('input', function() {
+                // Marcar como editado manualmente (evitar pisar con autocompletado desde el título)
+                if (minutesEl.dataset.programmatic === '1') {
+                    delete minutesEl.dataset.programmatic;
+                } else {
+                    minutesEl.dataset.touched = '1';
+                }
                 const taskRow = subtaskRow.closest('[data-task-row]');
                 recalcTaskEstimateFromSubtasks(taskRow);
             });
@@ -533,7 +593,20 @@
             bindSubtaskMinutes(el);
 
             // Solo contar subtareas con título; si cambia, recalcular
-            el.querySelector('input[type="text"]')?.addEventListener('input', function() {
+            const subtaskTitleEl = el.querySelector('input[type="text"]');
+            const subtaskMinutesEl = el.querySelector('[data-subtask-field="estimated_minutes"]');
+
+            subtaskTitleEl?.addEventListener('input', function() {
+                // Si el título trae duración entre paréntesis, usarla para minutos (si no se ha editado manualmente)
+                if (subtaskMinutesEl && subtaskMinutesEl.dataset.touched !== '1') {
+                    const parsed = parseMinutesFromSubtaskTitle(subtaskTitleEl.value);
+                    if (parsed !== null) {
+                        subtaskMinutesEl.value = String(parsed);
+                        // disparar recálculo sin marcar touched
+                        subtaskMinutesEl.dataset.programmatic = '1';
+                        subtaskMinutesEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
                 const taskRow = el.closest('[data-task-row]');
                 recalcTaskEstimateFromSubtasks(taskRow);
             });
