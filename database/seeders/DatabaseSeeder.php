@@ -17,8 +17,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ServiceFamilySeeder::class,
-            ServiceSubserviceSeeder::class,
             ServiceSeeder::class,
+            SubServiceSeeder::class,
+            ServiceSubserviceSeeder::class,
+            SLASeeder::class,
 
         ]);
 
@@ -26,5 +28,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Datos DEMO para pruebas end-to-end (solo local/testing)
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(ServiceRequestsDemoSeeder::class);
+        }
     }
 }

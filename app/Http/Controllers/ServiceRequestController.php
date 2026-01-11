@@ -143,6 +143,9 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.show', $serviceRequest)
                 ->with('success', "Solicitud creada exitosamente! Ticket: {$serviceRequest->ticket_number}");
         } catch (\Exception $e) {
+            Log::error('Error al crear la solicitud (controller store): ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             return back()
                 ->withInput()
                 ->with('error', 'Error al crear la solicitud: ' . $e->getMessage());
@@ -286,9 +289,23 @@ class ServiceRequestController extends Controller
 
     public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
+        $validated = $request->validate([
+            'resolution_description' => 'required|string|min:10|max:8000',
+            'resolution_notes' => 'nullable|string|max:8000',
+            'actual_resolution_time' => 'nullable|integer|min:1|max:100000',
+        ]);
+
+        $resolutionDescription = trim((string) $validated['resolution_description']);
+        $extraNotes = trim((string) ($validated['resolution_notes'] ?? ''));
+
+        $resolutionNotes = $resolutionDescription;
+        if ($extraNotes !== '') {
+            $resolutionNotes .= "\n\nNotas adicionales:\n" . $extraNotes;
+        }
+
         $data = [
-            'resolution_notes' => $request->input('resolution_notes', 'Resolución completada'),
-            'actual_resolution_time' => $request->input('actual_resolution_time', 60),
+            'resolution_notes' => $resolutionNotes,
+            'actual_resolution_time' => (int) ($validated['actual_resolution_time'] ?? 60),
         ];
 
         $result = $this->workflowService->resolveRequest($serviceRequest, $data);

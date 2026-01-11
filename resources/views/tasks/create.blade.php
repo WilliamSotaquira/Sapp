@@ -197,7 +197,7 @@
             <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
                 <h2 class="text-2xl font-bold text-white flex items-center">
                     <i class="fas fa-plus-circle mr-3"></i>
-                    Crear Nueva Tarea
+                    Datos de la tarea
                 </h2>
             </div>
 
@@ -265,18 +265,18 @@
                     </div>
 
                     <!-- Campo oculto para type (valor por defecto) -->
-                    <input type="hidden" name="type" value="regular">
+                    <input type="hidden" name="type" id="type" value="regular">
 
                     <!-- Descripción -->
                     <div class="md:col-span-2">
                         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
-                            Descripción <span class="text-red-500">*</span>
+                            Descripción (Opcional)
                         </label>
                         <textarea name="description"
                                   id="description"
                                   rows="4"
                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('description') border-red-500 @enderror"
-                                  required>{{ old('description', optional($preselectedServiceRequest)->description ?? '') }}</textarea>
+                                  >{{ old('description', optional($preselectedServiceRequest)->description ?? '') }}</textarea>
                         @error('description')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
@@ -314,10 +314,20 @@
 
             <!-- Asociaciones Opcionales -->
             <div class="border-b pb-4" id="associationsSection">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
-                    <i class="fas fa-link mr-2 text-red-600"></i>
-                    Asociaciones (Opcional)
-                </h3>
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h3 class="text-lg font-semibold text-gray-700 flex items-center">
+                        <i class="fas fa-link mr-2 text-red-600"></i>
+                        Asociaciones (Opcional)
+                    </h3>
+                    @if($preselectedServiceRequest)
+                        <button type="button"
+                            id="toggleAssociationsBtn"
+                            class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                            <i class="fas fa-pen-to-square mr-2 text-gray-500"></i>
+                            Cambiar solicitud
+                        </button>
+                    @endif
+                </div>
 
                 <!-- Alerta de información cuando viene desde modal -->
                 <div id="preselectedRequestAlert" class="{{ $preselectedServiceRequest ? '' : 'hidden' }} mb-4 bg-blue-50 border-l-4 border-blue-500 p-4">
@@ -325,20 +335,38 @@
                         <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
                         <div>
                             <p class="text-sm font-medium text-blue-800">
-                                Solicitud vinculada automáticamente
-                            </p>
-                            <p class="text-xs text-blue-700 mt-1">
-                                Los datos de técnico, prioridad y duración se cargaron desde la solicitud seleccionada.
+                                Solicitud vinculada
                             </p>
                             @if($preselectedServiceRequest)
-                                <p class="text-xs text-blue-600 mt-2 font-mono">
-                                    #{{ $preselectedServiceRequest->ticket_number }} · {{ Str::limit($preselectedServiceRequest->title, 70) }}
-                                </p>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <a
+                                        href="{{ route('service-requests.show', $preselectedServiceRequest) }}"
+                                        class="text-xs font-mono text-blue-700 hover:text-blue-900 hover:underline">
+                                        #{{ $preselectedServiceRequest->ticket_number }}
+                                    </a>
+                                    <span class="text-xs text-blue-700">·</span>
+                                    <span class="text-xs text-blue-700">
+                                        {{ Str::limit($preselectedServiceRequest->title, 70) }}
+                                    </span>
+                                    <span class="text-xs text-blue-700">·</span>
+                                    <span class="text-xs text-blue-700">
+                                        Se autocompletó técnico, prioridad y duración
+                                    </span>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="button"
+                                        id="unlinkServiceRequestBtn"
+                                        class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md border border-blue-200 text-blue-800 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fas fa-unlink mr-2"></i>
+                                        Quitar vínculo
+                                    </button>
+                                </div>
                             @endif
                         </div>
                     </div>
                 </div>
 
+                <div id="associationsFields" class="{{ $preselectedServiceRequest ? 'hidden' : '' }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Solicitud de Servicio -->
                     <div class="md:col-span-2">
@@ -381,7 +409,7 @@
                     </div>
 
                     <!-- Proyecto -->
-                    <div class="md:col-span-2">
+                    <div id="projectFieldWrapper" class="md:col-span-2 {{ $selectedServiceRequestId ? 'hidden' : '' }}">
                         <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">
                             Proyecto
                         </label>
@@ -401,6 +429,7 @@
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -714,19 +743,29 @@
 <script>
     const taskCreationContext = @json($taskCreationScriptContext);
     // Contador de caracteres para descripción
-    document.getElementById('description').addEventListener('input', function() {
-        const charCount = this.value.length;
-        const counter = document.getElementById('charCount');
-        counter.textContent = `${charCount} caracteres`;
+    (function initDescriptionCounter() {
+        const descriptionField = document.getElementById('description');
+        if (!descriptionField) return;
 
-        if (charCount > 800) {
-            counter.classList.add('text-red-500');
-            counter.classList.remove('text-gray-500');
-        } else {
-            counter.classList.remove('text-red-500');
-            counter.classList.add('text-gray-500');
+        const counter = document.getElementById('charCount');
+
+        function updateCounter() {
+            if (!counter) return;
+            const charCount = descriptionField.value.length;
+            counter.textContent = `${charCount} caracteres`;
+
+            if (charCount > 800) {
+                counter.classList.add('text-red-500');
+                counter.classList.remove('text-gray-500');
+            } else {
+                counter.classList.remove('text-red-500');
+                counter.classList.add('text-gray-500');
+            }
         }
-    });
+
+        descriptionField.addEventListener('input', updateCounter);
+        updateCounter();
+    })();
 
     // Actualizar indicadores de progreso en modal
     function updateModalProgress(step) {
@@ -744,7 +783,7 @@
     }
 
     // Manejo de subtareas con botón toggle
-    var subtaskCounter = 0;
+    let subtaskNextId = 0;
     const subtasksSection = document.getElementById('subtasksSection');
     const toggleSubtasksBtn = document.getElementById('toggleSubtasksBtn');
     const toggleSubtasksText = document.getElementById('toggleSubtasksText');
@@ -759,7 +798,7 @@
             this.querySelector('i').classList.add('fa-minus');
 
             // Agregar primera subtarea si no hay ninguna
-            if (subtaskCounter === 0) {
+            if (document.querySelectorAll('.subtask-item').length === 0) {
                 addSubtask();
             }
         } else {
@@ -774,36 +813,44 @@
     document.getElementById('addSubtaskBtn').addEventListener('click', addSubtask);
 
     function addSubtask() {
-        subtaskCounter++;
+        subtaskNextId++;
+        const subtaskId = subtaskNextId;
         var container = document.getElementById('subtasksContainer');
+        const inheritedPriority = (document.getElementById('priority')?.value || 'medium');
         var subtaskHtml = `
-            <div class="subtask-item bg-gray-50 p-4 rounded-lg border border-gray-200 animate-fade-in" data-subtask="${subtaskCounter}">
-                <div class="flex justify-between items-start mb-3">
-                    <h4 class="font-semibold text-gray-700">Subtarea #${subtaskCounter}</h4>
-                    <button type="button" onclick="removeSubtask(${subtaskCounter})" class="text-red-500 hover:text-red-700 transition-colors">
+            <div class="subtask-item bg-gray-50 p-3 rounded-lg border border-gray-200 animate-fade-in" data-subtask="${subtaskId}">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h4 class="font-semibold text-gray-700">Subtarea #${subtaskId}</h4>
+                    <button type="button" onclick="removeSubtask(${subtaskId})" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors" aria-label="Eliminar subtarea">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div class="md:col-span-2">
+
+                <div class="space-y-3">
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Título <span class="text-red-500">*</span></label>
-                        <input type="text" name="subtasks[${subtaskCounter}][title]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500" required>
+                        <input type="text" name="subtasks[${subtaskId}][title]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500" placeholder="Ej: Validar accesos, revisar logs..." required>
                     </div>
-                   <div class="md:col-span-2">
-                       <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                        <textarea name="subtasks[${subtaskCounter}][notes]" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"></textarea>
-                   </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Duración estimada (min)</label>
-                        <input type="number" name="subtasks[${subtaskCounter}][estimated_minutes]" value="25" min="5" step="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Duración (min)</label>
+                            <input type="number" name="subtasks[${subtaskId}][estimated_minutes]" value="25" min="5" step="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
+                            <select name="subtasks[${subtaskId}][priority]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
+                                <option value="low" ${inheritedPriority === 'low' ? 'selected' : ''}>Baja</option>
+                                <option value="medium" ${inheritedPriority === 'medium' ? 'selected' : ''}>Media</option>
+                                <option value="high" ${inheritedPriority === 'high' ? 'selected' : ''}>Alta</option>
+                                <option value="critical" ${inheritedPriority === 'critical' ? 'selected' : ''}>Crítica</option>
+                            </select>
+                        </div>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
-                        <select name="subtasks[${subtaskCounter}][priority]" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
-                            <option value="low">Baja</option>
-                            <option value="medium" selected>Media</option>
-                            <option value="high">Alta</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descripción (opcional)</label>
+                        <textarea name="subtasks[${subtaskId}][notes]" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500" placeholder="Detalles o pasos para completar esta subtarea..."></textarea>
                     </div>
                 </div>
             </div>
@@ -822,7 +869,6 @@
             element.style.transition = 'all 0.2s ease-out';
             setTimeout(() => {
                 element.remove();
-                subtaskCounter--;
 
                 // Si no quedan subtareas, ocultar la sección
                 if (document.querySelectorAll('.subtask-item').length === 0) {
@@ -989,9 +1035,80 @@
     const prioritySelect = document.getElementById('priority');
     const estimatedDurationValue = document.getElementById('estimated_duration_value');
     const estimatedDurationUnit = document.getElementById('estimated_duration_unit');
+    const projectFieldWrapper = document.getElementById('projectFieldWrapper');
+
+    function updateProjectVisibility() {
+        if (!projectFieldWrapper || !serviceRequestSelect) return;
+        projectFieldWrapper.classList.toggle('hidden', Boolean(serviceRequestSelect.value));
+    }
+
+    updateProjectVisibility();
+
+    // Permitir quitar vínculo cuando se autoseleccionó una solicitud
+    (function initUnlinkServiceRequest() {
+        const unlinkBtn = document.getElementById('unlinkServiceRequestBtn');
+        const alertBox = document.getElementById('preselectedRequestAlert');
+        const associationsFields = document.getElementById('associationsFields');
+        const toggleBtn = document.getElementById('toggleAssociationsBtn');
+        if (!unlinkBtn || !serviceRequestSelect) return;
+
+        unlinkBtn.addEventListener('click', function() {
+            serviceRequestSelect.value = '';
+            serviceRequestSelect.dispatchEvent(new Event('change'));
+            if (alertBox) alertBox.classList.add('hidden');
+
+            updateProjectVisibility();
+
+            // Al desvincular, mostrar asociaciones para que el usuario pueda elegir otra solicitud
+            if (associationsFields) associationsFields.classList.remove('hidden');
+            if (toggleBtn) {
+                toggleBtn.innerHTML = '<i class="fas fa-eye-slash mr-2 text-gray-500"></i>Ocultar asociaciones';
+            }
+        });
+    })();
+
+    // Mostrar/ocultar bloque de asociaciones cuando ya hay una solicitud vinculada
+    (function initToggleAssociations() {
+        const toggleBtn = document.getElementById('toggleAssociationsBtn');
+        const associationsFields = document.getElementById('associationsFields');
+        if (!toggleBtn || !associationsFields) return;
+
+        function setButtonLabel(isOpen) {
+            toggleBtn.innerHTML = isOpen
+                ? '<i class="fas fa-eye-slash mr-2 text-gray-500"></i>Ocultar asociaciones'
+                : '<i class="fas fa-pen-to-square mr-2 text-gray-500"></i>Cambiar solicitud';
+        }
+
+        // Estado inicial
+        setButtonLabel(!associationsFields.classList.contains('hidden'));
+
+        toggleBtn.addEventListener('click', function() {
+            const isHidden = associationsFields.classList.contains('hidden');
+            if (isHidden) {
+                associationsFields.classList.remove('hidden');
+                setButtonLabel(true);
+
+                // Llevar al selector de solicitud
+                setTimeout(() => {
+                    const section = document.getElementById('associationsSection');
+                    if (section) {
+                        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    if (serviceRequestSelect) {
+                        serviceRequestSelect.focus({ preventScroll: true });
+                    }
+                }, 0);
+            } else {
+                associationsFields.classList.add('hidden');
+                setButtonLabel(false);
+            }
+        });
+    })();
 
     serviceRequestSelect.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
+
+        updateProjectVisibility();
 
         if (this.value) {
             // Cargar técnico si está disponible
@@ -1042,20 +1159,24 @@
     });
 
     // Auto-ajustar duración estimada según el tipo de tarea
-    document.getElementById('type').addEventListener('change', function() {
-        const estimatedValueInput = document.getElementById('estimated_duration_value');
-        const unitSelect = document.getElementById('estimated_duration_unit');
+    const taskTypeField = document.getElementById('type');
+    if (taskTypeField) {
+        taskTypeField.addEventListener('change', function() {
+            const estimatedValueInput = document.getElementById('estimated_duration_value');
+            const unitSelect = document.getElementById('estimated_duration_unit');
+            if (!estimatedValueInput || !unitSelect) return;
 
-        if (this.value === 'impact') {
-            estimatedValueInput.value = '90';
-            unitSelect.value = 'minutes';
-        } else if (this.value === 'regular') {
-            estimatedValueInput.value = '25';
-            unitSelect.value = 'minutes';
-        }
+            if (this.value === 'impact') {
+                estimatedValueInput.value = '90';
+                unitSelect.value = 'minutes';
+            } else if (this.value === 'regular') {
+                estimatedValueInput.value = '25';
+                unitSelect.value = 'minutes';
+            }
 
-        updateEstimatedHours();
-    });
+            updateEstimatedHours();
+        });
+    }
 
     // Convertir entre minutos y horas
     function updateEstimatedHours() {

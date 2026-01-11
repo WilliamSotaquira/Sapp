@@ -2,17 +2,65 @@
 
 use App\Models\Service;
 use App\Models\SubService;
+use App\Models\Requester;
 use App\Models\ServiceFamily;
 use App\Models\ServiceSubservice;
 use App\Models\StandardTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 // =============================================================================
 // APIS PARA FORMULARIOS WEB
 // =============================================================================
 
 Route::prefix('api')->name('api.')->group(function () {
+
+    // =========================================================================
+    // SOLICITANTES (REQUESTERS)
+    // =========================================================================
+
+    // Crear solicitante rápido (para formularios) sin recargar la página
+    Route::post('/requesters/quick-create', function (Request $request) {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'nullable|email|unique:requesters,email',
+                'phone' => 'nullable|string|max:20',
+                'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions())],
+                'position' => 'nullable|string|max:255',
+            ]);
+
+            $requester = Requester::create(array_merge($validated, [
+                'is_active' => true,
+            ]));
+
+            $display = $requester->name;
+            if ($requester->email) {
+                $display .= ' - ' . $requester->email;
+            }
+            if ($requester->department) {
+                $display .= ' (' . $requester->department . ')';
+            }
+
+            return response()->json([
+                'id' => $requester->id,
+                'name' => $requester->name,
+                'email' => $requester->email,
+                'department' => $requester->department,
+                'display' => $display,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            \Log::error('Error creando solicitante rápido: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'message' => 'Error al crear el solicitante.',
+            ], 500);
+        }
+    })->name('requesters.quick-create');
 
     // =========================================================================
     // CARGAR DATOS JERÁRQUICOS

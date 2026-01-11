@@ -8,7 +8,7 @@
         <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
             <h2 class="text-2xl font-bold text-white flex items-center">
                 <i class="fas fa-user-plus mr-3"></i>
-                Crear Nuevo Técnico
+                Datos del técnico
             </h2>
         </div>
 

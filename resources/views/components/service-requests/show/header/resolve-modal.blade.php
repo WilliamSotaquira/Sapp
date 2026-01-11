@@ -1,4 +1,4 @@
-<!-- Modal de Resolución - SOLO EL MODAL -->
+<!-- Modal de Resolución -->
 <div id="resolve-modal-{{ $serviceRequest->id }}"
      class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
      role="dialog"
@@ -47,37 +47,48 @@
             @method('PATCH')
 
             <div class="space-y-4">
-                <!-- Descripción de acciones realizadas -->
                 <div>
                     <label for="resolution_description_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                         Descripción de acciones realizadas *
                     </label>
-                    <textarea name="resolution_description"
-                            id="resolution_description_{{ $serviceRequest->id }}"
-                            rows="4"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                            placeholder="Describe detalladamente las acciones realizadas para resolver la solicitud..."
-                            required
-                            minlength="10">{{ old('resolution_description') }}</textarea>
-                    <p class="mt-1 text-xs text-gray-500">
-                        Mínimo 10 caracteres. Esta descripción quedará registrada en el historial.
-                    </p>
+                    <textarea
+                        name="resolution_description"
+                        id="resolution_description_{{ $serviceRequest->id }}"
+                        rows="4"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
+                        placeholder="Describe detalladamente las acciones realizadas para resolver la solicitud..."
+                        required
+                        minlength="10">{{ old('resolution_description') }}</textarea>
+                    <p class="mt-1 text-xs text-gray-500">Mínimo 10 caracteres.</p>
                 </div>
 
-                <!-- Notas adicionales -->
                 <div>
                     <label for="resolution_notes_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                         Notas adicionales (opcional)
                     </label>
-                    <textarea name="resolution_notes"
-                            id="resolution_notes_{{ $serviceRequest->id }}"
-                            rows="3"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                            placeholder="Agrega cualquier información adicional relevante...">{{ old('resolution_notes') }}</textarea>
+                    <textarea
+                        name="resolution_notes"
+                        id="resolution_notes_{{ $serviceRequest->id }}"
+                        rows="3"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
+                        placeholder="Agrega cualquier información adicional relevante...">{{ old('resolution_notes') }}</textarea>
+                </div>
+
+                <div>
+                    <label for="actual_resolution_time_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        Tiempo real de resolución (minutos) (opcional)
+                    </label>
+                    <input
+                        type="number"
+                        name="actual_resolution_time"
+                        id="actual_resolution_time_{{ $serviceRequest->id }}"
+                        min="1"
+                        step="1"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
+                        value="{{ old('actual_resolution_time', 60) }}" />
                 </div>
             </div>
 
-            <!-- Alerta informativa -->
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
                 <div class="flex items-start">
                     <i class="fas fa-info-circle text-green-500 mt-0.5 mr-2 flex-shrink-0"></i>

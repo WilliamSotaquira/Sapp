@@ -25,7 +25,7 @@
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
     <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
     <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
-    <input type="hidden" name="requested_by"
+    <input type="hidden" name="requested_by" id="requested_by"
         value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
 
     <!-- Campo Título -->
@@ -47,7 +47,7 @@
     <!-- Campo Descripción -->
     <div>
         <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
-            Descripción Detallada <span class="text-red-500">*</span>
+            Descripción <span class="text-red-500">*</span>
         </label>
         <textarea name="description" id="description" rows="6"
             placeholder="Describa en detalle el problema o requerimiento..."
@@ -88,9 +88,96 @@
             <span>Seleccione la persona que realiza la solicitud</span>
         </p>
 
+        <div class="mt-2 flex justify-end">
+            <button type="button" id="openRequesterQuickCreate"
+                class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded">
+                <i class="fas fa-user-plus"></i>
+                <span>Crear solicitante</span>
+            </button>
+        </div>
+
         @error('requester_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
+
+        <!-- Modal: Crear solicitante rápido (sin refrescar) -->
+        <div id="requesterQuickCreateModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-black/50" data-overlay></div>
+
+            <div class="relative w-full min-h-screen flex items-center justify-center p-4">
+                <div class="w-[96%] max-w-2xl">
+                <div class="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Crear solicitante</h3>
+                        <button type="button" id="closeRequesterQuickCreate"
+                            class="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-6 py-5 max-h-[75vh] overflow-y-auto">
+                        <div id="requesterQuickCreateErrors" class="hidden mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                            <p class="text-sm font-medium text-red-800 mb-1">Revisa los campos:</p>
+                            <ul class="text-sm text-red-700 list-disc list-inside" data-errors-list></ul>
+                        </div>
+
+                        <div id="requesterQuickCreateForm" data-url="{{ route('api.requesters.quick-create') }}" class="space-y-4">
+                            <div>
+                                <label for="quickRequesterName" class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                                <input type="text" id="quickRequesterName" data-quick-requester-field disabled maxlength="255"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label for="quickRequesterEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <input type="email" id="quickRequesterEmail" data-quick-requester-field disabled maxlength="255"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                </div>
+                                <div>
+                                    <label for="quickRequesterPhone" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                    <input type="text" id="quickRequesterPhone" data-quick-requester-field disabled maxlength="20"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label for="quickRequesterDepartment" class="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
+                                    @php
+                                        $departmentOptions = \App\Models\Requester::getDepartmentOptions();
+                                    @endphp
+                                    <select id="quickRequesterDepartment" data-quick-requester-field disabled
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="">Seleccione un departamento</option>
+                                        @foreach ($departmentOptions as $department)
+                                            <option value="{{ $department }}">{{ $department }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="quickRequesterPosition" class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
+                                    <input type="text" id="quickRequesterPosition" data-quick-requester-field disabled maxlength="255"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 pt-4">
+                                <button type="button" id="cancelRequesterQuickCreate"
+                                    class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    Cancelar
+                                </button>
+                                <button type="button" id="submitRequesterQuickCreate"
+                                    class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                    Crear y seleccionar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Canal de ingreso -->
@@ -431,6 +518,38 @@
             .select2-container--default .select2-selection--single .select2-selection__rendered {
                 padding-right: 2.25rem;
             }
+
+            /* =========================================================
+               Select2 dentro de modales (crear solicitante)
+               ========================================================= */
+            .select2-container--open {
+                z-index: 99999;
+            }
+
+            .select2-container--default .s2-modal-selection.select2-selection--single {
+                height: 40px;
+                border-radius: 0.5rem;
+                border-color: #d1d5db;
+                padding: 0.35rem 0.75rem;
+                display: flex;
+                align-items: center;
+            }
+
+            .select2-container--default .s2-modal-selection.select2-selection--single .select2-selection__rendered {
+                line-height: 24px;
+                padding-left: 0;
+                padding-right: 2.25rem;
+            }
+
+            .select2-container--default .s2-modal-selection.select2-selection--single .select2-selection__arrow {
+                height: 38px;
+                right: 0.75rem;
+            }
+
+            .select2-dropdown.s2-modal-dropdown {
+                border-radius: 0.75rem;
+                overflow: hidden;
+            }
         </style>
     @endpush
 
@@ -452,6 +571,289 @@
                             placeholder: 'Seleccione un solicitante',
                             allowClear: true
                         });
+
+                        // Al tabular y abrir el Select2, enfocar la búsqueda automáticamente
+                        requesterSelect.on('select2:open', function () {
+                            const search = document.querySelector('.select2-container--open .select2-search__field');
+                            if (search) search.focus();
+                        });
+                    }
+
+                    // Crear solicitante sin refrescar (modal + AJAX)
+                    try {
+                        const modal = document.getElementById('requesterQuickCreateModal');
+                        const openBtn = document.getElementById('openRequesterQuickCreate');
+                        const closeBtn = document.getElementById('closeRequesterQuickCreate');
+                        const cancelBtn = document.getElementById('cancelRequesterQuickCreate');
+                        const form = document.getElementById('requesterQuickCreateForm');
+                        const errorsBox = document.getElementById('requesterQuickCreateErrors');
+
+                        if (modal && openBtn && closeBtn && cancelBtn && form) {
+                            if (!modal.dataset.bound) {
+                                modal.dataset.bound = '1';
+
+                                const overlay = modal.querySelector('[data-overlay]');
+                                const errorsList = errorsBox?.querySelector('[data-errors-list]');
+                                const nameInput = document.getElementById('quickRequesterName');
+                                const submitBtn = document.getElementById('submitRequesterQuickCreate');
+
+                                let lastFocusEl = null;
+
+                                function showModal() {
+                                    lastFocusEl = document.activeElement;
+                                    modal.classList.remove('hidden');
+                                    modal.setAttribute('aria-hidden', 'false');
+                                    if (errorsBox) errorsBox.classList.add('hidden');
+                                    if (errorsList) errorsList.innerHTML = '';
+
+                                    // IMPORTANTE: evitar que estos campos (dentro del form principal) bloqueen el submit
+                                    // cuando el modal está oculto. Al abrir, los habilitamos; al cerrar, los deshabilitamos.
+                                    modal.querySelectorAll('[data-quick-requester-field]').forEach((el) => {
+                                        el.disabled = false;
+                                    });
+
+                                    if (nameInput) {
+                                        nameInput.value = '';
+                                        setTimeout(() => nameInput.focus(), 0);
+                                    }
+                                    const emailInput = document.getElementById('quickRequesterEmail');
+                                    const phoneInput = document.getElementById('quickRequesterPhone');
+                                    const deptInput = document.getElementById('quickRequesterDepartment');
+                                    const posInput = document.getElementById('quickRequesterPosition');
+                                    if (emailInput) emailInput.value = '';
+                                    if (phoneInput) phoneInput.value = '';
+                                    if (deptInput) {
+                                        deptInput.value = '';
+                                        if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(deptInput).data('select2')) {
+                                            window.jQuery(deptInput).val(null).trigger('change');
+                                        }
+                                    }
+                                    if (posInput) posInput.value = '';
+
+                                    // Select2: Departamento dentro del modal
+                                    if (window.jQuery && window.jQuery.fn?.select2 && deptInput) {
+                                        const $dept = window.jQuery(deptInput);
+                                        if (!$dept.data('select2')) {
+                                            $dept.select2({
+                                                width: '100%',
+                                                placeholder: 'Seleccione un departamento',
+                                                allowClear: true,
+                                                dropdownParent: window.jQuery(modal),
+                                                selectionCssClass: 's2-modal-selection',
+                                                dropdownCssClass: 's2-modal-dropdown'
+                                            });
+
+                                            $dept.on('select2:open', function () {
+                                                const search = document.querySelector('.select2-container--open .select2-search__field');
+                                                if (search) search.focus();
+                                            });
+                                        } else {
+                                            // asegurar dropdownParent correcto en caso de re-render
+                                            $dept.data('select2').$dropdown?.appendTo(window.jQuery(modal));
+                                        }
+                                    }
+                                }
+
+                                function hideModal() {
+                                    modal.classList.add('hidden');
+                                    modal.setAttribute('aria-hidden', 'true');
+
+                                    modal.querySelectorAll('[data-quick-requester-field]').forEach((el) => {
+                                        el.disabled = true;
+                                    });
+
+                                    // devolver foco a quien abrió el modal (o al botón)
+                                    const target = lastFocusEl || openBtn;
+                                    if (target && typeof target.focus === 'function') {
+                                        setTimeout(() => target.focus(), 0);
+                                    }
+                                }
+
+                                function getFocusableElements(container) {
+                                    if (!container) return [];
+                                    const selectors = [
+                                        'a[href]',
+                                        'area[href]',
+                                        'input:not([disabled]):not([type="hidden"])',
+                                        'select:not([disabled])',
+                                        'textarea:not([disabled])',
+                                        'button:not([disabled])',
+                                        'iframe',
+                                        'object',
+                                        'embed',
+                                        '[contenteditable="true"]',
+                                        '[tabindex]:not([tabindex="-1"])'
+                                    ].join(',');
+
+                                    return Array.from(container.querySelectorAll(selectors)).filter((el) => {
+                                        if (!(el instanceof HTMLElement)) return false;
+                                        if (el.hasAttribute('disabled')) return false;
+                                        if (el.getAttribute('aria-hidden') === 'true') return false;
+                                        // visible (Select2 y modales)
+                                        return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                                    });
+                                }
+
+                                openBtn.addEventListener('click', showModal);
+                                closeBtn.addEventListener('click', hideModal);
+                                cancelBtn.addEventListener('click', hideModal);
+                                overlay?.addEventListener('click', hideModal);
+
+                                modal.addEventListener('keydown', function (e) {
+                                    if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        hideModal();
+                                    }
+
+                                    if (e.key === 'Tab' && !modal.classList.contains('hidden')) {
+                                        const focusables = getFocusableElements(modal);
+                                        if (!focusables.length) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+
+                                        const first = focusables[0];
+                                        const last = focusables[focusables.length - 1];
+                                        const active = document.activeElement;
+
+                                        if (!(active instanceof HTMLElement) || !modal.contains(active)) {
+                                            e.preventDefault();
+                                            first.focus();
+                                            return;
+                                        }
+
+                                        if (e.shiftKey && active === first) {
+                                            e.preventDefault();
+                                            last.focus();
+                                        } else if (!e.shiftKey && active === last) {
+                                            e.preventDefault();
+                                            first.focus();
+                                        }
+                                    }
+                                });
+
+                                async function submitQuickRequester() {
+
+                                    if (errorsBox) errorsBox.classList.add('hidden');
+                                    if (errorsList) errorsList.innerHTML = '';
+
+                                    const url = form.dataset.url;
+                                    if (!url) {
+                                        if (errorsBox) {
+                                            errorsBox.classList.remove('hidden');
+                                            if (errorsList) errorsList.innerHTML = '<li>No se configuró la URL del endpoint.</li>';
+                                        }
+                                        return;
+                                    }
+
+                                    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                                    const payload = {
+                                        name: (document.getElementById('quickRequesterName')?.value || '').trim(),
+                                        email: (document.getElementById('quickRequesterEmail')?.value || '').trim() || null,
+                                        phone: (document.getElementById('quickRequesterPhone')?.value || '').trim() || null,
+                                        department: (document.getElementById('quickRequesterDepartment')?.value || '').trim() || null,
+                                        position: (document.getElementById('quickRequesterPosition')?.value || '').trim() || null,
+                                    };
+
+                                    if (!payload.name) {
+                                        if (errorsBox) errorsBox.classList.remove('hidden');
+                                        if (errorsList) errorsList.innerHTML = '<li>El nombre es obligatorio.</li>';
+                                        setTimeout(() => nameInput?.focus(), 0);
+                                        return;
+                                    }
+
+                                    if (submitBtn) {
+                                        submitBtn.disabled = true;
+                                        submitBtn.classList.add('opacity-75');
+                                    }
+
+                                    try {
+                                        const res = await fetch(url, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                                            },
+                                            body: JSON.stringify(payload),
+                                        });
+
+                                        const data = await res.json().catch(() => null);
+
+                                        if (!res.ok) {
+                                            const messages = [];
+                                            if (data?.errors && typeof data.errors === 'object') {
+                                                for (const key of Object.keys(data.errors)) {
+                                                    const arr = data.errors[key];
+                                                    if (Array.isArray(arr)) {
+                                                        for (const msg of arr) messages.push(String(msg));
+                                                    }
+                                                }
+                                            }
+                                            if (!messages.length) {
+                                                messages.push(data?.message ? String(data.message) : 'No se pudo crear el solicitante.');
+                                            }
+                                            if (errorsBox) {
+                                                errorsBox.classList.remove('hidden');
+                                                if (errorsList) {
+                                                    errorsList.innerHTML = messages.map(m => `<li>${String(m).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                                }
+                                            }
+                                            return;
+                                        }
+
+                                        const requesterId = data?.id;
+                                        const display = data?.display || (data?.name || 'Solicitante');
+                                        if (!requesterId) {
+                                            if (errorsBox) {
+                                                errorsBox.classList.remove('hidden');
+                                                if (errorsList) errorsList.innerHTML = '<li>Respuesta inválida del servidor.</li>';
+                                            }
+                                            return;
+                                        }
+
+                                        const select = document.getElementById('requester_id');
+                                        if (select) {
+                                            const newOption = new Option(display, String(requesterId), true, true);
+                                            if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(select).data('select2')) {
+                                                window.jQuery(select).append(newOption).trigger('change');
+                                            } else {
+                                                select.appendChild(newOption);
+                                                select.value = String(requesterId);
+                                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                                            }
+                                        }
+
+                                        hideModal();
+                                    } finally {
+                                        if (submitBtn) {
+                                            submitBtn.disabled = false;
+                                            submitBtn.classList.remove('opacity-75');
+                                        }
+                                    }
+                                }
+
+                                submitBtn?.addEventListener('click', function (e) {
+                                    e.preventDefault();
+                                    submitQuickRequester();
+                                });
+
+                                modal.addEventListener('keydown', function (e) {
+                                    // Evitar que Enter dispare el submit del formulario principal (HTML anidado)
+                                    if (e.key === 'Enter') {
+                                        const target = e.target;
+                                        const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+                                        if (isInput) {
+                                            e.preventDefault();
+                                            submitQuickRequester();
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        // Evitar que un error aquí rompa el resto del formulario
                     }
 
                     const entryChannelSelect = window.jQuery('#entry_channel');
@@ -465,6 +867,37 @@
 
                     const subServiceSelect = window.jQuery('#sub_service_id');
                     if (subServiceSelect.length && !subServiceSelect.data('select2')) {
+                        function getFocusableElementsInDocument() {
+                            const selectors = [
+                                'a[href]',
+                                'area[href]',
+                                'input:not([disabled]):not([type="hidden"])',
+                                'select:not([disabled])',
+                                'textarea:not([disabled])',
+                                'button:not([disabled])',
+                                '[contenteditable="true"]',
+                                '[tabindex]:not([tabindex="-1"])'
+                            ].join(',');
+
+                            return Array.from(document.querySelectorAll(selectors)).filter((el) => {
+                                if (!(el instanceof HTMLElement)) return false;
+                                if (el.hasAttribute('disabled')) return false;
+                                if (el.getAttribute('aria-hidden') === 'true') return false;
+                                return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                            });
+                        }
+
+                        function focusRelativeTo(el, direction) {
+                            const focusables = getFocusableElementsInDocument();
+                            const idx = focusables.indexOf(el);
+                            if (idx === -1) return;
+                            const nextIdx = direction === 'prev' ? idx - 1 : idx + 1;
+                            const target = focusables[nextIdx];
+                            if (target && typeof target.focus === 'function') {
+                                target.focus();
+                            }
+                        }
+
                         function escapeHtml(value) {
                             return String(value ?? '')
                                 .replace(/&/g, '&amp;')
@@ -677,6 +1110,35 @@
                             },
                             escapeMarkup: function(markup) {
                                 return markup;
+                            }
+                        });
+
+                        // UX: al abrir, enfocar el buscador; y con Tab/Shift+Tab cerrar y mover foco
+                        subServiceSelect.on('select2:open', function () {
+                            const search = document.querySelector('.select2-container--open .select2-search__field');
+                            if (search instanceof HTMLElement) {
+                                search.focus();
+
+                                // Evitar múltiples bindings
+                                if (!search.dataset.tabBound) {
+                                    search.dataset.tabBound = '1';
+                                    search.addEventListener('keydown', function (e) {
+                                        if (e.key !== 'Tab') return;
+                                        e.preventDefault();
+
+                                        // Cerrar el dropdown primero
+                                        subServiceSelect.select2('close');
+
+                                        // Mover el foco relativo al contenedor de Select2
+                                        const s2 = subServiceSelect.data('select2');
+                                        const selectionEl = s2?.$selection?.get?.(0) || s2?.$container?.get?.(0) || null;
+                                        const base = (selectionEl instanceof HTMLElement) ? selectionEl : search;
+
+                                        setTimeout(() => {
+                                            focusRelativeTo(base, e.shiftKey ? 'prev' : 'next');
+                                        }, 0);
+                                    });
+                                }
                             }
                         });
 
@@ -947,11 +1409,8 @@
                 console.log('🔍 Verificación final:', finalCheck);
 
                 if (!finalCheck.service_id || !finalCheck.family_id) {
-                    e.preventDefault();
-                    alert(
-                        '❌ Error: Faltan datos requeridos. Por favor, seleccione un subservicio válido.'
-                    );
-                    return false;
+                    // No bloqueamos el envío: el backend validará y mostrará errores.
+                    console.warn('⚠️ service_id/family_id vacíos; se enviará para que valide el backend.');
                 }
 
                 console.log('✅ Formulario listo para enviar');

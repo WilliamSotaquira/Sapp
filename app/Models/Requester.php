@@ -3,6 +3,7 @@
 
 namespace App\Models;
 
+use App\Support\DepartmentOptions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,6 +11,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Requester extends Model
 {
     use HasFactory, SoftDeletes;
+
+    public static function getDepartmentOptions(): array
+    {
+        return DepartmentOptions::all();
+    }
 
     protected $fillable = [
         'name',

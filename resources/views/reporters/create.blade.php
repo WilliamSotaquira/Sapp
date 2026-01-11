@@ -37,8 +37,19 @@
 
                     <div class="mb-3">
                         <label for="department" class="form-label">Departamento *</label>
-                        <input type="text" class="form-control @error('department') is-invalid @enderror"
-                               id="department" name="department" value="{{ old('department') }}" required>
+                        @php
+                            $departmentOptions = \App\Support\DepartmentOptions::all();
+                            $selectedDepartment = old('department');
+                        @endphp
+                        <select class="form-control @error('department') is-invalid @enderror"
+                                id="department" name="department" required>
+                            <option value="">Seleccione un departamento</option>
+                            @foreach ($departmentOptions as $department)
+                                <option value="{{ $department }}" {{ $selectedDepartment === $department ? 'selected' : '' }}>
+                                    {{ $department }}
+                                </option>
+                            @endforeach
+                        </select>
                         @error('department')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
@@ -86,3 +97,25 @@
     </div>
 </div>
 @endsection
+
+@push('styles')
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
+@endpush
+
+@push('scripts')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.jQuery || !window.jQuery.fn?.select2) return;
+            const $dept = window.jQuery('#department');
+            if ($dept.length && !$dept.data('select2')) {
+                $dept.select2({
+                    width: '100%',
+                    placeholder: 'Seleccione un departamento',
+                    allowClear: true,
+                });
+            }
+        });
+    </script>
+@endpush

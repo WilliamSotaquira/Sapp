@@ -37,13 +37,25 @@
         </div>
     @endif
 
+    @if (session('error'))
+        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if (session('success'))
+        <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+            {{ session('success') }}
+        </div>
+    @endif
+
     <form action="{{ route('service-requests.store') }}" method="POST">
         @csrf
 
         <div class="max-w-4xl mx-auto">
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-                    <h2 class="text-xl font-bold text-gray-800">Nueva Solicitud de Servicio</h2>
+                    <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
                 </div>
                 <div class="p-6">
                     @include('components.service-requests.forms.basic-fields', [
@@ -56,74 +68,42 @@
                 </div>
             </div>
 
-            <!-- Tareas Predefinidas -->
-            <div id="standardTasksSection" class="hidden mt-6 bg-white rounded-2xl shadow-lg border-2 border-purple-200 overflow-hidden">
-                <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white/20 p-2 rounded-lg">
-                                <i class="fas fa-tasks text-white text-xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-white">Tareas Predefinidas Disponibles</h3>
-                                <p class="text-purple-100 text-sm">Este subservicio tiene tareas preconfiguradas</p>
-                            </div>
-                        </div>
+            <!-- Tareas (opcional) -->
+            <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                <button type="button" id="toggleTasksSection" class="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100">
+                    <div class="text-left">
+                        <div class="text-lg font-bold text-gray-800">Tareas (opcional)</div>
+                        <div class="text-gray-600 text-sm">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
                     </div>
-                </div>
-                <div class="p-6 bg-gradient-to-br from-purple-50 to-indigo-50">
-                    <div id="standardTasksCount" class="mb-4 text-sm font-medium text-purple-700">
-                        <!-- Contador de tareas -->
-                    </div>
-                    <div id="standardTasksList" class="space-y-4">
-                        <!-- Las tareas se cargarán dinámicamente -->
-                    </div>
-                    <div id="noStandardTasks" class="hidden text-center py-8 text-gray-500">
-                        <i class="fas fa-info-circle text-4xl mb-3"></i>
-                        <p>Este subservicio no tiene tareas predefinidas configuradas</p>
-                    </div>
-                </div>
-            </div>
+                    <span id="tasksChevron" class="text-gray-500">▾</span>
+                </button>
 
-            <!-- Modal de Confirmación de Tareas Predefinidas -->
-            <div id="standardTasksModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4" style="display: none;">
-                <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scale-in">
-                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white/20 p-3 rounded-xl">
-                                <i class="fas fa-tasks text-white text-2xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-xl font-bold text-white">¿Deseas crear las tareas predefinidas?</h3>
-                                <p class="text-purple-100 text-sm mt-1">Este subservicio tiene tareas preconfiguradas disponibles</p>
-                            </div>
+                <div id="tasksSectionBody" class="hidden p-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label for="tasks_template" class="block text-sm font-medium text-gray-700 mb-2">Plantilla</label>
+                            <select id="tasks_template" name="tasks_template" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                                <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
+                                <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
+                            </select>
+                            
+                        </div>
+
+                        <div class="flex gap-3 justify-start sm:justify-end">
+                            <button type="button" id="addTaskRow" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold">
+                                + Agregar tarea
+                            </button>
+                            <button type="button" id="clearTasks" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">
+                                Limpiar
+                            </button>
                         </div>
                     </div>
 
-                    <div class="p-6 max-h-[60vh] overflow-y-auto">
-                        <div id="modalTasksCount" class="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                            <!-- Contador de tareas en modal -->
-                        </div>
+                    <div id="tasksNotice" class="hidden mt-4 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm"></div>
 
-                        <div id="modalTasksList" class="space-y-3">
-                            <!-- Las tareas se mostrarán aquí -->
-                        </div>
-                    </div>
-
-                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row gap-3 justify-end">
-                        <button type="button" onclick="submitWithoutTasks()" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2">
-                            <i class="fas fa-times-circle"></i>
-                            No, crear solo la solicitud
-                        </button>
-                        <button type="button" onclick="submitWithTasks()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
-                            <i class="fas fa-check-circle"></i>
-                            Sí, crear con tareas predefinidas
-                        </button>
-                    </div>
+                    <div id="tasksList" class="mt-4 space-y-3"></div>
                 </div>
             </div>
-
-            <input type="hidden" id="use_standard_tasks_hidden" name="use_standard_tasks" value="0">
 
             <div class="mt-8 pt-6 border-t border-gray-200">
                 <div class="flex flex-col sm:flex-row justify-end gap-3">
@@ -152,206 +132,771 @@
     </form>
 
     <script>
-    let availableStandardTasks = [];
-    let hasStandardTasks = false;
-
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.querySelector('form');
+        const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');
+        const toggleBtn = document.getElementById('toggleTasksSection');
+        const body = document.getElementById('tasksSectionBody');
+        const chevron = document.getElementById('tasksChevron');
+        const tasksList = document.getElementById('tasksList');
+        const addRowBtn = document.getElementById('addTaskRow');
+        const clearBtn = document.getElementById('clearTasks');
+        const templateSelect = document.getElementById('tasks_template');
+        const notice = document.getElementById('tasksNotice');
         const subServiceIdInput = document.getElementById('sub_service_id');
-        const standardTasksSection = document.getElementById('standardTasksSection');
-        const standardTasksList = document.getElementById('standardTasksList');
-        const standardTasksCount = document.getElementById('standardTasksCount');
-        const noStandardTasks = document.getElementById('noStandardTasks');
-        const standardTasksModal = document.getElementById('standardTasksModal');
-        const modalTasksList = document.getElementById('modalTasksList');
-        const modalTasksCount = document.getElementById('modalTasksCount');
-        const useStandardTasksHidden = document.getElementById('use_standard_tasks_hidden');
 
-        // Interceptar envío del formulario
-        form.addEventListener('submit', function(e) {
-            if (hasStandardTasks && !form.dataset.confirmed) {
-                e.preventDefault();
-                showTasksModal();
-                return false;
+        const initialTasks = @json(old('tasks', []));
+        const initialTemplate = @json(old('tasks_template', 'none'));
+
+        function setNotice(message) {
+            if (!message) {
+                notice.classList.add('hidden');
+                notice.textContent = '';
+                return;
             }
-        });
-
-        // Escuchar cambios en el subservicio seleccionado
-        if (subServiceIdInput) {
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                        loadStandardTasks();
-                    }
-                });
-            });
-
-            observer.observe(subServiceIdInput, { attributes: true });
-
-            // También escuchar el evento change
-            subServiceIdInput.addEventListener('change', loadStandardTasks);
+            notice.textContent = message;
+            notice.classList.remove('hidden');
         }
 
-        function loadStandardTasks() {
-            const subServiceId = subServiceIdInput.value;
+        function isOpen() {
+            return !body.classList.contains('hidden');
+        }
 
-            if (!subServiceId) {
-                standardTasksSection.classList.add('hidden');
+        function openSection() {
+            body.classList.remove('hidden');
+            chevron.textContent = '▴';
+        }
+
+        function closeSection() {
+            body.classList.add('hidden');
+            chevron.textContent = '▾';
+        }
+
+        function clearTaskRowErrors() {
+            tasksList.querySelectorAll('[data-task-desc-error]').forEach((el) => el.remove());
+            tasksList.querySelectorAll('[data-field="description"]').forEach((el) => {
+                el.classList.remove('border-red-500');
+            });
+        }
+
+        function validateTaskDescriptionsMinLen() {
+            clearTaskRowErrors();
+
+            const rows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
+            let isValid = true;
+
+            rows.forEach((row) => {
+                const descEl = row.querySelector('[data-field="description"]');
+                const stdIdEl = row.querySelector('[data-field="standard_task_id"]');
+
+                const description = String(descEl?.value ?? '').trim();
+                const standardTaskId = String(stdIdEl?.value ?? '').trim();
+
+                // Consistente con otras pantallas: mínimo 10 caracteres.
+                // Solo aplica a tareas manuales (sin standard_task_id) y cuando se llena descripción.
+                if (!standardTaskId && description.length > 0 && description.length < 10) {
+                    isValid = false;
+                    descEl?.classList.add('border-red-500');
+
+                    const error = document.createElement('p');
+                    error.setAttribute('data-task-desc-error', '1');
+                    error.className = 'mt-1 text-sm text-red-600';
+                    error.textContent = 'La descripción debe tener al menos 10 caracteres.';
+                    descEl?.insertAdjacentElement('afterend', error);
+                }
+            });
+
+            return isValid;
+        }
+
+        toggleBtn?.addEventListener('click', function() {
+            isOpen() ? closeSection() : openSection();
+        });
+
+        function getRowData(rowEl) {
+            return {
+                title: rowEl.querySelector('[data-field="title"]')?.value ?? '',
+                description: rowEl.querySelector('[data-field="description"]')?.value ?? '',
+                type: rowEl.querySelector('[data-field="type"]')?.value ?? 'regular',
+                priority: rowEl.querySelector('[data-field="priority"]')?.value ?? 'medium',
+                estimated_minutes: rowEl.querySelector('[data-field="estimated_minutes"]')?.value ?? '',
+                estimated_hours: rowEl.querySelector('[data-field="estimated_hours"]')?.value ?? '',
+                standard_task_id: rowEl.querySelector('[data-field="standard_task_id"]')?.value ?? '',
+            };
+        }
+
+        function reindexRows() {
+            const rows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
+            rows.forEach((row, index) => {
+                row.querySelectorAll('[data-name-template]').forEach((input) => {
+                    const tpl = input.getAttribute('data-name-template');
+                    input.setAttribute('name', tpl.replace('__INDEX__', index));
+                });
+
+                reindexSubtasks(row, index);
+            });
+        }
+
+        function formatHoursFromMinutes(minutes) {
+            const m = Number(minutes);
+            if (!Number.isFinite(m) || m < 0) return '';
+            const hours = m / 60;
+            return String(hours.toFixed(2)).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+        }
+
+        function formatHumanDuration(minutes) {
+            const m = Number(minutes);
+            if (!Number.isFinite(m) || m <= 0) return '';
+            const h = Math.floor(m / 60);
+            const mm = Math.round(m % 60);
+            if (h > 0 && mm > 0) return `${h}h ${mm}m`;
+            if (h > 0) return `${h}h`;
+            return `${mm}m`;
+        }
+
+        function setEstimateUiState(taskRow, { locked, totalMinutes } = {}) {
+            if (!taskRow) return;
+            const minutesEl = taskRow.querySelector('[data-field="estimated_minutes"]');
+            const hoursEl = taskRow.querySelector('[data-field="estimated_hours"]');
+            const hintEl = taskRow.querySelector('[data-estimate-hint]');
+            if (!minutesEl || !hoursEl) return;
+
+            const chipButtons = Array.from(taskRow.querySelectorAll('[data-estimate-chip]'));
+
+            const lockedClasses = ['bg-gray-50', 'text-gray-500', 'cursor-not-allowed'];
+
+            if (locked) {
+                minutesEl.readOnly = true;
+                hoursEl.readOnly = true;
+
+                // No tabular hacia campos calculados (pero se siguen enviando en el POST)
+                minutesEl.setAttribute('tabindex', '-1');
+                hoursEl.setAttribute('tabindex', '-1');
+
+                minutesEl.classList.add(...lockedClasses);
+                hoursEl.classList.add(...lockedClasses);
+
+                chipButtons.forEach((btn) => {
+                    btn.disabled = true;
+                    btn.setAttribute('tabindex', '-1');
+                    btn.classList.add('opacity-60', 'cursor-not-allowed');
+                });
+
+                const human = formatHumanDuration(totalMinutes);
+                if (hintEl) {
+                    hintEl.textContent = `Calculado por subtareas: ${totalMinutes} min${human ? ` (${human})` : ''}. Edita subtareas para cambiar.`;
+                }
+            } else {
+                minutesEl.readOnly = false;
+                hoursEl.readOnly = false;
+
+                minutesEl.removeAttribute('tabindex');
+                hoursEl.removeAttribute('tabindex');
+
+                minutesEl.classList.remove(...lockedClasses);
+                hoursEl.classList.remove(...lockedClasses);
+
+                chipButtons.forEach((btn) => {
+                    btn.disabled = false;
+                    btn.removeAttribute('tabindex');
+                    btn.classList.remove('opacity-60', 'cursor-not-allowed');
+                });
+
+                const rawMinutes = String(minutesEl.value || '').trim();
+                const m = rawMinutes !== '' ? Number(rawMinutes) : null;
+                const human = m !== null && Number.isFinite(m) ? formatHumanDuration(m) : '';
+                if (hintEl) {
+                    hintEl.textContent = human
+                        ? `Equivale a ${human}. Puedes escribir horas con coma (ej: 1,5).`
+                        : 'Puedes escribir horas con coma (ej: 1,5).';
+                }
+            }
+        }
+
+        function parseHoursToMinutes(rawHours) {
+            const raw = String(rawHours ?? '').trim();
+            if (!raw) return null;
+            const normalized = raw.replace(',', '.');
+            const hours = Number(normalized);
+            if (!Number.isFinite(hours) || hours < 0) return null;
+            const minutes = Math.round(hours * 60);
+            return Math.round(minutes / 5) * 5;
+        }
+
+        function bindTaskEstimateSync(row) {
+            const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
+            const hoursEl = row.querySelector('[data-field="estimated_hours"]');
+            if (!minutesEl || !hoursEl) return;
+
+            function setFromMinutes(minutes) {
+                const raw = String(minutes ?? '').trim();
+                if (raw === '') {
+                    hoursEl.value = '';
+                    return;
+                }
+                const m = Number(raw);
+                if (!Number.isFinite(m) || m < 0) return;
+                hoursEl.value = formatHoursFromMinutes(m);
+            }
+
+            // Inicializar: si hay horas y no hay minutos, derivar minutos
+            if (!String(minutesEl.value || '').trim() && String(hoursEl.value || '').trim()) {
+                const m = parseHoursToMinutes(hoursEl.value);
+                if (m !== null) {
+                    minutesEl.value = String(m);
+                }
+            }
+
+            if (String(minutesEl.value || '').trim()) {
+                setFromMinutes(minutesEl.value);
+            }
+
+            // Evitar cambios accidentales por rueda del mouse
+            minutesEl.addEventListener('wheel', function(e) {
+                if (document.activeElement === minutesEl) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            minutesEl.addEventListener('input', function() {
+                setFromMinutes(minutesEl.value);
+                setEstimateUiState(row, { locked: false });
+            });
+
+            hoursEl.addEventListener('input', function() {
+                const m = parseHoursToMinutes(hoursEl.value);
+                if (m === null) return;
+                minutesEl.value = String(m);
+                setEstimateUiState(row, { locked: false });
+            });
+
+            // Estado inicial (manual)
+            setEstimateUiState(row, { locked: false });
+        }
+
+        function bindEstimateChips(row) {
+            const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
+            const hoursEl = row.querySelector('[data-field="estimated_hours"]');
+            if (!minutesEl || !hoursEl) return;
+
+            const chips = Array.from(row.querySelectorAll('[data-estimate-chip]'));
+            if (!chips.length) return;
+            if (row.dataset.estimateChipsBound) return;
+            row.dataset.estimateChipsBound = '1';
+
+            function getMinutesValue() {
+                const raw = String(minutesEl.value || '').trim();
+                if (!raw) return 0;
+                const m = Number(raw);
+                return Number.isFinite(m) && m > 0 ? m : 0;
+            }
+
+            function setMinutesValue(value) {
+                const m = Number(value);
+                if (!Number.isFinite(m) || m < 0) return;
+                minutesEl.value = m === 0 ? '' : String(m);
+                minutesEl.dispatchEvent(new Event('input', { bubbles: true }));
+                // mantener hint actualizado
+                setEstimateUiState(row, { locked: false });
+            }
+
+            chips.forEach((btn) => {
+                btn.addEventListener('click', function () {
+                    if (btn.disabled) return;
+                    const action = btn.getAttribute('data-estimate-chip');
+
+                    if (action === 'clear') {
+                        minutesEl.value = '';
+                        hoursEl.value = '';
+                        setEstimateUiState(row, { locked: false });
+                        minutesEl.focus();
+                        return;
+                    }
+
+                    const delta = Number(action);
+                    if (!Number.isFinite(delta) || delta <= 0) return;
+
+                    const next = getMinutesValue() + delta;
+                    // redondear a 5 por consistencia
+                    const rounded = Math.round(next / 5) * 5;
+                    setMinutesValue(rounded);
+                    minutesEl.focus();
+                });
+            });
+        }
+
+        function recalcTaskEstimateFromSubtasks(taskRow) {
+            if (!taskRow) return;
+
+            const minutesEl = taskRow.querySelector('[data-field="estimated_minutes"]');
+            const hoursEl = taskRow.querySelector('[data-field="estimated_hours"]');
+            if (!minutesEl || !hoursEl) return;
+
+            const subtaskRows = Array.from(taskRow.querySelectorAll('[data-subtask-row]'));
+            let hasTitledSubtasks = false;
+            let totalMinutes = 0;
+
+            subtaskRows.forEach((stRow) => {
+                const titleEl = stRow.querySelector('input[type="text"]');
+                const title = String(titleEl?.value ?? '').trim();
+                if (!title) return;
+
+                hasTitledSubtasks = true;
+
+                const stMinutesEl = stRow.querySelector('[data-subtask-field="estimated_minutes"]');
+                const raw = String(stMinutesEl?.value ?? '').trim();
+
+                // Consistente con el modelo: default 25 si está vacío
+                let minutes = 25;
+                if (raw !== '') {
+                    const parsed = Number(raw);
+                    if (Number.isFinite(parsed)) {
+                        minutes = parsed;
+                    }
+                }
+
+                if (minutes > 0) totalMinutes += minutes;
+            });
+
+            if (hasTitledSubtasks && totalMinutes > 0) {
+                minutesEl.value = String(totalMinutes);
+                hoursEl.value = formatHoursFromMinutes(totalMinutes);
+                setEstimateUiState(taskRow, { locked: true, totalMinutes });
+            } else {
+                setEstimateUiState(taskRow, { locked: false });
+            }
+        }
+
+        function bindSubtaskMinutes(subtaskRow) {
+            const minutesEl = subtaskRow.querySelector('[data-subtask-field="estimated_minutes"]');
+            if (!minutesEl) return;
+
+            minutesEl.addEventListener('input', function() {
+                const taskRow = subtaskRow.closest('[data-task-row]');
+                recalcTaskEstimateFromSubtasks(taskRow);
+            });
+        }
+
+        function createSubtaskRow(subtask = {}) {
+            const el = document.createElement('div');
+            el.setAttribute('data-subtask-row', '1');
+            el.className = 'rounded-lg border border-gray-200 bg-gray-50 p-4';
+
+            const title = (subtask.title ?? '').toString().replace(/\"/g, '&quot;');
+            const notes = (subtask.notes ?? '').toString();
+            const priority = (subtask.priority ?? 'medium');
+            const estimatedMinutes = (subtask.estimated_minutes ?? 25);
+
+            el.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Título</label>
+                        <input type="text" data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][title]" value="${title}" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Ej: Validar accesos, revisar logs..." />
+                    </div>
+                    <button type="button" tabindex="-1" class="px-4 py-2.5 rounded-lg border border-gray-300 text-red-600 hover:bg-red-50 font-semibold" data-remove-subtask>Eliminar</button>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Minutos estimados</label>
+                        <div class="flex gap-2">
+                            <input type="number" min="0" step="5" data-subtask-field="estimated_minutes" data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][estimated_minutes]" value="${estimatedMinutes}" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
+                        <select data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][priority]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            <option value="high" ${priority === 'high' ? 'selected' : ''}>Alta</option>
+                            <option value="medium" ${priority === 'medium' ? 'selected' : ''}>Media</option>
+                            <option value="low" ${priority === 'low' ? 'selected' : ''}>Baja</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="block text-sm font-medium text-gray-700">Notas (opcional)</label>
+                        <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-subtask-toggle-notes>Agregar notas</button>
+                    </div>
+                    <div class="mt-2 hidden" data-subtask-notes-section>
+                        <textarea rows="2" data-subtask-notes data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][notes]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Detalles o pasos para completar esta subtarea...">${notes}</textarea>
+                    </div>
+                </div>
+            `;
+
+            el.querySelector('[data-remove-subtask]')?.addEventListener('click', function() {
+                const taskRow = el.closest('[data-task-row]');
+                el.remove();
+                reindexRows();
+                recalcTaskEstimateFromSubtasks(taskRow);
+            });
+
+            bindSubtaskMinutes(el);
+
+            // Solo contar subtareas con título; si cambia, recalcular
+            el.querySelector('input[type="text"]')?.addEventListener('input', function() {
+                const taskRow = el.closest('[data-task-row]');
+                recalcTaskEstimateFromSubtasks(taskRow);
+            });
+
+            // Notas opcionales (sutilmente ocultas)
+            const notesSection = el.querySelector('[data-subtask-notes-section]');
+            const notesToggle = el.querySelector('[data-subtask-toggle-notes]');
+            const notesEl = el.querySelector('[data-subtask-notes]');
+
+            function openNotes() {
+                notesSection?.classList.remove('hidden');
+                if (notesToggle) notesToggle.textContent = 'Ocultar notas';
+            }
+
+            function closeNotes() {
+                notesSection?.classList.add('hidden');
+                if (notesToggle) notesToggle.textContent = 'Agregar notas';
+            }
+
+            notesToggle?.addEventListener('click', function() {
+                const isHidden = notesSection?.classList.contains('hidden');
+                if (isHidden) {
+                    openNotes();
+                    setTimeout(() => notesEl?.focus(), 0);
+                } else {
+                    closeNotes();
+                }
+            });
+
+            if (String(notes ?? '').trim()) {
+                openNotes();
+            }
+
+            return el;
+        }
+
+        function reindexSubtasks(taskRow, taskIndex) {
+            const subtaskRows = Array.from(taskRow.querySelectorAll('[data-subtask-row]'));
+            subtaskRows.forEach((subtaskRow, subIndex) => {
+                subtaskRow.querySelectorAll('[data-subtask-name-template]').forEach((input) => {
+                    const tpl = input.getAttribute('data-subtask-name-template');
+                    input.setAttribute('name', tpl.replace('__INDEX__', taskIndex).replace('__SINDEX__', subIndex));
+                });
+            });
+        }
+
+        function createRow(task = {}) {
+            const row = document.createElement('div');
+            row.setAttribute('data-task-row', '1');
+            row.className = 'rounded-xl border border-gray-200 bg-white p-5 shadow-sm';
+
+            row.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Título</label>
+                        <input type="text" data-field="title" data-name-template="tasks[__INDEX__][title]" value="${(task.title ?? '').replace(/\"/g, '&quot;')}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Ej: Revisar acceso, Configurar usuario, Validar evidencia" />
+                    </div>
+                    <button type="button" tabindex="-1" class="px-4 py-3 rounded-lg border border-gray-300 text-red-600 hover:bg-red-50 font-semibold" data-remove-row>Eliminar</button>
+                </div>
+
+                <div class="mt-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="block text-sm font-medium text-gray-700">Descripción (opcional)</label>
+                        <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-description>Agregar descripción</button>
+                    </div>
+                    <div class="mt-2 hidden" data-description-section>
+                        <textarea data-field="description" data-name-template="tasks[__INDEX__][description]" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Opcional (mín. 10 caracteres si se llena)">${(task.description ?? '')}</textarea>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <label class="block text-sm font-medium text-gray-700">Subtareas (opcional)</label>
+                        <div class="flex flex-wrap items-center justify-end gap-2">
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-600">Cantidad</label>
+                                <select tabindex="-1" class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
+                                    <option value="1" selected>1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10</option>
+                                </select>
+                            </div>
+                            <button type="button" tabindex="-1" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
+                            <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-subtasks>Ver subtareas</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 hidden" data-subtasks-section>
+                        <div class="space-y-3" data-subtasks-list></div>
+                    </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                        <select data-field="type" data-name-template="tasks[__INDEX__][type]" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            <option value="regular" ${(task.type ?? 'regular') === 'regular' ? 'selected' : ''}>Regular</option>
+                            <option value="impact" ${(task.type ?? '') === 'impact' ? 'selected' : ''}>Impacto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
+                        <select data-field="priority" data-name-template="tasks[__INDEX__][priority]" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            <option value="urgent" ${(task.priority ?? '') === 'urgent' ? 'selected' : ''}>Urgente</option>
+                            <option value="high" ${(task.priority ?? '') === 'high' ? 'selected' : ''}>Alta</option>
+                            <option value="medium" ${(task.priority ?? 'medium') === 'medium' ? 'selected' : ''}>Media</option>
+                            <option value="low" ${(task.priority ?? '') === 'low' ? 'selected' : ''}>Baja</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimado</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <input type="number" min="0" step="5" data-field="estimated_minutes" data-name-template="tasks[__INDEX__][estimated_minutes]" value="${task.estimated_minutes ?? ''}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Minutos (Ej: 75)" />
+                                <p class="mt-1 text-xs text-gray-500">Minutos (base)</p>
+                            </div>
+                            <div>
+                                <input type="text" inputmode="decimal" data-field="estimated_hours" data-name-template="tasks[__INDEX__][estimated_hours]" value="${task.estimated_hours ?? ''}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Horas (Ej: 1.25 o 1,25)" />
+                                <p class="mt-1 text-xs text-gray-500">Horas (opcional)</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-2" aria-label="Atajos de estimación">
+                            <span class="text-[11px] text-gray-500">Atajos:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button type="button" data-estimate-chip="15" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 15 minutos">+15</button>
+                                <button type="button" data-estimate-chip="30" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 30 minutos">+30</button>
+                                <button type="button" data-estimate-chip="60" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 60 minutos">+60</button>
+                                <button type="button" data-estimate-chip="120" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 120 minutos">+120</button>
+                                <button type="button" data-estimate-chip="clear" class="ml-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Limpiar estimación">Limpiar</button>
+                            </div>
+                        </div>
+
+                        <p class="mt-1 text-xs text-gray-500">Si hay subtareas con título, se calcula como suma (25 min por defecto si está vacío).</p>
+                        <p class="mt-1 text-xs text-gray-600" data-estimate-hint></p>
+                    </div>
+                </div>
+
+                <input type="hidden" data-field="standard_task_id" data-name-template="tasks[__INDEX__][standard_task_id]" value="${task.standard_task_id ?? ''}" />
+            `;
+
+            row.querySelector('[data-remove-row]')?.addEventListener('click', function() {
+                row.remove();
+                reindexRows();
+            });
+
+            bindTaskEstimateSync(row);
+            bindEstimateChips(row);
+
+            // Descripción opcional (toggle)
+            const descSection = row.querySelector('[data-description-section]');
+            const descToggle = row.querySelector('[data-toggle-description]');
+            const descEl = row.querySelector('[data-field="description"]');
+
+            function openDescription() {
+                descSection?.classList.remove('hidden');
+                if (descToggle) descToggle.textContent = 'Ocultar descripción';
+            }
+
+            function closeDescription() {
+                descSection?.classList.add('hidden');
+                if (descToggle) descToggle.textContent = 'Agregar descripción';
+            }
+
+            descToggle?.addEventListener('click', function() {
+                const isHidden = descSection?.classList.contains('hidden');
+                if (isHidden) {
+                    openDescription();
+                    setTimeout(() => descEl?.focus(), 0);
+                } else {
+                    closeDescription();
+                }
+            });
+
+            // Si viene con descripción (old() o plantilla), mostrarla
+            if (String(task.description ?? '').trim()) {
+                openDescription();
+            }
+
+            const subtasksSection = row.querySelector('[data-subtasks-section]');
+            const subtasksToggle = row.querySelector('[data-toggle-subtasks]');
+            const subtasksList = row.querySelector('[data-subtasks-list]');
+            const addSubtaskBtn = row.querySelector('[data-add-subtask]');
+            const subtaskCountEl = row.querySelector('[data-subtask-count]');
+
+            function openSubtasks() {
+                subtasksSection?.classList.remove('hidden');
+                if (subtasksToggle) subtasksToggle.textContent = 'Ocultar subtareas';
+            }
+
+            function closeSubtasks() {
+                subtasksSection?.classList.add('hidden');
+                if (subtasksToggle) subtasksToggle.textContent = 'Ver subtareas';
+            }
+
+            subtasksToggle?.addEventListener('click', function() {
+                const isHidden = subtasksSection?.classList.contains('hidden');
+                if (isHidden) {
+                    openSubtasks();
+                } else {
+                    closeSubtasks();
+                }
+            });
+
+            addSubtaskBtn?.addEventListener('click', function() {
+                openSubtasks();
+                const count = Math.max(1, Math.min(10, parseInt(String(subtaskCountEl?.value ?? '1'), 10) || 1));
+                let firstRow = null;
+                for (let i = 0; i < count; i++) {
+                    const stRow = createSubtaskRow({});
+                    if (!firstRow) firstRow = stRow;
+                    subtasksList?.appendChild(stRow);
+                }
+                reindexRows();
+                recalcTaskEstimateFromSubtasks(row);
+                setTimeout(() => firstRow?.querySelector('input')?.focus(), 0);
+            });
+
+            if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+                openSubtasks();
+                task.subtasks.forEach((st) => {
+                    const stRow = createSubtaskRow(st || {});
+                    subtasksList?.appendChild(stRow);
+                });
+            }
+
+            // Autocalcular estimado si hay subtareas con minutos
+            recalcTaskEstimateFromSubtasks(row);
+
+            return row;
+        }
+
+        function addRow(task = {}, { focusTitle = false } = {}) {
+            const row = createRow(task);
+            tasksList.appendChild(row);
+            reindexRows();
+            if (focusTitle) {
+                setTimeout(() => row.querySelector('[data-field="title"]')?.focus(), 0);
+            }
+        }
+
+        function clearAllRows() {
+            tasksList.innerHTML = '';
+            reindexRows();
+        }
+
+        addRowBtn?.addEventListener('click', function() {
+            openSection();
+            addRow({}, { focusTitle: true });
+        });
+
+        clearBtn?.addEventListener('click', function() {
+            clearAllRows();
+            templateSelect.value = 'none';
+            setNotice('');
+        });
+
+        formEl?.addEventListener('submit', function(e) {
+            // Si hay tareas en pantalla, validar descripciones manuales.
+            // (No bloquea tareas predefinidas con standard_task_id)
+            const hasRows = tasksList.querySelector('[data-task-row]');
+            if (!hasRows) {
                 return;
             }
 
-            fetch(`/api/sub-services/${subServiceId}/standard-tasks`)
-                .then(response => response.json())
-                .then(tasks => {
-                    availableStandardTasks = tasks;
-                    if (tasks.length > 0) {
-                        hasStandardTasks = true;
-                        displayStandardTasks(tasks);
-                        standardTasksSection.classList.remove('hidden');
-                        noStandardTasks.classList.add('hidden');
-                    } else {
-                        hasStandardTasks = false;
-                        standardTasksList.innerHTML = '';
-                        standardTasksSection.classList.remove('hidden');
-                        noStandardTasks.classList.remove('hidden');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error cargando tareas predefinidas:', error);
-                    hasStandardTasks = false;
-                    standardTasksSection.classList.add('hidden');
+            const ok = validateTaskDescriptionsMinLen();
+            if (!ok) {
+                e.preventDefault();
+                openSection();
+                setNotice('Revisa los errores en las tareas antes de guardar.');
+            }
+        });
+
+        async function loadTemplateSubServiceStandard() {
+            const subServiceId = subServiceIdInput?.value;
+            if (!subServiceId) {
+                setNotice('Selecciona un subservicio para cargar la plantilla.');
+                return;
+            }
+
+            setNotice('Cargando tareas predefinidas del subservicio...');
+            try {
+                const res = await fetch(`/api/sub-services/${subServiceId}/standard-tasks`);
+                const data = await res.json();
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    clearAllRows();
+                    setNotice('Este subservicio no tiene tareas predefinidas configuradas.');
+                    return;
+                }
+
+                clearAllRows();
+                data.forEach((t) => {
+                    const stdSubtasks = Array.isArray(t.standard_subtasks)
+                        ? t.standard_subtasks
+                        : (Array.isArray(t.standardSubtasks) ? t.standardSubtasks : []);
+
+                    addRow({
+                        title: t.title,
+                        description: t.description,
+                        type: t.type,
+                        priority: t.priority,
+                        estimated_hours: t.estimated_hours,
+                        standard_task_id: t.id,
+                        subtasks: Array.isArray(stdSubtasks)
+                            ? stdSubtasks.map((sst) => ({
+                                title: sst.title,
+                                notes: sst.description,
+                                priority: sst.priority,
+                                estimated_minutes: 25,
+                            }))
+                            : [],
+                    });
                 });
+
+                setNotice(`Plantilla cargada: ${data.length} tarea(s). Puedes editar o eliminar.`);
+            } catch (e) {
+                console.error(e);
+                setNotice('No se pudo cargar la plantilla. Intenta nuevamente.');
+            }
         }
 
-        function showTasksModal() {
-            // Llenar el modal con las tareas
-            const totalSubtasks = availableStandardTasks.reduce((sum, task) => sum + (task.standard_subtasks?.length || 0), 0);
+        templateSelect?.addEventListener('change', async function() {
+            openSection();
+            const currentRows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
+            if (currentRows.length > 0) {
+                const ok = confirm('Esto reemplazará las tareas actuales. ¿Continuar?');
+                if (!ok) {
+                    // revertir al valor anterior
+                    templateSelect.value = 'none';
+                    return;
+                }
+            }
 
-            modalTasksCount.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-layer-group text-purple-600 text-lg"></i>
-                        <span class="font-semibold text-purple-900">
-                            Se crearán <strong class="text-xl">${availableStandardTasks.length}</strong> tarea${availableStandardTasks.length !== 1 ? 's' : ''} predefinida${availableStandardTasks.length !== 1 ? 's' : ''}
-                        </span>
-                    </div>
-                    ${totalSubtasks > 0 ? `
-                        <div class="flex items-center gap-2 text-purple-600">
-                            <i class="fas fa-tasks"></i>
-                            <span class="font-medium">${totalSubtasks} subtarea${totalSubtasks !== 1 ? 's' : ''}</span>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
+            if (templateSelect.value === 'subservice_standard') {
+                await loadTemplateSubServiceStandard();
+            } else {
+                setNotice('');
+                // no borra automáticamente en manual; solo cambia plantilla
+            }
+        });
 
-            modalTasksList.innerHTML = availableStandardTasks.map((task, index) => `
-                <div class="border-2 border-purple-200 rounded-lg p-4 bg-white">
-                    <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 bg-purple-100 text-purple-700 font-bold rounded-lg w-8 h-8 flex items-center justify-center text-sm">
-                            ${index + 1}
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                <span class="inline-flex items-center px-2 py-1 text-xs font-bold rounded ${getPriorityClass(task.priority)}">
-                                    ${task.priority.toUpperCase()}
-                                </span>
-                                <span class="inline-flex items-center px-2 py-1 text-xs font-bold rounded bg-blue-100 text-blue-800">
-                                    <i class="fas fa-clock mr-1"></i>${task.estimated_hours} hrs
-                                </span>
-                                ${task.type === 'impact' ? '<span class="inline-flex items-center px-2 py-1 text-xs font-bold rounded bg-gradient-to-r from-purple-500 to-pink-500 text-white"><i class="fas fa-star mr-1"></i>IMPACTO</span>' : ''}
-                            </div>
-                            <h4 class="font-bold text-gray-900 mb-1">${task.title}</h4>
-                            ${task.description ? `<p class="text-sm text-gray-600 mb-2">${task.description}</p>` : ''}
-                            ${task.standard_subtasks && task.standard_subtasks.length > 0 ? `
-                                <div class="mt-2 text-xs text-gray-600">
-                                    <i class="fas fa-tasks mr-1"></i>${task.standard_subtasks.length} subtarea${task.standard_subtasks.length !== 1 ? 's' : ''}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            standardTasksModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+        // Si viene old() con tareas, renderizarlas y abrir sección
+        if (Array.isArray(initialTasks) && initialTasks.length > 0) {
+            openSection();
+            initialTasks.forEach((t) => addRow(t));
+        } else if (initialTemplate && initialTemplate !== 'none') {
+            openSection();
         }
 
-        window.submitWithTasks = function() {
-            useStandardTasksHidden.value = '1';
-            form.dataset.confirmed = 'true';
-            standardTasksModal.style.display = 'none';
-            document.body.style.overflow = '';
-            form.submit();
-        };
+        // Si subservicio cambia y la plantilla actual es del subservicio, avisar.
+        subServiceIdInput?.addEventListener('change', function() {
+            if (templateSelect?.value === 'subservice_standard') {
+                setNotice('El subservicio cambió. Vuelve a cargar la plantilla para actualizar las tareas.');
+            }
+        });
 
-        window.submitWithoutTasks = function() {
-            useStandardTasksHidden.value = '0';
-            form.dataset.confirmed = 'true';
-            standardTasksModal.style.display = 'none';
-            document.body.style.overflow = '';
-            form.submit();
-        };
-
-        function displayStandardTasks(tasks) {
-            // Actualizar contador
-            const totalSubtasks = tasks.reduce((sum, task) => sum + (task.standard_subtasks?.length || 0), 0);
-            standardTasksCount.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-layer-group text-purple-600"></i>
-                    <span><strong>${tasks.length}</strong> tarea${tasks.length !== 1 ? 's' : ''} predefinida${tasks.length !== 1 ? 's' : ''}</span>
-                    ${totalSubtasks > 0 ? `<span class="text-purple-500">• <strong>${totalSubtasks}</strong> subtarea${totalSubtasks !== 1 ? 's' : ''} total${totalSubtasks !== 1 ? 'es' : ''}</span>` : ''}
-                </div>
-            `;
-
-            standardTasksList.innerHTML = tasks.map((task, index) => `
-                <div class="border-2 border-purple-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-                    <div class="flex items-start gap-3">
-                        <div class="flex-shrink-0 bg-purple-100 text-purple-700 font-bold rounded-lg w-8 h-8 flex items-center justify-center text-sm">
-                            ${index + 1}
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-2 flex-wrap">
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg ${getPriorityClass(task.priority)}">
-                                    ${task.priority.toUpperCase()}
-                                </span>
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-100 text-blue-800">
-                                    <i class="fas fa-clock mr-1"></i>${task.estimated_hours} hrs
-                                </span>
-                                ${task.type === 'impact' ? '<span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white"><i class="fas fa-star mr-1"></i>IMPACTO</span>' : ''}
-                            </div>
-                            <h4 class="font-bold text-gray-900 mb-1 text-lg">${task.title}</h4>
-                            ${task.description ? `<p class="text-sm text-gray-600 mb-3">${task.description}</p>` : ''}
-                            ${task.standard_subtasks && task.standard_subtasks.length > 0 ? `
-                                <div class="mt-3 bg-purple-50 rounded-lg p-3 border border-purple-100">
-                                    <p class="text-xs font-bold text-purple-700 mb-2 flex items-center gap-2">
-                                        <i class="fas fa-tasks"></i>
-                                        Subtareas incluidas (${task.standard_subtasks.length}):
-                                    </p>
-                                    <ul class="space-y-1.5">
-                                        ${task.standard_subtasks.map(subtask => `
-                                            <li class="flex items-start gap-2 text-sm text-gray-700">
-                                                <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
-                                                <span>${subtask.title}</span>
-                                            </li>
-                                        `).join('')}
-                                    </ul>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function getPriorityClass(priority) {
-            const classes = {
-                'critical': 'bg-red-100 text-red-800',
-                'high': 'bg-orange-100 text-orange-800',
-                'medium': 'bg-yellow-100 text-yellow-800',
-                'low': 'bg-green-100 text-green-800'
-            };
-            return classes[priority] || 'bg-gray-100 text-gray-800';
-        }
     });
     </script>
 @endsection

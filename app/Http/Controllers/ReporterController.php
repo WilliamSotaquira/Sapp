@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reporter;
+use App\Support\DepartmentOptions;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ReporterController extends Controller
 {
@@ -23,7 +25,7 @@ class ReporterController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:reporters',
-            'department' => 'required|string|max:255',
+            'department' => ['required', 'string', 'max:255', Rule::in(DepartmentOptions::all())],
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:255',
             'is_active' => 'boolean'
@@ -57,7 +59,18 @@ class ReporterController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:reporters,email,' . $reporter->id,
-            'department' => 'required|string|max:255',
+            'department' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($reporter) {
+                    $value = is_string($value) ? trim($value) : $value;
+                    $allowed = DepartmentOptions::all();
+                    if (!in_array($value, $allowed, true) && $value !== $reporter->department) {
+                        $fail('El departamento seleccionado no es válido.');
+                    }
+                },
+            ],
             'phone' => 'nullable|string|max:20',
             'position' => 'nullable|string|max:255',
             'is_active' => 'boolean'

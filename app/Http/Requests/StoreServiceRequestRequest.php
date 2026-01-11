@@ -33,6 +33,25 @@ class StoreServiceRequestRequest extends FormRequest
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'web_routes' => 'required|string',
             'is_reportable' => 'sometimes|boolean',
+
+            // Tareas (opcional)
+            'tasks_template' => 'nullable|in:none,subservice_standard',
+            'tasks' => 'nullable|array',
+            'tasks.*.title' => 'nullable|string|max:255',
+            'tasks.*.description' => 'nullable|string',
+            'tasks.*.type' => 'nullable|in:impact,regular',
+            'tasks.*.priority' => 'nullable|in:urgent,high,medium,low',
+            'tasks.*.estimated_minutes' => 'nullable|integer|min:0|max:9999',
+            'tasks.*.estimated_hours' => 'nullable|numeric|min:0|max:99.9',
+            'tasks.*.estimate_mode' => 'nullable|in:auto,manual',
+            'tasks.*.standard_task_id' => 'nullable|exists:standard_tasks,id',
+
+            // Subtareas (opcional dentro de cada tarea)
+            'tasks.*.subtasks' => 'nullable|array',
+            'tasks.*.subtasks.*.title' => 'nullable|string|max:255',
+            'tasks.*.subtasks.*.notes' => 'nullable|string',
+            'tasks.*.subtasks.*.priority' => 'nullable|in:high,medium,low',
+            'tasks.*.subtasks.*.estimated_minutes' => 'nullable|integer|min:0|max:9999',
         ];
     }
 
@@ -65,17 +84,71 @@ class StoreServiceRequestRequest extends FormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $tasks = $this->input('tasks');
+            if (!is_array($tasks)) {
+                return;
+            }
+
+            foreach ($tasks as $i => $task) {
+                if (!is_array($task)) {
+                    continue;
+                }
+
+                $standardTaskId = $task['standard_task_id'] ?? null;
+                $description = $task['description'] ?? null;
+
+                // Consistente con otras pantallas: mínimo 10 caracteres.
+                // Solo aplica a tareas manuales (sin standard_task_id) y cuando se envía descripción.
+                if (empty($standardTaskId) && is_string($description)) {
+                    $len = mb_strlen(trim($description));
+                    if ($len > 0 && $len < 10) {
+                        $validator->errors()->add(
+                            "tasks.$i.description",
+                            'La descripción de la tarea debe tener al menos 10 caracteres.'
+                        );
+                    }
+                }
+            }
+        });
+    }
+
     /**
      * Prepare the data for validation.
      */
     protected function prepareForValidation(): void
     {
-        // Procesar web_routes si viene como JSON string
-        if ($this->has('web_routes') && is_string($this->web_routes)) {
-            $decoded = json_decode($this->web_routes, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $this->merge(['web_routes' => json_encode($decoded)]);
+        // Procesar web_routes (puede venir como string JSON o como array)
+        if ($this->has('web_routes')) {
+            if (is_array($this->web_routes)) {
+                $this->merge(['web_routes' => json_encode($this->web_routes)]);
+            } elseif (is_string($this->web_routes)) {
+                $decoded = json_decode($this->web_routes, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $this->merge(['web_routes' => json_encode($decoded)]);
+                }
             }
+        }
+
+        // Normalizar decimales con coma en tareas (ej: "0,92" => "0.92")
+        $tasks = $this->input('tasks');
+        if (is_array($tasks)) {
+            foreach ($tasks as $i => $task) {
+                if (!is_array($task)) {
+                    continue;
+                }
+
+                if (array_key_exists('estimated_hours', $task) && is_string($task['estimated_hours'])) {
+                    $v = trim($task['estimated_hours']);
+                    if ($v !== '') {
+                        $tasks[$i]['estimated_hours'] = str_replace(',', '.', $v);
+                    }
+                }
+            }
+
+            $this->merge(['tasks' => $tasks]);
         }
     }
 }
