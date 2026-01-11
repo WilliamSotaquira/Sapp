@@ -22,7 +22,8 @@ class TechnicianModuleSeeder extends Seeder
                 'name' => 'Juan Pérez',
                 'email' => 'juan.perez@example.com',
                 'experience_level' => 'senior',
-                'specialties' => ['Backend', 'Laravel', 'PHP', 'API Development'],
+                'specialization' => 'Backend',
+                'years_experience' => 5.0,
                 'skills' => [
                     ['skill_name' => 'Laravel', 'proficiency_level' => 'expert', 'years_experience' => 5, 'is_primary' => true],
                     ['skill_name' => 'PHP', 'proficiency_level' => 'expert', 'years_experience' => 6, 'is_primary' => false],
@@ -34,7 +35,8 @@ class TechnicianModuleSeeder extends Seeder
                 'name' => 'María García',
                 'email' => 'maria.garcia@example.com',
                 'experience_level' => 'senior',
-                'specialties' => ['Frontend', 'React', 'Vue.js', 'UI/UX'],
+                'specialization' => 'Frontend',
+                'years_experience' => 4.0,
                 'skills' => [
                     ['skill_name' => 'React', 'proficiency_level' => 'expert', 'years_experience' => 4, 'is_primary' => true],
                     ['skill_name' => 'Vue.js', 'proficiency_level' => 'advanced', 'years_experience' => 3, 'is_primary' => false],
@@ -46,7 +48,8 @@ class TechnicianModuleSeeder extends Seeder
                 'name' => 'Carlos Rodríguez',
                 'email' => 'carlos.rodriguez@example.com',
                 'experience_level' => 'mid',
-                'specialties' => ['Fullstack', 'Laravel', 'Vue.js', 'Database'],
+                'specialization' => 'Fullstack',
+                'years_experience' => 3.0,
                 'skills' => [
                     ['skill_name' => 'Laravel', 'proficiency_level' => 'advanced', 'years_experience' => 3, 'is_primary' => true],
                     ['skill_name' => 'Vue.js', 'proficiency_level' => 'intermediate', 'years_experience' => 2, 'is_primary' => false],
@@ -58,7 +61,8 @@ class TechnicianModuleSeeder extends Seeder
                 'name' => 'Ana Martínez',
                 'email' => 'ana.martinez@example.com',
                 'experience_level' => 'mid',
-                'specialties' => ['DevOps', 'Infraestructura', 'CI/CD', 'Docker'],
+                'specialization' => 'DevOps',
+                'years_experience' => 3.0,
                 'skills' => [
                     ['skill_name' => 'Docker', 'proficiency_level' => 'advanced', 'years_experience' => 3, 'is_primary' => true],
                     ['skill_name' => 'Linux', 'proficiency_level' => 'expert', 'years_experience' => 4, 'is_primary' => false],
@@ -70,7 +74,8 @@ class TechnicianModuleSeeder extends Seeder
                 'name' => 'Luis Fernández',
                 'email' => 'luis.fernandez@example.com',
                 'experience_level' => 'junior',
-                'specialties' => ['Frontend', 'JavaScript', 'HTML', 'CSS'],
+                'specialization' => 'Frontend',
+                'years_experience' => 1.5,
                 'skills' => [
                     ['skill_name' => 'JavaScript', 'proficiency_level' => 'intermediate', 'years_experience' => 1, 'is_primary' => true],
                     ['skill_name' => 'HTML/CSS', 'proficiency_level' => 'advanced', 'years_experience' => 2, 'is_primary' => false],
@@ -93,14 +98,12 @@ class TechnicianModuleSeeder extends Seeder
             $technician = Technician::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'specialties' => $techData['specialties'],
-                    'experience_level' => $techData['experience_level'],
-                    'remote_available' => true,
-                    'work_start_time' => '08:00',
-                    'work_end_time' => '17:00',
                     'status' => 'active',
-                    'daily_capacity_minutes' => 480, // 8 horas
-                    'max_concurrent_tasks' => 1,
+                    'availability_status' => 'available',
+                    'specialization' => $techData['specialization'] ?? null,
+                    'years_experience' => $techData['years_experience'] ?? 0,
+                    'skill_level' => $techData['experience_level'],
+                    'max_daily_capacity_hours' => 8.0,
                 ]
             );
 

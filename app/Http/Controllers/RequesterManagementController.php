@@ -47,7 +47,7 @@ class RequesterManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:requesters,email',
             'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:255',
+            'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions())],
             'position' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);
@@ -92,7 +92,21 @@ class RequesterManagementController extends Controller
                 Rule::unique('requesters')->ignore($requester->id),
             ],
             'phone' => 'nullable|string|max:20',
-            'department' => 'nullable|string|max:255',
+            'department' => [
+                'nullable',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($requester) {
+                    $value = is_string($value) ? trim($value) : $value;
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+                    $allowed = Requester::getDepartmentOptions();
+                    if (!in_array($value, $allowed, true) && $value !== $requester->department) {
+                        $fail('El departamento seleccionado no es válido.');
+                    }
+                },
+            ],
             'position' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);

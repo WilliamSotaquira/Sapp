@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestEvidence;
 use App\Models\SubService;
+use App\Models\StandardTask;
+use App\Models\Task;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +14,40 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class ServiceRequestService
 {
+    private function calculateEstimatedMinutesFromSubtasks(array $subtasks): int
+    {
+        $totalMinutes = 0;
+
+        foreach ($subtasks as $subtask) {
+            if (!is_array($subtask)) {
+                continue;
+            }
+
+            $minutesRaw = $subtask['estimated_minutes'] ?? null;
+            if ($minutesRaw === null || $minutesRaw === '') {
+                $minutes = 25;
+            } else {
+                $minutes = (int) $minutesRaw;
+            }
+
+            if ($minutes > 0) {
+                $totalMinutes += $minutes;
+            }
+        }
+
+        return $totalMinutes;
+    }
+
+    private function calculateEstimatedHoursFromSubtasks(array $subtasks): ?float
+    {
+        $totalMinutes = $this->calculateEstimatedMinutesFromSubtasks($subtasks);
+        if ($totalMinutes <= 0) {
+            return null;
+        }
+
+        return round($totalMinutes / 60, 2);
+    }
+
     /**
      * Construir query base con los filtros aplicados
      */
@@ -167,6 +203,11 @@ class ServiceRequestService
         Log::info('=== CREANDO NUEVA SOLICITUD ===', ['data' => $data]);
 
         try {
+            $tasks = $data['tasks'] ?? null;
+            $tasksTemplate = $data['tasks_template'] ?? null;
+
+            unset($data['tasks'], $data['tasks_template']);
+
             // Procesar web_routes si existe
             if (!empty($data['web_routes'])) {
                 $data['web_routes'] = is_string($data['web_routes'])
@@ -174,7 +215,13 @@ class ServiceRequestService
                     : $data['web_routes'];
             }
 
-            $serviceRequest = ServiceRequest::create($data);
+            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate) {
+                $serviceRequest = ServiceRequest::create($data);
+
+                $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
+
+                return $serviceRequest;
+            });
 
             Log::info('✅ Solicitud creada exitosamente', [
                 'id' => $serviceRequest->id,
@@ -184,8 +231,187 @@ class ServiceRequestService
 
             return $serviceRequest;
         } catch (\Exception $e) {
-            Log::error('❌ Error al crear solicitud: ' . $e->getMessage());
+            Log::error('❌ Error al crear solicitud: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             throw $e;
+        }
+    }
+
+    private function createOptionalTasksForRequest(ServiceRequest $serviceRequest, ?array $tasks, ?string $tasksTemplate): void
+    {
+        $tasks = is_array($tasks) ? $tasks : [];
+
+        $normalized = [];
+        foreach ($tasks as $task) {
+            if (!is_array($task)) {
+                continue;
+            }
+
+            $title = trim((string)($task['title'] ?? ''));
+            if ($title === '') {
+                continue;
+            }
+
+            $subtasksNormalized = (function () use ($task) {
+                $subtasks = $task['subtasks'] ?? null;
+                if (!is_array($subtasks)) {
+                    return [];
+                }
+
+                $out = [];
+                foreach ($subtasks as $subtask) {
+                    if (!is_array($subtask)) {
+                        continue;
+                    }
+
+                    $stTitle = trim((string)($subtask['title'] ?? ''));
+                    if ($stTitle === '') {
+                        continue;
+                    }
+
+                    $out[] = [
+                        'title' => $stTitle,
+                        'notes' => trim((string)($subtask['notes'] ?? '')) ?: null,
+                        'priority' => in_array(($subtask['priority'] ?? 'medium'), ['high', 'medium', 'low'], true)
+                            ? $subtask['priority']
+                            : 'medium',
+                        'estimated_minutes' => isset($subtask['estimated_minutes']) && $subtask['estimated_minutes'] !== ''
+                            ? (int) $subtask['estimated_minutes']
+                            : null,
+                    ];
+                }
+
+                return $out;
+            })();
+
+            $minutesFromSubtasks = $this->calculateEstimatedMinutesFromSubtasks($subtasksNormalized);
+            $manualMinutes = null;
+            if (array_key_exists('estimated_minutes', $task) && $task['estimated_minutes'] !== '') {
+                $manualMinutes = max(0, (int) $task['estimated_minutes']);
+            } elseif (array_key_exists('estimated_hours', $task) && $task['estimated_hours'] !== '') {
+                $manualMinutes = max(0, (int) round(((float) $task['estimated_hours']) * 60));
+            }
+
+            if ($minutesFromSubtasks > 0) {
+                $estimatedHours = round($minutesFromSubtasks / 60, 2);
+            } elseif ($manualMinutes !== null) {
+                $estimatedHours = round($manualMinutes / 60, 2);
+            } else {
+                $estimatedHours = isset($task['estimated_hours']) && $task['estimated_hours'] !== ''
+                    ? (float) $task['estimated_hours']
+                    : null;
+            }
+
+            $normalized[] = [
+                'title' => $title,
+                'description' => trim((string)($task['description'] ?? '')) ?: null,
+                'type' => ($task['type'] ?? 'regular') === 'impact' ? 'impact' : 'regular',
+                'priority' => in_array(($task['priority'] ?? 'medium'), ['urgent', 'high', 'medium', 'low'], true)
+                    ? $task['priority']
+                    : 'medium',
+                'estimated_hours' => $estimatedHours,
+                'estimate_mode' => 'manual',
+                'standard_task_id' => isset($task['standard_task_id']) && $task['standard_task_id'] !== ''
+                    ? (int) $task['standard_task_id']
+                    : null,
+                'subtasks' => $subtasksNormalized,
+            ];
+        }
+
+        // Fallback: si el usuario eligió plantilla y no llegaron tasks[] (JS deshabilitado)
+        if (empty($normalized) && $tasksTemplate === 'subservice_standard') {
+            $standardTasks = StandardTask::query()
+                ->with('standardSubtasks')
+                ->where('sub_service_id', $serviceRequest->sub_service_id)
+                ->active()
+                ->ordered()
+                ->get();
+
+            foreach ($standardTasks as $st) {
+                $fallbackSubtasks = $st->standardSubtasks
+                    ? $st->standardSubtasks->map(function ($sst) {
+                        return [
+                            'title' => $sst->title,
+                            'notes' => $sst->description ?: null,
+                            'priority' => in_array($sst->priority, ['high', 'medium', 'low'], true) ? $sst->priority : 'medium',
+                            // Sin estimated_minutes para usar el default del modelo (25)
+                            'estimated_minutes' => null,
+                        ];
+                    })->values()->all()
+                    : [];
+
+                $autoEstimated = $this->calculateEstimatedHoursFromSubtasks($fallbackSubtasks);
+
+                $normalized[] = [
+                    'title' => $st->title,
+                    'description' => $st->description,
+                    'type' => $st->type === 'impact' ? 'impact' : 'regular',
+                    'priority' => in_array($st->priority, ['urgent', 'high', 'medium', 'low'], true) ? $st->priority : 'medium',
+                    'estimated_hours' => $autoEstimated ?? $st->estimated_hours,
+                    'estimate_mode' => 'manual',
+                    'standard_task_id' => $st->id,
+                    'technical_complexity' => $st->technical_complexity,
+                    'technologies' => $st->technologies,
+                    'required_accesses' => $st->required_accesses,
+                    'environment' => $st->environment,
+                    'technical_notes' => $st->technical_notes,
+                    'subtasks' => $fallbackSubtasks,
+                ];
+            }
+        }
+
+        if (empty($normalized)) {
+            return;
+        }
+
+        foreach ($normalized as $taskData) {
+            $task = Task::create([
+                'service_request_id' => $serviceRequest->id,
+                'standard_task_id' => $taskData['standard_task_id'] ?? null,
+                'type' => $taskData['type'] ?? 'regular',
+                'title' => $taskData['title'],
+                'description' => $taskData['description'] ?? null,
+                'priority' => $taskData['priority'] ?? 'medium',
+                'status' => 'pending',
+                'estimated_hours' => $taskData['estimated_hours'] ?? null,
+                'technical_complexity' => $taskData['technical_complexity'] ?? 3,
+                'technologies' => $taskData['technologies'] ?? null,
+                'required_accesses' => $taskData['required_accesses'] ?? null,
+                'environment' => $taskData['environment'] ?? null,
+                'technical_notes' => $taskData['technical_notes'] ?? null,
+            ]);
+
+            $subtasks = $taskData['subtasks'] ?? [];
+            if (is_array($subtasks) && !empty($subtasks)) {
+                $order = 0;
+                foreach ($subtasks as $subtaskData) {
+                    if (!is_array($subtaskData)) {
+                        continue;
+                    }
+
+                    $stTitle = trim((string)($subtaskData['title'] ?? ''));
+                    if ($stTitle === '') {
+                        continue;
+                    }
+
+                    $create = [
+                        'title' => $stTitle,
+                        'notes' => isset($subtaskData['notes']) ? (trim((string)$subtaskData['notes']) ?: null) : null,
+                        'priority' => in_array(($subtaskData['priority'] ?? 'medium'), ['high', 'medium', 'low'], true)
+                            ? $subtaskData['priority']
+                            : 'medium',
+                        'order' => $order,
+                    ];
+
+                    if (isset($subtaskData['estimated_minutes']) && $subtaskData['estimated_minutes'] !== null && $subtaskData['estimated_minutes'] !== '') {
+                        $create['estimated_minutes'] = (int) $subtaskData['estimated_minutes'];
+                    }
+
+                    $task->subtasks()->create($create);
+                    $order++;
+                }
+            }
         }
     }
 
