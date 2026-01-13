@@ -567,18 +567,34 @@
 
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
-        <!-- Flash Messages -->
-        @if (session('success'))
-            <div
-                class="alert-flash bg-green-100 border border-green-400 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
-                {{ session('success') }}
-            </div>
-        @endif
+        <!-- Flash Messages (toast flotante para evitar salto de layout) -->
+        @if (session('success') || session('error'))
+            <div class="fixed top-20 right-4 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md space-y-2">
+                @if (session('success'))
+                    <div class="alert-flash flex items-start gap-3 bg-green-100 border border-green-400 text-green-800 px-3 sm:px-4 py-2 sm:py-3 rounded shadow-lg text-sm sm:text-base"
+                        role="status" aria-live="polite">
+                        <div class="flex-1">
+                            {{ session('success') }}
+                        </div>
+                        <button type="button" class="text-green-800/70 hover:text-green-900" aria-label="Cerrar"
+                            data-flash-close>
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                @endif
 
-        @if (session('error'))
-            <div
-                class="alert-flash bg-red-100 border border-red-400 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded relative mb-3 sm:mb-4 text-sm sm:text-base">
-                {{ session('error') }}
+                @if (session('error'))
+                    <div class="alert-flash flex items-start gap-3 bg-red-100 border border-red-400 text-red-800 px-3 sm:px-4 py-2 sm:py-3 rounded shadow-lg text-sm sm:text-base"
+                        role="alert" aria-live="assertive">
+                        <div class="flex-1">
+                            {{ session('error') }}
+                        </div>
+                        <button type="button" class="text-red-800/70 hover:text-red-900" aria-label="Cerrar"
+                            data-flash-close>
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                @endif
             </div>
         @endif
 
@@ -608,6 +624,16 @@
                 setTimeout(() => msg.remove(), 500);
             });
         }, 5000);
+
+        document.addEventListener('click', function(event) {
+            const closeBtn = event.target.closest('[data-flash-close]');
+            if (!closeBtn) return;
+            const flash = closeBtn.closest('.alert-flash, .flash-message');
+            if (!flash) return;
+            flash.style.transition = 'opacity 0.2s';
+            flash.style.opacity = '0';
+            setTimeout(() => flash.remove(), 200);
+        });
 
         document.addEventListener('DOMContentLoaded', function() {
             setupNavigationMenus();

@@ -120,10 +120,16 @@
                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
                         <i class="fas fa-pencil-alt mr-2 text-gray-400"></i>Editar
                     </a>
-                    <button onclick="confirmDelete()" 
-                            class="inline-flex items-center px-3 py-2 border border-red-200 rounded-md text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
-                        <i class="fas fa-trash-alt mr-2"></i>Eliminar
-                    </button>
+                    <form action="{{ route('tasks.destroy', $task) }}" method="POST"
+                          onsubmit="return confirm('¿Está seguro de eliminar esta tarea? Esta acción no se puede deshacer.');"
+                          class="inline">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit"
+                                class="inline-flex items-center px-3 py-2 border border-red-200 rounded-md text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
+                            <i class="fas fa-trash-alt mr-2"></i>Eliminar
+                        </button>
+                    </form>
                     <a href="{{ route('tasks.index') }}" 
                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
                         <i class="fas fa-arrow-left mr-2 text-gray-400"></i>Volver
@@ -136,7 +142,7 @@
         <div class="px-6 py-3 bg-gray-50 flex flex-wrap items-center gap-6 text-sm">
             <div class="flex items-center gap-2 text-gray-600">
                 <i class="fas fa-calendar text-gray-400"></i>
-                <span>{{ $task->scheduled_date->format('d/m/Y') }}</span>
+                <span>{{ $task->scheduled_date ? $task->scheduled_date->format('d/m/Y') : 'Sin fecha' }}</span>
             </div>
             <div class="flex items-center gap-2 text-gray-600">
                 <i class="fas fa-clock text-gray-400"></i>
@@ -167,7 +173,7 @@
         </div>
         <div class="flex-1">
             <p class="text-sm font-semibold text-red-800">Tarea vencida</p>
-            <p class="text-sm text-red-600">Fecha límite: {{ $task->due_date->format('d/m/Y') }}. Requiere atención inmediata.</p>
+            <p class="text-sm text-red-600">Fecha límite: {{ $task->due_date ? $task->due_date->format('d/m/Y') : 'Sin fecha' }}. Requiere atención inmediata.</p>
         </div>
     </div>
     @elseif($isDueSoon)
@@ -177,7 +183,7 @@
         </div>
         <div class="flex-1">
             <p class="text-sm font-semibold text-amber-800">Próxima a vencer</p>
-            <p class="text-sm text-amber-600">Vence {{ $task->due_date->diffForHumans() }} ({{ $task->due_date->format('d/m/Y H:i') }})</p>
+            <p class="text-sm text-amber-600">Vence {{ $task->due_date ? $task->due_date->diffForHumans() : 'Sin fecha' }} ({{ $task->due_date ? $task->due_date->format('d/m/Y H:i') : '--' }})</p>
         </div>
     </div>
     @endif
@@ -494,12 +500,6 @@
     </div>
 </div>
 
-<!-- Delete Form -->
-<form id="deleteForm" action="{{ route('tasks.destroy', $task) }}" method="POST" class="hidden">
-    @csrf
-    @method('DELETE')
-</form>
-
 <style>
 .toast {
     position: fixed;
@@ -572,12 +572,6 @@ function showBlockModal() {
 
 function hideBlockModal() {
     document.getElementById('blockModal').classList.add('hidden');
-}
-
-function confirmDelete() {
-    if (confirm('¿Está seguro de eliminar esta tarea? Esta acción no se puede deshacer.')) {
-        document.getElementById('deleteForm').submit();
-    }
 }
 
 function updateProgressBar() {

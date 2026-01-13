@@ -108,7 +108,7 @@
                             @foreach($technicians as $technician)
                                 @if($technician->user)
                                     <option value="{{ $technician->id }}" {{ (string) $selectedTechnicianId === (string) $technician->id ? 'selected' : '' }}>
-                                        {{ $technician->user->name }} - {{ ucfirst($technician->specialization) }}
+                                        {{ $technician->user->name }} - {{ ucfirst($technician->specialization ?? 'General') }}
                                     </option>
                                 @endif
                             @endforeach
@@ -350,9 +350,24 @@
                                     </span>
                                     <span class="text-xs text-blue-700">·</span>
                                     <span class="text-xs text-blue-700">
-                                        Se autocompletó técnico, prioridad y duración
+                                        @if(!empty($preselectedTechnicianId))
+                                            Se autocompletó técnico, prioridad y duración
+                                        @else
+                                            Se autocompletó prioridad y duración
+                                        @endif
                                     </span>
                                 </div>
+
+                                @if(!empty($needsTechnicianSelection))
+                                    <div class="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
+                                        <p class="text-xs text-amber-800">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>
+                                            La solicitud está asignada a <span class="font-medium">{{ $preselectedServiceRequest->assignee->name ?? 'un usuario' }}</span>,
+                                            pero no tiene perfil de técnico. Selecciona un técnico manualmente antes de guardar.
+                                        </p>
+                                    </div>
+                                @endif
+
                                 <div class="mt-3">
                                     <button type="button"
                                         id="unlinkServiceRequestBtn"
@@ -1382,7 +1397,7 @@
                 }
 
                 if (data.length === 0) {
-                    select.innerHTML = '<option value="">No hay solicitudes ACEPTADAS disponibles</option>';
+                    select.innerHTML = '<option value="">No hay solicitudes disponibles</option>';
                     noRequestsAlert.classList.remove('hidden');
                     return;
                 }
