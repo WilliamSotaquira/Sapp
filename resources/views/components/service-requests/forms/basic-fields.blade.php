@@ -10,6 +10,14 @@
 
 <div class="space-y-6">
 
+    @php
+        $titleBorderClass = $errors->has('title') ? 'border-red-500' : 'border-gray-300';
+        $descriptionBorderClass = $errors->has('description') ? 'border-red-500' : 'border-gray-300';
+        $requesterBorderClass = $errors->has('requester_id') ? 'border-red-500' : 'border-gray-300';
+        $entryChannelBorderClass = $errors->has('entry_channel') ? 'border-red-500' : 'border-gray-300';
+        $subServiceBorderClass = $errors->has('sub_service_id') ? 'border-red-500' : 'border-gray-300';
+    @endphp
+
     {{-- En tu formulario, muestra todos los errores --}}
     @if ($errors->any())
         <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -35,7 +43,9 @@
         </label>
         <input type="text" name="title" id="title" value="{{ old('title', $serviceRequest->title ?? '') }}"
             placeholder="Ingrese un título descriptivo para la solicitud"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('title') border-red-500 @enderror"
+            class="w-full px-4 py-3 border {{ $titleBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+            @if(($mode ?? 'create') === 'create' && !$errors->any()) autofocus @endif
+            @error('title') aria-invalid="true" @enderror
             required maxlength="255">
         @error('title')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -51,7 +61,7 @@
         </label>
         <textarea name="description" id="description" rows="4"
             placeholder="Describa en detalle el problema o requerimiento..."
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('description') border-red-500 @enderror"
+            class="w-full px-4 py-3 border {{ $descriptionBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             required>{{ old('description', $serviceRequest->description ?? '') }}</textarea>
         @error('description')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -70,7 +80,7 @@
         @endphp
 
         <select name="requester_id" id="requester_id"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('requester_id') border-red-500 @enderror"
+            class="w-full px-4 py-3 border {{ $requesterBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             required>
             <option value="">Seleccione un solicitante</option>
             @foreach ($requesters as $requester)
@@ -191,7 +201,7 @@
             Canal de ingreso <span class="text-red-500">*</span>
         </label>
         <select name="entry_channel" id="entry_channel"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('entry_channel') border-red-500 @enderror"
+            class="w-full px-4 py-3 border {{ $entryChannelBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             required>
             <option value="">Selecciona un canal</option>
             @foreach ($entryChannelOptions as $value => $option)
@@ -220,7 +230,7 @@
         </label>
 
         <select name="sub_service_id" id="sub_service_id"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 @error('sub_service_id') border-red-500 @enderror"
+            class="w-full px-4 py-3 border {{ $subServiceBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             required>
             <option value="">Seleccione un subservicio</option>
             @php

@@ -134,6 +134,45 @@
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');
+
+            // Posicionar foco correctamente:
+            // - Si hay errores de validación, enfocar el primer campo con error.
+            // - Si no hay errores, enfocar el título.
+            (function positionInitialFocus() {
+                if (!formEl) return;
+
+                const isVisible = (el) => {
+                    if (!el) return false;
+                    if (el.disabled) return false;
+                    if (el.type === 'hidden') return false;
+                    const style = window.getComputedStyle(el);
+                    if (style.visibility === 'hidden' || style.display === 'none') return false;
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                };
+
+                const errorField = formEl.querySelector('input.border-red-500, select.border-red-500, textarea.border-red-500');
+                const titleField = document.getElementById('title');
+
+                const target = (errorField && isVisible(errorField)) ? errorField : (titleField && isVisible(titleField) ? titleField : null);
+                if (!target) return;
+
+                // Esperar un tick por si hay scripts que re-renderizan/selectores.
+                setTimeout(() => {
+                    try {
+                        target.focus({ preventScroll: true });
+                    } catch (e) {
+                        target.focus();
+                    }
+
+                    try {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch (e) {
+                        // no-op
+                    }
+                }, 0);
+            })();
+
         const toggleBtn = document.getElementById('toggleTasksSection');
         const body = document.getElementById('tasksSectionBody');
         const chevron = document.getElementById('tasksChevron');
