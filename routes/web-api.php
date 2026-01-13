@@ -379,7 +379,7 @@ Route::prefix('api')->name('api.')->group(function () {
 
             $requests = \App\Models\ServiceRequest::with('sla')
                 ->where('assigned_to', $userId)
-                ->whereIn('status', ['ACEPTADA', 'PENDIENTE']) // Incluir PENDIENTE para pruebas
+                ->whereIn('status', ['ACEPTADA', 'PENDIENTE', 'EN_PROCESO'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 

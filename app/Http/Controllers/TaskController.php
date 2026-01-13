@@ -72,6 +72,8 @@ class TaskController extends Controller
      */
     public function create(Request $request)
     {
+        $allowedServiceRequestStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'];
+
         $technicians = Technician::with('user')
             ->active()
             ->whereHas('user')
@@ -80,7 +82,7 @@ class TaskController extends Controller
         // Solo solicitudes ABIERTAS (PENDIENTE, ACEPTADA, EN_PROCESO) asignadas al usuario actual
         $serviceRequests = ServiceRequest::with(['assignee.technician', 'sla'])
             ->where('assigned_to', auth()->id())
-            ->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'])
+            ->whereIn('status', $allowedServiceRequestStatuses)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -93,6 +95,7 @@ class TaskController extends Controller
         $preselectedTechnicianId = null;
         $preselectedPriority = null;
         $preselectedEstimatedHours = null;
+        $needsTechnicianSelection = false;
 
         $requestedServiceRequestId = (int) $request->query('service_request_id');
 
@@ -100,14 +103,21 @@ class TaskController extends Controller
             $preselectedServiceRequest = $serviceRequests->firstWhere('id', $requestedServiceRequestId);
 
             if (!$preselectedServiceRequest) {
+                // Si viene explícitamente una solicitud por query, priorizamos cargarla por ID
+                // (aunque no pertenezca al usuario actual) para poder dar una respuesta clara.
                 $preselectedServiceRequest = ServiceRequest::with(['assignee.technician', 'sla'])
                     ->where('id', $requestedServiceRequestId)
-                    ->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'])
                     ->first();
+            }
 
-                if ($preselectedServiceRequest && !$serviceRequests->contains('id', $preselectedServiceRequest->id)) {
-                    $serviceRequests = $serviceRequests->prepend($preselectedServiceRequest);
-                }
+            if ($preselectedServiceRequest && !$serviceRequests->contains('id', $preselectedServiceRequest->id)) {
+                $serviceRequests = $serviceRequests->prepend($preselectedServiceRequest);
+            }
+
+            if ($preselectedServiceRequest && !in_array($preselectedServiceRequest->status, $allowedServiceRequestStatuses, true)) {
+                return redirect()
+                    ->route('service-requests.show', $preselectedServiceRequest)
+                    ->with('error', 'No se pueden crear tareas para una solicitud en estado ' . $preselectedServiceRequest->status . '.');
             }
 
             if ($preselectedServiceRequest && empty($preselectedServiceRequest->assigned_to)) {
@@ -117,7 +127,44 @@ class TaskController extends Controller
             }
 
             if ($preselectedServiceRequest) {
-                $preselectedTechnicianId = optional(optional($preselectedServiceRequest->assignee)->technician)->id;
+                // Derivar el técnico desde assigned_to (users.id) para evitar depender de eager loading/relaciones.
+                $preselectedTechnicianId = Technician::withTrashed()->where('user_id', $preselectedServiceRequest->assigned_to)->value('id')
+                    ?? optional(optional($preselectedServiceRequest->assignee)->technician)->id;
+
+                // Si la SR está asignada a un usuario pero no existe registro en technicians,
+                // lo creamos para mantener consistencia entre el módulo de Solicitudes y el módulo de Tareas.
+                if (!$preselectedTechnicianId && !empty($preselectedServiceRequest->assigned_to)) {
+                    $assigneeUserId = (int) $preselectedServiceRequest->assigned_to;
+
+                    $technician = Technician::withTrashed()->where('user_id', $assigneeUserId)->first();
+                    if ($technician) {
+                        if (method_exists($technician, 'trashed') && $technician->trashed()) {
+                            $technician->restore();
+                        }
+                        $technician->status = 'active';
+                        $technician->availability_status = $technician->availability_status ?: 'available';
+                        $technician->save();
+                    } else {
+                        $technician = Technician::create([
+                            'user_id' => $assigneeUserId,
+                            'status' => 'active',
+                            'availability_status' => 'available',
+                        ]);
+                    }
+
+                    $preselectedTechnicianId = $technician?->id;
+                }
+
+                // Si la SR tiene assigned_to pero ese usuario no tiene perfil de técnico,
+                // permitimos continuar (sin bloquear) pero avisamos para que se seleccione manualmente.
+                $needsTechnicianSelection = !empty($preselectedServiceRequest->assigned_to) && empty($preselectedTechnicianId);
+
+                if ($preselectedTechnicianId && !$technicians->contains('id', $preselectedTechnicianId)) {
+                    $fallbackTechnician = Technician::withTrashed()->with('user')->find($preselectedTechnicianId);
+                    if ($fallbackTechnician) {
+                        $technicians = $technicians->prepend($fallbackTechnician);
+                    }
+                }
                 $preselectedPriority = $this->mapCriticalityToTaskPriority($preselectedServiceRequest->criticality_level);
 
                 if ($preselectedServiceRequest->sla && $preselectedServiceRequest->sla->resolution_time_minutes) {
@@ -126,7 +173,9 @@ class TaskController extends Controller
             }
         }
 
-        $shouldSkipInitialModal = session()->has('_old_input') || ($preselectedServiceRequest && $preselectedTechnicianId);
+        // Si viene por query (service_request_id), saltamos el modal inicial aunque no podamos inferir Technician.
+        // En ese caso el usuario podrá elegir técnico manualmente en el formulario.
+        $shouldSkipInitialModal = session()->has('_old_input') || (bool) $preselectedServiceRequest;
 
         return view('tasks.create', [
             'technicians' => $technicians,
@@ -137,6 +186,7 @@ class TaskController extends Controller
             'preselectedPriority' => $preselectedPriority,
             'preselectedEstimatedHours' => $preselectedEstimatedHours,
             'shouldSkipInitialModal' => $shouldSkipInitialModal,
+            'needsTechnicianSelection' => $needsTechnicianSelection,
         ]);
     }
 
@@ -516,14 +566,28 @@ class TaskController extends Controller
         }
 
         $technician = $serviceRequest->assigned_to
-            ? Technician::where('user_id', $serviceRequest->assigned_to)->first()
+            ? Technician::withTrashed()->where('user_id', $serviceRequest->assigned_to)->first()
             : null;
+
+        if (!$technician && $serviceRequest->assigned_to) {
+            // Mantener consistencia: si la SR está asignada a un usuario pero no existe Technician, lo creamos.
+            $assigneeUserId = (int) $serviceRequest->assigned_to;
+            $technician = Technician::create([
+                'user_id' => $assigneeUserId,
+                'status' => 'active',
+                'availability_status' => 'available',
+            ]);
+        }
 
         if (!$technician) {
             return response()->json([
                 'success' => false,
                 'message' => 'La solicitud no tiene técnico asignado. Asigna un técnico antes de crear tareas.',
             ], 422);
+        }
+
+        if (method_exists($technician, 'trashed') && $technician->trashed()) {
+            $technician->restore();
         }
 
         $date = now()->hour < 18 ? now() : now()->addDay();
@@ -1019,6 +1083,27 @@ class TaskController extends Controller
      */
     public function destroy(Task $task)
     {
+        try {
+            $task->addHistory('deleted', auth()->id(), 'Tarea eliminada', [
+                'ip' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Throwable $e) {
+            // Si por alguna razón no se puede guardar el historial (ej: enum no migrado aún),
+            // al menos dejamos traza en logs.
+            \Log::warning('No se pudo registrar el historial de eliminación de tarea', [
+                'task_id' => $task->id,
+                'user_id' => auth()->id(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        \Log::info('Tarea eliminada (soft delete)', [
+            'task_id' => $task->id,
+            'task_code' => $task->task_code,
+            'user_id' => auth()->id(),
+        ]);
+
         $task->delete();
 
         return redirect()->route('tasks.index')

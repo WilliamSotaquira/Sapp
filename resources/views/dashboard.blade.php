@@ -35,7 +35,7 @@
             <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
         </div>
         <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 overflow-x-auto pb-2 text-sm">
-            <a href="http://sapp.local:8000/service-requests/create" class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 hover:bg-blue-50 transition">
+            <a href="{{ route('service-requests.create') }}" class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 hover:bg-blue-50 transition">
                 <div class="p-2 rounded-lg bg-white text-blue-600 shadow-inner">
                     <i class="fas fa-plus-circle"></i>
                 </div>
@@ -45,7 +45,7 @@
                 </div>
                 <i class="fas fa-arrow-right text-blue-500 ml-auto"></i>
             </a>
-            <a href="http://sapp.local:8000/service-families/create" class="flex items-center gap-3 rounded-xl border border-green-100 bg-green-50/50 px-4 py-3 hover:bg-green-50 transition">
+            <a href="{{ route('service-families.create') }}" class="flex items-center gap-3 rounded-xl border border-green-100 bg-green-50/50 px-4 py-3 hover:bg-green-50 transition">
                 <div class="p-2 rounded-lg bg-white text-green-600 shadow-inner">
                     <i class="fas fa-layer-group"></i>
                 </div>
@@ -55,7 +55,7 @@
                 </div>
                 <i class="fas fa-arrow-right text-green-500 ml-auto"></i>
             </a>
-            <a href="http://sapp.local:8000/service-requests" class="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3 hover:bg-purple-50 transition">
+            <a href="{{ route('service-requests.index') }}" class="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3 hover:bg-purple-50 transition">
                 <div class="p-2 rounded-lg bg-white text-purple-600 shadow-inner">
                     <i class="fas fa-list"></i>
                 </div>
@@ -65,7 +65,7 @@
                 </div>
                 <i class="fas fa-arrow-right text-purple-500 ml-auto"></i>
             </a>
-            <a href="http://sapp.local:8000/slas" class="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3 hover:bg-orange-50 transition">
+            <a href="{{ route('slas.index') }}" class="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3 hover:bg-orange-50 transition">
                 <div class="p-2 rounded-lg bg-white text-orange-600 shadow-inner">
                     <i class="fas fa-handshake"></i>
                 </div>
@@ -256,7 +256,7 @@
     <div class="bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading">
         <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between">
             <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">Solicitudes Recientes</h2>
-            <div class="flex space-x-2 items-center text-xs sm:text-sm" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
+            <div class="flex flex-wrap gap-2 items-center text-xs sm:text-sm" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
                 <div class="relative">
                     <input
                         type="text"
@@ -278,23 +278,24 @@
             </div>
         </div>
         @php
+            $recentLimit = 5;
             if(!isset($recentRequests)) {
                 $recentRequests = \App\Models\ServiceRequest::with(['subService.service.family', 'requester'])
                     ->latest()
-                    ->take(8)
+                    ->take($recentLimit)
                     ->get();
             }
         @endphp
 
         @if($recentRequests->count() > 0)
             <div class="overflow-x-auto">
-                <table class="min-w-full" id="recent-requests-table" role="table" aria-describedby="recent-requests-caption">
+                <table class="min-w-full table-fixed" id="recent-requests-table" role="table" aria-describedby="recent-requests-caption">
                     <caption id="recent-requests-caption" class="sr-only">Tabla con las solicitudes recientes y su estado.</caption>
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="ticket" aria-sort="none" tabindex="0">Ticket <i class="fas fa-sort ml-1 text-gray-400"></i></th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="title" aria-sort="none" tabindex="0">Título <i class="fas fa-sort ml-1 text-gray-400"></i></th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Servicio</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-56">Servicio</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status" aria-sort="none" tabindex="0">Estado <i class="fas fa-sort ml-1 text-gray-400"></i></th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="date" aria-sort="none" tabindex="0">Fecha <i class="fas fa-sort ml-1 text-gray-400"></i></th>
                         </tr>
@@ -321,9 +322,11 @@
                                     <div class="text-xs text-gray-500">{{ Str::limit($request->description, 50) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <div class="flex items-center">
-                                        <span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: {{ $request->subService->service->family->color ?? '#6b7280' }}"></span>
-                                        {{ $request->subService->name ?? 'N/A' }}
+                                    @php
+                                        $serviceLabel = $request->subService->name ?? 'N/A';
+                                    @endphp
+                                    <div class="flex items-center min-w-0" title="{{ $serviceLabel }}">
+                                        <span class="truncate">{{ Str::limit($serviceLabel, 32) }}</span>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -361,11 +364,15 @@
                 </table>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div class="text-sm text-gray-500" aria-live="polite">
-                    Mostrando <span class="font-medium">{{ $recentRequests->count() }}</span> de <span class="font-medium">{{ $totalRequests }}</span> solicitudes
+                    Mostrando <span class="font-medium">{{ $recentRequests->count() }}</span>
+                    @if(isset($recentLimit))
+                        (máx. {{ $recentLimit }})
+                    @endif
+                    de <span class="font-medium">{{ $totalRequests }}</span> solicitudes
                 </div>
-                <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-800 font-medium flex items-center">
+                <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center">
                     Ver todas las solicitudes
                     <i class="fas fa-arrow-right ml-1"></i>
                 </a>
