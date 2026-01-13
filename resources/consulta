@@ -1,0 +1,59 @@
+Convertir el siguiente texto tomado de un correo de gmail en una solicitud formal de tipo ITIL que tenga la siguiente estructura.
+1. Extraer el asunto del correo que se encuentra en entre el texto que dice "Uso de Correo de Bogotá es TIC con lectores de pantalla (numero) de (numero)" y "Resumir este correo", hacer uso correcto de las reglas gramaticales para títulos no debe estar en mayúscula sostenida. NO MOSTRAR el texto "Uso de Correo de Bogotá es TIC con lectores de pantalla", ni "XX de X.XXX", ni "Asunto del correo:" solo texto sin alterarlo. No agregar fila vacía.
+2. Generar una descripción de la solicitud, debe ser concisa y que no sea muy extensa o confusa (NO MOSTRAR "Descripción:" solo el texto). Agregar fila vacía.
+3. Nombre de quien solicita, solo nombre.
+4. Clasificar correctamente el correo de acuerdo al servicio y subservicio con las siguientes opciones:
+(
+        Servicio: Gestión de Contenido y Diseño Web
+            Error o Problema con Contenido Publicado
+            Reorganización de Estructura Web
+            Solicitud de Desarrollo de Micrositio Web
+            Solicitud de Diseño Gráfico
+            Solicitud de Edición o Ajuste de Contenido
+        Servicio: Gestión de Transparencia y MIPG
+            Actualización de Sección de Transparencia
+            Asesoría en MIPG y Lineamientos
+            Generación de Reportes de MIPG
+            Publicación por Ley de Transparencia
+        Servicio: Gestión de Solicitudes y Consultas
+            Consulta de Estado de Solicitud
+            Reporte de Demora en Publicación
+            Solicitud de Publicación
+        Servicio: Mantenimiento y Calidad Web
+            Actualización Masiva de Datos
+            Optimización de Estilos y Plantillas
+            Reporte de Inconsistencia en Calidad
+            Acompañamiento actividades desarrollo externo
+        Servicio: Control y Validación de Contenidos
+            Reporte de Enlace Roto o Contenido Obsoleto
+            Reporte de Error en Contenido Publicado
+            Reportes de Analítica Web
+            Solicitud de Eliminación o Retiro de Contenido
+            Validación Previa a Publicación
+        Servicio: Procesos de Publicación
+            Falla en Proceso de Publicación
+            Publicación de Documento
+            Publicación de Noticia, PMT o Artículo
+            Publicacion de Banner en el Home Principal
+        Servicio: Gestión de Contratista
+            Asignación de Tarea Ad-Hoc
+            Reporte de Indisponibilidad
+            Solicitud de Despliegue en Locación
+        Servicio: Servicios Generales
+            Asignación de Tarea No Especificada
+            Solicitud de Apoyo General
+        Servicio: Desarrollo y Proyectos Web
+            Desarrollo, Configuración e Implementación Técnica
+            Diseño de Arquitectura de Información y Experiencia de Usuario (UX/UI)
+            Plan de Migración y Carga Masiva de Contenido Inicial
+            Problema o Incidencia Técnica durante el Desarrollo del Proyecto
+            Solicitud de Creación de un Nuevo Portal Web
+)
+Mostrar unicamente el subservicio
+
+4. Extraer del correo los enlaces web (separados por comas), si el correo trae, solo enlaces.
+5. Generar un titulo para la actividad (NO MOSTRAR "Titulo de actividad: " solo el texto). Agregar fila vacía.
+6. Describir las acciones: Acción 1, Acción 2, ... , Acción n. (NO MOSTRAR "Acciones:" ni "Acción 1," solo viñetas del tipo "-"), La ultima tarea es dar respuesta a solicitante sobre las acciones realizadas debe ser el cierre de las acciones. Ahorrar esfuerzo y trabajo, descarta tareas innecesarias y muestra siempre la menor cantidad de tareas garantizando calidad, ademas agregar entre parentesis la duración realista acorde a cada tarea.
+
+No hacer nada mas.
+__________________________________________________________________________
