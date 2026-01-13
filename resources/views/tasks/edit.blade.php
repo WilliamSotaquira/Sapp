@@ -52,7 +52,6 @@
                             <option value="low" {{ old('priority', $task->priority) == 'low' ? 'selected' : '' }}>Baja</option>
                             <option value="medium" {{ old('priority', $task->priority) == 'medium' ? 'selected' : '' }}>Media</option>
                             <option value="high" {{ old('priority', $task->priority) == 'high' ? 'selected' : '' }}>Alta</option>
-                            <option value="urgent" {{ old('priority', $task->priority) == 'urgent' ? 'selected' : '' }}>Urgente</option>
                             <option value="critical" {{ old('priority', $task->priority) == 'critical' ? 'selected' : '' }}>Crítica</option>
                         </select>
                         @error('priority')
@@ -71,7 +70,6 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('status') border-red-500 @enderror"
                                 required>
                             <option value="pending" {{ old('status', $task->status) == 'pending' ? 'selected' : '' }}>Pendiente</option>
-                            <option value="confirmed" {{ old('status', $task->status) == 'confirmed' ? 'selected' : '' }}>Confirmada</option>
                             <option value="in_progress" {{ old('status', $task->status) == 'in_progress' ? 'selected' : '' }}>En Progreso</option>
                             <option value="blocked" {{ old('status', $task->status) == 'blocked' ? 'selected' : '' }}>Bloqueada</option>
                             <option value="in_review" {{ old('status', $task->status) == 'in_review' ? 'selected' : '' }}>En Revisión</option>

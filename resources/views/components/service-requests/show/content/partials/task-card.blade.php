@@ -3,16 +3,24 @@
 @php
     $statusConfig = [
         'pending' => ['bg' => 'bg-yellow-100', 'text' => 'text-yellow-800', 'icon' => 'fa-clock', 'label' => 'Pendiente'],
-        'confirmed' => ['bg' => 'bg-green-100', 'text' => 'text-green-800', 'icon' => 'fa-check-circle', 'label' => 'Confirmada'],
         'in_progress' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-800', 'icon' => 'fa-spinner', 'label' => 'En Proceso'],
+        'blocked' => ['bg' => 'bg-amber-100', 'text' => 'text-amber-800', 'icon' => 'fa-ban', 'label' => 'Bloqueada'],
+        'in_review' => ['bg' => 'bg-indigo-100', 'text' => 'text-indigo-800', 'icon' => 'fa-magnifying-glass', 'label' => 'En Revisión'],
+        'rescheduled' => ['bg' => 'bg-purple-100', 'text' => 'text-purple-800', 'icon' => 'fa-calendar-days', 'label' => 'Reprogramada'],
         'completed' => ['bg' => 'bg-gray-100', 'text' => 'text-gray-800', 'icon' => 'fa-check-double', 'label' => 'Completada'],
         'cancelled' => ['bg' => 'bg-red-100', 'text' => 'text-red-800', 'icon' => 'fa-times-circle', 'label' => 'Cancelada'],
+
+        // Compatibilidad con valores legacy (si existen en data histórica)
+        'confirmed' => ['bg' => 'bg-green-100', 'text' => 'text-green-800', 'icon' => 'fa-check-circle', 'label' => 'Confirmada'],
     ];
     $priorityConfig = [
         'low' => ['bg' => 'bg-gray-100', 'text' => 'text-gray-700', 'label' => 'Baja'],
         'medium' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-700', 'label' => 'Media'],
         'high' => ['bg' => 'bg-orange-100', 'text' => 'text-orange-700', 'label' => 'Alta'],
-        'urgent' => ['bg' => 'bg-red-100', 'text' => 'text-red-700', 'label' => 'Urgente'],
+        'critical' => ['bg' => 'bg-red-100', 'text' => 'text-red-700', 'label' => 'Crítica'],
+
+        // Compatibilidad con valores legacy (si existen en data histórica)
+        'urgent' => ['bg' => 'bg-red-100', 'text' => 'text-red-700', 'label' => 'Crítica'],
     ];
 
     $statusKey = strtolower($task->status ?? 'pending');

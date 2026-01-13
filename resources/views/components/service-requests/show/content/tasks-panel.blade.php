@@ -97,7 +97,7 @@
                             <option value="low">Baja</option>
                             <option value="medium" selected>Media</option>
                             <option value="high">Alta</option>
-                            <option value="urgent">Urgente</option>
+                            <option value="critical">Crítica</option>
                         </select>
                     </div>
                     <div>

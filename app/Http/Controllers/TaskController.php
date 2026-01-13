@@ -48,7 +48,12 @@ class TaskController extends Controller
         }
 
         if ($request->has('priority') && $request->priority) {
-            $query->where('priority', $request->priority);
+            $priority = $request->priority;
+            // Compatibilidad legacy: antes se usaba "urgent" pero en BD es "critical"
+            if ($priority === 'urgent') {
+                $priority = 'critical';
+            }
+            $query->where('priority', $priority);
         }
 
         $tasks = $query->orderBy('created_at', 'desc')
@@ -152,6 +157,7 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'due_time' => 'nullable|date_format:H:i',
             'estimated_hours' => 'nullable|numeric|min:0.1',
+            // Compatibilidad legacy: aceptar "urgent" pero se normaliza a "critical" antes de guardar
             'priority' => 'required|in:urgent,high,medium,low,critical',
             'is_critical' => 'nullable|boolean',
             'requires_evidence' => 'nullable|boolean',
@@ -170,6 +176,11 @@ class TaskController extends Controller
             'checklist.*.item' => 'required_with:checklist|string|max:500',
             'checklist.*.order' => 'nullable|integer|min:0',
         ]);
+
+        // Normalizaciones para mantener consistencia con enums de BD
+        if (($validated['priority'] ?? null) === 'urgent') {
+            $validated['priority'] = 'critical';
+        }
 
         // Convertir checkboxes a booleanos
         $validated['is_critical'] = $request->has('is_critical');
@@ -472,7 +483,8 @@ class TaskController extends Controller
             [
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
-                'priority' => 'required|in:low,medium,high,urgent',
+                // Compatibilidad legacy: aceptar "urgent" pero se normaliza a "critical" antes de guardar
+                'priority' => 'required|in:low,medium,high,critical,urgent',
                 'duration_minutes' => 'nullable|integer|min:5|max:480',
                 'type' => 'nullable|in:impact,regular',
             ],
@@ -498,6 +510,10 @@ class TaskController extends Controller
         }
 
         $validated = $validator->validated();
+
+        if (($validated['priority'] ?? null) === 'urgent') {
+            $validated['priority'] = 'critical';
+        }
 
         $technician = $serviceRequest->assigned_to
             ? Technician::where('user_id', $serviceRequest->assigned_to)->first()
@@ -620,9 +636,11 @@ class TaskController extends Controller
             'estimated_hours' => 'required|numeric|min:0.1',
             'due_date' => 'nullable|date',
             'due_time' => 'nullable|date_format:H:i',
+            // Compatibilidad legacy: aceptar "urgent" pero se normaliza a "critical" antes de guardar
             'priority' => 'required|in:critical,high,medium,low,urgent',
             'is_critical' => 'nullable|boolean',
             'requires_evidence' => 'nullable|boolean',
+            // Compatibilidad legacy: aceptar "confirmed" pero se normaliza a "pending" antes de guardar
             'status' => 'required|in:pending,confirmed,in_progress,blocked,in_review,completed,cancelled,rescheduled',
             'technical_complexity' => 'nullable|integer|min:1|max:5',
             'technologies' => 'nullable|string',
@@ -630,6 +648,14 @@ class TaskController extends Controller
             'environment' => 'nullable|in:development,staging,production',
             'technical_notes' => 'nullable|string',
         ]);
+
+        // Normalizaciones para mantener consistencia con enums de BD
+        if (($validated['priority'] ?? null) === 'urgent') {
+            $validated['priority'] = 'critical';
+        }
+        if (($validated['status'] ?? null) === 'confirmed') {
+            $validated['status'] = 'pending';
+        }
 
         // Convertir strings vacíos a null
         if (empty($validated['service_request_id'])) {

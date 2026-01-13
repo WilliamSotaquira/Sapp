@@ -5,7 +5,6 @@
 @php
     $statusConfig = [
         'pending' => ['bg' => 'bg-slate-600', 'light' => 'bg-slate-100 text-slate-700 border-slate-200', 'icon' => 'fa-clock', 'label' => 'Pendiente'],
-        'confirmed' => ['bg' => 'bg-slate-700', 'light' => 'bg-indigo-50 text-indigo-700 border-indigo-200', 'icon' => 'fa-check-circle', 'label' => 'Confirmada'],
         'in_progress' => ['bg' => 'bg-blue-700', 'light' => 'bg-blue-50 text-blue-700 border-blue-200', 'icon' => 'fa-play-circle', 'label' => 'En Progreso'],
         'blocked' => ['bg' => 'bg-red-700', 'light' => 'bg-red-50 text-red-700 border-red-200', 'icon' => 'fa-ban', 'label' => 'Bloqueada'],
         'in_review' => ['bg' => 'bg-amber-600', 'light' => 'bg-amber-50 text-amber-700 border-amber-200', 'icon' => 'fa-eye', 'label' => 'En Revisión'],
@@ -20,7 +19,8 @@
         'high' => ['color' => 'orange', 'label' => 'Alta', 'icon' => 'fa-arrow-up'],
         'medium' => ['color' => 'amber', 'label' => 'Media', 'icon' => 'fa-minus'],
         'low' => ['color' => 'slate', 'label' => 'Baja', 'icon' => 'fa-arrow-down'],
-        'urgent' => ['color' => 'red', 'label' => 'Urgente', 'icon' => 'fa-bolt']
+        // Compatibilidad: tratar 'urgent' como alias de 'critical'
+        'urgent' => ['color' => 'red', 'label' => 'Crítica', 'icon' => 'fa-exclamation-circle']
     ];
     $priority = $priorityConfig[$task->priority] ?? $priorityConfig['medium'];
     
@@ -355,7 +355,7 @@
                     <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Acciones</h3>
                 </div>
                 <div class="p-4 space-y-2">
-                    @if(in_array($task->status, ['pending', 'confirmed']))
+                    @if($task->status === 'pending')
                         <form action="{{ route('tasks.start', $task) }}" method="POST">
                             @csrf
                             <button type="submit" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md text-sm font-medium transition">
