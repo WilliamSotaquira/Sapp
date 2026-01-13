@@ -72,7 +72,6 @@
                 <select name="priority" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
                     <option value="">Todas</option>
                     <option value="critical" {{ request('priority') == 'critical' ? 'selected' : '' }}>Crítica</option>
-                    <option value="urgent" {{ request('priority') == 'urgent' ? 'selected' : '' }}>Urgente</option>
                     <option value="high" {{ request('priority') == 'high' ? 'selected' : '' }}>Alta</option>
                     <option value="medium" {{ request('priority') == 'medium' ? 'selected' : '' }}>Media</option>
                     <option value="low" {{ request('priority') == 'low' ? 'selected' : '' }}>Baja</option>
