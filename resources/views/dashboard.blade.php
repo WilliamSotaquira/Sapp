@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Panel principal')
+
+@section('hidePageHeader', true)
 
 @section('content')
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" role="main">
@@ -14,12 +16,12 @@
                     <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
-                    <span class="ml-2 text-gray-700 font-medium">Dashboard</span>
+                    <span class="ml-2 text-gray-700 font-medium">Panel principal</span>
                 </li>
             </ol>
         </nav>
         <div class="flex flex-col sm:flex-row sm:items-center justify-between">
-            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Dashboard Principal</h1>
+            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
             <div class="mt-2 sm:mt-0">
                 <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
             </div>
@@ -34,47 +36,92 @@
             </div>
             <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
         </div>
+        @php
+            $isAdmin = auth()->user()?->isAdmin() ?? false;
+            $hasTechnician = (bool) (auth()->user()?->technician);
+
+            $quickLinks = [
+                [
+                    'href' => route('service-requests.create'),
+                    'border' => 'border-blue-100',
+                    'bg' => 'bg-blue-50/50',
+                    'iconWrap' => 'text-blue-600',
+                    'icon' => 'fas fa-plus-circle',
+                    'title' => 'Nueva Solicitud',
+                    'subtitle' => 'Alta inmediata',
+                    'arrow' => 'text-blue-500',
+                ],
+                [
+                    'href' => route('service-requests.index'),
+                    'border' => 'border-purple-100',
+                    'bg' => 'bg-purple-50/50',
+                    'iconWrap' => 'text-purple-600',
+                    'icon' => 'fas fa-list',
+                    'title' => 'Ver Solicitudes',
+                    'subtitle' => 'Panel operativo',
+                    'arrow' => 'text-purple-500',
+                ],
+            ];
+
+            if ($hasTechnician) {
+                $quickLinks[] = [
+                    'href' => route('tasks.index'),
+                    'border' => 'border-emerald-100',
+                    'bg' => 'bg-emerald-50/50',
+                    'iconWrap' => 'text-emerald-600',
+                    'icon' => 'fas fa-tasks',
+                    'title' => 'Mis Tareas',
+                    'subtitle' => 'Ejecución diaria',
+                    'arrow' => 'text-emerald-500',
+                ];
+                $quickLinks[] = [
+                    'href' => route('technician-schedule.my-agenda'),
+                    'border' => 'border-indigo-100',
+                    'bg' => 'bg-indigo-50/50',
+                    'iconWrap' => 'text-indigo-600',
+                    'icon' => 'fas fa-calendar-alt',
+                    'title' => 'Mi Agenda',
+                    'subtitle' => 'Calendario',
+                    'arrow' => 'text-indigo-500',
+                ];
+            }
+
+            if ($isAdmin) {
+                $quickLinks[] = [
+                    'href' => route('service-families.create'),
+                    'border' => 'border-green-100',
+                    'bg' => 'bg-green-50/50',
+                    'iconWrap' => 'text-green-600',
+                    'icon' => 'fas fa-layer-group',
+                    'title' => 'Nueva Familia',
+                    'subtitle' => 'Agregar catálogo',
+                    'arrow' => 'text-green-500',
+                ];
+                $quickLinks[] = [
+                    'href' => route('slas.index'),
+                    'border' => 'border-orange-100',
+                    'bg' => 'bg-orange-50/50',
+                    'iconWrap' => 'text-orange-600',
+                    'icon' => 'fas fa-handshake',
+                    'title' => 'Gestionar SLAs',
+                    'subtitle' => 'Compromisos',
+                    'arrow' => 'text-orange-500',
+                ];
+            }
+        @endphp
         <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 overflow-x-auto pb-2 text-sm">
-            <a href="{{ route('service-requests.create') }}" class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 hover:bg-blue-50 transition">
-                <div class="p-2 rounded-lg bg-white text-blue-600 shadow-inner">
-                    <i class="fas fa-plus-circle"></i>
-                </div>
-                <div class="min-w-0">
-                    <p class="font-semibold text-blue-900 truncate">Nueva Solicitud</p>
-                    <span class="text-xs text-blue-700">Alta inmediata</span>
-                </div>
-                <i class="fas fa-arrow-right text-blue-500 ml-auto"></i>
-            </a>
-            <a href="{{ route('service-families.create') }}" class="flex items-center gap-3 rounded-xl border border-green-100 bg-green-50/50 px-4 py-3 hover:bg-green-50 transition">
-                <div class="p-2 rounded-lg bg-white text-green-600 shadow-inner">
-                    <i class="fas fa-layer-group"></i>
-                </div>
-                <div class="min-w-0">
-                    <p class="font-semibold text-green-900 truncate">Nueva Familia</p>
-                    <span class="text-xs text-green-700">Agregar catálogo</span>
-                </div>
-                <i class="fas fa-arrow-right text-green-500 ml-auto"></i>
-            </a>
-            <a href="{{ route('service-requests.index') }}" class="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/50 px-4 py-3 hover:bg-purple-50 transition">
-                <div class="p-2 rounded-lg bg-white text-purple-600 shadow-inner">
-                    <i class="fas fa-list"></i>
-                </div>
-                <div class="min-w-0">
-                    <p class="font-semibold text-purple-900 truncate">Ver Solicitudes</p>
-                    <span class="text-xs text-purple-700">Panel operativo</span>
-                </div>
-                <i class="fas fa-arrow-right text-purple-500 ml-auto"></i>
-            </a>
-            <a href="{{ route('slas.index') }}" class="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3 hover:bg-orange-50 transition">
-                <div class="p-2 rounded-lg bg-white text-orange-600 shadow-inner">
-                    <i class="fas fa-handshake"></i>
-                </div>
-                <div class="min-w-0">
-                    <p class="font-semibold text-orange-900 truncate">Gestionar SLAs</p>
-                    <span class="text-xs text-orange-700">Compromisos</span>
-                </div>
-                <i class="fas fa-arrow-right text-orange-500 ml-auto"></i>
-            </a>
+            @foreach($quickLinks as $link)
+                <a href="{{ $link['href'] }}" class="flex items-center gap-3 rounded-xl border {{ $link['border'] }} {{ $link['bg'] }} px-4 py-3 hover:bg-opacity-80 transition">
+                    <div class="p-2 rounded-lg bg-white {{ $link['iconWrap'] }} shadow-inner">
+                        <i class="{{ $link['icon'] }}"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-semibold text-gray-900 truncate">{{ $link['title'] }}</p>
+                        <span class="text-xs text-gray-600">{{ $link['subtitle'] }}</span>
+                    </div>
+                    <i class="fas fa-arrow-right {{ $link['arrow'] }} ml-auto"></i>
+                </a>
+            @endforeach
         </div>
     </div>
 
@@ -148,7 +195,7 @@
                     @endforeach
                 </ul>
                 <div class="mt-4 text-right">
-                    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center">
+                    <a href="{{ route('technician-schedule.my-agenda') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center">
                         Ver calendario
                         <i class="fas fa-arrow-right ml-1"></i>
                     </a>
@@ -225,29 +272,38 @@
 
             <!-- Lista de estados -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                @foreach($statuses as $status => $data)
-                <a href="{{ route('service-requests.index', ['status' => $status]) }}"
-                   class="flex items-center justify-between p-2.5 rounded-2xl border border-{{ $data['color'] }}-100 bg-{{ $data['color'] }}-50/40 shadow hover:-translate-y-0.5 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-{{ $data['color'] }}-400"
-                   aria-label="Ver solicitudes en estado {{ $status }}">
-                    <div class="flex items-center">
-                        <div class="p-1.5 rounded-xl bg-white/70 text-{{ $data['color'] }}-600 mr-3">
-                            <i class="{{ $data['icon'] }} text-sm"></i>
+                @php
+                    $visibleStatuses = array_filter($statuses, fn ($d) => ($d['count'] ?? 0) > 0);
+                @endphp
+
+                @forelse($visibleStatuses as $status => $data)
+                    <a href="{{ route('service-requests.index', ['status' => $status]) }}"
+                       class="flex items-center justify-between p-2.5 rounded-2xl border border-{{ $data['color'] }}-100 bg-{{ $data['color'] }}-50/40 shadow hover:-translate-y-0.5 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-{{ $data['color'] }}-400"
+                       aria-label="Ver solicitudes en estado {{ $status }}">
+                        <div class="flex items-center">
+                            <div class="p-1.5 rounded-xl bg-white/70 text-{{ $data['color'] }}-600 mr-3">
+                                <i class="{{ $data['icon'] }} text-sm"></i>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-{{ $data['color'] }}-900 text-xs sm:text-sm">{{ $status }}</span>
+                                <p class="text-[10px] text-{{ $data['color'] }}-600/80">Estado operativo</p>
+                            </div>
                         </div>
-                        <div>
-                            <span class="font-semibold text-{{ $data['color'] }}-900 text-xs sm:text-sm">{{ $status }}</span>
-                            <p class="text-[10px] text-{{ $data['color'] }}-600/80">Estado operativo</p>
+                        <div class="flex items-center">
+                            <span class="text-lg font-semibold text-{{ $data['color'] }}-800 mr-1.5">{{ $data['count'] }}</span>
+                            @if($totalRequests > 0)
+                                <span class="text-xs text-{{ $data['color'] }}-600/80">
+                                    ({{ round(($data['count'] / $totalRequests) * 100, 1) }}%)
+                                </span>
+                            @endif
                         </div>
+                    </a>
+                @empty
+                    <div class="sm:col-span-2 p-3 rounded-2xl border border-gray-100 bg-gray-50 text-sm text-gray-600">
+                        No hay solicitudes para mostrar por estado.
+                        <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-800 font-medium ml-1">Ver listado</a>
                     </div>
-                    <div class="flex items-center">
-                        <span class="text-lg font-semibold text-{{ $data['color'] }}-800 mr-1.5">{{ $data['count'] }}</span>
-                        @if($totalRequests > 0)
-                            <span class="text-xs text-{{ $data['color'] }}-600/80">
-                                ({{ round(($data['count'] / $totalRequests) * 100, 1) }}%)
-                            </span>
-                        @endif
-                    </div>
-                </a>
-                @endforeach
+                @endforelse
             </div>
         </div>
     </div>
@@ -304,7 +360,7 @@
                         @foreach($recentRequests as $request)
                             <tr class="hover:bg-gray-50 request-row" data-status="{{ $request->status }}" data-ticket="{{ $request->ticket_number }}" data-title="{{ strtolower($request->title) }}" data-date="{{ $request->created_at->getTimestamp() }}" tabindex="0" role="row">
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="{{ route('service-requests.show', $request) }}" class="font-medium text-blue-600 hover:text-blue-900 flex items-center">
+                                    <a href="{{ route('service-requests.show', $request) }}" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 flex items-center">
                                         {{ $request->ticket_number }}
                                         @if($request->priority === 'ALTA')
                                             <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -372,7 +428,7 @@
                     @endif
                     de <span class="font-medium">{{ $totalRequests }}</span> solicitudes
                 </div>
-                <a href="{{ route('service-requests.index') }}" class="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center">
+                <a href="{{ route('service-requests.index') }}" class="text-blue-700 hover:text-blue-900 font-semibold hover:underline underline-offset-2 inline-flex items-center">
                     Ver todas las solicitudes
                     <i class="fas fa-arrow-right ml-1"></i>
                 </a>

@@ -599,10 +599,16 @@
         @endif
 
         <!-- Page Header -->
-        <div class="mb-4 sm:mb-6">
-            <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">@yield('title')</h1>
-            @yield('breadcrumb')
-        </div>
+        @php
+            $hidePageHeader = $__env->hasSection('hidePageHeader');
+            $pageTitle = trim($__env->yieldContent('title'));
+        @endphp
+        @if(!$hidePageHeader && $pageTitle !== '')
+            <div class="mb-4 sm:mb-6">
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{{ $pageTitle }}</h1>
+                @yield('breadcrumb')
+            </div>
+        @endif
 
         <!-- Page Content -->
         @yield('content')
