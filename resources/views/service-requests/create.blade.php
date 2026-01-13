@@ -749,7 +749,7 @@
                         <div class="flex flex-wrap items-center justify-end gap-2">
                             <div class="flex items-center gap-2">
                                 <label class="text-sm text-gray-600">Cantidad</label>
-                                <select tabindex="-1" class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
+                                <select class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
                                     <option value="1" selected>1</option>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
@@ -762,7 +762,7 @@
                                     <option value="10">10</option>
                                 </select>
                             </div>
-                            <button type="button" tabindex="-1" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
+                            <button type="button" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
                             <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-subtasks>Ver subtareas</button>
                         </div>
                     </div>
@@ -863,6 +863,7 @@
             const subtasksList = row.querySelector('[data-subtasks-list]');
             const addSubtaskBtn = row.querySelector('[data-add-subtask]');
             const subtaskCountEl = row.querySelector('[data-subtask-count]');
+            const titleEl = row.querySelector('[data-field="title"]');
 
             function openSubtasks() {
                 subtasksSection?.classList.remove('hidden');
@@ -895,6 +896,20 @@
                 reindexRows();
                 recalcTaskEstimateFromSubtasks(row);
                 setTimeout(() => firstRow?.querySelector('input')?.focus(), 0);
+            });
+
+            // UX: después de escribir título, llevar foco a la cantidad de subtareas.
+            // Luego, con Enter en "Cantidad" se agregan las subtareas.
+            titleEl?.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                setTimeout(() => subtaskCountEl?.focus(), 0);
+            });
+
+            subtaskCountEl?.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                addSubtaskBtn?.click();
             });
 
             if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {

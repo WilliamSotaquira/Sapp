@@ -99,7 +99,7 @@
         </p>
 
         <div class="mt-2 flex justify-end">
-            <button type="button" id="openRequesterQuickCreate"
+            <button type="button" id="openRequesterQuickCreate" tabindex="-1"
                 class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded">
                 <i class="fas fa-user-plus"></i>
                 <span>Crear solicitante</span>
@@ -193,7 +193,11 @@
     <!-- Canal de ingreso -->
     @php
         $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
-        $selectedEntryChannel = old('entry_channel', $serviceRequest->entry_channel ?? null);
+        $selectedEntryChannel = old(
+            'entry_channel',
+            $serviceRequest->entry_channel
+                ?? (($mode ?? 'create') === 'create' ? \App\Models\ServiceRequest::ENTRY_CHANNEL_CORPORATE_EMAIL : null)
+        );
         $isReportable = old('is_reportable', $serviceRequest->is_reportable ?? true);
     @endphp
     <div>
@@ -202,6 +206,7 @@
         </label>
         <select name="entry_channel" id="entry_channel"
             class="w-full px-4 py-3 border {{ $entryChannelBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+            @if(($mode ?? 'create') === 'create' && !$errors->has('entry_channel')) tabindex="-1" @endif
             required>
             <option value="">Selecciona un canal</option>
             @foreach ($entryChannelOptions as $value => $option)
@@ -585,7 +590,12 @@
                         // Al tabular y abrir el Select2, enfocar la búsqueda automáticamente
                         requesterSelect.on('select2:open', function () {
                             const search = document.querySelector('.select2-container--open .select2-search__field');
-                            if (search) search.focus();
+                            if (search instanceof HTMLInputElement) {
+                                search.focus();
+                                search.select();
+                            } else if (search) {
+                                search.focus();
+                            }
                         });
                     }
 
@@ -655,7 +665,12 @@
 
                                             $dept.on('select2:open', function () {
                                                 const search = document.querySelector('.select2-container--open .select2-search__field');
-                                                if (search) search.focus();
+                                                if (search instanceof HTMLInputElement) {
+                                                    search.focus();
+                                                    search.select();
+                                                } else if (search) {
+                                                    search.focus();
+                                                }
                                             });
                                         } else {
                                             // asegurar dropdownParent correcto en caso de re-render
@@ -1128,6 +1143,9 @@
                             const search = document.querySelector('.select2-container--open .select2-search__field');
                             if (search instanceof HTMLElement) {
                                 search.focus();
+                                if (search instanceof HTMLInputElement) {
+                                    search.select();
+                                }
 
                                 // Evitar múltiples bindings
                                 if (!search.dataset.tabBound) {
