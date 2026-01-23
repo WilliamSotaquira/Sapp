@@ -28,6 +28,12 @@
         <h1 style="margin: 0 0 4px 0;">Corte: {{ $cutName }}</h1>
         <div class="meta" style="margin-top: 4px;">
             <div><strong>Rango:</strong> {{ $rangeStart }} - {{ $rangeEnd }} | <span>Generado: {{ now()->format('Y-m-d H:i') }}</span></div>
+            <div style="margin-top: 6px;">
+                <strong>Total acciones:</strong>
+                <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 6px; font-weight: bold;">
+                    {{ $totalSolicitudes }}
+                </span>
+            </div>
             <!-- Criterio y total removidos por solicitud -->
         </div>
     </div>
@@ -37,6 +43,9 @@
             @php
                 $familyDescription = $obligaciones->first()?->subService?->service?->family?->description;
             @endphp
+            @php
+                $familyTotal = $obligaciones->count();
+            @endphp
             <div class="section-title">
                 <div style="font-weight: bold;">{{ $serviceName }}</div>
                 @if($familyDescription)
@@ -44,6 +53,9 @@
                         {{ $familyDescription }}
                     </div>
                 @endif
+                <div style="font-weight: normal; color: #e0e7ff; font-size: 10px; margin-top: 2px;">
+                    Total acciones: {{ $familyTotal }}
+                </div>
             </div>
             <table class="table">
                 <thead>

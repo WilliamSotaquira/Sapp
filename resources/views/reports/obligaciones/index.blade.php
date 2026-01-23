@@ -54,11 +54,15 @@
                     <div class="bg-blue-600 px-6 py-3">
                         @php
                             $familyDescription = $obligaciones->first()?->subService?->service?->family?->description;
+                            $familyTotal = $obligaciones->count();
                         @endphp
                         <h2 class="text-lg font-bold text-white">{{ $serviceName }}</h2>
                         @if($familyDescription)
                             <p class="text-blue-100 text-sm mt-1">{{ $familyDescription }}</p>
                         @endif
+                        <p class="text-blue-100 text-sm mt-1">
+                            Total acciones: <span class="font-semibold text-white">{{ $familyTotal }}</span>
+                        </p>
                     </div>
 
                     <!-- Tabla de Obligaciones de la Familia -->
