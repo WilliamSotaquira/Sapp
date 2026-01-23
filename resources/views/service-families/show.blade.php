@@ -66,7 +66,7 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Columna Izquierda - Información General -->
+            <!-- Columna Principal -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Tarjeta de Información General -->
                 <div class="bg-white shadow-md rounded-lg overflow-hidden">
@@ -77,33 +77,28 @@
                         </h2>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-600 mb-1">Descripción</label>
-                                <p class="text-gray-800 bg-gray-50 p-3 rounded-lg min-h-[80px]">
-                                    {{ $serviceFamily->description ?? 'Sin descripción' }}
-                                </p>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-600 mb-1">Estado</label>
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold {{ $serviceFamily->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                        @if($serviceFamily->is_active)
-                                            <i class="fas fa-check-circle mr-1"></i>Activa
-                                        @else
-                                            <i class="fas fa-times-circle mr-1"></i>Inactiva
-                                        @endif
-                                    </span>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-600 mb-1">Fecha de Creación</label>
-                                    <p class="text-gray-800">{{ $serviceFamily->created_at->format('d/m/Y H:i') }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-600 mb-1">Última Actualización</label>
-                                    <p class="text-gray-800">{{ $serviceFamily->updated_at->format('d/m/Y H:i') }}</p>
-                                </div>
-                            </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Descripción</label>
+                            <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">
+                                {{ $serviceFamily->description ?? 'Sin descripción' }}
+                            </p>
+                        </div>
+                        <div class="mt-5 flex flex-wrap items-center gap-3 text-sm text-gray-700">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full font-semibold {{ $serviceFamily->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                @if($serviceFamily->is_active)
+                                    <i class="fas fa-check-circle mr-1"></i>Activa
+                                @else
+                                    <i class="fas fa-times-circle mr-1"></i>Inactiva
+                                @endif
+                            </span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700">
+                                <i class="fas fa-clock mr-1"></i>
+                                Creada: {{ $serviceFamily->created_at->format('d/m/Y H:i') }}
+                            </span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+                                <i class="fas fa-rotate mr-1"></i>
+                                Actualizada: {{ $serviceFamily->updated_at->format('d/m/Y H:i') }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -175,43 +170,6 @@
                         @endif
                     </div>
                 </div>
-            </div>
-
-            <!-- Columna Derecha - Estadísticas y SLAs -->
-            <div class="space-y-6">
-                <!-- Tarjeta de Estadísticas -->
-                <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                    <div class="bg-gray-50 px-6 py-4 border-b">
-                        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
-                            <i class="fas fa-chart-bar text-purple-500 mr-2"></i>
-                            Estadísticas
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Servicios</span>
-                                <span class="font-semibold text-gray-900">{{ $serviceFamily->services->count() }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Servicios Activos</span>
-                                <span class="font-semibold text-green-600">{{ $serviceFamily->activeServices()->count() }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Sub-Servicios</span>
-                                <span class="font-semibold text-gray-900">{{ $serviceFamily->services->sum(function($service) { return $service->subServices->count(); }) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">SLAs Configurados</span>
-                                <span class="font-semibold text-blue-600">{{ $serviceFamily->serviceLevelAgreements->count() }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">SLAs Activos</span>
-                                <span class="font-semibold text-green-600">{{ $serviceFamily->activeSlas()->count() }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Tarjeta de SLAs -->
                 <div class="bg-white shadow-md rounded-lg overflow-hidden">
@@ -227,7 +185,7 @@
                     </div>
                     <div class="p-6">
                         @if($serviceFamily->serviceLevelAgreements->count() > 0)
-                            <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 @foreach($serviceFamily->serviceLevelAgreements as $sla)
                                     <div class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition duration-150">
                                         <div class="flex justify-between items-start mb-2">
@@ -282,6 +240,43 @@
                                 </a>
                             </div>
                         @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha - Resumen -->
+            <div class="space-y-6 lg:sticky lg:top-6 self-start">
+                <!-- Tarjeta de Estadísticas -->
+                <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                            <i class="fas fa-chart-bar text-purple-500 mr-2"></i>
+                            Estadísticas
+                        </h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="text-gray-500">Total Servicios</div>
+                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services->count() }}</div>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-3">
+                                <div class="text-green-700">Servicios Activos</div>
+                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->activeServices()->count() }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="text-gray-500">Sub-Servicios</div>
+                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services->sum(function($service) { return $service->subServices->count(); }) }}</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-lg p-3">
+                                <div class="text-blue-700">SLAs</div>
+                                <div class="text-lg font-semibold text-blue-700">{{ $serviceFamily->serviceLevelAgreements->count() }}</div>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-3 col-span-2">
+                                <div class="text-green-700">SLAs Activos</div>
+                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->activeSlas()->count() }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

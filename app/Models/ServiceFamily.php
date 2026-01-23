@@ -31,6 +31,11 @@ class ServiceFamily extends Model
         return $this->hasMany(Service::class, 'service_family_id');
     }
 
+    public function activeServices()
+    {
+        return $this->services()->where('is_active', true);
+    }
+
     /**
      * Relación con subservicios a través de servicios
      */
@@ -42,6 +47,11 @@ class ServiceFamily extends Model
     public function serviceLevelAgreements()
     {
         return $this->hasMany(ServiceLevelAgreement::class, 'service_family_id');
+    }
+
+    public function activeSlas()
+    {
+        return $this->serviceLevelAgreements()->where('is_active', true);
     }
 
     /**

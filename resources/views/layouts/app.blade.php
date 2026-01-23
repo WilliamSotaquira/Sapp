@@ -103,12 +103,14 @@
             position: absolute;
             background-color: #dc2626;
             min-width: 220px;
+            max-width: 320px;
             box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
             z-index: 1000;
             border-radius: 0 0 0.75rem 0.75rem;
             top: 100%;
             left: 0;
             padding: 0.35rem 0;
+            box-sizing: border-box;
         }
 
         .dropdown-menu.show {
@@ -117,10 +119,15 @@
 
         .dropdown-menu a {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.5rem;
             padding: 0.6rem 1rem;
             transition: background-color 0.2s ease;
+            white-space: normal;
+            line-height: 1.25;
+            width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
         }
 
         .dropdown-menu a:hover,
@@ -326,9 +333,82 @@
                 'key' => 'reports',
                 'label' => 'Reportes',
                 'icon' => 'fas fa-chart-bar',
-                'type' => 'link',
-                'route' => 'reports.index',
+                'type' => 'dropdown',
                 'match' => ['reports.*'],
+                'links' => [
+                    [
+                        'route' => 'reports.index',
+                        'label' => 'Dashboard de Reportes',
+                        'icon' => 'fas fa-chart-pie',
+                        'match' => ['reports.index'],
+                    ],
+                    [
+                        'route' => 'reports.obligaciones.index',
+                        'label' => 'Reporte de Obligaciones',
+                        'icon' => 'fas fa-file-contract',
+                        'match' => ['reports.obligaciones.*'],
+                    ],
+                    [
+                        'route' => 'reports.sla-compliance',
+                        'label' => 'Cumplimiento SLA',
+                        'icon' => 'fas fa-check-circle',
+                        'match' => ['reports.sla-compliance'],
+                    ],
+                    [
+                        'route' => 'reports.requests-by-status',
+                        'label' => 'Solicitudes por Estado',
+                        'icon' => 'fas fa-list-check',
+                        'match' => ['reports.requests-by-status'],
+                    ],
+                    [
+                        'route' => 'reports.criticality-levels',
+                        'label' => 'Niveles de Criticidad',
+                        'icon' => 'fas fa-triangle-exclamation',
+                        'match' => ['reports.criticality-levels'],
+                    ],
+                    [
+                        'route' => 'reports.service-performance',
+                        'label' => 'Rendimiento por Servicio',
+                        'icon' => 'fas fa-gauge-high',
+                        'match' => ['reports.service-performance'],
+                    ],
+                    [
+                        'route' => 'reports.monthly-trends',
+                        'label' => 'Tendencias Mensuales',
+                        'icon' => 'fas fa-chart-line',
+                        'match' => ['reports.monthly-trends'],
+                    ],
+                    [
+                        'route' => 'reports.timeline.index',
+                        'label' => 'Línea de Tiempo',
+                        'icon' => 'fas fa-clock',
+                        'match' => ['reports.timeline.*'],
+                    ],
+                    [
+                        'route' => 'reports.timeline.by-ticket',
+                        'label' => 'Timeline por Ticket',
+                        'icon' => 'fas fa-ticket',
+                        'match' => ['reports.timeline.by-ticket'],
+                    ],
+                    [
+                        'route' => 'reports.time-range.index',
+                        'label' => 'Reporte por Rango',
+                        'icon' => 'fas fa-calendar-days',
+                        'match' => ['reports.time-range.*'],
+                    ],
+                    [
+                        'route' => 'reports.cuts.index',
+                        'label' => 'Cortes',
+                        'icon' => 'fas fa-layer-group',
+                        'match' => ['reports.cuts.*'],
+                    ],
+                    [
+                        'route' => 'reports.cuts.create',
+                        'label' => 'Crear Corte',
+                        'icon' => 'fas fa-plus',
+                        'match' => ['reports.cuts.create'],
+                    ],
+                ],
             ],
             [
                 'key' => 'technicians',
