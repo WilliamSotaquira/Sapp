@@ -104,7 +104,7 @@ class ObligacionesReportController extends Controller
         }
 
         if ($format === 'xlsx') {
-            return Excel::download(new ObligacionesExport($serviceRequests), "reporte-obligaciones-{$timestamp}.xlsx");
+            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange), "reporte-obligaciones-{$timestamp}.xlsx");
         }
 
         return response('Formato no válido', 400);

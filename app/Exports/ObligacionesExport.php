@@ -4,32 +4,54 @@ namespace App\Exports;
 
 use App\Models\ServiceRequest;
 use Illuminate\Support\Collection;
+use App\Models\Cut;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Events\AfterSheet;
 
-class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, WithEvents
+class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, WithEvents, WithColumnFormatting
 {
     private Collection $serviceRequests;
+    private ?Cut $cut;
+    private array $dateRange;
+    private int $headerRowIndex = 0;
+    private array $familyRowIndexes = [];
+    private int $summaryStartRow = 1;
+    private int $summaryEndRow = 0;
 
-    public function __construct(Collection $serviceRequests)
+    public function __construct(Collection $serviceRequests, ?Cut $cut = null, array $dateRange = [])
     {
         $this->serviceRequests = $serviceRequests;
+        $this->cut = $cut;
+        $this->dateRange = $dateRange;
     }
 
     public function array(): array
     {
         $rows = [];
+        $rowIndex = 0;
 
-        $rows[] = [
-            'Familia',
-            'Obligacion',
-            'Actividades Ejecutadas',
-            'Productos Presentados'
-        ];
+        $rangeStart = $this->dateRange['start'] ?? null;
+        $rangeEnd = $this->dateRange['end'] ?? null;
+        $rangeLabel = '';
+        if ($rangeStart || $rangeEnd) {
+            $rangeLabel = ($rangeStart ? $rangeStart->format('Y-m-d') : '') . ' - ' . ($rangeEnd ? $rangeEnd->format('Y-m-d') : '');
+        }
+        $totalAcciones = $this->serviceRequests->count();
+        $cutName = $this->cut?->name ?? 'Sin corte';
+
+        $rows[] = ['Corte', $cutName, '', '']; $rowIndex++;
+        $rows[] = ['Rango', $rangeLabel, '', '']; $rowIndex++;
+        $rows[] = ['Total acciones', $totalAcciones, '', '']; $rowIndex++;
+        $this->summaryEndRow = $rowIndex;
+        $rows[] = ['', '', '', '']; $rowIndex++;
+        $rows[] = ['Familia', 'Obligacion', 'Actividades Ejecutadas', 'Productos Presentados']; $rowIndex++;
+        $this->headerRowIndex = $rowIndex;
 
         $grouped = $this->serviceRequests->groupBy(function ($sr) {
             return $sr->subService?->service?->family?->name ?? 'Sin Familia';
@@ -37,22 +59,29 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
         foreach ($grouped as $serviceName => $items) {
             $familyDescription = $items->first()?->subService?->service?->family?->description ?? '';
-            $familyCell = $serviceName;
-            if ($familyDescription !== '') {
-                $familyCell .= "\n" . $familyDescription;
-            }
+            $familyTotal = $items->count();
+            $rows[] = [
+                $serviceName,
+                $familyDescription,
+                'Total acciones',
+                $familyTotal
+            ];
+            $rowIndex++;
+            $this->familyRowIndexes[] = $rowIndex;
+
             $first = true;
             foreach ($items as $sr) {
                 $rows[] = [
-                    $first ? $familyCell : '',
+                    '',
                     $this->stripStatusPrefix($sr->title ?? ''),
                     $this->formatActivities($sr),
                     $this->formatProducts($sr),
                 ];
                 $first = false;
+                $rowIndex++;
             }
 
-            $rows[] = ['', '', '', ''];
+            $rows[] = ['', '', '', '']; $rowIndex++;
         }
 
         return $rows;
@@ -68,10 +97,10 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
     public function columnWidths(): array
     {
         return [
-            'A' => 45,
+            'A' => 32,
             'B' => 55,
             'C' => 70,
-            'D' => 50,
+            'D' => 45,
         ];
     }
 
@@ -92,8 +121,66 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                     \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
                 );
 
-                $sheet->freezePane('A2');
+                if ($this->headerRowIndex > 0) {
+                    $sheet->freezePane('A' . ($this->headerRowIndex + 1));
+                }
+
+                // Estilo del encabezado de columnas
+                if ($this->headerRowIndex > 0) {
+                    $sheet->getStyle("A{$this->headerRowIndex}:D{$this->headerRowIndex}")
+                        ->getFont()->setBold(true);
+                    $sheet->getStyle("A{$this->headerRowIndex}:D{$this->headerRowIndex}")
+                        ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFE5E7EB');
+                }
+
+                // Estilo del bloque de resumen
+                if ($this->summaryEndRow >= $this->summaryStartRow) {
+                    $sheet->getStyle("A{$this->summaryStartRow}:A{$this->summaryEndRow}")
+                        ->getFont()->setBold(true);
+                }
+
+                // Estilo de filas de familia
+                foreach ($this->familyRowIndexes as $row) {
+                    $sheet->getStyle("A{$row}:D{$row}")
+                        ->getFont()->setBold(true);
+                    $sheet->getStyle("A{$row}:D{$row}")
+                        ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFDBEAFE');
+                }
+
+                // Convertir enlaces en la columna D (Productos Presentados)
+                $highestRow = $sheet->getHighestRow();
+                for ($row = $this->headerRowIndex + 1; $row <= $highestRow; $row++) {
+                    $cell = $sheet->getCell("D{$row}");
+                    $value = (string) $cell->getValue();
+                    if ($value === '') {
+                        continue;
+                    }
+
+                    $firstUrl = $this->extractFirstUrl($value);
+                    if ($firstUrl) {
+                        $cell->getHyperlink()->setUrl($firstUrl);
+                        $sheet->getStyle("D{$row}")
+                            ->getFont()
+                            ->getColor()
+                            ->setARGB('FF2563EB');
+                        $sheet->getStyle("D{$row}")
+                            ->getFont()
+                            ->setUnderline(true);
+                    }
+                }
             },
+        ];
+    }
+
+    public function columnFormats(): array
+    {
+        return [
+            'A' => NumberFormat::FORMAT_TEXT,
+            'B' => NumberFormat::FORMAT_TEXT,
+            'C' => NumberFormat::FORMAT_TEXT,
+            'D' => NumberFormat::FORMAT_TEXT,
         ];
     }
 
@@ -135,6 +222,7 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         }
 
         $names = [];
+        $urls = [];
         foreach ($serviceRequest->evidences as $evidence) {
             if (empty($evidence->file_path)) {
                 continue;
@@ -144,9 +232,17 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 ?? $evidence->file_name
                 ?? $evidence->title
                 ?? 'Evidencia';
+
+            if (!empty($evidence->file_url)) {
+                $urls[] = $evidence->file_url;
+            }
         }
 
-        return implode("\n", $names);
+        $output = implode("\n", $names);
+        if (!empty($urls)) {
+            $output .= "\n" . implode("\n", $urls);
+        }
+        return $output;
     }
 
     private function stripStatusPrefix(string $title): string
@@ -170,5 +266,14 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';
 
         return preg_replace($pattern, '', $title) ?? $title;
+    }
+
+    private function extractFirstUrl(string $value): ?string
+    {
+        if (preg_match('/https?:\\/\\/[^\\s]+/i', $value, $matches)) {
+            return $matches[0];
+        }
+
+        return null;
     }
 }
