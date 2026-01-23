@@ -56,6 +56,9 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/features/reporting/web.php';
     require __DIR__ . '/features/reporting/exports.php';
 
+    // Reportes especializados
+    require __DIR__ . '/features/reports/web.php';
+
     // Gestión de usuarios
     require __DIR__ . '/features/user-management/web.php';
 

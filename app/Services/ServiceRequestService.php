@@ -8,6 +8,7 @@ use App\Models\SubService;
 use App\Models\StandardTask;
 use App\Models\Task;
 use App\Models\User;
+use App\Models\Cut;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -205,8 +206,9 @@ class ServiceRequestService
         try {
             $tasks = $data['tasks'] ?? null;
             $tasksTemplate = $data['tasks_template'] ?? null;
+            $cutId = $data['cut_id'] ?? null;
 
-            unset($data['tasks'], $data['tasks_template']);
+            unset($data['tasks'], $data['tasks_template'], $data['cut_id']);
 
             // Procesar web_routes si existe
             if (!empty($data['web_routes'])) {
@@ -215,8 +217,13 @@ class ServiceRequestService
                     : $data['web_routes'];
             }
 
-            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate) {
+            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, $cutId) {
                 $serviceRequest = ServiceRequest::create($data);
+
+                // Vincular al corte si se proporcionó
+                if (!empty($cutId)) {
+                    $serviceRequest->cuts()->attach($cutId);
+                }
 
                 $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
 
@@ -227,6 +234,7 @@ class ServiceRequestService
                 'id' => $serviceRequest->id,
                 'ticket_number' => $serviceRequest->ticket_number,
                 'requester_id' => $serviceRequest->requester_id,
+                'cut_id' => $cutId,
             ]);
 
             return $serviceRequest;
@@ -432,6 +440,7 @@ class ServiceRequestService
             'subServices' => collect(),
             'selectedSubService' => $selectedSubService,
             'requesters' => \App\Models\Requester::active()->orderBy('name')->get(),
+            'cuts' => Cut::orderBy('start_date', 'desc')->get(['id', 'name', 'start_date', 'end_date']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
         ];
     }

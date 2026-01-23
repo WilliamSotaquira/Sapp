@@ -891,4 +891,45 @@ class ServiceRequestController extends Controller
                 ->with('error', 'Error al subir archivos: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Actualizar el corte asociado a una solicitud (AJAX)
+     */
+    public function updateCut(Request $request, ServiceRequest $serviceRequest)
+    {
+        try {
+            $validated = $request->validate([
+                'cut_id' => 'nullable|exists:cuts,id',
+            ]);
+
+            // Primero, desasociar todos los cortes actuales
+            $serviceRequest->cuts()->detach();
+
+            // Si se proporciona un cut_id, asociarlo
+            if (!empty($validated['cut_id'])) {
+                $serviceRequest->cuts()->attach($validated['cut_id']);
+            }
+
+            // Obtener el corte actualizado (si existe)
+            $cut = $serviceRequest->cuts()->first();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Corte actualizado exitosamente',
+                'cut' => $cut ? [
+                    'id' => $cut->id,
+                    'name' => $cut->name,
+                    'start_date' => $cut->start_date->format('d/m/Y'),
+                    'end_date' => $cut->end_date->format('d/m/Y'),
+                ] : null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar corte: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar el corte: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
+

@@ -34,6 +34,9 @@ class StoreServiceRequestRequest extends FormRequest
             'web_routes' => 'required|string',
             'is_reportable' => 'sometimes|boolean',
 
+            // Corte (opcional)
+            'cut_id' => 'nullable|exists:cuts,id',
+
             // Tareas (opcional)
             'tasks_template' => 'nullable|in:none,subservice_standard',
             'tasks' => 'nullable|array',
@@ -81,6 +84,7 @@ class StoreServiceRequestRequest extends FormRequest
             'entry_channel.required' => 'Debe seleccionar un canal de entrada.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
             'web_routes.required' => 'Las rutas web son obligatorias.',
+            'cut_id.exists' => 'El corte seleccionado no es válido.',
         ];
     }
 
