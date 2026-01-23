@@ -104,6 +104,23 @@ class ServiceRequest extends Model
     }
 
     /**
+     * Obtener opciones de estados disponibles
+     */
+    public static function getStatusOptions(): array
+    {
+        return [
+            self::STATUS_PENDING => 'Pendiente',
+            self::STATUS_ACCEPTED => 'Aceptada',
+            self::STATUS_IN_PROGRESS => 'En Progreso',
+            self::STATUS_RESOLVED => 'Resuelta',
+            self::STATUS_CLOSED => 'Cerrada',
+            self::STATUS_CANCELLED => 'Cancelada',
+            self::STATUS_PAUSED => 'Pausada',
+            self::STATUS_REOPENED => 'Reabierto',
+        ];
+    }
+
+    /**
      * Boot del modelo
      */
     protected static function boot()

@@ -62,6 +62,7 @@
                         'subServices' => $subServices,
                         'selectedSubService' => $selectedSubService ?? null,
                         'requesters' => $requesters,
+                        'cuts' => $cuts ?? [],
                         'errors' => $errors,
                         'mode' => 'create',
                     ])

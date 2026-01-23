@@ -4,6 +4,7 @@
     'subServices' => [], // Lista de subservicios (opcional; puede ser vacía si usamos Select2 AJAX)
     'selectedSubService' => null, // Subservicio precargado para mostrar selección inicial
     'requesters' => [], // Lista de solicitantes para seleccionar solicitante
+    'cuts' => [], // Lista de cortes disponibles
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
 ])
@@ -219,6 +220,32 @@
             Usa este campo para saber desde qué canal se originó la solicitud.
         </p>
         @error('entry_channel')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
+    <!-- Selector de Corte (opcional) -->
+    @php
+        $cutBorderClass = $errors->has('cut_id') ? 'border-red-500' : 'border-gray-300';
+        $selectedCutId = old('cut_id', null);
+    @endphp
+    <div>
+        <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
+            Corte <span class="text-gray-500 text-xs">(Opcional)</span>
+        </label>
+        <select name="cut_id" id="cut_id"
+            class="w-full px-4 py-3 border {{ $cutBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+            <option value="">Sin corte asignado</option>
+            @foreach ($cuts as $cut)
+                <option value="{{ $cut->id }}" {{ $selectedCutId == $cut->id ? 'selected' : '' }}>
+                    {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }})
+                </option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-sm text-gray-500">
+            Selecciona un corte para vincular esta solicitud directamente. Esto permite asociar solicitudes a períodos específicos.
+        </p>
+        @error('cut_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </div>
@@ -1218,7 +1245,7 @@
         background-color: #dbeafe !important;
     }
 </style>
- 
+
 <script>
     // =============================================
     // FUNCIONALIDAD EXISTENTE DEL FORMULARIO

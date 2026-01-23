@@ -22,3 +22,6 @@ Route::post('/service-requests/{service_request}/close-vencimiento', [ServiceReq
 
 // Sugerencias de solicitantes (autocompletado filtros)
 Route::get('/service-requests/suggest-requesters', [ServiceRequestController::class, 'suggestRequesters'])->name('service-requests.suggest-requesters');
+
+// Actualizar corte asociado (AJAX)
+Route::post('/service-requests/{service_request}/update-cut', [ServiceRequestController::class, 'updateCut'])->name('service-requests.update-cut');
