@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Technician;
 use App\Models\Task;
 use App\Models\ScheduleBlock;
+use App\Models\ServiceRequest;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -303,7 +304,15 @@ class TechnicianScheduleController extends Controller
             $technicians = Technician::with('user')->active()->get();
         }
 
-        return view('technician-schedule.my-agenda', compact('technician', 'tasks', 'scheduleBlocks', 'date', 'stats', 'isViewingOther', 'technicians'));
+        $openTasks = Task::query()
+            ->with('serviceRequest')
+            ->where('technician_id', $technician->id)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNull('scheduled_date')
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return view('technician-schedule.my-agenda', compact('technician', 'tasks', 'scheduleBlocks', 'date', 'stats', 'isViewingOther', 'technicians', 'openTasks'));
     }
 
     /**
