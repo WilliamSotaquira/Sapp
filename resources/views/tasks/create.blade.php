@@ -34,8 +34,8 @@
     $uiTimezone = config('app.ui_timezone', config('app.timezone', 'UTC'));
     $currentDateTime = now($uiTimezone);
 
-    $defaultScheduledDate = old('scheduled_date');
-    $defaultScheduledTime = old('scheduled_start_time');
+    $defaultScheduledDate = old('scheduled_date', $prefillScheduledDate ?? null);
+    $defaultScheduledTime = old('scheduled_start_time', $prefillScheduledTime ?? null);
 
     if (!$defaultScheduledDate || !$defaultScheduledTime) {
         $suggested = $currentDateTime->copy();
@@ -1253,10 +1253,11 @@
                 const scheduledDateTime = new Date(parsedDate);
                 scheduledDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
                 const now = new Date();
+                const minAllowed = new Date(now.getTime() + 5 * 60 * 1000);
 
-                if (scheduledDateTime < now) {
+                if (scheduledDateTime < minAllowed) {
                     e.preventDefault();
-                    alert('No se puede asignar una tarea en una fecha y hora pasadas. Por favor, seleccione una fecha y hora futuras.');
+                    alert('La fecha y hora deben ser al menos 5 minutos en el futuro.');
                     return false;
                 }
             }
@@ -1276,10 +1277,11 @@
                 const scheduledDateTime = new Date(parsedDate);
                 scheduledDateTime.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
                 const now = new Date();
+                const minAllowed = new Date(now.getTime() + 5 * 60 * 1000);
 
-                if (scheduledDateTime < now) {
-                    document.getElementById('scheduled_date').setCustomValidity('La fecha y hora no pueden ser del pasado');
-                    document.getElementById('scheduled_start_time').setCustomValidity('La fecha y hora no pueden ser del pasado');
+                if (scheduledDateTime < minAllowed) {
+                    document.getElementById('scheduled_date').setCustomValidity('La fecha y hora deben ser al menos 5 minutos en el futuro');
+                    document.getElementById('scheduled_start_time').setCustomValidity('La fecha y hora deben ser al menos 5 minutos en el futuro');
                 } else {
                     document.getElementById('scheduled_date').setCustomValidity('');
                     document.getElementById('scheduled_start_time').setCustomValidity('');

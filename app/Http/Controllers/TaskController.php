@@ -8,6 +8,7 @@ use App\Models\ServiceRequest;
 use App\Models\Project;
 use App\Models\Subtask;
 use App\Models\TaskChecklist;
+use App\Models\ScheduleBlock;
 use App\Services\TaskAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -73,6 +74,8 @@ class TaskController extends Controller
     public function create(Request $request)
     {
         $allowedServiceRequestStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'];
+        $prefillScheduledDate = $request->query('scheduled_date');
+        $prefillScheduledTime = $request->query('scheduled_start_time');
 
         $technicians = Technician::with('user')
             ->active()
@@ -187,6 +190,8 @@ class TaskController extends Controller
             'preselectedEstimatedHours' => $preselectedEstimatedHours,
             'shouldSkipInitialModal' => $shouldSkipInitialModal,
             'needsTechnicianSelection' => $needsTechnicianSelection,
+            'prefillScheduledDate' => $prefillScheduledDate,
+            'prefillScheduledTime' => $prefillScheduledTime,
         ]);
     }
 
@@ -227,6 +232,16 @@ class TaskController extends Controller
             'checklist.*.order' => 'nullable|integer|min:0',
         ]);
 
+        $nowUi = $this->nowInUiTimezone();
+        $minAllowed = $nowUi->copy()->addMinutes(5);
+        $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
+
+        if ($scheduledDateTime->lt($minAllowed)) {
+            return back()->withErrors([
+                'scheduled_start_time' => 'La fecha y hora deben ser al menos 5 minutos en el futuro.',
+            ])->withInput();
+        }
+
         // Normalizaciones para mantener consistencia con enums de BD
         if (($validated['priority'] ?? null) === 'urgent') {
             $validated['priority'] = 'critical';
@@ -256,13 +271,12 @@ class TaskController extends Controller
         $validated['scheduled_time'] = $scheduledTime;
         $validated['estimated_hours'] = round($estimatedMinutes / 60, 2);
 
-        $nowUi = $this->nowInUiTimezone();
         $preferredStart = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
 
         if ($validated['priority'] === 'urgent') {
-            $preferredStart = $nowUi->copy()->addMinutes(5);
-        } elseif ($preferredStart->lt($nowUi)) {
-            $preferredStart = $nowUi->copy();
+            $preferredStart = $minAllowed->copy();
+        } elseif ($preferredStart->lt($minAllowed)) {
+            $preferredStart = $minAllowed->copy();
         }
 
         $technician = !empty($validated['technician_id'])
@@ -295,10 +309,10 @@ class TaskController extends Controller
         $validated['estimated_duration_minutes'] = $estimatedMinutes;
         $validated['scheduled_time'] = $scheduledTime;
 
-        // Validar que la fecha y hora no sean del pasado
+        // Validar que la fecha y hora no sean inmediatas o pasadas
         $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
         $currentDateTime = $this->nowInUiTimezone();
-        if ($scheduledDateTime->lt($currentDateTime)) {
+        if ($scheduledDateTime->lt($currentDateTime->copy()->addMinutes(5))) {
             \Log::warning('Intento de creación de tarea con fecha pasada', [
                 'scheduled' => $scheduledDateTime->toDateTimeString(),
                 'current' => $currentDateTime->toDateTimeString(),
@@ -307,7 +321,7 @@ class TaskController extends Controller
                 'input_time' => $validated['scheduled_start_time'],
             ]);
             return back()->withErrors([
-                'scheduled_date' => 'No se puede asignar una tarea en una fecha y hora pasadas.'
+                'scheduled_date' => 'La fecha y hora deben ser al menos 5 minutos en el futuro.'
             ])->withInput();
         }
 
@@ -531,23 +545,24 @@ class TaskController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'title' => 'required|string|max:255',
+                'title' => 'nullable|string|max:255',
                 'description' => 'nullable|string',
                 // Compatibilidad legacy: aceptar "urgent" pero se normaliza a "critical" antes de guardar
-                'priority' => 'required|in:low,medium,high,critical,urgent',
+                'priority' => 'nullable|in:low,medium,high,critical,urgent',
                 'duration_minutes' => 'nullable|integer|min:5|max:480',
                 'type' => 'nullable|in:impact,regular',
+                'scheduled_date' => 'nullable|date',
+                'scheduled_start_time' => 'nullable|date_format:H:i',
             ],
             [
-                'title.required' => 'El título es obligatorio.',
                 'title.max' => 'El título no puede superar los 255 caracteres.',
                 'description.string' => 'La descripción debe ser un texto válido.',
-                'priority.required' => 'Selecciona la prioridad de la tarea.',
                 'priority.in' => 'La prioridad seleccionada no es válida.',
                 'duration_minutes.integer' => 'La duración debe ser un número entero.',
                 'duration_minutes.min' => 'La duración mínima es de 5 minutos.',
                 'duration_minutes.max' => 'La duración no puede exceder 480 minutos.',
                 'type.in' => 'El tipo de tarea seleccionado no es válido.',
+                'scheduled_start_time.date_format' => 'La hora debe tener el formato HH:MM.',
             ]
         );
 
@@ -590,24 +605,64 @@ class TaskController extends Controller
             $technician->restore();
         }
 
-        $date = now()->hour < 18 ? now() : now()->addDay();
-        $durationMinutes = $validated['duration_minutes'] ?? 60;
+        $nowUi = $this->nowInUiTimezone();
+        $minAllowed = $nowUi->copy()->addMinutes(5);
+
+        $durationMinutes = $validated['duration_minutes'] ?? ($serviceRequest->sla?->resolution_time_minutes ?? 60);
+        $durationMinutes = max(5, min(480, (int) $durationMinutes));
         $estimatedHours = round($durationMinutes / 60, 2);
 
+        $fallbackPriority = $this->mapCriticalityToTaskPriority($serviceRequest->criticality_level) ?? 'medium';
+        $priority = $validated['priority'] ?? $fallbackPriority;
+
+        $title = $validated['title'] ?? $serviceRequest->title;
+        $description = $validated['description'] ?? $serviceRequest->description;
+        $type = $validated['type'] ?? 'regular';
+
+        $scheduledDate = $validated['scheduled_date'] ?? null;
+        $scheduledStartTime = $validated['scheduled_start_time'] ?? null;
+
+        if ($scheduledDate) {
+            $requestedTime = $scheduledStartTime ?: '09:00';
+            $preferredStart = $this->makeUiDateTime($scheduledDate, $requestedTime);
+        } else {
+            $preferredStart = $minAllowed->copy();
+        }
+
+        if ($preferredStart->lt($minAllowed)) {
+            $preferredStart = $minAllowed->copy();
+        }
+
+        $slotOptions = [
+            'search_days' => $priority === 'critical' ? 1 : 5,
+            'work_start' => $type === 'impact' ? 8 : 6,
+            'work_end' => $type === 'impact' ? 16 : 18,
+            'slot_size' => 5,
+        ];
+
+        $nextSlot = $this->assignmentService->findNextAvailableSlot(
+            $technician,
+            $preferredStart,
+            $durationMinutes,
+            $slotOptions
+        );
+
+        $scheduledAt = $nextSlot ?: $preferredStart->copy();
+
         $task = Task::create([
-            'type' => $validated['type'] ?? 'regular',
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
+            'type' => $type,
+            'title' => $title,
+            'description' => $description,
             'technician_id' => $technician->id,
             'service_request_id' => $serviceRequest->id,
             'sla_id' => $serviceRequest->sla_id,
-            'scheduled_date' => $date->format('Y-m-d'),
-            'scheduled_start_time' => $date->format('H:i'),
-            'scheduled_time' => $date->format('H:i'),
+            'scheduled_date' => $scheduledAt->format('Y-m-d'),
+            'scheduled_start_time' => $scheduledAt->format('H:i'),
+            'scheduled_time' => $scheduledAt->format('H:i'),
             'estimated_duration_minutes' => $durationMinutes,
             'estimated_hours' => $estimatedHours,
-            'priority' => $validated['priority'],
-            'status' => 'pending',
+            'priority' => $priority,
+            'status' => 'confirmed',
         ]);
 
         $task->addHistory('created', auth()->id(), 'Tarea creada rápidamente desde la solicitud.');
@@ -622,11 +677,193 @@ class TaskController extends Controller
 
         $task->load(['technician.user', 'subtasks']);
 
+        $this->assignmentService->createScheduleBlock($task);
+
         return response()->json([
             'success' => true,
             'message' => 'Tarea creada correctamente.',
-            'html' => view('components.service-requests.show.content.partials.task-card', compact('task'))->render(),
+            'task_id' => $task->id,
+            'scheduled_at' => $scheduledAt->format('Y-m-d H:i'),
+            'scheduled_date' => $scheduledAt->format('Y-m-d'),
+            'scheduled_start_time' => $scheduledAt->format('H:i'),
+            'redirect' => route('tasks.show', $task),
         ]);
+    }
+
+    public function unschedule(Task $task)
+    {
+        $user = auth()->user();
+
+        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permisos para desagendar esta tarea.',
+            ], 403);
+        }
+
+        ScheduleBlock::where('task_id', $task->id)->delete();
+
+        $task->update([
+            'scheduled_date' => null,
+            'scheduled_start_time' => null,
+            'scheduled_time' => null,
+            'status' => $task->status === 'completed' ? 'completed' : 'rescheduled',
+        ]);
+
+        $task->addHistory('rescheduled', $user->id, 'Tarea devuelta a tareas abiertas.');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tarea devuelta a tareas abiertas.',
+            'task' => [
+                'id' => $task->id,
+                'task_code' => $task->task_code,
+                'title' => $task->title,
+                'status' => $task->status,
+                'status_color' => $task->status_color,
+                'priority' => $task->priority,
+                'priority_color' => $task->priority_color,
+                'scheduled_date' => optional($task->scheduled_date)->format('d/m/Y'),
+                'scheduled_start_time' => $task->scheduled_start_time,
+            ],
+        ]);
+    }
+
+    public function scheduleQuick(Request $request, Task $task)
+    {
+        $user = auth()->user();
+
+        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permisos para agendar esta tarea.',
+            ], 403);
+        }
+
+        if (empty($task->technician_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La tarea no tiene técnico asignado.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'scheduled_date' => 'nullable|date',
+        ]);
+
+        $technician = Technician::find($task->technician_id);
+        if (!$technician) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró el técnico asignado.',
+            ], 404);
+        }
+
+        $nowUi = $this->nowInUiTimezone();
+        $minAllowed = $nowUi->copy()->addMinutes(5);
+
+        $durationMinutes = $task->estimated_duration_minutes ?? ($task->type === 'impact' ? 90 : 25);
+        $durationMinutes = max(5, (int) $durationMinutes);
+
+        $scheduledDate = $validated['scheduled_date'] ?? $nowUi->format('Y-m-d');
+        $preferredStart = $this->makeUiDateTime($scheduledDate, '09:00');
+        if ($preferredStart->lt($minAllowed)) {
+            $preferredStart = $minAllowed->copy();
+        }
+
+        $dayStart = $this->makeUiDateTime($scheduledDate, '06:00');
+        $dayEnd = $this->makeUiDateTime($scheduledDate, '18:00');
+        if ($preferredStart->lt($dayStart)) {
+            $preferredStart = $dayStart->copy();
+        }
+        if ($preferredStart->gt($dayEnd)) {
+            $preferredStart = $dayEnd->copy()->subMinutes($durationMinutes);
+        }
+
+        $slotOptions = [
+            'search_days' => 0,
+            'work_start' => $task->type === 'impact' ? 8 : 6,
+            'work_end' => $task->type === 'impact' ? 16 : 18,
+            'slot_size' => 5,
+        ];
+
+        $nextSlot = $this->assignmentService->findNextAvailableSlot(
+            $technician,
+            $preferredStart,
+            $durationMinutes,
+            $slotOptions
+        );
+
+        $scheduledAt = $nextSlot ?: $preferredStart->copy();
+
+        if ($scheduledAt->lt($dayStart)) {
+            $scheduledAt = $dayStart->copy();
+        } elseif ($scheduledAt->gt($dayEnd)) {
+            $scheduledAt = $dayEnd->copy()->subMinutes($durationMinutes);
+        }
+
+        ScheduleBlock::where('task_id', $task->id)->delete();
+
+        $task->update([
+            'scheduled_date' => $scheduledAt->format('Y-m-d'),
+            'scheduled_start_time' => $scheduledAt->format('H:i'),
+            'scheduled_time' => $scheduledAt->format('H:i'),
+            'status' => in_array($task->status, ['completed', 'cancelled'], true) ? $task->status : 'confirmed',
+        ]);
+
+        $task->addHistory('rescheduled', $user->id, 'Tarea agendada desde tareas abiertas.');
+
+        $this->assignmentService->createScheduleBlock($task);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tarea agendada correctamente.',
+            'task_id' => $task->id,
+            'scheduled_at' => $scheduledAt->format('Y-m-d H:i'),
+            'scheduled_date' => $scheduledAt->format('Y-m-d'),
+            'scheduled_start_time' => $scheduledAt->format('H:i'),
+        ]);
+    }
+
+    public function clearSchedule(Task $task)
+    {
+        $user = auth()->user();
+
+        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permisos para limpiar la programación de esta tarea.',
+                ], 403);
+            }
+
+            return back()->with('error', 'No tienes permisos para limpiar la programación de esta tarea.');
+        }
+
+        ScheduleBlock::where('task_id', $task->id)->delete();
+
+        $task->update([
+            'scheduled_date' => null,
+            'scheduled_start_time' => null,
+            'scheduled_time' => null,
+            'status' => 'pending',
+        ]);
+
+        $task->addHistory('rescheduled', $user->id, 'Programación limpiada; tarea regresó a estado inicial.');
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Programación limpiada y estado reiniciado.',
+                'task' => [
+                    'id' => $task->id,
+                    'status' => $task->status,
+                    'scheduled_date' => null,
+                ],
+            ]);
+        }
+
+        return back()->with('success', 'Programación limpiada y estado reiniciado.');
     }
 
     /**
@@ -1001,6 +1238,7 @@ class TaskController extends Controller
         $task->update([
             'scheduled_date' => $validated['scheduled_date'],
             'scheduled_start_time' => $validated['scheduled_start_time'],
+            'scheduled_time' => $validated['scheduled_start_time'],
         ]);
 
         // Detectar horarios no hábiles
@@ -1025,12 +1263,10 @@ class TaskController extends Controller
 
         $task->addHistory('rescheduled', auth()->id(), $reason);
 
-        // Actualizar bloque de horario si existe
-        if ($task->scheduleBlock) {
-            $task->scheduleBlock->update([
-                'block_date' => $validated['scheduled_date'],
-                'start_time' => $validated['scheduled_start_time'],
-            ]);
+        // Re-crear bloque de horario para mantener consistencia
+        ScheduleBlock::where('task_id', $task->id)->delete();
+        if (!empty($task->technician_id)) {
+            $this->assignmentService->createScheduleBlock($task->fresh());
         }
 
         // Si es una petición AJAX, devolver JSON

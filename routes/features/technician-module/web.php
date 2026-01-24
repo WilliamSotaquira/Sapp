@@ -67,6 +67,9 @@ Route::prefix('tasks')->name('tasks.')->group(function () {
     Route::post('/{task}/unblock', [TaskController::class, 'unblock'])->name('unblock');
     Route::post('/{task}/reschedule', [TaskController::class, 'reschedule'])->name('reschedule');
     Route::post('/{task}/update-duration', [TaskController::class, 'updateDuration'])->name('update-duration');
+    Route::post('/{task}/unschedule', [TaskController::class, 'unschedule'])->name('unschedule');
+    Route::post('/{task}/schedule-quick', [TaskController::class, 'scheduleQuick'])->name('schedule-quick');
+    Route::post('/{task}/clear-schedule', [TaskController::class, 'clearSchedule'])->name('clear-schedule');
 
     // Subtareas
     Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');

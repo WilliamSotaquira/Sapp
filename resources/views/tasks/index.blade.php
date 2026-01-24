@@ -194,6 +194,12 @@
                                    title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <button type="button"
+                                        class="text-indigo-600 hover:text-indigo-900 js-clear-schedule"
+                                        data-task-id="{{ $task->id }}"
+                                        title="Limpiar programación">
+                                    <i class="fas fa-eraser"></i>
+                                </button>
                                 <form action="{{ route('tasks.destroy', $task) }}" method="POST" class="inline" onsubmit="return confirm('¿Está seguro de eliminar esta tarea?')">
                                     @csrf
                                     @method('DELETE')
@@ -225,4 +231,65 @@
         @endif
     </div>
 </div>
+
+<script>
+    function showTaskToast(message, type = 'info') {
+        const toast = document.getElementById('taskToast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.remove('hidden', 'bg-gray-900', 'bg-green-600', 'bg-blue-600', 'bg-red-600');
+        toast.classList.add(type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600');
+        clearTimeout(window.__taskToastTimer);
+        window.__taskToastTimer = setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 2200);
+    }
+
+    document.querySelectorAll('.js-clear-schedule').forEach((button) => {
+        button.addEventListener('click', async () => {
+            if (!confirm('¿Limpiar programación y volver a estado inicial?')) {
+                return;
+            }
+
+            const taskId = button.dataset.taskId;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            try {
+                const response = await fetch(`{{ route('tasks.clear-schedule', ['task' => '__ID__']) }}`.replace('__ID__', taskId), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf || '',
+                    },
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    showTaskToast(data.message || 'No se pudo limpiar la programación.', 'error');
+                    return;
+                }
+
+                const row = button.closest('tr');
+                if (row) {
+                    const statusCell = row.querySelector('td:nth-child(6) span');
+                    if (statusCell) {
+                        statusCell.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800';
+                        statusCell.textContent = 'Pendiente';
+                    }
+
+                    const dateCell = row.querySelector('td:nth-child(7)');
+                    if (dateCell) {
+                        dateCell.textContent = 'Sin fecha';
+                    }
+                }
+                showTaskToast('Programación limpiada.', 'success');
+            } catch (error) {
+                console.error(error);
+                showTaskToast('Error al limpiar la programación.', 'error');
+            }
+        });
+    });
+</script>
+
+<div id="taskToast" class="hidden fixed bottom-5 right-5 text-white text-sm px-4 py-2 rounded-lg shadow-lg bg-blue-600"></div>
 @endsection
