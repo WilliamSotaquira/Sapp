@@ -15,6 +15,10 @@
     <div class="p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+                <label class="text-sm font-medium text-gray-500">Espacio de trabajo</label>
+                <p class="text-gray-900 font-semibold">{{ $serviceRequest->company->name ?? 'N/A' }}</p>
+            </div>
+            <div>
                 <label class="text-sm font-medium text-gray-500">Familia de Servicio</label>
                 <p class="text-gray-900 font-semibold">{{ $serviceRequest->subService->service->family->name ?? 'N/A' }}
                 </p>

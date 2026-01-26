@@ -30,6 +30,12 @@ class TaskController extends Controller
     public function index(Request $request)
     {
         $query = Task::with(['technician.user', 'serviceRequest', 'project', 'sla']);
+        $currentCompanyId = $request->session()->get('current_company_id');
+        if ($currentCompanyId) {
+            $query->whereHas('serviceRequest', function ($sr) use ($currentCompanyId) {
+                $sr->where('company_id', $currentCompanyId);
+            });
+        }
 
         // Filtros
         if ($request->has('status')) {
@@ -76,6 +82,7 @@ class TaskController extends Controller
         $allowedServiceRequestStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'];
         $prefillScheduledDate = $request->query('scheduled_date');
         $prefillScheduledTime = $request->query('scheduled_start_time');
+        $currentCompanyId = $request->session()->get('current_company_id');
 
         $technicians = Technician::with('user')
             ->active()
@@ -85,6 +92,7 @@ class TaskController extends Controller
         // Solo solicitudes ABIERTAS (PENDIENTE, ACEPTADA, EN_PROCESO) asignadas al usuario actual
         $serviceRequests = ServiceRequest::with(['assignee.technician', 'sla'])
             ->where('assigned_to', auth()->id())
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->whereIn('status', $allowedServiceRequestStatuses)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -694,7 +702,11 @@ class TaskController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
+        $canManage = $user->can('assign-service-requests')
+            || $user->isAdmin()
+            || optional($task->technician)->user_id === $user->id;
+
+        if (!$canManage) {
             return response()->json([
                 'success' => false,
                 'message' => 'No tienes permisos para desagendar esta tarea.',
@@ -829,7 +841,11 @@ class TaskController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
+        $canManage = $user->can('assign-service-requests')
+            || $user->isAdmin()
+            || optional($task->technician)->user_id === $user->id;
+
+        if (!$canManage) {
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,

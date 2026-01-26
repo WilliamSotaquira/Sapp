@@ -567,6 +567,7 @@
                     phone: (document.getElementById('quickAssignRequesterPhone')?.value || '').trim() || null,
                     department: (document.getElementById('quickAssignRequesterDepartment')?.value || '').trim() || null,
                     position: (document.getElementById('quickAssignRequesterPosition')?.value || '').trim() || null,
+                    company_id: {{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : 'null' }},
                 };
 
                 if (!payload.name) {

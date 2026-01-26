@@ -4,6 +4,7 @@
     'subServices' => [], // Lista de subservicios (opcional; puede ser vacía si usamos Select2 AJAX)
     'selectedSubService' => null, // Subservicio precargado para mostrar selección inicial
     'requesters' => [], // Lista de solicitantes para seleccionar solicitante
+    'companies' => [], // Lista de empresas para seleccionar
     'cuts' => [], // Lista de cortes disponibles
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
@@ -70,6 +71,21 @@
         <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
     </div>
 
+    <!-- Espacio de trabajo -->
+    @php
+        $currentCompanyId = old('company_id', $serviceRequest->company_id ?? (session('current_company_id') ?? null));
+    @endphp
+    <input type="hidden" name="company_id" id="company_id" value="{{ $currentCompanyId }}">
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Espacio de trabajo</label>
+        <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
+            {{ $currentWorkspace->name ?? 'Sin espacio seleccionado' }}
+        </div>
+        @error('company_id')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
+
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
     <div>
         <label for="requester_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -85,7 +101,9 @@
             required>
             <option value="">Seleccione un solicitante</option>
             @foreach ($requesters as $requester)
-                <option value="{{ $requester->id }}" {{ $currentRequesterId == $requester->id ? 'selected' : '' }}>
+                <option value="{{ $requester->id }}"
+                    data-company-id="{{ $requester->company_id ?? '' }}"
+                    {{ $currentRequesterId == $requester->id ? 'selected' : '' }}>
                     {{ $requester->name }} - {{ $requester->email }}
                     @if ($requester->department)
                         ({{ $requester->department }})
@@ -190,6 +208,44 @@
             </div>
         </div>
     </div>
+
+    @once
+        @push('scripts')
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const companySelect = document.getElementById('company_id');
+                    const requesterSelect = document.getElementById('requester_id');
+                    if (!companySelect || !requesterSelect) return;
+
+                    const requesterOptions = Array.from(requesterSelect.options);
+
+                    function applyRequesterFilter() {
+                        const companyId = companySelect.value;
+                        let hasSelection = false;
+
+                        requesterOptions.forEach((option) => {
+                            if (!option.value) return;
+                            const optionCompanyId = option.getAttribute('data-company-id') || '';
+                            const shouldShow = !companyId || optionCompanyId === companyId;
+                            option.hidden = !shouldShow;
+                            option.disabled = !shouldShow;
+                            if (shouldShow && option.selected) {
+                                hasSelection = true;
+                            }
+                        });
+
+                        if (companyId && !hasSelection && requesterSelect.value) {
+                            requesterSelect.value = '';
+                            requesterSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+
+                    companySelect.addEventListener('change', applyRequesterFilter);
+                    applyRequesterFilter();
+                });
+            </script>
+        @endpush
+    @endonce
 
     <!-- Canal de ingreso -->
     @php
@@ -806,6 +862,7 @@
                                         phone: (document.getElementById('quickRequesterPhone')?.value || '').trim() || null,
                                         department: (document.getElementById('quickRequesterDepartment')?.value || '').trim() || null,
                                         position: (document.getElementById('quickRequesterPosition')?.value || '').trim() || null,
+                                        company_id: (document.getElementById('company_id')?.value || '').trim() || null,
                                     };
 
                                     if (!payload.name) {
@@ -868,6 +925,10 @@
                                         const select = document.getElementById('requester_id');
                                         if (select) {
                                             const newOption = new Option(display, String(requesterId), true, true);
+                                            const companyId = (document.getElementById('company_id')?.value || '').trim();
+                                            if (companyId) {
+                                                newOption.setAttribute('data-company-id', companyId);
+                                            }
                                             if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(select).data('select2')) {
                                                 window.jQuery(select).append(newOption).trigger('change');
                                             } else {

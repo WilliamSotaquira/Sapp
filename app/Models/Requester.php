@@ -18,6 +18,7 @@ class Requester extends Model
     }
 
     protected $fillable = [
+        'company_id',
         'name',
         'email',
         'phone',
@@ -30,6 +31,18 @@ class Requester extends Model
         'is_active' => 'boolean',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::addGlobalScope('workspace', function ($query) {
+            $companyId = session('current_company_id');
+            if ($companyId) {
+                $query->where('company_id', $companyId);
+            }
+        });
+    }
+
     /**
      * Relación con ServiceRequests
      * Un solicitante puede tener muchas solicitudes
@@ -37,6 +50,11 @@ class Requester extends Model
     public function serviceRequests()
     {
         return $this->hasMany(ServiceRequest::class);
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

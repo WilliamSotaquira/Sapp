@@ -51,6 +51,7 @@ class ServiceRequestController extends Controller
             'criticality' => $request->get('criticality'),
             'requester' => $request->get('requester'), // nombre o email parcial
             'service_id' => $request->get('service_id'),
+            'company_id' => $request->get('company_id'),
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
             'open' => $request->boolean('open'),
@@ -100,8 +101,10 @@ class ServiceRequestController extends Controller
         if ($term === '') {
             return response()->json([]);
         }
+        $currentCompanyId = $request->session()->get('current_company_id');
         $query = \App\Models\Requester::active()
             ->select(['id','name','email'])
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->where(function($q) use ($term) {
                 $q->where('name','LIKE',"%{$term}%")
                   ->orWhere('email','LIKE',"%{$term}%");
@@ -932,4 +935,3 @@ class ServiceRequestController extends Controller
         }
     }
 }
-

@@ -3,6 +3,7 @@
 namespace Tests\Feature\ServiceRequests;
 
 use App\Models\Requester;
+use App\Models\Company;
 use App\Models\Service;
 use App\Models\ServiceFamily;
 use App\Models\ServiceLevelAgreement;
@@ -18,7 +19,14 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
     public function test_store_accepts_comma_decimal_estimated_hours_and_web_routes_array(): void
     {
         $user = User::factory()->create();
-        $requester = Requester::factory()->create();
+        $company = Company::create([
+            'name' => 'Empresa Test',
+            'status' => 'active',
+        ]);
+
+        $requester = Requester::factory()->create([
+            'company_id' => $company->id,
+        ]);
 
         $family = ServiceFamily::create([
             'name' => 'Familia Test',
@@ -61,6 +69,7 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
         ]);
 
         $payload = [
+            'company_id' => $company->id,
             'requester_id' => $requester->id,
             'title' => 'SR test',
             'description' => 'Descripción de prueba',

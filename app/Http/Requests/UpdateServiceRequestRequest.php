@@ -12,9 +12,17 @@ class UpdateServiceRequestRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (!$this->has('company_id')) {
+            $this->merge(['company_id' => session('current_company_id')]);
+        }
+    }
+
     public function rules(): array
     {
         return [
+            'company_id' => 'required|exists:companies,id',
             'requester_id' => 'required|exists:requesters,id',
             'sub_service_id' => 'required|exists:sub_services,id',
             'sla_id' => 'required|exists:service_level_agreements,id',
@@ -30,6 +38,8 @@ class UpdateServiceRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'company_id.required' => 'La empresa es obligatoria.',
+            'company_id.exists' => 'La empresa seleccionada no es válida.',
             'requester_id.required' => 'El solicitante es obligatorio.',
             'requester_id.exists' => 'El solicitante seleccionado no es válido.',
             'sub_service_id.required' => 'El sub-servicio es obligatorio.',

@@ -101,6 +101,15 @@ class ServiceRequestService
             });
         }
 
+        // Empresa
+        $companyId = !empty($filters['company_id']) ? (int) $filters['company_id'] : null;
+        if (!$companyId) {
+            $companyId = (int) session('current_company_id');
+        }
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
+
         // Rango de fechas (creación)
         $startDate = $filters['start_date'] ?? null;
         $endDate = $filters['end_date'] ?? null;
@@ -134,10 +143,11 @@ class ServiceRequestService
                 'subService:id,name,service_id',
                 'subService.service:id,name,service_family_id',
                 'subService.service.family:id,name',
-                'requester:id,name,email'
+                'requester:id,name,email',
+                'company:id,name'
             ])
             ->select([
-                'id', 'ticket_number', 'title', 'description', 'status',
+                'id', 'company_id', 'ticket_number', 'title', 'description', 'status',
                 'criticality_level', 'requester_id', 'sub_service_id',
                 'created_at', 'updated_at'
             ]);
@@ -435,11 +445,18 @@ class ServiceRequestService
                 ->find($selectedSubServiceId);
         }
 
+        $currentCompanyId = session('current_company_id');
+
         return [
             // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
             'subServices' => collect(),
             'selectedSubService' => $selectedSubService,
-            'requesters' => \App\Models\Requester::active()->orderBy('name')->get(),
+            'requesters' => \App\Models\Requester::active()
+                ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'department', 'company_id']),
+            'companies' => \App\Models\Company::orderBy('name')->get(),
+            'currentCompany' => $currentCompanyId ? \App\Models\Company::find($currentCompanyId) : null,
             'cuts' => Cut::orderBy('start_date', 'desc')->get(['id', 'name', 'start_date', 'end_date']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
         ];
@@ -456,6 +473,7 @@ class ServiceRequestService
             'subService.service.family:id,name',
             'sla:id,name,criticality_level,response_time_minutes,resolution_time_minutes',
             'requester:id,name,email,phone',
+            'company:id,name',
             'assignee:id,name,email',
             'breachLogs:id,service_request_id,breach_type,breach_minutes,created_at',
             'evidences' => function($query) {
@@ -482,10 +500,17 @@ class ServiceRequestService
         $subServices = collect();
 
         $users = User::select(['id', 'name', 'email'])->orderBy('name')->get();
-        $requesters = \App\Models\Requester::active()->orderBy('name')->get();
+        $currentCompanyId = session('current_company_id');
+        $requesters = \App\Models\Requester::active()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'department', 'company_id']);
+        $companies = \App\Models\Company::orderBy('name')->get();
+        $currentCompany = $currentCompanyId ? \App\Models\Company::find($currentCompanyId) : null;
+        $cuts = Cut::orderBy('start_date', 'desc')->get(['id', 'name', 'start_date', 'end_date']);
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
 
-        return compact('subServices', 'selectedSubService', 'users', 'requesters', 'criticalityLevels');
+        return compact('subServices', 'selectedSubService', 'users', 'requesters', 'companies', 'cuts', 'criticalityLevels', 'currentCompany');
     }
 
     /**

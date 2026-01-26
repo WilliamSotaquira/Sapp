@@ -24,6 +24,7 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::post('/requesters/quick-create', function (Request $request) {
         try {
             $validated = $request->validate([
+                'company_id' => 'required|exists:companies,id',
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email|unique:requesters,email',
                 'phone' => 'nullable|string|max:20',

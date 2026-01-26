@@ -20,10 +20,28 @@
                 </li>
             </ol>
         </nav>
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between">
-            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
-            <div class="mt-2 sm:mt-0">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex flex-col gap-2">
+                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
                 <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
+            </div>
+
+            <div class="w-full lg:w-auto">
+                <div class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-sm">
+                    <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-red-50 text-red-600">
+                        <i class="fas fa-building text-lg"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[11px] uppercase tracking-wider text-gray-400">Espacio activo</p>
+                        <p class="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                            {{ $currentWorkspace->name ?? 'Sin espacio' }}
+                        </p>
+                    </div>
+                    <a href="{{ route('workspaces.select') }}"
+                       class="ml-auto text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700">
+                        Cambiar
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -41,6 +59,16 @@
             $hasTechnician = (bool) (auth()->user()?->technician);
 
             $quickLinks = [
+                [
+                    'href' => route('technician-schedule.my-agenda'),
+                    'border' => 'border-indigo-100',
+                    'bg' => 'bg-indigo-50/50',
+                    'iconWrap' => 'text-indigo-600',
+                    'icon' => 'fas fa-calendar-alt',
+                    'title' => 'Mi Agenda',
+                    'subtitle' => 'Calendario',
+                    'arrow' => 'text-indigo-500',
+                ],
                 [
                     'href' => route('service-requests.create'),
                     'border' => 'border-blue-100',
@@ -61,10 +89,7 @@
                     'subtitle' => 'Panel operativo',
                     'arrow' => 'text-purple-500',
                 ],
-            ];
-
-            if ($hasTechnician) {
-                $quickLinks[] = [
+                [
                     'href' => route('tasks.index'),
                     'border' => 'border-emerald-100',
                     'bg' => 'bg-emerald-50/50',
@@ -73,17 +98,13 @@
                     'title' => 'Mis Tareas',
                     'subtitle' => 'Ejecución diaria',
                     'arrow' => 'text-emerald-500',
-                ];
-                $quickLinks[] = [
-                    'href' => route('technician-schedule.my-agenda'),
-                    'border' => 'border-indigo-100',
-                    'bg' => 'bg-indigo-50/50',
-                    'iconWrap' => 'text-indigo-600',
-                    'icon' => 'fas fa-calendar-alt',
-                    'title' => 'Mi Agenda',
-                    'subtitle' => 'Calendario',
-                    'arrow' => 'text-indigo-500',
-                ];
+                ],
+            ];
+
+            if (!$hasTechnician) {
+                $quickLinks = array_values(array_filter($quickLinks, function ($link) {
+                    return !in_array($link['title'], ['Mi Agenda', 'Mis Tareas'], true);
+                }));
             }
 
             if ($isAdmin) {
