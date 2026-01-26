@@ -20,6 +20,8 @@
                     'subServices' => $subServices,
                     'selectedSubService' => $selectedSubService ?? null,
                     'requesters' => $requesters,
+                    'companies' => $companies ?? [],
+                    'cuts' => $cuts ?? [],
                     'errors' => $errors,
                     'mode' => 'edit'
                 ])

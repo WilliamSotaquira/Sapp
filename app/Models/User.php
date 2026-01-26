@@ -88,6 +88,11 @@ class User extends Authenticatable
         return $this->hasOne(\App\Models\Technician::class);
     }
 
+    public function companies()
+    {
+        return $this->belongsToMany(\App\Models\Company::class)->withTimestamps();
+    }
+
     /**
      * Verificar si el usuario es técnico
      */

@@ -21,6 +21,7 @@ class StoreServiceRequestRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'company_id' => 'required|exists:companies,id',
             'requester_id' => 'required|exists:requesters,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -64,6 +65,8 @@ class StoreServiceRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'company_id.required' => 'Debe seleccionar una empresa.',
+            'company_id.exists' => 'La empresa seleccionada no es válida.',
             'requester_id.required' => 'Debe seleccionar un solicitante.',
             'requester_id.exists' => 'El solicitante seleccionado no es válido.',
             'title.required' => 'El título es obligatorio.',
@@ -124,6 +127,10 @@ class StoreServiceRequestRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        if (!$this->has('company_id')) {
+            $this->merge(['company_id' => session('current_company_id')]);
+        }
+
         // Procesar web_routes (puede venir como string JSON o como array)
         if ($this->has('web_routes')) {
             if (is_array($this->web_routes)) {

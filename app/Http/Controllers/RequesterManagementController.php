@@ -4,11 +4,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Requester;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class RequesterManagementController extends Controller
 {
+    private function ensureWorkspace(Requester $requester): void
+    {
+        $companyId = session('current_company_id');
+        if ($companyId && (int) $requester->company_id !== (int) $companyId) {
+            abort(403, 'No tienes acceso a este solicitante.');
+        }
+    }
     /**
      * Display a listing of the resource.
      */
@@ -16,18 +24,23 @@ class RequesterManagementController extends Controller
     {
         $search = $request->get('search');
         $status = $request->get('status', 'active');
+        $companyId = $request->get('company_id') ?: $request->session()->get('current_company_id');
 
-        $requesters = Requester::withCount('serviceRequests')
+        $requesters = Requester::with(['company:id,name'])
+            ->withCount('serviceRequests')
             ->when($search, function($query) use ($search) {
                 return $query->search($search);
             })
             ->when($status !== 'all', function($query) use ($status) {
                 return $query->where('is_active', $status === 'active');
             })
+            ->when($companyId, function($query) use ($companyId) {
+                return $query->where('company_id', $companyId);
+            })
             ->orderBy('name')
             ->paginate(20);
 
-        return view('requester-management.requesters.index', compact('requesters', 'search', 'status'));
+        return view('requester-management.requesters.index', compact('requesters', 'search', 'status', 'companyId'));
     }
 
     /**
@@ -35,7 +48,9 @@ class RequesterManagementController extends Controller
      */
     public function create()
     {
-        return view('requester-management.requesters.create');
+        $companies = Company::orderBy('name')->get(['id', 'name']);
+
+        return view('requester-management.requesters.create', compact('companies'));
     }
 
     /**
@@ -43,7 +58,12 @@ class RequesterManagementController extends Controller
      */
     public function store(Request $request)
     {
+        if (!$request->has('company_id')) {
+            $request->merge(['company_id' => $request->session()->get('current_company_id')]);
+        }
+
         $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:requesters,email',
             'phone' => 'nullable|string|max:20',
@@ -63,6 +83,8 @@ class RequesterManagementController extends Controller
      */
     public function show(Requester $requester)
     {
+        $this->ensureWorkspace($requester);
+
         $serviceRequests = $requester->serviceRequests()
             ->with(['subService.service.family', 'status'])
             ->orderBy('created_at', 'desc')
@@ -76,7 +98,11 @@ class RequesterManagementController extends Controller
      */
     public function edit(Requester $requester)
     {
-        return view('requester-management.requesters.edit', compact('requester'));
+        $this->ensureWorkspace($requester);
+
+        $companies = Company::orderBy('name')->get(['id', 'name']);
+
+        return view('requester-management.requesters.edit', compact('requester', 'companies'));
     }
 
     /**
@@ -84,7 +110,14 @@ class RequesterManagementController extends Controller
      */
     public function update(Request $request, Requester $requester)
     {
+        $this->ensureWorkspace($requester);
+
+        if (!$request->has('company_id')) {
+            $request->merge(['company_id' => $request->session()->get('current_company_id')]);
+        }
+
         $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
             'email' => [
                 'nullable',
@@ -122,6 +155,8 @@ class RequesterManagementController extends Controller
      */
     public function destroy(Requester $requester)
     {
+        $this->ensureWorkspace($requester);
+
         if ($requester->serviceRequests()->exists()) {
             return redirect()->back()
                 ->with('error', 'No se puede eliminar el solicitante porque tiene solicitudes asociadas.');
@@ -138,6 +173,8 @@ class RequesterManagementController extends Controller
      */
     public function toggleStatus(Requester $requester)
     {
+        $this->ensureWorkspace($requester);
+
         $requester->update([
             'is_active' => !$requester->is_active
         ]);

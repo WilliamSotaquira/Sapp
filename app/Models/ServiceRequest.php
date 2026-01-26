@@ -22,7 +22,7 @@ class ServiceRequest extends Model
     public const ENTRY_CHANNEL_PHONE = 'telefono';
     public const ENTRY_CHANNEL_MEETING = 'reunion';
 
-    protected $fillable = ['ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
+    protected $fillable = ['company_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -127,6 +127,13 @@ class ServiceRequest extends Model
     {
         parent::boot();
 
+        static::addGlobalScope('workspace', function ($query) {
+            $companyId = session('current_company_id');
+            if ($companyId) {
+                $query->where('company_id', $companyId);
+            }
+        });
+
         // Generar ticket_number automáticamente al crear
         static::creating(function ($model) {
             if (empty($model->ticket_number)) {
@@ -159,6 +166,11 @@ class ServiceRequest extends Model
     public function requester()
     {
         return $this->belongsTo(Requester::class);
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function assignee()

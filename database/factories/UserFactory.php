@@ -32,6 +32,14 @@ class UserFactory extends Factory
         ];
     }
 
+    public function configure(): static
+    {
+        return $this->afterCreating(function (\App\Models\User $user) {
+            $company = \App\Models\Company::factory()->create();
+            $user->companies()->syncWithoutDetaching([$company->id]);
+        });
+    }
+
     /**
      * Indicate that the model's email address should be unverified.
      */

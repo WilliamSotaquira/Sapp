@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'consultar/*',
         ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\EnsureWorkspaceSelected::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

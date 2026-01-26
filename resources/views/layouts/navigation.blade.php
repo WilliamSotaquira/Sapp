@@ -20,6 +20,24 @@
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
+                @if(isset($userWorkspaces) && $userWorkspaces->count() > 1)
+                    <form method="POST" action="{{ route('workspaces.switch') }}" class="mr-4">
+                        @csrf
+                        <label for="workspaceSwitch" class="sr-only">Espacio de trabajo</label>
+                        <select id="workspaceSwitch" name="company_id"
+                                onchange="this.form.submit()"
+                                class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            @foreach ($userWorkspaces as $workspace)
+                                <option value="{{ $workspace->id }}" {{ optional($currentWorkspace)->id === $workspace->id ? 'selected' : '' }}>
+                                    {{ $workspace->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                @elseif(isset($currentWorkspace))
+                    <span class="mr-4 text-sm text-gray-600">{{ $currentWorkspace->name }}</span>
+                @endif
+
                 <x-ui.overlays.dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
@@ -79,14 +97,31 @@
                 <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
             </div>
 
-            <div class="mt-3 space-y-1">
-                <x-core.navigation.responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
+        <div class="mt-3 space-y-1">
+            <x-core.navigation.responsive-nav-link :href="route('profile.edit')">
+                {{ __('Profile') }}
+            </x-responsive-nav-link>
 
-                <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
+            @if(isset($userWorkspaces) && $userWorkspaces->count() > 1)
+                <form method="POST" action="{{ route('workspaces.switch') }}" class="px-4 py-2">
                     @csrf
+                    <label for="workspaceSwitchMobile" class="block text-xs text-gray-500 mb-1">Espacio de trabajo</label>
+                    <select id="workspaceSwitchMobile" name="company_id" onchange="this.form.submit()"
+                            class="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        @foreach ($userWorkspaces as $workspace)
+                            <option value="{{ $workspace->id }}" {{ optional($currentWorkspace)->id === $workspace->id ? 'selected' : '' }}>
+                                {{ $workspace->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            @elseif(isset($currentWorkspace))
+                <div class="px-4 py-2 text-sm text-gray-600">{{ $currentWorkspace->name }}</div>
+            @endif
+
+            <!-- Authentication -->
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
 
                     <x-core.navigation.responsive-nav-link :href="route('logout')"
                             onclick="event.preventDefault();
@@ -98,4 +133,3 @@
         </div>
     </div>
 </nav>
-

@@ -26,6 +26,11 @@ Route::prefix('consultar')
 // =============================================================================
 
 Route::middleware('auth')->group(function () {
+    // Selección de espacio de trabajo
+    Route::get('/workspaces/select', [App\Http\Controllers\WorkspaceController::class, 'select'])
+        ->name('workspaces.select');
+    Route::post('/workspaces/switch', [App\Http\Controllers\WorkspaceController::class, 'switch'])
+        ->name('workspaces.switch');
 
     // =========================================================================
     // DASHBOARD PRINCIPAL
