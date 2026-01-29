@@ -108,7 +108,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Tareas del Día</h2>
-                        <p class="text-sm text-gray-500">Ordenadas por hora de inicio</p>
+                        <p class="text-sm text-gray-500">Arrastra las tareas para ordenarlas</p>
                     </div>
                     <div class="text-sm text-gray-500">
                         <i class="fas fa-list-ul mr-1"></i><span id="tasksTotalCount">{{ $totalTasks }}</span> tareas en total
@@ -127,7 +127,7 @@
             </div>
         @else
                     <div class="space-y-4" id="tasksList">
-                        @foreach($tasks->where('status', '!=', 'completed')->sortBy('scheduled_start_time') as $task)
+                        @foreach($tasks->where('status', '!=', 'completed') as $task)
                             <div class="border border-{{ $task->type === 'impact' ? 'red' : 'blue' }}-200 bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-50/50 rounded-lg p-4"
                                  draggable="true" data-day-task data-task-id="{{ $task->id }}">
                         <div class="flex flex-col lg:flex-row lg:items-start gap-4">
@@ -270,7 +270,11 @@
                     </button>
 
                     <div id="completedSection" class="hidden mt-4 space-y-3">
-                        @foreach($completedTasks->sortBy('scheduled_start_time') as $task)
+                        @foreach($completedTasks->sortBy(function ($task) {
+                            $order = $task->scheduled_order ?? 0;
+                            $time = $task->scheduled_start_time ?? '';
+                            return sprintf('%05d-%s', $order, $time);
+                        }) as $task)
                             <div class="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded opacity-75">
                                 <div class="flex justify-between items-start">
                                     <div class="flex-1">
@@ -467,6 +471,7 @@
 
     const scheduleQuickUrlTemplate = @json(route('tasks.schedule-quick', ['task' => '__ID__']));
     const unscheduleTaskUrlTemplate = @json(route('tasks.unschedule', ['task' => '__ID__']));
+    const reorderDayTasksUrl = @json(route('technician-schedule.reorder-day-tasks'));
 
     function buildScheduleQuickUrl(taskId) {
         return scheduleQuickUrlTemplate.replace('__ID__', taskId);
@@ -494,12 +499,78 @@
         const dropZone = document.getElementById('tasksDropZone');
         const dropHint = document.getElementById('dropHint');
         const openList = document.querySelector('[data-open-list]');
+        const tasksList = document.getElementById('tasksList');
+        let draggingDayTask = null;
+        let initialDayOrder = [];
+
+        const getDayTaskIds = () => {
+            if (!tasksList) return [];
+            return Array.from(tasksList.querySelectorAll('[data-day-task]'))
+                .map((item) => item.dataset.taskId)
+                .filter(Boolean);
+        };
+
+        const getDragAfterElement = (container, y) => {
+            const draggableElements = [...container.querySelectorAll('[data-day-task]:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset, element: child };
+                }
+                return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        };
+
+        const saveDayTaskOrder = async (taskIds) => {
+            if (!taskIds || taskIds.length === 0) return;
+            const dateValue = document.getElementById('dateSelector')?.value;
+            if (!dateValue) return;
+            const technicianId = document.getElementById('technicianSelector')?.value;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            const payload = {
+                task_ids: taskIds,
+                scheduled_date: dateValue,
+            };
+
+            if (technicianId) {
+                payload.technician_id = technicianId;
+            }
+
+            try {
+                const response = await fetch(reorderDayTasksUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf || '',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    showToast(data.message || 'No se pudo guardar el orden.', 'error');
+                    return;
+                }
+                showToast('Orden actualizado.', 'success');
+            } catch (error) {
+                console.error(error);
+                showToast('Error al guardar el orden.', 'error');
+            }
+        };
 
         if (dropZone) {
             dropZone.addEventListener('dragover', (event) => {
                 event.preventDefault();
-                event.dataTransfer.dropEffect = 'move';
-                dropHint?.classList.remove('hidden');
+                const origin = event.dataTransfer.getData('application/x-task-origin');
+                if (origin === 'open') {
+                    event.dataTransfer.dropEffect = 'move';
+                    dropHint?.classList.remove('hidden');
+                } else {
+                    dropHint?.classList.add('hidden');
+                }
             });
 
             dropZone.addEventListener('dragleave', (event) => {
@@ -556,6 +627,29 @@
                     console.error(error);
                     showToast('Error al agendar la tarea.', 'error');
                 }
+            });
+        }
+
+        if (tasksList) {
+            tasksList.addEventListener('dragover', (event) => {
+                const origin = event.dataTransfer.getData('application/x-task-origin');
+                if (origin !== 'day' || !draggingDayTask) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                dropHint?.classList.add('hidden');
+                const afterElement = getDragAfterElement(tasksList, event.clientY);
+                if (!afterElement) {
+                    tasksList.appendChild(draggingDayTask);
+                } else {
+                    tasksList.insertBefore(draggingDayTask, afterElement);
+                }
+            });
+
+            tasksList.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
             });
         }
 
@@ -630,11 +724,24 @@
                 event.dataTransfer.setData('application/x-task-origin', 'day');
                 event.dataTransfer.setData('text/plain', item.dataset.taskId);
                 event.dataTransfer.effectAllowed = 'move';
-                item.classList.add('ring-2', 'ring-amber-400');
+                draggingDayTask = item;
+                initialDayOrder = getDayTaskIds();
+                item.classList.add('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
             });
 
             item.addEventListener('dragend', () => {
-                item.classList.remove('ring-2', 'ring-amber-400');
+                item.classList.remove('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
+                if (tasksList && !tasksList.contains(item)) {
+                    draggingDayTask = null;
+                    initialDayOrder = [];
+                    return;
+                }
+                const newOrder = getDayTaskIds();
+                if (JSON.stringify(initialDayOrder) !== JSON.stringify(newOrder)) {
+                    saveDayTaskOrder(newOrder);
+                }
+                draggingDayTask = null;
+                initialDayOrder = [];
             });
         });
     }

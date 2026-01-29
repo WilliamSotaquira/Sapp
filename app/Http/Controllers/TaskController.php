@@ -347,6 +347,16 @@ class TaskController extends Controller
         $validated['estimated_duration_minutes'] = $estimatedMinutes;
         $validated['scheduled_time'] = $scheduledTime;
 
+        if (!empty($validated['technician_id']) && !empty($validated['scheduled_date'])) {
+            $maxOrder = Task::whereDate('scheduled_date', $validated['scheduled_date'])
+                ->where('technician_id', $validated['technician_id'])
+                ->max('scheduled_order');
+
+            if (!empty($maxOrder)) {
+                $validated['scheduled_order'] = $maxOrder + 1;
+            }
+        }
+
         // Validar que la fecha y hora no sean inmediatas o pasadas
         $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
         $currentDateTime = $this->nowInUiTimezone();
@@ -749,6 +759,7 @@ class TaskController extends Controller
             'scheduled_date' => null,
             'scheduled_start_time' => null,
             'scheduled_time' => null,
+            'scheduled_order' => 0,
             'status' => $task->status === 'completed' ? 'completed' : 'rescheduled',
         ]);
 
@@ -846,10 +857,17 @@ class TaskController extends Controller
 
         ScheduleBlock::where('task_id', $task->id)->delete();
 
+        $maxOrder = Task::whereDate('scheduled_date', $scheduledAt->format('Y-m-d'))
+            ->where('technician_id', $task->technician_id)
+            ->max('scheduled_order');
+
+        $scheduledOrder = !empty($maxOrder) ? $maxOrder + 1 : 0;
+
         $task->update([
             'scheduled_date' => $scheduledAt->format('Y-m-d'),
             'scheduled_start_time' => $scheduledAt->format('H:i'),
             'scheduled_time' => $scheduledAt->format('H:i'),
+            'scheduled_order' => $scheduledOrder,
             'status' => in_array($task->status, ['completed', 'cancelled'], true) ? $task->status : 'confirmed',
         ]);
 
@@ -1281,10 +1299,20 @@ class TaskController extends Controller
         $oldDate = $task->scheduled_date ? $task->scheduled_date->format('Y-m-d') : 'sin fecha';
         $oldTime = $task->scheduled_start_time ?? 'sin hora';
 
+        $scheduledOrder = $task->scheduled_order ?? 0;
+        $currentDate = optional($task->scheduled_date)->format('Y-m-d');
+        if ($currentDate !== $validated['scheduled_date']) {
+            $maxOrder = Task::whereDate('scheduled_date', $validated['scheduled_date'])
+                ->where('technician_id', $task->technician_id)
+                ->max('scheduled_order');
+            $scheduledOrder = !empty($maxOrder) ? $maxOrder + 1 : 0;
+        }
+
         $task->update([
             'scheduled_date' => $validated['scheduled_date'],
             'scheduled_start_time' => $validated['scheduled_start_time'],
             'scheduled_time' => $validated['scheduled_start_time'],
+            'scheduled_order' => $scheduledOrder,
         ]);
 
         // Detectar horarios no hábiles

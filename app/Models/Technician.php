@@ -99,6 +99,8 @@ class Technician extends Model
     {
         return $this->tasks()
             ->whereDate('scheduled_date', $date)
+            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
             ->orderBy('scheduled_start_time')
             ->get();
     }
