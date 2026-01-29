@@ -240,6 +240,36 @@ class TaskController extends Controller
             'checklist.*.order' => 'nullable|integer|min:0',
         ]);
 
+        if (empty($validated['technician_id']) && !empty($validated['service_request_id'])) {
+            $serviceRequest = ServiceRequest::select(['id', 'assigned_to'])
+                ->where('id', $validated['service_request_id'])
+                ->first();
+
+            if ($serviceRequest && !empty($serviceRequest->assigned_to)) {
+                $assigneeUserId = (int) $serviceRequest->assigned_to;
+
+                $technician = Technician::withTrashed()->where('user_id', $assigneeUserId)->first();
+                if ($technician) {
+                    if (method_exists($technician, 'trashed') && $technician->trashed()) {
+                        $technician->restore();
+                    }
+                    $technician->status = 'active';
+                    $technician->availability_status = $technician->availability_status ?: 'available';
+                    $technician->save();
+                } else {
+                    $technician = Technician::create([
+                        'user_id' => $assigneeUserId,
+                        'status' => 'active',
+                        'availability_status' => 'available',
+                    ]);
+                }
+
+                if ($technician) {
+                    $validated['technician_id'] = $technician->id;
+                }
+            }
+        }
+
         $nowUi = $this->nowInUiTimezone();
         $minAllowed = $nowUi->copy()->addMinutes(5);
         $scheduledDateTime = $this->makeUiDateTime($validated['scheduled_date'], $validated['scheduled_start_time']);
