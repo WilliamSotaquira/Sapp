@@ -29,8 +29,8 @@
         }
 
         .nav-item-active {
-            background-color: rgba(255, 255, 255, 0.18);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+            background-color: transparent;
+            box-shadow: none;
         }
 
         .primary-nav-link {
@@ -52,6 +52,11 @@
 
         .primary-nav-link:hover {
             background-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .primary-nav-link.compact {
+            padding-left: 0.6rem;
+            padding-right: 0.6rem;
         }
 
         .mobile-menu {
@@ -418,16 +423,16 @@
                 'match' => ['technicians.*', 'tasks.*', 'standard-tasks.*', 'technician-schedule.*'],
                 'links' => [
                     [
-                        'route' => 'technician-schedule.index',
-                        'label' => 'Calendario',
-                        'icon' => 'fas fa-calendar-alt',
-                        'match' => ['technician-schedule.index'],
-                    ],
-                    [
                         'route' => 'technician-schedule.my-agenda',
                         'label' => 'Mi Agenda',
                         'icon' => 'fas fa-clipboard-list',
                         'match' => ['technician-schedule.my-agenda'],
+                    ],
+                    [
+                        'route' => 'technician-schedule.index',
+                        'label' => 'Calendario',
+                        'icon' => 'fas fa-calendar-alt',
+                        'match' => ['technician-schedule.index'],
                     ],
                     [
                         'route' => 'technician-schedule.team-capacity',

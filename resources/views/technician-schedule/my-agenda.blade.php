@@ -511,6 +511,7 @@
         let draggingDayTask = null;
         let initialDayOrder = [];
         let dropPlaceholder = null;
+        let currentDragOrigin = null;
 
         const getDayTaskIds = () => {
             if (!tasksList) return [];
@@ -596,6 +597,7 @@
             event.dataTransfer.effectAllowed = 'move';
             draggingDayTask = item;
             initialDayOrder = getDayTaskIds();
+            currentDragOrigin = 'day';
             item.classList.add('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
             ensurePlaceholder(item);
         };
@@ -604,6 +606,7 @@
             if (!item) return;
             item.classList.remove('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
             clearPlaceholder();
+            currentDragOrigin = null;
             if (tasksList && !tasksList.contains(item)) {
                 draggingDayTask = null;
                 initialDayOrder = [];
@@ -620,8 +623,7 @@
         if (dropZone) {
             dropZone.addEventListener('dragover', (event) => {
                 event.preventDefault();
-                const origin = event.dataTransfer.getData('application/x-task-origin');
-                if (origin === 'open') {
+                if (currentDragOrigin === 'open') {
                     event.dataTransfer.dropEffect = 'move';
                     dropHint?.classList.remove('hidden');
                 } else {
@@ -638,7 +640,7 @@
             dropZone.addEventListener('drop', async (event) => {
                 event.preventDefault();
                 dropHint?.classList.add('hidden');
-                const origin = event.dataTransfer.getData('application/x-task-origin');
+                const origin = currentDragOrigin;
                 const taskId = event.dataTransfer.getData('application/x-task-id') || event.dataTransfer.getData('text/plain');
 
                 if (!taskId || origin !== 'open') {
@@ -688,8 +690,7 @@
 
         if (tasksList) {
             tasksList.addEventListener('dragover', (event) => {
-                const origin = event.dataTransfer.getData('application/x-task-origin');
-                if (origin !== 'day' || !draggingDayTask) {
+                if (currentDragOrigin !== 'day' || !draggingDayTask) {
                     return;
                 }
                 event.preventDefault();
@@ -725,11 +726,13 @@
                 event.dataTransfer.setData('application/x-task-origin', 'open');
                 event.dataTransfer.setData('text/plain', item.dataset.taskId);
                 event.dataTransfer.effectAllowed = 'move';
+                currentDragOrigin = 'open';
                 item.classList.add('ring-2', 'ring-blue-400');
             });
 
             item.addEventListener('dragend', () => {
                 item.classList.remove('ring-2', 'ring-blue-400');
+                currentDragOrigin = null;
             });
         });
 
@@ -737,7 +740,9 @@
             openList.addEventListener('dragover', (event) => {
                 event.preventDefault();
                 event.dataTransfer.dropEffect = 'move';
-                openList.classList.add('ring-2', 'ring-amber-300', 'bg-amber-50');
+                if (currentDragOrigin === 'day') {
+                    openList.classList.add('ring-2', 'ring-amber-300', 'bg-amber-50');
+                }
             });
 
             openList.addEventListener('dragleave', (event) => {
@@ -749,7 +754,7 @@
             openList.addEventListener('drop', async (event) => {
                 event.preventDefault();
                 openList.classList.remove('ring-2', 'ring-amber-300', 'bg-amber-50');
-                const origin = event.dataTransfer.getData('application/x-task-origin');
+                const origin = currentDragOrigin;
                 const taskId = event.dataTransfer.getData('application/x-task-id');
 
                 if (!taskId || origin !== 'day') {
