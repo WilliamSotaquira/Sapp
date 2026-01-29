@@ -10,7 +10,7 @@
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
 @endphp
 
-<div class="bg-white shadow rounded-lg overflow-hidden">
+<div class="bg-white shadow rounded-lg overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center">
@@ -34,14 +34,16 @@
                 </a>
                 <button type="button"
                         class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
-                        data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}">
+                        data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}"
+                        data-enabled-class="border-purple-600 text-purple-700 bg-white hover:bg-purple-50"
+                        data-disabled-class="border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed">
                     <i class="fas fa-bolt mr-2"></i>
                     Tarea Rápida
                 </button>
             </div>
         </div>
         @if(!$hasTechnicianAssigned)
-            <p class="mt-2 text-xs text-amber-600 flex items-center">
+            <p class="mt-2 text-xs text-amber-600 flex items-center" data-quick-task-warning>
                 <i class="fas fa-info-circle mr-1"></i>
                 Debes asignar un técnico para poder crear tareas rápidas.
             </p>
@@ -534,13 +536,15 @@ function setupQuickTaskModal() {
 
     closeButtons.forEach(button => button.addEventListener('click', () => toggleModal(false)));
 
-    typeSelect?.addEventListener('change', () => {
-        if (typeSelect.value === 'impact') {
-            durationInput.value = 90;
-        } else {
-            durationInput.value = 25;
-        }
-    });
+    if (typeSelect) {
+        typeSelect.addEventListener('change', () => {
+            if (typeSelect.value === 'impact') {
+                durationInput.value = 90;
+            } else {
+                durationInput.value = 25;
+            }
+        });
+    }
 
     const updateTaskCount = (delta) => {
         if (!tasksCountLabel) return;
@@ -592,7 +596,9 @@ function setupQuickTaskModal() {
                 tasksList.insertAdjacentHTML('afterbegin', data.html);
                 tasksList.classList.remove('hidden');
             }
-            emptyState?.classList.add('hidden');
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+            }
             updateTaskCount(1);
             if (errorBox) {
                 errorBox.classList.add('hidden');

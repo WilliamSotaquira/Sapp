@@ -174,6 +174,9 @@
                     {{-- BOTONES QUE ABREN MODALES --}}
                     @if ($actionItem['method'] === 'MODAL')
                         <button type="button"
+                            data-service-request-id="{{ $serviceRequest->id }}"
+                            data-workflow-action="{{ $actionItem['action'] }}"
+                            data-modal-id="{{ $actionItem['modal_id'] ?? '' }}"
                             onclick="openModal('{{ $actionItem['modal_id'] }}', this)"
                             class="flex items-center justify-center w-full px-4 py-3 bg-{{ $actionItem['color'] }}-600 border-2 border-{{ $actionItem['color'] }}-700 rounded-full font-semibold text-white text-sm hover:bg-{{ $actionItem['color'] }}-700 hover:border-{{ $actionItem['color'] }}-800 active:bg-{{ $actionItem['color'] }}-800 focus:outline-none focus:ring-2 focus:ring-{{ $actionItem['color'] }}-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 group min-h-[3rem]"
                             aria-label="{{ $actionItem['label'] }}">

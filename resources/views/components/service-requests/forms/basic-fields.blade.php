@@ -662,6 +662,73 @@
                         return;
                     }
 
+                    function attachPasteSupport($select) {
+                        if (!$select || !$select.length) return;
+
+                        function getClipboardText(e) {
+                            if (e && e.clipboardData && typeof e.clipboardData.getData === 'function') {
+                                return e.clipboardData.getData('text');
+                            }
+                            if (window.clipboardData && typeof window.clipboardData.getData === 'function') {
+                                return window.clipboardData.getData('Text');
+                            }
+                            return '';
+                        }
+
+                        function focusSearchWithText(text) {
+                            const search = document.querySelector('.select2-container--open .select2-search__field');
+                            if (!search) return;
+                            search.focus();
+                            search.value = text;
+                            const evt = document.createEvent('HTMLEvents');
+                            evt.initEvent('input', true, true);
+                            search.dispatchEvent(evt);
+                        }
+
+                        $select.on('select2:open', function () {
+                            const search = document.querySelector('.select2-container--open .select2-search__field');
+                            if (!search || search.dataset.pasteBound) return;
+                            search.dataset.pasteBound = '1';
+                            search.addEventListener('paste', function (e) {
+                                const text = getClipboardText(e);
+                                if (!text) return;
+                                e.preventDefault();
+                                focusSearchWithText(text.trim());
+                            });
+                        });
+
+                        const container = $select.next('.select2-container');
+                        if (container.length) {
+                            const selection = container[0].querySelector('.select2-selection');
+                            if (selection && !selection.dataset.pasteBound) {
+                                selection.dataset.pasteBound = '1';
+                                selection.addEventListener('paste', function (e) {
+                                    const text = getClipboardText(e);
+                                    if (!text) return;
+                                    e.preventDefault();
+                                    $select.select2('open');
+                                    setTimeout(function () {
+                                        focusSearchWithText(text.trim());
+                                    }, 0);
+                                });
+                            }
+                        }
+
+                        const nativeSelect = $select[0];
+                        if (nativeSelect && !nativeSelect.dataset.pasteBound) {
+                            nativeSelect.dataset.pasteBound = '1';
+                            nativeSelect.addEventListener('paste', function (e) {
+                                const text = getClipboardText(e);
+                                if (!text) return;
+                                e.preventDefault();
+                                $select.select2('open');
+                                setTimeout(function () {
+                                    focusSearchWithText(text.trim());
+                                }, 0);
+                            });
+                        }
+                    }
+
                     const requesterSelect = window.jQuery('#requester_id');
                     if (requesterSelect.length && !requesterSelect.data('select2')) {
                         requesterSelect.select2({
@@ -680,6 +747,7 @@
                                 search.focus();
                             }
                         });
+                        attachPasteSupport(requesterSelect);
                     }
 
                     // Crear solicitante sin refrescar (modal + AJAX)
@@ -1257,6 +1325,7 @@
                                 }
                             }
                         });
+                        attachPasteSupport(subServiceSelect);
 
                         subServiceSelect.on('select2:select', function(e) {
                             const rawSelect = subServiceSelect.get(0);

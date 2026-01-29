@@ -7,6 +7,7 @@ use App\Models\ServiceRequestEvidence;
 use App\Models\SubService;
 use App\Models\StandardTask;
 use App\Models\Task;
+use App\Models\Technician;
 use App\Models\User;
 use App\Models\Cut;
 use Illuminate\Support\Facades\DB;
@@ -259,6 +260,24 @@ class ServiceRequestService
     private function createOptionalTasksForRequest(ServiceRequest $serviceRequest, ?array $tasks, ?string $tasksTemplate): void
     {
         $tasks = is_array($tasks) ? $tasks : [];
+        $technicianId = null;
+
+        if (!empty($serviceRequest->assigned_to)) {
+            $technician = Technician::withTrashed()->where('user_id', $serviceRequest->assigned_to)->first();
+            if ($technician && method_exists($technician, 'trashed') && $technician->trashed()) {
+                $technician->restore();
+            }
+
+            if (!$technician) {
+                $technician = Technician::create([
+                    'user_id' => (int) $serviceRequest->assigned_to,
+                    'status' => 'active',
+                    'availability_status' => 'available',
+                ]);
+            }
+
+            $technicianId = $technician?->id;
+        }
 
         $normalized = [];
         foreach ($tasks as $task) {
@@ -387,6 +406,7 @@ class ServiceRequestService
             $task = Task::create([
                 'service_request_id' => $serviceRequest->id,
                 'standard_task_id' => $taskData['standard_task_id'] ?? null,
+                'technician_id' => $technicianId,
                 'type' => $taskData['type'] ?? 'regular',
                 'title' => $taskData['title'],
                 'description' => $taskData['description'] ?? null,

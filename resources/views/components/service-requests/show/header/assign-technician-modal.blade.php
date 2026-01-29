@@ -132,9 +132,66 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (typeof window.srNotify === 'function') window.srNotify(true, data.message || 'Técnico asignado.');
                         closeModal('assign-technician-modal-{{ $serviceRequest->id }}');
 
-                        // Abrir el modal de aceptación sin recargar
                         const selectedOption = technicianSelect.options[technicianSelect.selectedIndex];
                         const selectedText = selectedOption ? selectedOption.textContent.trim() : '';
+                        const parts = selectedText.split('(');
+                        const assigneeName = (parts[0] || '').trim() || 'Técnico asignado';
+                        const assigneeEmail = parts.length > 1 ? parts[1].replace(')', '').trim() : '';
+
+                        if (typeof window.updateServiceRequestAssignment === 'function') {
+                            window.updateServiceRequestAssignment({
+                                requestId: '{{ $serviceRequest->id }}',
+                                type: 'technician',
+                                name: assigneeName,
+                                email: assigneeEmail,
+                            });
+                        }
+
+                        const quickTaskButton = document.querySelector('div[data-service-request-id="{{ $serviceRequest->id }}"] .open-quick-task');
+                        if (quickTaskButton) {
+                            quickTaskButton.dataset.disabled = 'false';
+                            const enabledClass = quickTaskButton.dataset.enabledClass || '';
+                            const disabledClass = quickTaskButton.dataset.disabledClass || '';
+                            if (disabledClass) {
+                                disabledClass.split(' ').forEach(cls => cls && quickTaskButton.classList.remove(cls));
+                            }
+                            if (enabledClass) {
+                                enabledClass.split(' ').forEach(cls => cls && quickTaskButton.classList.add(cls));
+                            }
+                        }
+
+                        const warning = document.querySelector('div[data-service-request-id="{{ $serviceRequest->id }}"] [data-quick-task-warning]');
+                        if (warning) {
+                            warning.classList.add('hidden');
+                        }
+
+                        const workflowBtn = document.querySelector('[data-workflow-action="assign-technician"][data-service-request-id="{{ $serviceRequest->id }}"]');
+                        if (workflowBtn) {
+                            workflowBtn.setAttribute('data-workflow-action', 'accept');
+                            workflowBtn.setAttribute('data-modal-id', 'accept-modal-{{ $serviceRequest->id }}');
+                            workflowBtn.setAttribute('onclick', "openModal('accept-modal-{{ $serviceRequest->id }}', this)");
+                            workflowBtn.className = workflowBtn.className
+                                .replace('bg-blue-600', 'bg-emerald-600')
+                                .replace('hover:bg-blue-700', 'hover:bg-emerald-700')
+                                .replace('active:bg-blue-800', 'active:bg-emerald-800')
+                                .replace('border-blue-700', 'border-emerald-700')
+                                .replace('hover:border-blue-800', 'hover:border-emerald-800')
+                                .replace('focus:ring-blue-500', 'focus:ring-emerald-500');
+
+                            const icon = workflowBtn.querySelector('i');
+                            if (icon) {
+                                icon.className = icon.className.replace(/fa-user-plus/g, 'fa-handshake');
+                            }
+
+                            const label = workflowBtn.querySelector('span');
+                            if (label) {
+                                label.textContent = 'Aceptar Solicitud';
+                            } else {
+                                workflowBtn.textContent = 'Aceptar Solicitud';
+                            }
+                        }
+
+                        // Abrir el modal de aceptación sin recargar
                         const acceptModal = document.getElementById('accept-modal-{{ $serviceRequest->id }}');
                         if (acceptModal) {
                             const assigneeTarget = acceptModal.querySelector('[data-accept-assignee]');
@@ -144,8 +201,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 assigneeTarget.classList.add('text-green-600', 'font-medium');
                             }
                             openModal('accept-modal-{{ $serviceRequest->id }}', technicianSelect);
-                        } else {
-                            if (typeof window.srNotify === 'function') window.srNotify(false, 'No se encontró el modal de aceptación.');
                         }
                     });
                 } else {

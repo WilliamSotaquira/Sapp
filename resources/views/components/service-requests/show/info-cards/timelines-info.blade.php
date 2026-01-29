@@ -105,6 +105,19 @@
                 <i class="fas fa-hourglass-half mr-2"></i>
                 <span class="text-sm font-medium">Esta solicitud está actualmente en proceso de atención</span>
             </div>
+            <div class="mt-3 flex items-center justify-center">
+                @if (!$serviceRequest->is_reportable)
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 text-sm font-semibold">
+                        <i class="fas fa-ban"></i>
+                        Excluida de reportes
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-100 text-sm font-semibold">
+                        <i class="fas fa-check-circle"></i>
+                        Incluida en reportes
+                    </span>
+                @endif
+            </div>
         </div>
         @endif
     </div>

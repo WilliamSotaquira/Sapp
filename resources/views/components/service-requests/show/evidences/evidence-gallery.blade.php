@@ -148,7 +148,8 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrf = csrfMeta ? csrfMeta.getAttribute('content') : null;
 
     document.querySelectorAll('.delete-evidence-btn').forEach(btn => {
         btn.addEventListener('click', async function () {
@@ -180,10 +181,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     // ignore parse errors
                 }
 
-                if (response.ok && data?.success && card) {
+                if (response.ok && data && data.success && card) {
                     card.remove();
                 } else {
-                    const message = data?.message || 'No se pudo eliminar la evidencia';
+                    const message = (data && data.message) ? data.message : 'No se pudo eliminar la evidencia';
                     alert(message);
                     self.disabled = false;
                     self.classList.remove('opacity-50');
