@@ -544,6 +544,7 @@ class ServiceRequestService
         ]);
 
         try {
+            $previousAssignedTo = $serviceRequest->assigned_to;
             $serviceRequest->update($data);
 
             Log::info('✅ Solicitud actualizada exitosamente', [
@@ -551,11 +552,57 @@ class ServiceRequestService
                 'ticket_number' => $serviceRequest->ticket_number,
             ]);
 
+            if (array_key_exists('assigned_to', $data)) {
+                $newAssignedTo = $serviceRequest->assigned_to;
+                if (!empty($newAssignedTo) && $newAssignedTo !== $previousAssignedTo) {
+                    $this->syncTasksTechnician($serviceRequest, (int) $newAssignedTo);
+                }
+            }
+
             return $serviceRequest;
         } catch (\Exception $e) {
             Log::error('❌ Error al actualizar solicitud: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    public function syncTasksTechnician(ServiceRequest $serviceRequest, int $assignedToUserId): void
+    {
+        $technicianId = $this->resolveTechnicianId($assignedToUserId);
+
+        if (!$technicianId) {
+            return;
+        }
+
+        Task::where('service_request_id', $serviceRequest->id)
+            ->update(['technician_id' => $technicianId]);
+
+        DB::table('schedule_blocks')
+            ->join('tasks', 'tasks.id', '=', 'schedule_blocks.task_id')
+            ->where('tasks.service_request_id', $serviceRequest->id)
+            ->update(['schedule_blocks.technician_id' => $technicianId]);
+    }
+
+    protected function resolveTechnicianId(int $userId): ?int
+    {
+        $technician = Technician::withTrashed()->where('user_id', $userId)->first();
+        if ($technician) {
+            if (method_exists($technician, 'trashed') && $technician->trashed()) {
+                $technician->restore();
+            }
+            $technician->status = 'active';
+            $technician->availability_status = $technician->availability_status ?: 'available';
+            $technician->save();
+            return $technician->id;
+        }
+
+        $technician = Technician::create([
+            'user_id' => $userId,
+            'status' => 'active',
+            'availability_status' => 'available',
+        ]);
+
+        return $technician?->id;
     }
 
     /**

@@ -358,6 +358,8 @@ class ServiceRequestController extends Controller
                     'assigned_to' => $validated['assigned_to'],
                 ]);
 
+                $this->serviceRequestService->syncTasksTechnician($service_request, (int) $validated['assigned_to']);
+
                 ServiceRequestEvidence::create([
                     'service_request_id' => $service_request->id,
                     'title' => 'Técnico Reasignado',
@@ -715,6 +717,8 @@ class ServiceRequestController extends Controller
             $service_request->update([
                 'assigned_to' => $request->assigned_to,
             ]);
+
+            $this->serviceRequestService->syncTasksTechnician($service_request, (int) $request->assigned_to);
 
             if (class_exists('App\Models\ServiceRequestHistory')) {
                 \App\Models\ServiceRequestHistory::create([
