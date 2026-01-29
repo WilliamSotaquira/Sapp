@@ -137,7 +137,7 @@
                         <input type="date"
                                name="scheduled_date"
                                id="scheduled_date"
-                               value="{{ old('scheduled_date', $task->scheduled_date->format('Y-m-d')) }}"
+                               value="{{ old('scheduled_date', $task->scheduled_date ? $task->scheduled_date->format('Y-m-d') : '') }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('scheduled_date') border-red-500 @enderror"
                                required>
                         @error('scheduled_date')
@@ -503,4 +503,3 @@
 </script>
 @endsection
 @endsection
-
