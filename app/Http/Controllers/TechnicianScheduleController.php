@@ -8,6 +8,7 @@ use App\Models\ScheduleBlock;
 use App\Models\ServiceRequest;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class TechnicianScheduleController extends Controller
 {
@@ -53,7 +54,10 @@ class TechnicianScheduleController extends Controller
             $query->forTechnician($technicianId);
         }
 
-        $tasks = $query->orderBy('scheduled_start_time')->get();
+        $tasks = $query->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
+            ->orderBy('scheduled_start_time')
+            ->get();
 
         $blocksQuery = ScheduleBlock::with(['technician.user', 'task'])
             ->forDate($date);
@@ -84,6 +88,8 @@ class TechnicianScheduleController extends Controller
         }
 
         $tasks = $query->orderBy('scheduled_date')
+            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
             ->orderBy('scheduled_start_time')
             ->get()
             ->groupBy(function ($task) {
@@ -197,7 +203,21 @@ class TechnicianScheduleController extends Controller
             'technician_id' => 'nullable|exists:technicians,id',
         ]);
 
-        $task->update($validated);
+        $scheduledOrder = $task->scheduled_order ?? 0;
+        $currentDate = optional($task->scheduled_date)->format('Y-m-d');
+        $currentTechnicianId = $task->technician_id;
+        $newTechnicianId = $validated['technician_id'] ?? $task->technician_id;
+
+        if ($currentDate !== $validated['scheduled_date'] || $currentTechnicianId !== $newTechnicianId) {
+            $maxOrder = Task::whereDate('scheduled_date', $validated['scheduled_date'])
+                ->where('technician_id', $newTechnicianId)
+                ->max('scheduled_order');
+            $scheduledOrder = !empty($maxOrder) ? $maxOrder + 1 : 0;
+        }
+
+        $task->update(array_merge($validated, [
+            'scheduled_order' => $scheduledOrder,
+        ]));
 
         $task->addHistory('rescheduled', auth()->id(), 'Movido desde calendario');
 
@@ -208,6 +228,60 @@ class TechnicianScheduleController extends Controller
                 'start_time' => $validated['scheduled_time'],
             ]);
         }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Reordenar tareas del día (drag & drop en Mi Agenda)
+     */
+    public function reorderDayTasks(Request $request)
+    {
+        $validated = $request->validate([
+            'task_ids' => 'required|array|min:1',
+            'task_ids.*' => 'integer|distinct|exists:tasks,id',
+            'scheduled_date' => 'required|date',
+            'technician_id' => 'nullable|exists:technicians,id',
+        ]);
+
+        $user = auth()->user();
+
+        if (!empty($validated['technician_id']) && $user->isAdmin()) {
+            $technician = Technician::with('user')->findOrFail($validated['technician_id']);
+        } else {
+            $technician = Technician::where('user_id', $user->id)->first();
+        }
+
+        if (!$technician) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes un perfil de técnico asignado.',
+            ], 403);
+        }
+
+        $tasks = Task::whereIn('id', $validated['task_ids'])
+            ->whereDate('scheduled_date', $validated['scheduled_date'])
+            ->where('technician_id', $technician->id)
+            ->get()
+            ->keyBy('id');
+
+        if ($tasks->count() !== count($validated['task_ids'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudieron validar todas las tareas.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($validated, $tasks) {
+            foreach ($validated['task_ids'] as $index => $taskId) {
+                $task = $tasks->get((int) $taskId);
+                if (!$task) {
+                    continue;
+                }
+                $task->scheduled_order = $index + 1;
+                $task->save();
+            }
+        });
 
         return response()->json(['success' => true]);
     }
@@ -434,6 +508,8 @@ class TechnicianScheduleController extends Controller
 
         $tasks = Task::with(['technician.user', 'serviceRequest'])
             ->forDate($date)
+            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
             ->orderBy('scheduled_start_time')
             ->get()
             ->groupBy('technician_id');

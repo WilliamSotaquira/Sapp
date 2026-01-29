@@ -105,6 +105,7 @@ Route::prefix('technician-schedule')->name('technician-schedule.')->group(functi
     // API para calendario
     Route::get('/events', [TechnicianScheduleController::class, 'getEvents'])->name('events');
     Route::post('/tasks/{task}/move', [TechnicianScheduleController::class, 'moveTask'])->name('move-task');
+    Route::post('/tasks/reorder-day', [TechnicianScheduleController::class, 'reorderDayTasks'])->name('reorder-day-tasks');
 
     // Bloqueos de horario
     Route::post('/blocks', [TechnicianScheduleController::class, 'storeBlock'])->name('store-block');
