@@ -464,18 +464,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Service Request Show page loaded - Evidences system ready');
 
-            // ✅ MEJOR OPCIÓN: Separar completamente el JS del Blade
-            const evidenceCount = {
-                {
-                    $serviceRequest - > evidences ? $serviceRequest - > evidences - > count() : 0
-                }
-            };
+            const evidenceCount = @json($serviceRequest->evidences?->count() ?? 0);
             if (evidenceCount > 0) {
                 console.log('Evidencias cargadas:', evidenceCount);
             } else {
                 console.log('No hay evidencias para esta solicitud');
             }
-            f
 
             // Script para manejar errores de carga de imágenes
             document.addEventListener('error', function(e) {

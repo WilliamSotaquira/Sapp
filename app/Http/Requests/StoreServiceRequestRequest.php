@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ServiceRequest;
+use App\Models\StandardTask;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceRequestRequest extends FormRequest
@@ -95,6 +96,47 @@ class StoreServiceRequestRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $tasks = $this->input('tasks');
+            $tasksTemplate = $this->input('tasks_template');
+
+            $hasValidTask = false;
+            if (is_array($tasks)) {
+                foreach ($tasks as $task) {
+                    if (!is_array($task)) {
+                        continue;
+                    }
+
+                    $title = trim((string)($task['title'] ?? ''));
+                    $standardTaskId = $task['standard_task_id'] ?? null;
+
+                    if ($title !== '' || !empty($standardTaskId)) {
+                        $hasValidTask = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$hasValidTask) {
+                if ($tasksTemplate === 'subservice_standard') {
+                    $subServiceId = $this->input('sub_service_id');
+                    $standardCount = 0;
+                    if (!empty($subServiceId)) {
+                        $standardCount = StandardTask::query()
+                            ->where('sub_service_id', $subServiceId)
+                            ->active()
+                            ->count();
+                    }
+
+                    if ($standardCount === 0) {
+                        $validator->errors()->add(
+                            'tasks_template',
+                            'El subservicio no tiene tareas predefinidas configuradas. Agrega al menos una tarea manual.'
+                        );
+                    }
+                } else {
+                    $validator->errors()->add('tasks', 'Debes agregar al menos una tarea.');
+                }
+            }
+
             if (!is_array($tasks)) {
                 return;
             }

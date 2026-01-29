@@ -38,7 +38,7 @@
                         $selectedOption = $entryChannelOptions[$selectedEntryChannel];
                     @endphp
                     <span
-                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-sm font-semibold">
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-sm font-semibold min-h-[2.5rem]">
                         <span class="text-lg">{{ $selectedOption['emoji'] ?? '📥' }}</span>
                         <span>{{ $selectedOption['label'] }}</span>
                     </span>
@@ -49,43 +49,28 @@
                 @endif
             </div>
             <div>
-                <label class="text-sm font-medium text-gray-500 block mb-2">Incluida en reportes</label>
-                @if (!$serviceRequest->is_reportable)
-                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 text-sm font-semibold">
-                        <i class="fas fa-ban"></i>
-                        Excluida de reportes
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-100 text-sm font-semibold">
-                        <i class="fas fa-check-circle"></i>
-                        Incluida en reportes
-                    </span>
-                @endif
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-500 block mb-2">Corte Asociado</label>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-medium text-gray-500">Corte asociado</label>
+                    <button type="button" data-edit-cut
+                            class="inline-flex items-center justify-center h-6 px-2 rounded-full border border-indigo-100 bg-indigo-50 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition">
+                        <i class="fas fa-edit mr-1 text-[10px]"></i>
+                        {{ ($serviceRequest->cuts ?? collect())->isEmpty() ? 'Asignar' : 'Editar' }}
+                    </button>
+                </div>
                 @php
                     $cuts = $serviceRequest->cuts ?? collect();
                 @endphp
-                <div id="cutAssociationContainer">
+                <div id="cutAssociationContainer" class="mt-2">
                     @if ($cuts->isEmpty())
-                        <button type="button" id="editCutBtn" class="text-indigo-600 hover:text-indigo-800 hover:underline text-sm font-medium cursor-pointer">
-                            + Asignar corte
-                        </button>
+                        <p class="text-sm text-gray-500">Sin corte asociado.</p>
                     @else
-                        <div class="space-y-2">
-                            @foreach ($cuts as $cut)
-                                <div class="flex items-center justify-between group">
-                                    <a href="{{ route('reports.cuts.show', $cut) }}" class="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-sm">
-                                        {{ $cut->name }}
-                                    </a>
-                                    <span class="text-gray-500 text-xs font-bold">{{ $cut->start_date->format('d/m/Y') }} — {{ $cut->end_date->format('d/m/Y') }}</span>
-                                    <button type="button" id="editCutBtn" class="ml-2 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition" title="Editar corte">
-                                        <i class="fas fa-edit text-sm"></i>
-                                    </button>
-                                </div>
-                            @endforeach
-                        </div>
+                        @foreach ($cuts as $cut)
+                            <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold hover:bg-indigo-100 transition min-h-[2.5rem]">
+                                <i class="fas fa-cut"></i>
+                                <span class="truncate">{{ $cut->name }}</span>
+                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} — {{ $cut->end_date->format('d/m/Y') }}</span>
+                            </a>
+                        @endforeach
                     @endif
                 </div>
             </div>
@@ -140,7 +125,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const editCutBtn = document.getElementById('editCutBtn');
+    const editCutButtons = document.querySelectorAll('[data-edit-cut]');
     const editCutModal = document.getElementById('editCutModal');
     const closeEditCutModal = document.getElementById('closeEditCutModal');
     const cancelEditCutBtn = document.getElementById('cancelEditCutBtn');
@@ -151,8 +136,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const serviceRequestId = {{ $serviceRequest->id }};
 
     // Abrir modal
-    editCutBtn.addEventListener('click', function() {
-        editCutModal.classList.remove('hidden');
+    editCutButtons.forEach((btn) => {
+        btn.addEventListener('click', function() {
+            editCutModal.classList.remove('hidden');
+        });
     });
 
     // Cerrar modal
@@ -192,10 +179,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 editCutMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message;
                 editCutMessage.classList.remove('hidden');
 
-                // Actualizar la visualización después de 1 segundo
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
+                const container = document.getElementById('cutAssociationContainer');
+                if (container) {
+                    if (!data.cut) {
+                        container.innerHTML = '<p class="text-sm text-gray-500">Sin corte asociado.</p>';
+                    } else {
+                        const cut = data.cut;
+                        const editBtn = document.querySelector('[data-edit-cut]');
+                        if (editBtn) {
+                            editBtn.innerHTML = '<i class="fas fa-edit mr-1 text-[10px]"></i>Editar';
+                        }
+                        container.innerHTML = `
+                            <a href="/reports/cuts/${cut.id}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold hover:bg-indigo-100 transition min-h-[2.5rem]">
+                                <i class="fas fa-cut"></i>
+                                <span class="truncate">${cut.name}</span>
+                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">${cut.start_date} — ${cut.end_date}</span>
+                            </a>
+                        `;
+                    }
+                }
             } else {
                 editCutMessage.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
                 editCutMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.message || 'Error al actualizar');

@@ -166,7 +166,7 @@
                 if(!isset($agenda)) {
                     $technicianId = auth()->user()?->technician?->id ?? null;
                     if($technicianId) {
-                        $agenda = \App\Models\Task::with('serviceRequest')
+                        $agenda = \App\Models\Task::with('serviceRequest.subService.service')
                             ->where('technician_id', $technicianId)
                             ->whereDate('scheduled_date', '>=', now()->toDateString())
                             ->orderBy('scheduled_date')
@@ -174,13 +174,24 @@
                             ->take(6)
                             ->get()
                             ->map(function($task) {
+                                $serviceRequest = $task->serviceRequest;
+                                $serviceName = $serviceRequest?->subService?->service?->name;
+                                $subServiceName = $serviceRequest?->subService?->name;
+                                $serviceLabel = $serviceName && $subServiceName
+                                    ? "{$serviceName} · {$subServiceName}"
+                                    : ($subServiceName ?? $serviceName);
+                                $taskUrl = $serviceRequest
+                                    ? route('service-requests.show', $serviceRequest)
+                                    : route('tasks.show', $task);
+
                                 return [
                                     'time' => $task->scheduled_start_time ?? $task->scheduled_time ?? '—',
                                     'date' => optional($task->scheduled_date)->format('d/m') ?? '',
                                     'title' => $task->title ?? 'Tarea sin título',
-                                    'location' => $task->serviceRequest?->ticket_number ? 'Ticket '.$task->serviceRequest->ticket_number : 'Sin ticket',
+                                    'location' => $serviceRequest?->ticket_number ? 'Ticket '.$serviceRequest->ticket_number : 'Sin ticket',
                                     'status' => $task->status ? ucfirst(str_replace('_', ' ', $task->status)) : 'Pendiente',
-                                    'url' => route('tasks.show', $task),
+                                    'url' => $taskUrl,
+                                    'service' => $serviceLabel ?: 'Sin servicio',
                                 ];
                             })
                             ->toArray();
@@ -207,6 +218,7 @@
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium text-gray-900 truncate">{{ $item['title'] }}</p>
                                     <p class="text-xs text-gray-500">{{ $item['location'] }}</p>
+                                    <p class="text-[10px] text-gray-400">{{ $item['service'] }}</p>
                                 </div>
                                 <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full {{ $statusColors[$item['status']] ?? 'bg-gray-100 text-gray-700' }}">
                                     {{ $item['status'] }}

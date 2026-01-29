@@ -287,6 +287,7 @@ class TechnicianScheduleController extends Controller
         $date = $request->get('date', now()->format('Y-m-d'));
 
         $tasks = $technician->getTasksForDate($date);
+        $tasks->load(['serviceRequest.subService.service']);
         $scheduleBlocks = $technician->scheduleBlocks()->forDate($date)->orderBy('start_time')->get();
 
         $stats = [
@@ -305,7 +306,7 @@ class TechnicianScheduleController extends Controller
         }
 
         $openTasks = Task::query()
-            ->with('serviceRequest')
+            ->with('serviceRequest.subService.service')
             ->where('technician_id', $technician->id)
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->whereNull('scheduled_date')

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Technician;
 use App\Models\Traits\ServiceRequestConstants;
 use App\Models\Traits\ServiceRequestScopes;
 use App\Models\Traits\ServiceRequestWorkflow;
@@ -149,6 +150,34 @@ class ServiceRequest extends Model
 
         static::saving(function ($model) {
             $model->validateWorkflowRules();
+        });
+
+        static::saved(function ($model) {
+            if (!$model->wasChanged('assigned_to') || empty($model->assigned_to)) {
+                return;
+            }
+
+            $technician = Technician::withTrashed()->where('user_id', $model->assigned_to)->first();
+            if ($technician && method_exists($technician, 'trashed') && $technician->trashed()) {
+                $technician->restore();
+            }
+
+            if (!$technician) {
+                $technician = Technician::create([
+                    'user_id' => (int) $model->assigned_to,
+                    'status' => 'active',
+                    'availability_status' => 'available',
+                ]);
+            }
+
+            if (!$technician) {
+                return;
+            }
+
+            // Solo asignar tareas aún sin técnico para no sobreescribir planificación existente.
+            $model->tasks()
+                ->whereNull('technician_id')
+                ->update(['technician_id' => $technician->id]);
         });
     }
 

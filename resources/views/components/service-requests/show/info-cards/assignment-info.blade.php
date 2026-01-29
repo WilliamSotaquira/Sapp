@@ -1,6 +1,6 @@
 @props(['serviceRequest'])
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
     <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
         <h3 class="text-lg font-bold text-gray-800 flex items-center">
             <i class="fas fa-users text-green-600 mr-3"></i>
@@ -11,7 +11,7 @@
     <div class="p-6">
         <!-- Alertas de estado -->
         @if ($serviceRequest->status === 'EN_PROCESO' && !$serviceRequest->assigned_to)
-            <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg" data-assign-alert>
                 <div class="flex items-center">
                     <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
                     <div>
@@ -23,7 +23,7 @@
         @endif
 
         @if ($serviceRequest->status === 'ACEPTADA' && !$serviceRequest->assigned_to)
-            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg" data-assign-alert>
                 <div class="flex items-center">
                     <i class="fas fa-info-circle text-amber-500 mr-3"></i>
                     <div>
@@ -59,24 +59,24 @@
             <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div
                     class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}
+                    <span data-requester-initial>{{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}</span>
                 </div>
                 <div class="flex-1 min-w-0 w-full">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
                         <div class="space-y-1">
                             <label class="text-sm font-medium text-gray-500 block">Solicitante</label>
-                            <p class="text-gray-900 font-semibold break-words">{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
-                            <p class="text-sm text-gray-500 break-words">{{ $serviceRequest->requester->email ?? '' }}</p>
+                            <p class="text-gray-900 font-semibold break-words" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-500 break-all" data-requester-email>{{ $serviceRequest->requester->email ?? '' }}</p>
                         </div>
                         @if($serviceRequest->status !== 'CERRADA')
-                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+                        <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
                             <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                class="quick-requester-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="quick-requester-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <i class="fas fa-user-edit mr-1"></i>
-                                <span>{{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}</span>
+                                <span data-requester-action-label>{{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}</span>
                             </button>
                             <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
+                                class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
                                 <i class="fas fa-edit mr-1"></i>
                                 Editar
                             </a>
@@ -95,89 +95,81 @@
 
             <!-- Asignado a -->
             <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                @if ($serviceRequest->assigned_to)
+                <div class="{{ $serviceRequest->assigned_to ? '' : 'hidden' }} flex flex-col sm:flex-row sm:items-center gap-4" data-assigned-block>
                     <div
                         class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {{ substr($serviceRequest->assignee->name ?? 'T', 0, 1) }}
+                        <span data-assignee-initial>{{ substr($serviceRequest->assignee->name ?? 'T', 0, 1) }}</span>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex-1 min-w-0 w-full">
+                        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
                             <div class="space-y-1">
                                 <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                                <p class="text-gray-900 font-semibold break-words">{{ $serviceRequest->assignee->name ?? 'N/A' }}
-                                </p>
-                                <p class="text-sm text-gray-500 break-words">{{ $serviceRequest->assignee->email ?? '' }}</p>
+                                <p class="text-gray-900 font-semibold break-words" data-assignee-name>{{ $serviceRequest->assignee->name ?? 'N/A' }}</p>
+                                <p class="text-sm text-gray-500 break-all" data-assignee-email>{{ $serviceRequest->assignee->email ?? '' }}</p>
                             </div>
                             @if($serviceRequest->status !== 'CERRADA')
-                            <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-                                <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                    class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <i class="fas fa-sync-alt mr-1"></i>
-                                    <span>Reasignar</span>
-                                </button>
-                                <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                    class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <i class="fas fa-edit mr-1"></i>
-                                    Editar
-                                </a>
-                            </div>
+                                <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
+                                    <button type="button" data-request-id="{{ $serviceRequest->id }}"
+                                        class="quick-assign-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-sync-alt mr-1"></i>
+                                        <span>Reasignar</span>
+                                    </button>
+                                    <a href="{{ route('service-requests.edit', $serviceRequest) }}"
+                                        class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-edit mr-1"></i>
+                                        Editar
+                                    </a>
+                                </div>
                             @endif
                         </div>
 
-                        @if ($serviceRequest->status === 'ACEPTADA')
-                            <div
-                                class="mt-2 inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                                <i class="fas fa-check-circle mr-1"></i>
-                                Listo para iniciar proceso
-                            </div>
-                        @endif
+
                     </div>
-                @else
+                </div>
+                <div class="{{ $serviceRequest->assigned_to ? 'hidden' : '' }} flex flex-col sm:flex-row sm:items-center gap-4" data-unassigned-block>
                     <div
                         class="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
                         <i class="fas fa-user-plus text-lg"></i>
                     </div>
-                    <div class="flex-1 min-w-0">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div class="space-y-1">
-                            <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                            <p
-                                class="text-gray-900 font-semibold @if ($serviceRequest->status === 'EN_PROCESO') text-red-600 @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 @endif">
-                                No asignado
-                                @if ($serviceRequest->status === 'EN_PROCESO')
-                                    <i class="fas fa-exclamation-circle text-red-500 ml-2"></i>
-                                @elseif($serviceRequest->status === 'ACEPTADA')
-                                    <i class="fas fa-info-circle text-amber-500 ml-2"></i>
-                                @endif
-                            </p>
-                        </div>
-                        @if($serviceRequest->status !== 'CERRADA')
-                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-                            <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                <i class="fas fa-edit mr-1"></i>
-                                Editar Solicitud
-                            </a>
-                                <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                    class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    <i class="fas fa-user-plus mr-1"></i>
-                                    Asignar Técnico
-                                </button>
+                    <div class="flex-1 min-w-0 w-full">
+                        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
+                            <div class="space-y-1">
+                                <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
+                                <p class="text-gray-900 font-semibold @if ($serviceRequest->status === 'EN_PROCESO') text-red-600 @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 @endif">
+                                    No asignado
+                                    @if ($serviceRequest->status === 'EN_PROCESO')
+                                        <i class="fas fa-exclamation-circle text-red-500 ml-2"></i>
+                                    @elseif($serviceRequest->status === 'ACEPTADA')
+                                        <i class="fas fa-info-circle text-amber-500 ml-2"></i>
+                                    @endif
+                                </p>
+                                <p class="text-sm @if ($serviceRequest->status === 'EN_PROCESO') text-red-500 font-medium @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 font-medium @else text-gray-500 @endif">
+                                    @if ($serviceRequest->status === 'EN_PROCESO')
+                                        ⚠️ Asignación requerida para continuar
+                                    @elseif($serviceRequest->status === 'ACEPTADA')
+                                        📋 Asignación requerida para iniciar el proceso
+                                    @else
+                                        Este caso requiere asignación de técnico
+                                    @endif
+                                </p>
                             </div>
+                            @if($serviceRequest->status !== 'CERRADA')
+                                <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
+                                    <a href="{{ route('service-requests.edit', $serviceRequest) }}"
+                                        class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-edit mr-1"></i>
+                                        Editar Solicitud
+                                    </a>
+                                    <button type="button" data-request-id="{{ $serviceRequest->id }}"
+                                        class="quick-assign-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-user-plus mr-1"></i>
+                                        Asignar Técnico
+                                    </button>
+                                </div>
                             @endif
                         </div>
-                        <p
-                            class="text-sm @if ($serviceRequest->status === 'EN_PROCESO') text-red-500 font-medium @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 font-medium @else text-gray-500 @endif mt-1">
-                            @if ($serviceRequest->status === 'EN_PROCESO')
-                                ⚠️ Asignación requerida para continuar
-                            @elseif($serviceRequest->status === 'ACEPTADA')
-                                📋 Asignación requerida para iniciar el proceso
-                            @else
-                                Este caso requiere asignación de técnico
-                            @endif
-                        </p>
                     </div>
-                @endif
+                </div>
             </div>
 
             @if ($serviceRequest->status === 'CERRADA')
@@ -189,14 +181,7 @@
                 </div>
             @endif
 
-            @if ($serviceRequest->status === 'ACEPTADA' && $serviceRequest->assigned_to)
-                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="flex items-center text-blue-700">
-                        <i class="fas fa-play-circle mr-2"></i>
-                        <span class="text-sm font-medium">Listo para iniciar proceso de trabajo</span>
-                    </div>
-                </div>
-            @endif
+
         </div>
     </div>
 </div>
@@ -418,7 +403,58 @@
 @endonce
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    function runWhenReady(cb) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', cb);
+        } else {
+            cb();
+        }
+    }
+
+    window.updateServiceRequestAssignment = function(payload) {
+        if (!payload) return;
+        var requestId = payload.requestId;
+        var type = payload.type;
+        var name = payload.name || '';
+        var email = payload.email || '';
+        var card = payload.cardEl || null;
+        if (!card && requestId) {
+            card = document.querySelector('[data-service-request-id="' + requestId + '"]');
+        }
+        if (!card) return;
+
+        if (type === 'requester') {
+            var requesterNameEl = card.querySelector('[data-requester-name]');
+            var requesterEmailEl = card.querySelector('[data-requester-email]');
+            var requesterInitialEl = card.querySelector('[data-requester-initial]');
+            var requesterLabel = card.querySelector('[data-requester-action-label]');
+
+            if (requesterNameEl) requesterNameEl.textContent = name || 'Solicitante';
+            if (requesterEmailEl) requesterEmailEl.textContent = email || '';
+            if (requesterInitialEl && name) requesterInitialEl.textContent = name.charAt(0).toUpperCase();
+            if (requesterLabel) requesterLabel.textContent = 'Reasignar';
+            return;
+        }
+
+        var assignedBlock = card.querySelector('[data-assigned-block]');
+        var unassignedBlock = card.querySelector('[data-unassigned-block]');
+        var nameEl = card.querySelector('[data-assignee-name]');
+        var emailEl = card.querySelector('[data-assignee-email]');
+        var initialEl = card.querySelector('[data-assignee-initial]');
+        var alertEls = card.querySelectorAll('[data-assign-alert]');
+
+        if (nameEl) nameEl.textContent = name || 'Técnico asignado';
+        if (emailEl) emailEl.textContent = email || '';
+        if (initialEl && name) initialEl.textContent = name.charAt(0).toUpperCase();
+
+        if (alertEls && alertEls.length) {
+            alertEls.forEach(function(el) { el.classList.add('hidden'); });
+        }
+        if (assignedBlock) assignedBlock.classList.remove('hidden');
+        if (unassignedBlock) unassignedBlock.classList.add('hidden');
+    };
+
+    function initAssignmentCard() {
         setupQuickAssignModal({
             modalId: 'quickAssignModal',
             formId: 'quickAssignForm',
@@ -458,7 +494,7 @@
             if (modal.dataset.bound) return;
             modal.dataset.bound = '1';
 
-            const errorsList = errorsBox?.querySelector('[data-errors-list]');
+            const errorsList = errorsBox ? errorsBox.querySelector('[data-errors-list]') : null;
             const nameInput = document.getElementById('quickAssignRequesterName');
 
             // Estado inicial seguro (por si el modal vive dentro de otro form)
@@ -489,14 +525,14 @@
                 if (phoneInput) phoneInput.value = '';
                 if (deptInput) {
                     deptInput.value = '';
-                    if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(deptInput).data('select2')) {
+                    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(deptInput).data('select2')) {
                         window.jQuery(deptInput).val(null).trigger('change');
                     }
                 }
                 if (posInput) posInput.value = '';
 
                 // Select2: Departamento dentro del modal
-                if (window.jQuery && window.jQuery.fn?.select2 && deptInput) {
+                if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && deptInput) {
                     const $dept = window.jQuery(deptInput);
                     if (!$dept.data('select2')) {
                         $dept.select2({
@@ -515,7 +551,7 @@
                     }
                 }
 
-                setTimeout(() => nameInput?.focus(), 0);
+                setTimeout(() => { if (nameInput) nameInput.focus(); }, 0);
             }
 
             function closeCreateModal() {
@@ -560,20 +596,23 @@
                     return;
                 }
 
-                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+                const rootCard = document.querySelector('[data-service-request-id="' + requestId + '"]');
+                const companyId = rootCard ? rootCard.getAttribute('data-company-id') : '';
                 const payload = {
-                    name: (document.getElementById('quickAssignRequesterName')?.value || '').trim(),
-                    email: (document.getElementById('quickAssignRequesterEmail')?.value || '').trim() || null,
-                    phone: (document.getElementById('quickAssignRequesterPhone')?.value || '').trim() || null,
-                    department: (document.getElementById('quickAssignRequesterDepartment')?.value || '').trim() || null,
-                    position: (document.getElementById('quickAssignRequesterPosition')?.value || '').trim() || null,
-                    company_id: {{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : 'null' }},
+                    name: (document.getElementById('quickAssignRequesterName') ? document.getElementById('quickAssignRequesterName').value : '').trim(),
+                    email: (document.getElementById('quickAssignRequesterEmail') ? document.getElementById('quickAssignRequesterEmail').value : '').trim() || null,
+                    phone: (document.getElementById('quickAssignRequesterPhone') ? document.getElementById('quickAssignRequesterPhone').value : '').trim() || null,
+                    department: (document.getElementById('quickAssignRequesterDepartment') ? document.getElementById('quickAssignRequesterDepartment').value : '').trim() || null,
+                    position: (document.getElementById('quickAssignRequesterPosition') ? document.getElementById('quickAssignRequesterPosition').value : '').trim() || null,
+                    company_id: companyId ? parseInt(companyId, 10) : null,
                 };
 
                 if (!payload.name) {
                     if (errorsBox) errorsBox.classList.remove('hidden');
                     if (errorsList) errorsList.innerHTML = '<li>El nombre es obligatorio.</li>';
-                    setTimeout(() => nameInput?.focus(), 0);
+                    setTimeout(() => { if (nameInput) nameInput.focus(); }, 0);
                     return;
                 }
 
@@ -583,20 +622,24 @@
                 }
 
                 try {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    };
+                    if (csrf) {
+                        headers['X-CSRF-TOKEN'] = csrf;
+                    }
+
                     const res = await fetch(url, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
-                        },
+                        headers: headers,
                         body: JSON.stringify(payload),
                     });
 
                     const data = await res.json().catch(() => null);
                     if (!res.ok) {
                         const messages = [];
-                        if (data?.errors && typeof data.errors === 'object') {
+                        if (data && data.errors && typeof data.errors === 'object') {
                             for (const key of Object.keys(data.errors)) {
                                 const arr = data.errors[key];
                                 if (Array.isArray(arr)) {
@@ -605,7 +648,7 @@
                             }
                         }
                         if (!messages.length) {
-                            messages.push(data?.message ? String(data.message) : 'No se pudo crear el solicitante.');
+                            messages.push(data && data.message ? String(data.message) : 'No se pudo crear el solicitante.');
                         }
                         if (errorsBox) {
                             errorsBox.classList.remove('hidden');
@@ -618,8 +661,8 @@
                         return;
                     }
 
-                    const requesterId = data?.id;
-                    const display = data?.display || (data?.name || 'Solicitante');
+                    const requesterId = data ? data.id : null;
+                    const display = (data && data.display) ? data.display : ((data && data.name) ? data.name : 'Solicitante');
                     if (!requesterId) {
                         if (errorsBox) {
                             errorsBox.classList.remove('hidden');
@@ -629,7 +672,7 @@
                     }
 
                     const option = new Option(display, String(requesterId), true, true);
-                    if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(assignSelect).data('select2')) {
+                    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(assignSelect).data('select2')) {
                         window.jQuery(assignSelect).append(option).trigger('change');
                     } else {
                         assignSelect.appendChild(option);
@@ -652,7 +695,11 @@
                 }
             });
         })();
-    });
+    }
+
+    runWhenReady(initAssignmentCard);
+    document.addEventListener('turbo:load', initAssignmentCard);
+    document.addEventListener('livewire:navigated', initAssignmentCard);
 
     function getFocusableElements(container) {
         if (!container) return [];
@@ -721,11 +768,17 @@
         if (!modal || !form || !closeButton || !assignButtons.length || !selectField) {
             return;
         }
+        if (modal.dataset.bound === '1') {
+            return;
+        }
+        modal.dataset.bound = '1';
 
         bindFocusTrap(modal, () => !modal.classList.contains('hidden'));
 
         function openQuickModal(serviceRequestId) {
             form.action = actionPath(serviceRequestId);
+            form.dataset.requestId = serviceRequestId;
+            modal.dataset.requestId = serviceRequestId;
             window.openModal ? window.openModal(modalId, lastTrigger) : modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
             setTimeout(() => selectField.focus(), 0);
@@ -767,6 +820,24 @@
             }
         });
 
+        function parseAssignee(text) {
+            const raw = (text || '').trim();
+            if (!raw) return { name: '', email: '' };
+            if (raw.includes('(') && raw.includes(')')) {
+                const parts = raw.split('(');
+                const name = (parts[0] ? parts[0].trim() : '') || raw;
+                const email = (parts[1] ? parts[1].replace(')', '').trim() : '') || '';
+                return { name: name, email: email };
+            }
+            if (raw.includes(' - ')) {
+                const parts = raw.split(' - ');
+                const name = (parts[0] ? parts[0].trim() : '') || raw;
+                const email = parts.slice(1).join(' - ').trim();
+                return { name: name, email: email };
+            }
+            return { name: raw, email: '' };
+        }
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             const selectedValue = selectField.value;
@@ -790,16 +861,102 @@
                     body: new FormData(this)
                 });
 
-                const result = await response.json();
+                let result = null;
+                try {
+                    result = await response.json();
+                } catch (err) {
+                    result = null;
+                }
 
-                if (result.success) {
+                if (response.ok && (!result || result.success)) {
                     if (typeof window.srNotify === 'function') window.srNotify(true, result.message || 'Actualizado.');
-                    const requestId = this.action.match(/service-requests\/(\\d+)/)?.[1];
-                    const selectedText = selectField.options[selectField.selectedIndex]?.textContent?.trim();
+                    const requestId = form.dataset.requestId || modal.dataset.requestId || (function() {
+                        const requestMatch = form.action.match(/service-requests\/(\d+)/);
+                        return requestMatch ? requestMatch[1] : null;
+                    })();
+                    const selectedOption = selectField.options[selectField.selectedIndex];
+                    const selectedText = selectedOption && selectedOption.textContent ? selectedOption.textContent.trim() : '';
+                    const parsed = parseAssignee(selectedText);
                     closeQuickModal();
 
-                    // Abrir el modal de aceptación sin recargar
-                    if (requestId) {
+                    var targetCard = lastTrigger ? lastTrigger.closest('[data-service-request-id]') : null;
+
+                    if (requestId || targetCard) {
+                        if (modalId === 'quickRequesterModal') {
+                            const requesterName = (result && (result.requester_name || result.name)) || parsed.name || 'Solicitante';
+                            const requesterEmail = (result && (result.requester_email || result.email)) || parsed.email || '';
+                            if (typeof window.updateServiceRequestAssignment === 'function') {
+                                window.updateServiceRequestAssignment({
+                                requestId,
+                                cardEl: targetCard,
+                                type: 'requester',
+                                name: requesterName,
+                                email: requesterEmail,
+                                });
+                            }
+                        } else {
+                            const assigneeName = (result && result.assigned_to) || parsed.name || 'Técnico asignado';
+                            if (typeof window.updateServiceRequestAssignment === 'function') {
+                                window.updateServiceRequestAssignment({
+                                requestId,
+                                cardEl: targetCard,
+                                type: 'technician',
+                                name: assigneeName,
+                                email: parsed.email,
+                                });
+                            }
+                        }
+
+                        if (modalId !== 'quickRequesterModal') {
+                            const tasksPanel = document.querySelector(`div[data-service-request-id="${requestId}"] .open-quick-task`);
+                            if (tasksPanel) {
+                                tasksPanel.dataset.disabled = 'false';
+                                const enabledClass = tasksPanel.dataset.enabledClass || '';
+                                const disabledClass = tasksPanel.dataset.disabledClass || '';
+                                if (disabledClass) {
+                                    disabledClass.split(' ').forEach(cls => cls && tasksPanel.classList.remove(cls));
+                                }
+                                if (enabledClass) {
+                                    enabledClass.split(' ').forEach(cls => cls && tasksPanel.classList.add(cls));
+                                }
+                            }
+
+                            const warning = document.querySelector(`div[data-service-request-id="${requestId}"] [data-quick-task-warning]`);
+                            if (warning) {
+                                warning.classList.add('hidden');
+                            }
+
+                            const workflowBtn = document.querySelector(`[data-workflow-action="assign-technician"][data-service-request-id="${requestId}"]`);
+                            if (workflowBtn) {
+                                const newLabel = 'Aceptar Solicitud';
+                                workflowBtn.setAttribute('data-workflow-action', 'accept');
+                                workflowBtn.setAttribute('data-modal-id', `accept-modal-${requestId}`);
+                                workflowBtn.setAttribute('onclick', `openModal('accept-modal-${requestId}', this)`);
+                                workflowBtn.className = workflowBtn.className
+                                    .replace('bg-blue-600', 'bg-emerald-600')
+                                    .replace('hover:bg-blue-700', 'hover:bg-emerald-700')
+                                    .replace('active:bg-blue-800', 'active:bg-emerald-800')
+                                    .replace('border-blue-700', 'border-emerald-700')
+                                    .replace('hover:border-blue-800', 'hover:border-emerald-800')
+                                    .replace('focus:ring-blue-500', 'focus:ring-emerald-500');
+
+                                const icon = workflowBtn.querySelector('i');
+                                if (icon) {
+                                    icon.className = icon.className.replace(/fa-user-plus/g, 'fa-handshake');
+                                }
+
+                                const label = workflowBtn.querySelector('span');
+                                if (label) {
+                                    label.textContent = newLabel;
+                                } else {
+                                    workflowBtn.textContent = newLabel;
+                                }
+                            }
+                        }
+                    }
+
+                    // Abrir el modal de aceptación si existe (sin forzar)
+                    if (requestId && modalId !== 'quickRequesterModal') {
                         const acceptModal = document.getElementById(`accept-modal-${requestId}`);
                         if (acceptModal) {
                             const assigneeTarget = acceptModal.querySelector('[data-accept-assignee]');
@@ -809,12 +966,10 @@
                                 assigneeTarget.classList.add('text-green-600', 'font-medium');
                             }
                             window.openModal ? window.openModal(`accept-modal-${requestId}`, lastTrigger) : acceptModal.classList.remove('hidden');
-                        } else {
-                            if (typeof window.srNotify === 'function') window.srNotify(false, 'No se encontró el modal de aceptación.');
                         }
                     }
                 } else {
-                    if (typeof window.srNotify === 'function') window.srNotify(false, result.message || 'No se pudo completar la acción.');
+                    if (typeof window.srNotify === 'function') window.srNotify(false, (result && result.message) || 'No se pudo completar la acción.');
                 }
             } catch (error) {
                 if (typeof window.srNotify === 'function') window.srNotify(false, 'Error de conexión.');

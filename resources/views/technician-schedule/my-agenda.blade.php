@@ -195,6 +195,17 @@
                                             <i class="fas fa-ticket-alt text-green-500"></i> {{ $task->serviceRequest->ticket_number }}
                                         </a>
                                     @endif
+                                    @php
+                                        $serviceName = $task->serviceRequest?->subService?->service?->name;
+                                        $subServiceName = $task->serviceRequest?->subService?->name;
+                                        $serviceLabel = $serviceName && $subServiceName
+                                            ? "{$serviceName} · {$subServiceName}"
+                                            : ($subServiceName ?? $serviceName);
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1">
+                                        <i class="fas fa-concierge-bell text-indigo-500"></i>
+                                        {{ $serviceLabel ?: 'Sin servicio' }}
+                                    </span>
                                     @if($task->technologies)
                                         <span>
                                             <i class="fas fa-code text-purple-500"></i>
@@ -329,6 +340,17 @@
                                 </div>
 
                                 <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                                    @php
+                                        $openServiceName = $task->serviceRequest?->subService?->service?->name;
+                                        $openSubServiceName = $task->serviceRequest?->subService?->name;
+                                        $openServiceLabel = $openServiceName && $openSubServiceName
+                                            ? "{$openServiceName} · {$openSubServiceName}"
+                                            : ($openSubServiceName ?? $openServiceName);
+                                    @endphp
+                                    <span class="inline-flex items-center gap-1">
+                                        <i class="fas fa-concierge-bell text-indigo-500"></i>
+                                        {{ $openServiceLabel ?: 'Sin servicio' }}
+                                    </span>
                                     @if($task->priority)
                                         <span class="inline-flex items-center gap-1">
                                             <i class="fas fa-flag text-{{ $task->priority_color }}-500"></i>{{ ucfirst($task->priority) }}

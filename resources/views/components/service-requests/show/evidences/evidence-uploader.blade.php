@@ -149,12 +149,15 @@ if (uploadArea) {
 }
 
 // Limpiar formulario después de enviar
-document.getElementById('evidenceUploadForm')?.addEventListener('submit', function() {
+const evidenceForm = document.getElementById('evidenceUploadForm');
+if (evidenceForm) {
+    evidenceForm.addEventListener('submit', function() {
     setTimeout(() => {
         this.reset();
         document.getElementById('fileList').classList.add('hidden');
         document.getElementById('uploadButton').classList.add('hidden');
     }, 1000);
-});
+    });
+}
 </script>
 @endif
