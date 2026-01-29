@@ -131,11 +131,18 @@
                             <div class="border border-{{ $task->type === 'impact' ? 'red' : 'blue' }}-200 bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-50/50 rounded-lg p-4"
                                  draggable="true" data-day-task data-task-id="{{ $task->id }}">
                         <div class="flex flex-col lg:flex-row lg:items-start gap-4">
-                            <div class="lg:w-28">
+                            <div class="flex items-start gap-3 lg:gap-4">
+                                <div class="text-gray-400 mt-1 cursor-grab active:cursor-grabbing select-none"
+                                     draggable="true" data-drag-handle data-task-id="{{ $task->id }}"
+                                     title="Arrastra para ordenar">
+                                    <i class="fas fa-grip-vertical"></i>
+                                </div>
+                                <div class="lg:w-28">
                                 <div class="text-lg font-bold text-gray-800">{{ substr($task->scheduled_start_time, 0, 5) }}</div>
                                 <div class="text-xs uppercase tracking-wide text-gray-400">Inicio</div>
                                 <div class="mt-2 text-xs text-gray-600">
                                     <i class="fas fa-hourglass-half text-gray-400 mr-1"></i>{{ $task->formatted_duration }}
+                                </div>
                                 </div>
                             </div>
 
@@ -496,12 +503,14 @@
     function initializeTaskDragBetweenLists() {
         const openTasks = document.querySelectorAll('[data-open-task]');
         const dayTasks = document.querySelectorAll('[data-day-task]');
+        const dayTaskHandles = document.querySelectorAll('[data-drag-handle]');
         const dropZone = document.getElementById('tasksDropZone');
         const dropHint = document.getElementById('dropHint');
         const openList = document.querySelector('[data-open-list]');
         const tasksList = document.getElementById('tasksList');
         let draggingDayTask = null;
         let initialDayOrder = [];
+        let dropPlaceholder = null;
 
         const getDayTaskIds = () => {
             if (!tasksList) return [];
@@ -520,6 +529,24 @@
                 }
                 return closest;
             }, { offset: Number.NEGATIVE_INFINITY }).element;
+        };
+
+        const ensurePlaceholder = (item) => {
+            if (!tasksList || !item) return null;
+            if (!dropPlaceholder) {
+                dropPlaceholder = document.createElement('div');
+                dropPlaceholder.className = 'border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/70';
+            }
+            const rect = item.getBoundingClientRect();
+            dropPlaceholder.style.height = `${rect.height}px`;
+            dropPlaceholder.style.marginBottom = '1rem';
+            return dropPlaceholder;
+        };
+
+        const clearPlaceholder = () => {
+            if (dropPlaceholder && dropPlaceholder.parentNode) {
+                dropPlaceholder.parentNode.removeChild(dropPlaceholder);
+            }
         };
 
         const saveDayTaskOrder = async (taskIds) => {
@@ -559,6 +586,35 @@
                 console.error(error);
                 showToast('Error al guardar el orden.', 'error');
             }
+        };
+
+        const startDayDrag = (item, event) => {
+            if (!item) return;
+            event.dataTransfer.setData('application/x-task-id', item.dataset.taskId);
+            event.dataTransfer.setData('application/x-task-origin', 'day');
+            event.dataTransfer.setData('text/plain', item.dataset.taskId);
+            event.dataTransfer.effectAllowed = 'move';
+            draggingDayTask = item;
+            initialDayOrder = getDayTaskIds();
+            item.classList.add('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
+            ensurePlaceholder(item);
+        };
+
+        const endDayDrag = (item) => {
+            if (!item) return;
+            item.classList.remove('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
+            clearPlaceholder();
+            if (tasksList && !tasksList.contains(item)) {
+                draggingDayTask = null;
+                initialDayOrder = [];
+                return;
+            }
+            const newOrder = getDayTaskIds();
+            if (JSON.stringify(initialDayOrder) !== JSON.stringify(newOrder)) {
+                saveDayTaskOrder(newOrder);
+            }
+            draggingDayTask = null;
+            initialDayOrder = [];
         };
 
         if (dropZone) {
@@ -640,9 +696,18 @@
                 event.stopPropagation();
                 dropHint?.classList.add('hidden');
                 const afterElement = getDragAfterElement(tasksList, event.clientY);
+                const placeholder = ensurePlaceholder(draggingDayTask);
                 if (!afterElement) {
+                    if (placeholder && placeholder.parentNode !== tasksList) {
+                        tasksList.appendChild(placeholder);
+                    } else if (placeholder) {
+                        tasksList.appendChild(placeholder);
+                    }
                     tasksList.appendChild(draggingDayTask);
                 } else {
+                    if (placeholder && placeholder !== afterElement) {
+                        tasksList.insertBefore(placeholder, afterElement);
+                    }
                     tasksList.insertBefore(draggingDayTask, afterElement);
                 }
             });
@@ -650,6 +715,7 @@
             tasksList.addEventListener('drop', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                clearPlaceholder();
             });
         }
 
@@ -720,28 +786,23 @@
 
         dayTasks.forEach((item) => {
             item.addEventListener('dragstart', (event) => {
-                event.dataTransfer.setData('application/x-task-id', item.dataset.taskId);
-                event.dataTransfer.setData('application/x-task-origin', 'day');
-                event.dataTransfer.setData('text/plain', item.dataset.taskId);
-                event.dataTransfer.effectAllowed = 'move';
-                draggingDayTask = item;
-                initialDayOrder = getDayTaskIds();
-                item.classList.add('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
+                startDayDrag(item, event);
             });
 
             item.addEventListener('dragend', () => {
-                item.classList.remove('ring-2', 'ring-amber-400', 'opacity-70', 'dragging');
-                if (tasksList && !tasksList.contains(item)) {
-                    draggingDayTask = null;
-                    initialDayOrder = [];
-                    return;
-                }
-                const newOrder = getDayTaskIds();
-                if (JSON.stringify(initialDayOrder) !== JSON.stringify(newOrder)) {
-                    saveDayTaskOrder(newOrder);
-                }
-                draggingDayTask = null;
-                initialDayOrder = [];
+                endDayDrag(item);
+            });
+        });
+
+        dayTaskHandles.forEach((handle) => {
+            handle.addEventListener('dragstart', (event) => {
+                const item = handle.closest('[data-day-task]');
+                startDayDrag(item, event);
+            });
+
+            handle.addEventListener('dragend', () => {
+                const item = handle.closest('[data-day-task]');
+                endDayDrag(item);
             });
         });
     }
