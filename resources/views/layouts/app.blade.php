@@ -572,21 +572,7 @@
                 <!-- Menú de usuario -->
                 <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
                     @auth
-                        @if(isset($userWorkspaces) && $userWorkspaces->count() > 1)
-                            <form method="POST" action="{{ route('workspaces.switch') }}" class="hidden sm:block">
-                                @csrf
-                                <label for="workspaceSwitchTop" class="sr-only">Espacio de trabajo</label>
-                                <select id="workspaceSwitchTop" name="company_id"
-                                    onchange="this.form.submit()"
-                                    class="text-sm border border-white/60 bg-white text-red-700 rounded-full px-3 py-2 shadow-sm focus:ring-2 focus:ring-white/70 focus:border-white/70 min-w-[160px]">
-                                    @foreach ($userWorkspaces as $workspace)
-                                        <option value="{{ $workspace->id }}" {{ optional($currentWorkspace)->id === $workspace->id ? 'selected' : '' }}>
-                                            {{ $workspace->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </form>
-                        @elseif(isset($currentWorkspace))
+                        @if(isset($currentWorkspace))
                             <span class="hidden sm:inline text-sm text-white/80">{{ $currentWorkspace->name }}</span>
                         @endif
 
@@ -627,20 +613,7 @@
                 <div id="mobileMenuPanel"
                     class="mobile-menu md:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
                     <div class="py-4 px-4 space-y-3">
-                        @if(isset($userWorkspaces) && $userWorkspaces->count() > 1)
-                            <form method="POST" action="{{ route('workspaces.switch') }}" class="bg-white/10 rounded-2xl p-3">
-                                @csrf
-                                <label for="workspaceSwitchMobileTop" class="block text-xs text-white/70 mb-2">Espacio de trabajo</label>
-                                <select id="workspaceSwitchMobileTop" name="company_id" onchange="this.form.submit()"
-                                    class="w-full text-sm border border-white/60 bg-white text-red-700 rounded-xl px-3 py-2 shadow-sm focus:ring-2 focus:ring-white/70 focus:border-white/70">
-                                    @foreach ($userWorkspaces as $workspace)
-                                        <option value="{{ $workspace->id }}" {{ optional($currentWorkspace)->id === $workspace->id ? 'selected' : '' }}>
-                                            {{ $workspace->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </form>
-                        @elseif(isset($currentWorkspace))
+                        @if(isset($currentWorkspace))
                             <div class="bg-white/10 rounded-2xl p-3 text-sm text-white/80">
                                 {{ $currentWorkspace->name }}
                             </div>
