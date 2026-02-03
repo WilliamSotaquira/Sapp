@@ -433,17 +433,51 @@ class ServiceRequestController extends Controller
             return redirect()->route('service-requests.show', $serviceRequest->id)->with('error', 'Solo se pueden cerrar solicitudes RESUELTAS o PAUSADAS por vencimiento.');
         }
 
-        // Validaciones diferentes según el tipo de cierre
-        if ($isVencimiento) {
-            // Cierre por vencimiento requiere motivo
-            $request->validate([
-                'closure_reason' => 'required|string|min:10',
-            ]);
-        } else {
-            // Cierre normal puede tener descripción opcional
-            $request->validate([
-                'resolution_description' => 'sometimes|string|min:0',
-            ]);
+        // No permitir cierre si hay tareas pendientes/en progreso/bloqueadas
+        $pendingTasksCount = $serviceRequest->tasks()
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->count();
+
+        if ($pendingTasksCount > 0) {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest->id)
+                ->with('error', 'No se puede cerrar la solicitud mientras existan tareas sin completar.');
+        }
+
+        // Validaciones diferentes según el tipo de cierre + evidencias opcionales
+        $rules = $isVencimiento
+            ? ['closure_reason' => 'required|string|min:10']
+            : ['resolution_description' => 'sometimes|string|min:0'];
+
+        $rules = array_merge($rules, [
+            'evidence_type' => 'nullable|array',
+            'evidence_type.*' => 'nullable|in:ARCHIVO,ENLACE',
+            'files' => 'nullable|array',
+            'files.*' => 'nullable|file|max:10240',
+            'link_url' => 'nullable|array',
+            'link_url.*' => 'nullable|url|max:2000',
+        ]);
+
+        $validated = $request->validate($rules);
+
+        $evidenceTypes = $request->input('evidence_type', []);
+        $linkUrls = $request->input('link_url', []);
+        $files = $request->file('files', []);
+
+        foreach ($evidenceTypes as $idx => $type) {
+            if (!$type) {
+                continue;
+            }
+            if ($type === 'ARCHIVO' && empty($files[$idx])) {
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest->id)
+                    ->with('error', 'Debes adjuntar un archivo para cada evidencia de tipo Archivo.');
+            }
+            if ($type === 'ENLACE' && empty($linkUrls[$idx])) {
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest->id)
+                    ->with('error', 'Debes ingresar un enlace para cada evidencia de tipo Enlace.');
+            }
         }
 
         try {
@@ -469,6 +503,51 @@ class ServiceRequestController extends Controller
             }
 
             $updateData['resolution_notes'] = trim($currentNotes . $closureDetails);
+
+            // Crear evidencias si fueron enviadas desde el cierre
+            if (!empty($evidenceTypes)) {
+                foreach ($evidenceTypes as $idx => $type) {
+                    if (!$type) {
+                        continue;
+                    }
+
+                    $autoTitle = 'Evidencia cierre ' . $serviceRequest->ticket_number . ' - ' . now()->format('Ymd-His') . '-' . ($idx + 1);
+
+                    if ($type === 'ARCHIVO' && !empty($files[$idx])) {
+                        $result = $this->evidenceService->uploadEvidences($serviceRequest, [$files[$idx]]);
+
+                        if (($result['success_count'] ?? 0) < 1) {
+                            throw new \Exception('No se pudo subir la evidencia.');
+                        }
+
+                        $uploaded = $result['uploaded'][0] ?? null;
+                        if ($uploaded) {
+                            $uploaded->update([
+                                'title' => $autoTitle,
+                                'description' => 'Evidencia adjunta al cierre de la solicitud.',
+                            ]);
+                        }
+                    }
+
+                    if ($type === 'ENLACE') {
+                        $url = $linkUrls[$idx] ?? null;
+                        if (!$url) {
+                            throw new \Exception('Enlace inválido.');
+                        }
+
+                        ServiceRequestEvidence::create([
+                            'service_request_id' => $serviceRequest->id,
+                            'title' => $autoTitle,
+                            'description' => $url,
+                            'evidence_type' => 'ENLACE',
+                            'evidence_data' => [
+                                'url' => $url,
+                            ],
+                            'user_id' => auth()->id(),
+                        ]);
+                    }
+                }
+            }
 
             // Actualizar la solicitud
             \DB::table('service_requests')->where('id', $serviceRequest->id)->update($updateData);

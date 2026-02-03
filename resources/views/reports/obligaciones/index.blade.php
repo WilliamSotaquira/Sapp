@@ -118,14 +118,31 @@
 
                                     <!-- PRODUCTOS PRESENTADOS -->
                                     <td class="px-6 py-3 text-sm">
-                                        @if($sr->evidences->where('file_path')->count() > 0)
+                                        @php
+                                            $fileEvidences = $sr->evidences->where('file_path');
+                                            $linkEvidences = $sr->evidences->where('evidence_type', 'ENLACE');
+                                            $hasProducts = $fileEvidences->count() > 0 || $linkEvidences->count() > 0;
+                                        @endphp
+                                        @if($hasProducts)
                                             <ul class="space-y-1">
-                                                @foreach($sr->evidences->where('file_path') as $evidence)
+                                                @foreach($fileEvidences as $evidence)
                                                     <li>
                                                         <a href="{{ $evidence->file_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
                                                             {{ $evidence->file_original_name }}
                                                         </a>
                                                     </li>
+                                                @endforeach
+                                                @foreach($linkEvidences as $evidence)
+                                                    @php
+                                                        $linkUrl = $evidence->evidence_data['url'] ?? $evidence->description;
+                                                    @endphp
+                                                    @if($linkUrl)
+                                                        <li>
+                                                            <a href="{{ $linkUrl }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
+                                                                {{ $linkUrl }}
+                                                            </a>
+                                                        </li>
+                                                    @endif
                                                 @endforeach
                                             </ul>
                                         @else

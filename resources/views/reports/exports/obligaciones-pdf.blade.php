@@ -98,8 +98,13 @@
                                 @endif
                             </td>
                             <td>
-                                @if($sr->evidences->where('file_path')->count() > 0)
-                                    @foreach($sr->evidences->where('file_path') as $evidence)
+                                @php
+                                    $fileEvidences = $sr->evidences->where('file_path');
+                                    $linkEvidences = $sr->evidences->where('evidence_type', 'ENLACE');
+                                    $hasProducts = $fileEvidences->count() > 0 || $linkEvidences->count() > 0;
+                                @endphp
+                                @if($hasProducts)
+                                    @foreach($fileEvidences as $evidence)
                                         @php
                                             $evidenceLabel = $evidence->file_original_name
                                                 ?? $evidence->file_name
@@ -114,6 +119,18 @@
                                             </div>
                                         @else
                                             <div class="muted">{{ $evidenceLabel }}</div>
+                                        @endif
+                                    @endforeach
+                                    @foreach($linkEvidences as $evidence)
+                                        @php
+                                            $linkUrl = $evidence->evidence_data['url'] ?? $evidence->description;
+                                        @endphp
+                                        @if($linkUrl)
+                                            <div>
+                                                <a href="{{ $linkUrl }}" style="color:#2563eb; text-decoration: underline;">
+                                                    {{ $linkUrl }}
+                                                </a>
+                                            </div>
                                         @endif
                                     @endforeach
                                 @else
