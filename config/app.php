@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'http://sapp.local:8000'),
+    'name' => env('APP_NAME', 'https://sapp.local'),
 
     /*
     |--------------------------------------------------------------------------
@@ -52,7 +52,7 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'https://sapp.local'),
 
     /*
     |--------------------------------------------------------------------------

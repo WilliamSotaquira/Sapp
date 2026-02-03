@@ -106,11 +106,11 @@ php artisan tinker
 ### 2. Acceder a las Vistas
 
 **URLs Principales:**
-- 📅 Calendario: `http://localhost/technician-schedule`
-- 📋 Mi Agenda: `http://localhost/technician-schedule/my-agenda`
-- 📊 Capacidad: `http://localhost/technician-schedule/team-capacity`
-- 👥 Técnicos: `http://localhost/technicians`
-- 📝 Tareas: `http://localhost/tasks`
+- 📅 Calendario: `https://sapp.local/technician-schedule`
+- 📋 Mi Agenda: `https://sapp.local/technician-schedule/my-agenda`
+- 📊 Capacidad: `https://sapp.local/technician-schedule/team-capacity`
+- 👥 Técnicos: `https://sapp.local/technicians`
+- 📝 Tareas: `https://sapp.local/tasks`
 
 ### 3. Login como Técnico
 
@@ -354,7 +354,7 @@ El Módulo de Tiempos y Capacidad está completamente implementado y listo para 
 
 **¡Comienza a usar el módulo ahora mismo! 🚀**
 
-Navega a: `http://localhost/technician-schedule`
+Navega a: `https://sapp.local/technician-schedule`
 
 ---
 
