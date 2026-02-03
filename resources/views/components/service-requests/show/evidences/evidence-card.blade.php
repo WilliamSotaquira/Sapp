@@ -3,12 +3,12 @@
 <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
     <!-- Header -->
     <div class="flex items-start justify-between mb-3">
-        <div class="flex-1 pr-2">
-            <h4 class="font-semibold text-gray-900 text-sm mb-1 truncate">
+        <div class="flex-1 pr-2 min-w-0">
+            <h4 class="font-semibold text-gray-900 text-sm mb-1 break-words line-clamp-2">
                 {{ $evidence->title ?: 'Sin título' }}
             </h4>
             @if($evidence->description)
-            <p class="text-xs text-gray-600 line-clamp-2">
+            <p class="text-xs text-gray-600 break-words line-clamp-2">
                 {{ $evidence->description }}
             </p>
             @endif
@@ -75,18 +75,44 @@
             @endif
         </div>
     @else
-        <!-- Sin archivo -->
-        <div class="text-center py-6 text-gray-400">
-            <i class="fas fa-file-exclamation text-2xl mb-2"></i>
-            <p class="text-sm">Archivo no disponible</p>
-        </div>
+        @php
+            $linkUrl = $evidence->evidence_data['url'] ?? $evidence->description;
+        @endphp
+        @if($evidence->evidence_type === 'ENLACE' && $linkUrl)
+            <div class="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                <div class="w-10 h-10 bg-white rounded-lg border border-gray-300 flex items-center justify-center mr-3 flex-shrink-0">
+                    <i class="fas fa-link text-gray-500"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate" title="{{ $linkUrl }}">{{ $linkUrl }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Enlace externo</p>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <a href="{{ $linkUrl }}" target="_blank" rel="noopener noreferrer"
+                   class="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">
+                    <i class="fas fa-up-right-from-square mr-2"></i> Abrir
+                </a>
+                <button type="button"
+                        class="flex items-center text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors"
+                        onclick="navigator.clipboard.writeText('{{ $linkUrl }}')">
+                    <i class="fas fa-copy mr-2"></i> Copiar
+                </button>
+            </div>
+        @else
+            <!-- Sin archivo -->
+            <div class="text-center py-6 text-gray-400">
+                <i class="fas fa-file-exclamation text-2xl mb-2"></i>
+                <p class="text-sm">Archivo no disponible</p>
+            </div>
+        @endif
     @endif
 
     <!-- Footer -->
     <div class="flex justify-between items-center text-xs text-gray-500 mt-4 pt-3 border-t border-gray-100">
         <div class="flex items-center">
             <i class="far fa-clock mr-1.5"></i>
-            <span>{{ $evidence->created_at->format('d/m/Y H:i') }}</span>
+            <span>{{ $evidence->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}</span>
         </div>
         <div class="flex items-center space-x-3">
             @if($evidence->user)

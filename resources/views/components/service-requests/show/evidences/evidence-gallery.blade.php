@@ -10,10 +10,14 @@
                     <p class="text-sm text-amber-700 mt-1">Documentos, imágenes y archivos relacionados con la solicitud</p>
                 </div>
             </div>
-            <div class="text-right">
+            <div class="text-right space-y-1">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800">
                     <i class="fas fa-file-alt mr-2"></i>
                     {{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() }} archivo{{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() !== 1 ? 's' : '' }}
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                    <i class="fas fa-link mr-2"></i>
+                    {{ $serviceRequest->evidences->where('evidence_type', 'ENLACE')->count() }} enlace{{ $serviceRequest->evidences->where('evidence_type', 'ENLACE')->count() !== 1 ? 's' : '' }}
                 </span>
             </div>
         </div>
@@ -23,59 +27,66 @@
         @php
             // Filtrar solo evidencias de tipo ARCHIVO
             $fileEvidences = $serviceRequest->evidences->where('evidence_type', 'ARCHIVO');
+            $linkEvidences = $serviceRequest->evidences->where('evidence_type', 'ENLACE');
+            $galleryEvidencesCount = $fileEvidences->count() + $linkEvidences->count();
         @endphp
 
-        @if($fileEvidences->count() > 0)
+        @if($galleryEvidencesCount > 0)
             <!-- Estadísticas rápidas -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                @php
-                    $imagesCount = $fileEvidences->where('file_type', 'like', 'image%')->count();
-                    $documentsCount = $fileEvidences->whereIn('file_type', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->count();
-                    $othersCount = $fileEvidences->count() - $imagesCount - $documentsCount;
-                    $totalSize = $fileEvidences->sum('file_size');
-                @endphp
+            @if($fileEvidences->count() > 0)
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    @php
+                        $imagesCount = $fileEvidences->where('file_type', 'like', 'image%')->count();
+                        $documentsCount = $fileEvidences->whereIn('file_type', ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->count();
+                        $othersCount = $fileEvidences->count() - $imagesCount - $documentsCount;
+                        $totalSize = $fileEvidences->sum('file_size');
+                    @endphp
 
-                <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
-                    <div class="text-blue-600 mb-1">
-                        <i class="fas fa-file-image text-lg"></i>
+                    <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
+                        <div class="text-blue-600 mb-1">
+                            <i class="fas fa-file-image text-lg"></i>
+                        </div>
+                        <div class="text-lg font-bold text-gray-800">{{ $imagesCount }}</div>
+                        <div class="text-xs text-gray-600">Imágenes</div>
                     </div>
-                    <div class="text-lg font-bold text-gray-800">{{ $imagesCount }}</div>
-                    <div class="text-xs text-gray-600">Imágenes</div>
-                </div>
 
-                <div class="bg-green-50 rounded-lg p-3 text-center border border-green-100">
-                    <div class="text-green-600 mb-1">
-                        <i class="fas fa-file-pdf text-lg"></i>
+                    <div class="bg-green-50 rounded-lg p-3 text-center border border-green-100">
+                        <div class="text-green-600 mb-1">
+                            <i class="fas fa-file-pdf text-lg"></i>
+                        </div>
+                        <div class="text-lg font-bold text-gray-800">{{ $documentsCount }}</div>
+                        <div class="text-xs text-gray-600">Documentos</div>
                     </div>
-                    <div class="text-lg font-bold text-gray-800">{{ $documentsCount }}</div>
-                    <div class="text-xs text-gray-600">Documentos</div>
-                </div>
 
-                <div class="bg-purple-50 rounded-lg p-3 text-center border border-purple-100">
-                    <div class="text-purple-600 mb-1">
-                        <i class="fas fa-file-alt text-lg"></i>
+                    <div class="bg-purple-50 rounded-lg p-3 text-center border border-purple-100">
+                        <div class="text-purple-600 mb-1">
+                            <i class="fas fa-file-alt text-lg"></i>
+                        </div>
+                        <div class="text-lg font-bold text-gray-800">{{ $othersCount }}</div>
+                        <div class="text-xs text-gray-600">Otros</div>
                     </div>
-                    <div class="text-lg font-bold text-gray-800">{{ $othersCount }}</div>
-                    <div class="text-xs text-gray-600">Otros</div>
-                </div>
 
-                <div class="bg-amber-50 rounded-lg p-3 text-center border border-amber-100">
-                    <div class="text-amber-600 mb-1">
-                        <i class="fas fa-hdd text-lg"></i>
+                    <div class="bg-amber-50 rounded-lg p-3 text-center border border-amber-100">
+                        <div class="text-amber-600 mb-1">
+                            <i class="fas fa-hdd text-lg"></i>
+                        </div>
+                        <div class="text-lg font-bold text-gray-800">{{ number_format($totalSize / 1024 / 1024, 1) }}MB</div>
+                        <div class="text-xs text-gray-600">Total</div>
                     </div>
-                    <div class="text-lg font-bold text-gray-800">{{ number_format($totalSize / 1024 / 1024, 1) }}MB</div>
-                    <div class="text-xs text-gray-600">Total</div>
                 </div>
-            </div>
+            @endif
 
             <!-- Grid de evidencias -->
             <div class="mb-6">
                 <h4 class="text-md font-semibold text-gray-700 mb-4 flex items-center">
                     <i class="fas fa-folder-open text-amber-500 mr-2"></i>
-                    Archivos adjuntos
+                    Evidencias
                 </h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($fileEvidences as $evidence)
+                    <x-service-requests.show.evidences.evidence-card :evidence="$evidence" :serviceRequest="$serviceRequest" />
+                    @endforeach
+                    @foreach($linkEvidences as $evidence)
                     <x-service-requests.show.evidences.evidence-card :evidence="$evidence" :serviceRequest="$serviceRequest" />
                     @endforeach
                 </div>
