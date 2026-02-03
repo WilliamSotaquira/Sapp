@@ -427,7 +427,7 @@ ServiceRequestStatusHistory::with('changedBy')->first();
 
 ### Prueba 1: Búsqueda por Ticket
 ```
-1. Navegar: http://localhost/consultar
+1. Navegar: https://sapp.local/consultar
 2. Seleccionar: Radio "Número de Ticket"
 3. Ingresar: INF-PU-M-251112-001
 4. Click: "Buscar Mi Solicitud"
@@ -436,7 +436,7 @@ ServiceRequestStatusHistory::with('changedBy')->first();
 
 ### Prueba 2: Búsqueda por Email
 ```
-1. Navegar: http://localhost/consultar
+1. Navegar: https://sapp.local/consultar
 2. Seleccionar: Radio "Correo Electrónico"
 3. Ingresar: usuario@dominio.com
 4. Click: "Buscar Mi Solicitud"

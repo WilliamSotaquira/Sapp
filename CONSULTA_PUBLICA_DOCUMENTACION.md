@@ -96,7 +96,7 @@ Sistema implementado para permitir a los usuarios regulares consultar el estado 
 
 ### Página Principal
 ```
-http://sapp.local:8000/consultar
+https://sapp.local/consultar
 https://sapp.weirdoware.com/consultar
 ```
 
