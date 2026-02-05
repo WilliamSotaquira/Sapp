@@ -508,9 +508,21 @@
 
             return request()->routeIs(...(array) $patterns);
         };
+
+        $workspaceName = $currentWorkspace->name ?? '';
+        $workspaceDisplayName = $workspaceName;
+        $workspaceKey = Str::lower($workspaceName);
+        $workspaceAccent = '#DC2626';
+        if (Str::contains($workspaceKey, 'movilidad')) {
+            $workspaceAccent = '#BED000';
+        } elseif (Str::contains($workspaceKey, 'cultura')) {
+            $workspaceAccent = '#493D86';
+            $workspaceDisplayName = 'Min Culturas';
+        }
     @endphp
     <!-- Navigation -->
-    <nav class="bg-red-600 text-white shadow-lg" id="mainNavigation">
+    <nav class="bg-red-600 text-white shadow-lg border-b-4" id="mainNavigation"
+        style="border-bottom-color: {{ $workspaceAccent }};">
         <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
@@ -573,7 +585,7 @@
                 <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
                     @auth
                         @if(isset($currentWorkspace))
-                            <span class="hidden sm:inline text-sm text-white/80">{{ $currentWorkspace->name }}</span>
+                            <span class="hidden sm:inline text-sm text-white/80">{{ $workspaceDisplayName }}</span>
                         @endif
 
                         <div
@@ -615,7 +627,7 @@
                     <div class="py-4 px-4 space-y-3">
                         @if(isset($currentWorkspace))
                             <div class="bg-white/10 rounded-2xl p-3 text-sm text-white/80">
-                                {{ $currentWorkspace->name }}
+                                {{ $workspaceDisplayName }}
                             </div>
                         @endif
 

@@ -27,18 +27,45 @@
             </div>
 
             <div class="w-full lg:w-auto">
+                @php
+                    $workspaceName = $currentWorkspace->name ?? 'Sin espacio';
+                    $workspaceDisplayName = $workspaceName;
+                    $workspaceKey = Str::lower($workspaceName);
+                    $workspaceAccent = '#DC2626';
+                    $workspaceAccentBg = 'rgba(220, 38, 38, 0.08)';
+                    $workspaceImage = null;
+
+                    if (Str::contains($workspaceKey, 'movilidad')) {
+                        $workspaceAccent = '#BED000';
+                        $workspaceAccentBg = 'rgba(190, 208, 0, 0.18)';
+                        $workspaceImage = asset('movilidad.jpg');
+                    } elseif (Str::contains($workspaceKey, 'cultura')) {
+                        $workspaceAccent = '#493D86';
+                        $workspaceAccentBg = 'rgba(73, 61, 134, 0.12)';
+                        $workspaceImage = asset('cultura.png');
+                        $workspaceDisplayName = 'Min Culturas';
+                    }
+                @endphp
                 <div class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-red-50 text-red-600">
-                        <i class="fas fa-building text-lg"></i>
-                    </div>
+                    @if ($workspaceImage)
+                        <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-white/80 ring-1 ring-black/5">
+                            <img src="{{ $workspaceImage }}" alt="{{ $workspaceDisplayName }}"
+                                 class="max-w-[2.25rem] max-h-[2.25rem] object-contain">
+                        </div>
+                    @else
+                        <div class="flex items-center justify-center w-11 h-11 rounded-xl" style="background-color: {{ $workspaceAccentBg }}; color: {{ $workspaceAccent }};">
+                            <i class="fas fa-building text-lg"></i>
+                        </div>
+                    @endif
                     <div class="min-w-0">
                         <p class="text-[11px] uppercase tracking-wider text-gray-400">Espacio activo</p>
                         <p class="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                            {{ $currentWorkspace->name ?? 'Sin espacio' }}
+                            {{ $workspaceDisplayName }}
                         </p>
                     </div>
                     <a href="{{ route('workspaces.select') }}"
-                       class="ml-auto text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700">
+                       class="ml-auto text-xs sm:text-sm font-semibold hover:opacity-80"
+                       style="color: {{ $workspaceAccent }};">
                         Cambiar
                     </a>
                 </div>
@@ -52,7 +79,10 @@
                 <p class="text-[11px] uppercase tracking-wider text-gray-400">Productividad</p>
                 <h2 class="text-base sm:text-lg font-semibold text-gray-900 mt-1">Acciones Rápidas</h2>
             </div>
-            <span class="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Acceso directo</span>
+            <span class="text-xs font-semibold px-3 py-1 rounded-full"
+                  style="background-color: {{ $workspaceAccentBg }}; color: {{ $workspaceAccent }};">
+                Acceso directo
+            </span>
         </div>
         @php
             $isAdmin = auth()->user()?->isAdmin() ?? false;
