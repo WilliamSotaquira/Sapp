@@ -32,14 +32,14 @@
     $subtasks = $task->subtasks ?? collect();
 @endphp
 
-<div class="border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200" data-task-card="{{ $task->id }}">
+<div class="border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200" data-task-card="{{ $task->id }}" data-task-completed="{{ strtolower($task->status ?? '') === 'completed' ? '1' : '0' }}">
     <div class="p-4 {{ $subtasks->count() > 0 ? 'border-b border-gray-100' : '' }}">
         <div class="flex items-start gap-3">
             <div class="flex-shrink-0 mt-1">
                 <input type="checkbox"
                     id="task-{{ $task->id }}"
                     class="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
-                    {{ $task->status === 'completed' ? 'checked' : '' }}
+                    {{ strtolower($task->status ?? '') === 'completed' ? 'checked' : '' }}
                     onchange="toggleTaskStatus({{ $task->id }}, this.checked)"
                     {{ $task->status === 'cancelled' ? 'disabled' : '' }}>
             </div>
@@ -137,7 +137,7 @@
                         $subPriorityKey = strtolower($subtask->priority ?? 'medium');
                         $subPriority = $priorityConfig[$subPriorityKey] ?? $priorityConfig['medium'];
                     @endphp
-                    <div class="flex items-start gap-3 p-2 bg-white rounded border border-gray-200 hover:border-purple-200 transition-colors">
+                    <div class="flex items-start gap-3 p-2 bg-white rounded border border-gray-200 hover:border-purple-200 transition-colors" data-subtask-completed="{{ $subtask->is_completed ? '1' : '0' }}">
                         <div class="flex-shrink-0 mt-0.5">
                             <input type="checkbox"
                                 id="subtask-{{ $subtask->id }}"
