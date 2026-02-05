@@ -32,8 +32,14 @@
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Seleccione...</option>
                             @foreach ($companies as $company)
+                                @php
+                                    $companyDisplayName = $company->name;
+                                    if (Str::contains(Str::lower($companyDisplayName), 'cultura')) {
+                                        $companyDisplayName = 'Min Culturas';
+                                    }
+                                @endphp
                                 <option value="{{ $company->id }}" {{ (string) $currentCompanyId === (string) $company->id ? 'selected' : '' }}>
-                                    {{ $company->name }}
+                                    {{ $companyDisplayName }}
                                 </option>
                             @endforeach
                         </select>
