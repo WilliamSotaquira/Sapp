@@ -288,6 +288,26 @@ class ServiceRequest extends Model
         }
     }
 
+    /**
+     * Resolver solicitud desde lógica interna (sin formulario).
+     */
+    public function resolve(string $notes = 'Resolución completada', ?int $actualResolutionTime = null): bool
+    {
+        $this->status = self::STATUS_RESOLVED;
+        $this->resolution_notes = $notes;
+        $this->actual_resolution_time = $actualResolutionTime
+            ?? $this->actual_resolution_time
+            ?? 60;
+        $this->resolved_at = $this->resolved_at ?? now();
+
+        try {
+            return $this->save();
+        } catch (\Throwable $e) {
+            \Log::error('Error al resolver solicitud automáticamente: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     // ==================== MÉTODOS ADICIONALES ====================
 
     /**

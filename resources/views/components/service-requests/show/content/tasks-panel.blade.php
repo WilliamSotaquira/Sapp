@@ -10,7 +10,7 @@
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
 @endphp
 
-<div class="bg-white shadow rounded-lg overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}">
+<div class="bg-white shadow rounded-lg overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
     <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center">
@@ -39,6 +39,12 @@
                         data-disabled-class="border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed">
                     <i class="fas fa-bolt mr-2"></i>
                     Tarea Rápida
+                </button>
+                <button type="button"
+                        class="copy-completed-tasks inline-flex items-center px-3 py-2 border border-purple-600 text-purple-700 bg-white hover:bg-purple-50 rounded-md text-xs font-semibold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
+                        title="Copiar tareas y subtareas completas">
+                    <i class="fas fa-copy mr-2"></i>
+                    Copiar Completas
                 </button>
             </div>
         </div>
@@ -662,4 +668,112 @@ style.textContent = `
 document.head.appendChild(style);
 
 document.addEventListener('DOMContentLoaded', setupQuickTaskModal);
+
+function copyTextToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const success = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            if (success) {
+                resolve();
+            } else {
+                reject(new Error('No se pudo copiar al portapapeles'));
+            }
+        } catch (error) {
+            document.body.removeChild(textarea);
+            reject(error);
+        }
+    });
+}
+
+function buildCompletedTasksText(container) {
+    const taskCards = Array.from(container.querySelectorAll('[data-task-card]'));
+    const completedTasks = [];
+    const completedSubtasks = [];
+
+    taskCards.forEach(card => {
+        const taskCheckbox = card.querySelector('input[id^="task-"]');
+        const taskTitle = card.querySelector('h4');
+        const taskId = taskCheckbox ? taskCheckbox.id.replace('task-', '') : null;
+        const taskLabel = taskTitle ? taskTitle.textContent.trim() : (taskId ? `Tarea ${taskId}` : 'Tarea');
+
+        const taskBadge = card.querySelector('[id^="task-status-badge-"]');
+        const badgeText = taskBadge ? taskBadge.textContent.toLowerCase() : '';
+        const taskCompleted = (taskCheckbox && taskCheckbox.checked)
+            || card.dataset.taskCompleted === '1'
+            || (taskTitle && taskTitle.classList.contains('line-through'))
+            || badgeText.includes('completada');
+        if (taskCompleted) {
+            completedTasks.push(taskLabel);
+        }
+
+        const subtaskCheckboxes = Array.from(card.querySelectorAll('input[id^="subtask-"]'));
+        subtaskCheckboxes.forEach(subCheckbox => {
+            const subtaskLabel = subCheckbox.closest('.flex')?.querySelector('label');
+            const subtaskCompleted = (subCheckbox && subCheckbox.checked)
+                || subCheckbox.closest('[data-subtask-completed]')?.dataset.subtaskCompleted === '1'
+                || (subtaskLabel && subtaskLabel.classList.contains('line-through'));
+            if (!subtaskCompleted) return;
+            let subtaskText = subtaskLabel ? subtaskLabel.textContent.trim() : 'Subtarea';
+            subtaskText = subtaskText.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            completedSubtasks.push(subtaskText);
+        });
+    });
+
+    const lines = [];
+    completedTasks.forEach(item => lines.push(item));
+    completedSubtasks.forEach(item => lines.push(`- ${item}`));
+
+    return {
+        text: lines.join('\n').trim(),
+        count: completedTasks.length + completedSubtasks.length
+    };
+}
+
+function setupCopyCompletedTasks() {
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest('.copy-completed-tasks');
+        if (!button) return;
+
+        const explicitId = button.dataset.serviceRequestId;
+        let container = button.closest('[data-tasks-panel]');
+        if (explicitId) {
+            const explicitContainer = document.querySelector(`div[data-service-request-id="${explicitId}"][data-tasks-panel="1"]`);
+            if (explicitContainer) {
+                container = explicitContainer;
+            }
+        }
+        if (!container) {
+            showNotification('No se encontró el contenedor de tareas.', 'error');
+            return;
+        }
+
+        const { text, count } = buildCompletedTasksText(container);
+
+        if (!count) {
+            showNotification('No hay tareas o subtareas completadas para copiar.', 'error');
+            return;
+        }
+
+        try {
+            await copyTextToClipboard(text);
+            showNotification('Tareas y subtareas completadas copiadas.', 'success');
+        } catch (error) {
+            console.error(error);
+            showNotification('No se pudo copiar al portapapeles.', 'error');
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', setupCopyCompletedTasks);
 </script>
