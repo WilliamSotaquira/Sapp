@@ -55,8 +55,17 @@ class ServiceRequestEvidence extends Model
         if (empty($this->file_path)) {
             return null;
         }
+        if ($this->isExternalUrl($this->file_path)) {
+            return $this->file_path;
+        }
         try {
-            return Storage::disk('public')->url($this->file_path);
+            $resolvedPath = $this->resolveStoragePath();
+            if ($resolvedPath) {
+                return Storage::disk('public')->url($resolvedPath);
+            }
+
+            $normalized = $this->normalizeStoragePath($this->file_path);
+            return $normalized ? Storage::disk('public')->url($normalized) : null;
         } catch (\Exception $e) {
             return null;
         }
@@ -127,8 +136,11 @@ class ServiceRequestEvidence extends Model
         if (empty($this->file_path)) {
             return false;
         }
+        if ($this->isExternalUrl($this->file_path)) {
+            return true;
+        }
         try {
-            return Storage::disk('public')->exists($this->file_path);
+            return $this->resolveStoragePath() !== null;
         } catch (\Exception $e) {
             return false;
         }
@@ -163,6 +175,57 @@ class ServiceRequestEvidence extends Model
     public function hasFile(): bool
     {
         return (bool) $this->has_file;
+    }
+
+    /**
+     * Determina si el path es una URL externa
+     */
+    private function isExternalUrl(string $path): bool
+    {
+        return (bool) preg_match('#^https?://#i', $path);
+    }
+
+    /**
+     * Normaliza paths con prefijos conocidos
+     */
+    private function normalizeStoragePath(string $path): string
+    {
+        $normalized = ltrim($path, '/');
+
+        if (strpos($normalized, 'public/') === 0) {
+            $normalized = substr($normalized, 7);
+        }
+
+        if (strpos($normalized, 'storage/') === 0) {
+            $normalized = substr($normalized, 8);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Resuelve el path real del archivo en el disco público
+     */
+    private function resolveStoragePath(): ?string
+    {
+        $candidates = [];
+        $candidates[] = $this->file_path;
+        $candidates[] = $this->normalizeStoragePath($this->file_path);
+
+        $basename = basename($this->file_path);
+        if ($basename) {
+            $candidates[] = 'evidences/' . $basename;
+        }
+
+        $candidates = array_filter(array_unique($candidates));
+
+        foreach ($candidates as $candidate) {
+            if (Storage::disk('public')->exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**
