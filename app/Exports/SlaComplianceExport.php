@@ -14,20 +14,29 @@ class SlaComplianceExport implements FromCollection, WithHeadings, WithMapping, 
 {
     protected $startDate;
     protected $endDate;
+    protected $companyId;
 
-    public function __construct($startDate = null, $endDate = null)
+    public function __construct($startDate = null, $endDate = null, $companyId = null)
     {
         $this->startDate = $startDate ?: Carbon::now()->subDays(30);
         $this->endDate = $endDate ?: Carbon::now();
+        $this->companyId = $companyId;
     }
 
     public function collection()
     {
+        $companyId = $this->companyId ?? (int) session('current_company_id');
         $data = ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
             ->reportable()
+            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->get()
-            ->groupBy('sla.serviceFamily.name')
+            ->groupBy(function ($request) {
+                $family = $request->sla?->serviceFamily;
+                $familyName = $family?->name ?? 'N/A';
+                $contractNumber = $family?->contract?->number;
+                return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
+            })
             ->map(function ($requests, $familyName) {
                 $total = $requests->count();
                 $compliant = $requests->filter(function ($request) {

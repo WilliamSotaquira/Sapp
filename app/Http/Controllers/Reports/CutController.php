@@ -15,8 +15,21 @@ class CutController extends Controller
 {
     public function index(): View
     {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
         $cuts = Cut::query()
+            ->with('contract:id,number,name,company_id')
             ->withCount('serviceRequests')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
+                $query->where('contract_id', $currentCompany->active_contract_id);
+            })
             ->orderByDesc('start_date')
             ->paginate(15);
 
@@ -25,7 +38,13 @@ class CutController extends Controller
 
     public function create(): View
     {
-        return view('reports.cuts.create');
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        $activeContract = $currentCompany?->activeContract;
+
+        return view('reports.cuts.create', compact('activeContract', 'currentCompany'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -37,8 +56,18 @@ class CutController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        $activeContract = $currentCompany?->activeContract;
+        if (!$activeContract) {
+            return back()->withInput()->with('error', 'No hay contrato activo para el espacio de trabajo actual.');
+        }
+
         $cut = Cut::create([
             ...$validated,
+            'contract_id' => $activeContract->id,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -51,8 +80,19 @@ class CutController extends Controller
 
     public function show(Cut $cut): View
     {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
         $serviceRequests = $cut->serviceRequests()
-            ->with(['subService.service.family', 'requester', 'assignee', 'sla'])
+            ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla'])
             ->orderByDesc('created_at')
             ->paginate(20);
 
@@ -61,11 +101,31 @@ class CutController extends Controller
 
     public function requests(Cut $cut, Request $request): View
     {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
         $search = trim((string) $request->get('q', ''));
 
         $serviceRequestsQuery = ServiceRequest::query()
             ->with(['requester'])
             ->orderByDesc('created_at');
+        if ($cut->contract_id) {
+            $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
+                $q->where('contract_id', $cut->contract_id);
+            });
+        }
+        $currentCompanyId = (int) session('current_company_id');
+        if ($currentCompanyId) {
+            $serviceRequestsQuery->where('company_id', $currentCompanyId);
+        }
 
         if ($search !== '') {
             $serviceRequestsQuery->where(function ($q) use ($search) {
@@ -94,6 +154,18 @@ class CutController extends Controller
         ]);
 
         $ids = $validated['service_request_ids'] ?? [];
+        if (!empty($ids) && $cut->contract_id) {
+            $validIds = ServiceRequest::query()
+                ->whereIn('id', $ids)
+                ->whereHas('subService.service.family', function ($q) use ($cut) {
+                    $q->where('contract_id', $cut->contract_id);
+                })
+                ->pluck('id')
+                ->all();
+            if (count($validIds) !== count($ids)) {
+                return back()->with('error', 'Algunas solicitudes no pertenecen al contrato de este corte.');
+            }
+        }
 
         $cut->serviceRequests()->sync($ids);
 
@@ -110,10 +182,17 @@ class CutController extends Controller
 
         $serviceRequest = ServiceRequest::query()
             ->where('ticket_number', $ticketNumber)
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->first();
 
         if (!$serviceRequest) {
             return back()->with('error', 'No se encontró una solicitud con ese ticket.');
+        }
+        if ($cut->contract_id) {
+            $familyContractId = $serviceRequest->subService?->service?->family?->contract_id;
+            if ((int) $familyContractId !== (int) $cut->contract_id) {
+                return back()->with('error', 'La solicitud no pertenece al contrato de este corte.');
+            }
         }
 
         $cut->serviceRequests()->syncWithoutDetaching([$serviceRequest->id]);
@@ -137,13 +216,27 @@ class CutController extends Controller
 
     public function exportPdf(Cut $cut)
     {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
         $serviceRequests = $cut->serviceRequests()
-            ->with(['subService.service.family', 'requester', 'assignee', 'sla'])
+            ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla'])
             ->orderByDesc('created_at')
             ->get();
 
         $groupedData = $serviceRequests->groupBy(function ($request) {
-            return $request->subService->service->family->name ?? 'Sin Familia';
+            $family = $request->subService?->service?->family;
+            $familyName = $family?->name ?? 'Sin Familia';
+            $contractNumber = $family?->contract?->number;
+            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
         });
 
         $data = [
@@ -165,6 +258,12 @@ class CutController extends Controller
         [$start, $end] = $cut->getDateRangeForQuery();
 
         $requestIds = ServiceRequest::query()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
+            ->when($cut->contract_id, function ($q) use ($cut) {
+                $q->whereHas('subService.service.family', function ($fq) use ($cut) {
+                    $fq->where('contract_id', $cut->contract_id);
+                });
+            })
             ->where(function ($q) use ($start, $end) {
                 // Actividad base: creación/actualización de la solicitud
                 $q->whereBetween('created_at', [$start, $end])

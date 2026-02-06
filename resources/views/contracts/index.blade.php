@@ -1,7 +1,6 @@
-{{-- resources/views/service-families/index.blade.php --}}
 @extends('layouts.app')
 
-@section('title', 'Familias de Servicio')
+@section('title', 'Contratos')
 
 @section('breadcrumb')
 <nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
@@ -18,8 +17,8 @@
         </li>
         <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
         <li class="text-gray-900 font-medium">
-            <i class="fas fa-layer-group"></i>
-            <span class="ml-1">Familias</span>
+            <i class="fas fa-file-contract"></i>
+            <span class="ml-1">Contratos</span>
         </li>
     </ol>
 </nav>
@@ -28,9 +27,9 @@
 @section('content')
 <div class="container mx-auto">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
-        <a href="{{ route('service-families.create') }}"
+        <a href="{{ route('contracts.create') }}"
            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-            <i class="fas fa-plus mr-2"></i>Nueva Familia
+            <i class="fas fa-plus mr-2"></i>Nuevo Contrato
         </a>
     </div>
 
@@ -51,22 +50,16 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Número
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nombre
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Código
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contrato
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Servicios
+                        Espacio de trabajo
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Orden
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
@@ -74,48 +67,34 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                @forelse($serviceFamilies as $family)
+                @forelse($contracts as $contract)
                 <tr>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ $family->name }}</div>
-                        @if($family->description)
-                        <div class="text-sm text-gray-500">{{ Str::limit($family->description, 50) }}</div>
-                        @endif
+                        <span class="text-sm font-semibold text-gray-900">{{ $contract->number }}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {{ $family->code }}
-                        </span>
+                        <div class="text-sm text-gray-900">{{ $contract->name ?? 'Sin nombre' }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ $family->contract->number ?? 'N/A' }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ $family->services_count }} servicios
+                        {{ $contract->company->name ?? 'N/A' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $family->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                            {{ $family->is_active ? 'Activa' : 'Inactiva' }}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $contract->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                            {{ $contract->is_active ? 'Activo' : 'Inactivo' }}
                         </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ $family->sort_order }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{{ route('service-families.show', $family) }}"
-                           class="text-blue-600 hover:text-blue-900 mr-3">
+                        <a href="{{ route('contracts.show', $contract) }}" class="text-blue-600 hover:text-blue-900 mr-3">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <a href="{{ route('service-families.edit', $family) }}"
-                           class="text-green-600 hover:text-green-900 mr-3">
+                        <a href="{{ route('contracts.edit', $contract) }}" class="text-green-600 hover:text-green-900 mr-3">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <form action="{{ route('service-families.destroy', $family) }}" method="POST" class="inline">
+                        <form action="{{ route('contracts.destroy', $contract) }}" method="POST" class="inline">
                             @csrf
                             @method('DELETE')
-                            <button type="submit"
-                                    class="text-red-600 hover:text-red-900"
-                                    onclick="return confirm('¿Está seguro de eliminar esta familia?')">
+                            <button type="submit" class="text-red-600 hover:text-red-900"
+                                    onclick="return confirm('¿Está seguro de eliminar este contrato?')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
@@ -123,8 +102,8 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
-                        No hay familias de servicio registradas.
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                        No hay contratos registrados.
                     </td>
                 </tr>
                 @endforelse

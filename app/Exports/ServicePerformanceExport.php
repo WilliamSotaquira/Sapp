@@ -14,20 +14,29 @@ class ServicePerformanceExport implements FromCollection, WithHeadings, WithMapp
 {
     protected $startDate;
     protected $endDate;
+    protected $companyId;
 
-    public function __construct($startDate = null, $endDate = null)
+    public function __construct($startDate = null, $endDate = null, $companyId = null)
     {
         $this->startDate = $startDate ?: Carbon::now()->subDays(30);
         $this->endDate = $endDate ?: Carbon::now();
+        $this->companyId = $companyId;
     }
 
     public function collection()
     {
+        $companyId = $this->companyId ?? (int) session('current_company_id');
         $data = ServiceRequest::with(['subService.service.family'])
             ->reportable()
+            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->get()
-            ->groupBy('subService.service.family.name')
+            ->groupBy(function ($request) {
+                $family = $request->subService?->service?->family;
+                $familyName = $family?->name ?? 'N/A';
+                $contractNumber = $family?->contract?->number;
+                return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
+            })
             ->map(function ($requests, $familyName) {
                 $totalRequests = $requests->count();
                 $avgResolutionTime = $requests->whereNotNull('resolved_at')

@@ -18,7 +18,7 @@ class EnsureWorkspaceSelected
         $user = $request->user();
         $companies = $user->companies()
             ->orderBy('name')
-            ->get(['companies.id', 'companies.name']);
+            ->get(['companies.id', 'companies.name', 'companies.active_contract_id']);
 
         $currentId = $request->session()->get('current_company_id');
         if ($currentId && !$companies->contains('id', $currentId)) {
@@ -37,7 +37,9 @@ class EnsureWorkspaceSelected
             }
         }
 
-        $currentWorkspace = $currentId ? $companies->firstWhere('id', $currentId) : null;
+        $currentWorkspace = $currentId
+            ? \App\Models\Company::with('activeContract')->find($currentId)
+            : null;
         View::share('currentWorkspace', $currentWorkspace);
         View::share('userWorkspaces', $companies);
 

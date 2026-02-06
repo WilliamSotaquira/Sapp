@@ -69,7 +69,12 @@
                 <select id="familyFilter" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
                     <option value="">Todas las familias</option>
                     @foreach($services->pluck('family')->unique()->filter() as $family)
-                        <option value="{{ $family->id }}">{{ $family->name }}</option>
+                        @php
+                            $familyLabel = $family->contract?->number
+                                ? ($family->contract->number . ' - ' . $family->name)
+                                : $family->name;
+                        @endphp
+                        <option value="{{ $family->id }}">{{ $familyLabel }}</option>
                     @endforeach
                 </select>
             </div>
@@ -127,7 +132,12 @@
                     <tr class="service-row hover:bg-gray-50 transition duration-150"
                         data-name="{{ strtolower($service->name) }}"
                         data-code="{{ strtolower($service->code) }}"
-                        data-family="{{ $service->family ? strtolower($service->family->name) : '' }}"
+                        @php
+                            $familyLabel = $service->family?->contract?->number
+                                ? ($service->family->contract->number . ' - ' . $service->family->name)
+                                : ($service->family->name ?? '');
+                        @endphp
+                        data-family="{{ $familyLabel ? strtolower($familyLabel) : '' }}"
                         data-status="{{ $service->is_active ? 'active' : 'inactive' }}">
                         <td class="px-6 py-4">
                             <div class="flex items-center">
@@ -154,7 +164,7 @@
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
                                     {{ $service->family->code }}
                                 </span>
-                                <span class="text-sm text-gray-700">{{ $service->family->name }}</span>
+                                <span class="text-sm text-gray-700">{{ $familyLabel }}</span>
                             </div>
                             @else
                             <span class="text-sm text-gray-400 italic">Sin familia</span>

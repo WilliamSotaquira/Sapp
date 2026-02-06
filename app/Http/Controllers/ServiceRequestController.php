@@ -74,9 +74,15 @@ class ServiceRequestController extends Controller
         $stats = $this->serviceRequestService->getFilteredStats($filters);
 
         // Servicios para filtro avanzado
+        $currentCompanyId = (int) session('current_company_id');
         $services = Service::active()
             ->ordered()
             ->with('family:id,name')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('family.contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
             ->get(['id', 'name', 'service_family_id']);
 
         $data = array_merge(
@@ -854,6 +860,17 @@ class ServiceRequestController extends Controller
         ]);
 
         try {
+            $requesterCompanyId = \App\Models\Requester::where('id', $validated['requester_id'])->value('company_id');
+            if ($requesterCompanyId && (int) $requesterCompanyId !== (int) $service_request->company_id) {
+                return response()->json(
+                    [
+                        'success' => false,
+                        'message' => 'El solicitante no pertenece al espacio de trabajo de esta solicitud.',
+                    ],
+                    422,
+                );
+            }
+
             $previousRequester = $service_request->requester_id;
 
             $service_request->update([
@@ -987,6 +1004,17 @@ class ServiceRequestController extends Controller
             $validated = $request->validate([
                 'cut_id' => 'nullable|exists:cuts,id',
             ]);
+
+            if (!empty($validated['cut_id'])) {
+                $cutContractId = \App\Models\Cut::where('id', $validated['cut_id'])->value('contract_id');
+                $familyContractId = $serviceRequest->subService?->service?->family?->contract_id;
+                if ($cutContractId && $familyContractId && (string) $cutContractId !== (string) $familyContractId) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El corte seleccionado no corresponde al contrato de la solicitud.',
+                    ], 422);
+                }
+            }
 
             // Primero, desasociar todos los cortes actuales
             $serviceRequest->cuts()->detach();

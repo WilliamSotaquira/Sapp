@@ -16,6 +16,7 @@ class SlaReportController extends ReportController
 
         $slaCompliance = ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')
@@ -46,6 +47,7 @@ class SlaReportController extends ReportController
     {
         return ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')

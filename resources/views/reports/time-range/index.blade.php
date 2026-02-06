@@ -129,7 +129,12 @@
                                     >
                                     <div class="ml-3 flex-1">
                                         <span class="block text-sm font-medium text-gray-900 group-hover:text-blue-700">
-                                            {{ $family->name }}
+                                            @php
+                                                $familyLabel = $family->contract?->number
+                                                    ? ($family->contract->number . ' - ' . $family->name)
+                                                    : $family->name;
+                                            @endphp
+                                            {{ $familyLabel }}
                                         </span>
                                         @if($family->description)
                                             <span class="block text-xs text-gray-500 mt-1">

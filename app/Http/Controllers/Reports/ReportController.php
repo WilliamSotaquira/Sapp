@@ -22,12 +22,23 @@ class ReportController extends Controller
      */
     public function index()
     {
+        $currentCompanyId = (int) session('current_company_id');
         // Estadísticas generales para el dashboard de reportes
         $stats = [
-            'total_requests' => ServiceRequest::reportable()->count(),
-            'pending_requests' => ServiceRequest::reportable()->where('status', 'PENDIENTE')->count(),
-            'resolved_requests' => ServiceRequest::reportable()->where('status', 'RESUELTA')->count(),
-            'overdue_requests' => ServiceRequest::reportable()->whereNotNull('resolution_deadline')
+            'total_requests' => ServiceRequest::reportable()
+                ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+                ->count(),
+            'pending_requests' => ServiceRequest::reportable()
+                ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+                ->where('status', 'PENDIENTE')
+                ->count(),
+            'resolved_requests' => ServiceRequest::reportable()
+                ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+                ->where('status', 'RESUELTA')
+                ->count(),
+            'overdue_requests' => ServiceRequest::reportable()
+                ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+                ->whereNotNull('resolution_deadline')
                 ->where('resolution_deadline', '<', now())
                 ->whereNotIn('status', ['RESUELTA', 'CERRADA'])
                 ->count()
@@ -51,8 +62,9 @@ class ReportController extends Controller
         ];
 
         $query = ServiceRequest::query()
-            ->with(['sla', 'subService.service'])
+            ->with(['sla', 'subService.service.family.contract'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateFrom, $dateTo]);
 
         if ($request->filled('service_id')) {
@@ -77,10 +89,11 @@ class ReportController extends Controller
             $total = $serviceRequests->count();
             $compliant = $serviceRequests->where('is_overdue', false)->count();
             $overdue = $serviceRequests->where('is_overdue', true)->count();
+            $family = $serviceRequests->first()?->subService?->service?->family;
 
             return [
                 'service_name' => $serviceName,
-                'family' => $serviceRequests->first()->subService->service->family->name ?? 'N/A',
+                'family' => $this->formatFamilyLabel($family),
                 'total_requests' => $total,
                 'compliant' => $compliant,
                 'overdue' => $overdue,
@@ -90,10 +103,17 @@ class ReportController extends Controller
             ];
         })->values()->sortByDesc('compliance_rate');
 
-        $services = Service::with('family')->get();
+        $currentCompanyId = (int) session('current_company_id');
+        $services = Service::with('family')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('family.contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->get();
 
         if ($request->has('export')) {
-            return Excel::download(new SlaComplianceExport($dateFrom, $dateTo),
+            return Excel::download(new SlaComplianceExport($dateFrom, $dateTo, (int) session('current_company_id')),
                 'sla-compliance-' . date('Y-m-d') . '.xlsx');
         }
 
@@ -120,6 +140,7 @@ class ReportController extends Controller
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateFrom, $dateTo])
         ->groupBy('status')
         ->get();
@@ -131,7 +152,7 @@ class ReportController extends Controller
         $requestsByStatus = $statusData->keyBy('status');
 
         if ($request->has('export')) {
-            return Excel::download(new RequestsByStatusExport($dateFrom, $dateTo),
+            return Excel::download(new RequestsByStatusExport($dateFrom, $dateTo, (int) session('current_company_id')),
                 'requests-by-status-' . date('Y-m-d') . '.xlsx');
         }
 
@@ -158,6 +179,7 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateFrom, $dateTo])
         ->groupBy('criticality_level')
         ->get();
@@ -166,7 +188,7 @@ class ReportController extends Controller
         $criticalityData = $rawData->keyBy('criticality_level');
 
         if ($request->has('export')) {
-            return Excel::download(new CriticalityLevelsExport($dateFrom, $dateTo),
+            return Excel::download(new CriticalityLevelsExport($dateFrom, $dateTo, (int) session('current_company_id')),
                 'criticality-levels-' . date('Y-m-d') . '.xlsx');
         }
 
@@ -189,7 +211,10 @@ class ReportController extends Controller
 
         $servicePerformance = ServiceRequest::selectRaw("
             services.name as service_name,
-            service_families.name as family_name,
+            CASE
+                WHEN contracts.number IS NULL THEN service_families.name
+                ELSE CONCAT(contracts.number, ' - ', service_families.name)
+            END as family_name,
             COUNT(service_requests.id) as total_requests,
             AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
@@ -198,13 +223,15 @@ class ReportController extends Controller
         ->join('sub_services', 'service_requests.sub_service_id', '=', 'sub_services.id')
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
+        ->leftJoin('contracts', 'service_families.contract_id', '=', 'contracts.id')
         ->whereBetween('service_requests.created_at', [$dateFrom, $dateTo])
+        ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')))
         ->whereNull('service_requests.deleted_at')
-        ->groupBy('services.id', 'services.name', 'service_families.name')
+        ->groupBy('services.id', 'services.name', 'service_families.name', 'contracts.number')
         ->get();
 
         if ($request->has('export')) {
-            return Excel::download(new ServicePerformanceExport($dateFrom, $dateTo),
+            return Excel::download(new ServicePerformanceExport($dateFrom, $dateTo, (int) session('current_company_id')),
                 'service-performance-' . date('Y-m-d') . '.xlsx');
         }
 
@@ -225,6 +252,7 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->where('created_at', '>=', now()->subMonths($months))
         ->groupBy('month')
         ->orderBy('month')
@@ -488,8 +516,9 @@ class ReportController extends Controller
     private function getSlaComplianceData($dateRange)
     {
         $requests = ServiceRequest::query()
-            ->with(['sla', 'subService.service'])
+            ->with(['sla', 'subService.service.family.contract'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get();
 
@@ -497,10 +526,11 @@ class ReportController extends Controller
             $total = $serviceRequests->count();
             $compliant = $serviceRequests->where('is_overdue', false)->count();
             $overdue = $serviceRequests->where('is_overdue', true)->count();
+            $family = $serviceRequests->first()?->subService?->service?->family;
 
             return [
                 'service_name' => $serviceName,
-                'family' => $serviceRequests->first()->subService->service->family->name ?? 'N/A',
+                'family' => $this->formatFamilyLabel($family),
                 'total_requests' => $total,
                 'compliant' => $compliant,
                 'overdue' => $overdue,
@@ -522,6 +552,7 @@ class ReportController extends Controller
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('status')
         ->get();
@@ -538,6 +569,7 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('criticality_level')
         ->get()
@@ -561,6 +593,7 @@ class ReportController extends Controller
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
         ->whereBetween('service_requests.created_at', [$dateRange['start'], $dateRange['end']])
+        ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')))
         ->whereNull('service_requests.deleted_at')
         ->groupBy('services.id', 'services.name', 'service_families.name')
         ->get();
@@ -638,5 +671,13 @@ class ReportController extends Controller
             );
         }
         return $csv;
+    }
+
+    private function formatFamilyLabel($family): string
+    {
+        $familyName = $family?->name ?? 'N/A';
+        $contractNumber = $family?->contract?->number;
+
+        return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
     }
 }

@@ -62,6 +62,12 @@
                         <p class="text-sm sm:text-base font-semibold text-gray-900 truncate">
                             {{ $workspaceDisplayName }}
                         </p>
+                        @php
+                            $activeContract = $currentWorkspace?->activeContract;
+                        @endphp
+                        <p class="text-xs text-gray-500 truncate">
+                            {{ $activeContract ? ($activeContract->name ?: $activeContract->number) : 'Sin contrato activo' }}
+                        </p>
                     </div>
                     <a href="{{ route('workspaces.select') }}"
                        class="ml-auto text-xs sm:text-sm font-semibold hover:opacity-80"

@@ -24,6 +24,20 @@
             @csrf
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Contrato activo</label>
+                <div class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                    @if($activeContract)
+                        {{ $activeContract->number }}{{ $activeContract->name ? ' - ' . $activeContract->name : '' }}
+                    @else
+                        Sin contrato activo en el espacio de trabajo.
+                    @endif
+                </div>
+                @if(!$activeContract)
+                    <p class="mt-2 text-sm text-red-600">Debes definir un contrato activo para crear cortes.</p>
+                @endif
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Nombre <span class="text-red-500">*</span></label>
                 <input type="text" name="name" value="{{ old('name') }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('name') border-red-500 @enderror" required>
                 @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -50,7 +64,9 @@
 
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('reports.cuts.index') }}" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</a>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Crear y asociar</button>
+                <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed" @if(!$activeContract) disabled @endif>
+                    Crear y asociar
+                </button>
             </div>
         </form>
     </div>

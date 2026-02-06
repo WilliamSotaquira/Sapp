@@ -16,6 +16,7 @@ class PerformanceReportController extends ReportController
 
         $servicePerformance = ServiceRequest::with(['subService.service.family'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('subService.service.family.name')
@@ -57,6 +58,7 @@ class PerformanceReportController extends ReportController
             $endDate = Carbon::now()->subMonths($i)->endOfMonth();
 
             $monthData = ServiceRequest::reportable()
+                ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->selectRaw('
                     COUNT(*) as total_requests,
@@ -87,6 +89,7 @@ class PerformanceReportController extends ReportController
     {
         return ServiceRequest::with(['subService.service.family'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('subService.service.family.name')

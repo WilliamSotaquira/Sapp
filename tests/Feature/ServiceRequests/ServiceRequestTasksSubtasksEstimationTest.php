@@ -21,9 +21,24 @@ class ServiceRequestTasksSubtasksEstimationTest extends TestCase
     private function seedMinimalServiceTree(): array
     {
         $user = User::factory()->create();
-        $requester = Requester::factory()->create();
+        $company = \App\Models\Company::create([
+            'name' => 'Empresa Test',
+            'status' => 'active',
+        ]);
+        $contract = \App\Models\Contract::create([
+            'company_id' => $company->id,
+            'number' => 'C-200',
+            'name' => 'Contrato Test',
+            'description' => 'Contrato de prueba',
+            'is_active' => true,
+        ]);
+        $company->update(['active_contract_id' => $contract->id]);
+        $requester = Requester::factory()->create([
+            'company_id' => $company->id,
+        ]);
 
         $family = ServiceFamily::create([
+            'contract_id' => $contract->id,
             'name' => 'Familia Test',
             'code' => 'FAMT',
             'description' => 'Test',
@@ -63,7 +78,7 @@ class ServiceRequestTasksSubtasksEstimationTest extends TestCase
             'is_active' => true,
         ]);
 
-        return compact('user', 'requester', 'family', 'service', 'subService', 'sla');
+        return compact('user', 'requester', 'family', 'service', 'subService', 'sla', 'company');
     }
 
     public function test_creates_tasks_and_subtasks_and_calculates_estimated_hours_from_subtasks(): void
@@ -74,6 +89,7 @@ class ServiceRequestTasksSubtasksEstimationTest extends TestCase
         $service = app(ServiceRequestService::class);
 
         $serviceRequest = $service->createServiceRequest([
+            'company_id' => $data['company']->id,
             'requester_id' => $data['requester']->id,
             'title' => 'SR con subtareas',
             'description' => 'Descripción de prueba',

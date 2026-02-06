@@ -22,7 +22,13 @@
     <!-- Servicio -->
     <td class="px-2 sm:px-3 py-1.5 sm:py-2 hidden lg:table-cell">
         <div class="font-medium text-xs text-gray-900">{{ $request->subService->name ?? 'N/A' }}</div>
-        <div class="text-xs text-gray-500">{{ $request->subService->service->family->name ?? '' }}</div>
+        @php
+            $family = $request->subService?->service?->family;
+            $familyName = $family?->name ?? '';
+            $contractNumber = $family?->contract?->number;
+            $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+        @endphp
+        <div class="text-xs text-gray-500">{{ $familyLabel }}</div>
     </td>
 
     <!-- Prioridad -->

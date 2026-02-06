@@ -23,12 +23,21 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
             'name' => 'Empresa Test',
             'status' => 'active',
         ]);
+        $contract = \App\Models\Contract::create([
+            'company_id' => $company->id,
+            'number' => 'C-100',
+            'name' => 'Contrato Test',
+            'description' => 'Contrato de prueba',
+            'is_active' => true,
+        ]);
+        $company->update(['active_contract_id' => $contract->id]);
 
         $requester = Requester::factory()->create([
             'company_id' => $company->id,
         ]);
 
         $family = ServiceFamily::create([
+            'contract_id' => $contract->id,
             'name' => 'Familia Test',
             'code' => 'FAMT',
             'description' => 'Test',
@@ -101,7 +110,9 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
             ],
         ];
 
-        $response = $this->actingAs($user)->post(route('service-requests.store'), $payload);
+        $response = $this->actingAs($user)
+            ->withSession(['current_company_id' => $company->id])
+            ->post(route('service-requests.store'), $payload);
 
         $response
             ->assertRedirect()

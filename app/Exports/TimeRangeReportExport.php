@@ -46,11 +46,16 @@ class RequestsSheet implements FromCollection, WithHeadings, WithTitle, ShouldAu
     public function collection()
     {
         return $this->requests->map(function ($request, $index) {
+            $family = $request->subService?->service?->family;
+            $familyName = $family?->name ?? 'N/A';
+            $contractNumber = $family?->contract?->number;
+            $familyLabel = $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
+
             return [
                 'No.' => $index + 1,
                 'Ticket' => $request->ticket_number,
                 'Título' => $request->title,
-                'Familia' => $request->subService->service->family->name ?? 'N/A',
+                'Familia' => $familyLabel,
                 'Servicio' => $request->subService->service->name ?? 'N/A',
                 'Subservicio' => $request->subService->name ?? 'N/A',
                 'Solicitante' => $request->requester->name ?? 'N/A',

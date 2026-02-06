@@ -22,7 +22,14 @@ class TimeRangeReportController extends Controller
      */
     public function index()
     {
+        $currentCompanyId = (int) session('current_company_id');
         $families = ServiceFamily::active()
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->with('contract:id,number')
             ->withCount('services')
             ->ordered()
             ->get();
@@ -98,7 +105,7 @@ class TimeRangeReportController extends Controller
     private function getReportData($dateRange, $serviceFamilyIds = [])
     {
         $query = ServiceRequest::with([
-            'subService.service.family',
+            'subService.service.family.contract',
             'requester',
             'assignee',
             'evidences.uploadedBy',
@@ -106,6 +113,7 @@ class TimeRangeReportController extends Controller
             'sla'
         ])
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
         // Filtrar por familias de servicios si se especifican
@@ -119,7 +127,8 @@ class TimeRangeReportController extends Controller
 
         // Agrupar por familia de servicios
         $groupedData = $requests->groupBy(function($request) {
-            return $request->subService->service->family->name ?? 'Sin Familia';
+            $family = $request->subService?->service?->family;
+            return $this->formatFamilyLabel($family);
         });
 
         // Calcular estadísticas
@@ -160,7 +169,8 @@ class TimeRangeReportController extends Controller
         });
 
         $byFamily = $requests->groupBy(function($request) {
-            return $request->subService->service->family->name ?? 'Sin Familia';
+            $family = $request->subService?->service?->family;
+            return $this->formatFamilyLabel($family);
         })->map(function ($group) use ($total) {
             return [
                 'count' => $group->count(),
@@ -411,5 +421,13 @@ class TimeRangeReportController extends Controller
         $summary .= "- evidencias/: Carpeta con {$evidencesAdded} archivos de evidencia\n";
 
         return $summary;
+    }
+
+    private function formatFamilyLabel($family): string
+    {
+        $familyName = $family?->name ?? 'Sin Familia';
+        $contractNumber = $family?->contract?->number;
+
+        return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
     }
 }

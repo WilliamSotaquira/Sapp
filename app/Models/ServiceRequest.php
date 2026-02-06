@@ -202,6 +202,7 @@ class ServiceRequest extends Model
         return $this->belongsTo(Company::class);
     }
 
+
     public function assignee()
     {
         return $this->belongsTo(User::class, 'assigned_to');

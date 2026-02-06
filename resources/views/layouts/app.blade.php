@@ -474,6 +474,12 @@
                         'match' => ['requester-management.*'],
                     ],
                     [
+                        'route' => 'contracts.index',
+                        'label' => 'Contratos',
+                        'icon' => 'fas fa-file-contract',
+                        'match' => ['contracts.*'],
+                    ],
+                    [
                         'route' => 'service-families.index',
                         'label' => 'Familias',
                         'icon' => 'fas fa-layer-group',

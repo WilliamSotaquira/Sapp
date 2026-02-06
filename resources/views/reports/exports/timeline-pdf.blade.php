@@ -307,7 +307,13 @@
                     <td><strong>Servicio</strong></td>
                     <td>{{ $request->subService->name ?? 'N/A' }}</td>
                     <td><strong>Familia</strong></td>
-                    <td>{{ $request->subService->service->family->name ?? 'N/A' }}</td>
+                    @php
+                        $family = $request->subService?->service?->family;
+                        $familyName = $family?->name ?? 'N/A';
+                        $contractNumber = $family?->contract?->number;
+                        $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                    @endphp
+                    <td>{{ $familyLabel }}</td>
                 </tr>
                 <tr>
                     <td><strong>Estado Actual</strong></td>

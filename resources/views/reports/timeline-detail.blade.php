@@ -132,7 +132,13 @@
                                 <div class="text-gray-500 text-sm">
                                     {{ $request->subService->service->name ?? '' }}
                                     @if($request->subService->service->family)
-                                    - {{ $request->subService->service->family->name ?? '' }}
+                                    @php
+                                        $family = $request->subService?->service?->family;
+                                        $familyName = $family?->name ?? '';
+                                        $contractNumber = $family?->contract?->number;
+                                        $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                                    @endphp
+                                    - {{ $familyLabel }}
                                     @endif
                                 </div>
                                 @endif

@@ -54,7 +54,10 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $this->headerRowIndex = $rowIndex;
 
         $grouped = $this->serviceRequests->groupBy(function ($sr) {
-            return $sr->subService?->service?->family?->name ?? 'Sin Familia';
+            $family = $sr->subService?->service?->family;
+            $familyName = $family?->name ?? 'Sin Familia';
+            $contractNumber = $family?->contract?->number;
+            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
         })->sortKeys();
 
         foreach ($grouped as $serviceName => $items) {
