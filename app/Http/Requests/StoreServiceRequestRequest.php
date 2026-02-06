@@ -95,6 +95,42 @@ class StoreServiceRequestRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            $subServiceId = $this->input('sub_service_id');
+            $familyId = $this->input('family_id');
+            $companyId = $this->input('company_id') ?: session('current_company_id');
+            $activeContractId = $companyId
+                ? \App\Models\Company::where('id', $companyId)->value('active_contract_id')
+                : null;
+
+            if ($subServiceId) {
+                $subService = \App\Models\SubService::with('service.family')->find($subServiceId);
+                $family = $subService?->service?->family;
+
+                if ($familyId && $family && (string) $family->id !== (string) $familyId) {
+                    $validator->errors()->add('family_id', 'La familia no corresponde al subservicio seleccionado.');
+                }
+
+                if ($activeContractId && $family && (string) $family->contract_id !== (string) $activeContractId) {
+                    $validator->errors()->add('sub_service_id', 'El subservicio no pertenece al contrato activo del espacio de trabajo.');
+                }
+            }
+
+            $cutId = $this->input('cut_id');
+            if ($cutId && $activeContractId) {
+                $cutContractId = \App\Models\Cut::where('id', $cutId)->value('contract_id');
+                if ($cutContractId && (string) $cutContractId !== (string) $activeContractId) {
+                    $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
+                }
+            }
+
+            $requesterId = $this->input('requester_id');
+            if ($requesterId && $companyId) {
+                $requesterCompanyId = \App\Models\Requester::where('id', $requesterId)->value('company_id');
+                if ($requesterCompanyId && (string) $requesterCompanyId !== (string) $companyId) {
+                    $validator->errors()->add('requester_id', 'El solicitante no pertenece al espacio de trabajo actual.');
+                }
+            }
+
             $tasks = $this->input('tasks');
             $tasksTemplate = $this->input('tasks_template');
 

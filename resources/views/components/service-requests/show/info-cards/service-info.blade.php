@@ -19,6 +19,14 @@
                 <p class="text-gray-900 font-semibold">{{ $serviceRequest->company->name ?? 'N/A' }}</p>
             </div>
             <div>
+                <label class="text-sm font-medium text-gray-500">Contrato</label>
+                @php
+                    $contract = $serviceRequest->subService?->service?->family?->contract;
+                    $contractLabel = $contract ? ($contract->name ?: $contract->number) : null;
+                @endphp
+                <p class="text-gray-900 font-semibold">{{ $contractLabel ?? 'N/A' }}</p>
+            </div>
+            <div>
                 <label class="text-sm font-medium text-gray-500">Familia de Servicio</label>
                 <p class="text-gray-900 font-semibold">{{ $serviceRequest->subService->service->family->name ?? 'N/A' }}
                 </p>
@@ -97,7 +105,10 @@
             <div>
                 <select id="cutSelect" name="cut_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
                     <option value="">Sin corte</option>
-                    @forelse(\App\Models\Cut::orderBy('start_date', 'desc')->get() as $cut)
+                    @php
+                        $contractId = $serviceRequest->subService?->service?->family?->contract_id;
+                    @endphp
+                    @forelse(\App\Models\Cut::query()->when($contractId, fn($q) => $q->where('contract_id', $contractId))->orderBy('start_date', 'desc')->get() as $cut)
                         <option value="{{ $cut->id }}" {{ $cuts->contains($cut->id) ? 'selected' : '' }}>
                             {{ $cut->name }} — {{ $cut->start_date->format('d/m/Y') }} a {{ $cut->end_date->format('d/m/Y') }}
                         </option>

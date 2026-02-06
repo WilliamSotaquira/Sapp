@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Requester;
+use App\Models\Company;
 use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestEvidence;
@@ -151,6 +152,7 @@ class ServiceRequestsDemoSeeder extends Seeder
                         $createdAt = $now->copy()->subDays(rand(0, 12))->subHours(rand(0, 23));
 
                         $base = [
+                            'company_id' => $requester->company_id,
                             'ticket_number' => $makeTicketNumber(),
                             'sla_id' => $sla->id,
                             'sub_service_id' => $subService->id,
@@ -239,9 +241,17 @@ class ServiceRequestsDemoSeeder extends Seeder
     {
         $departments = ['Finanzas', 'Talento Humano', 'Operaciones', 'TI', 'Jurídica', 'Compras', 'Planeación'];
         $positions = ['Analista', 'Coordinador', 'Profesional', 'Auxiliar', 'Jefe'];
+        $companyId = Company::query()->orderBy('id')->value('id');
+        if (!$companyId) {
+            $companyId = Company::query()->create([
+                'name' => 'Empresa Demo',
+                'status' => 'active',
+            ])->id;
+        }
 
         for ($i = 1; $i <= 12; $i++) {
             Requester::query()->create([
+                'company_id' => $companyId,
                 'name' => "Solicitante Demo {$i}",
                 'email' => "solicitante.demo{$i}@example.local",
                 'phone' => '300' . str_pad((string) rand(1000000, 9999999), 7, '0', STR_PAD_LEFT),

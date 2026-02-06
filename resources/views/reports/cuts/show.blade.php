@@ -20,6 +20,9 @@
                 <p class="text-xs uppercase tracking-wide text-gray-500">Corte #{{ $cut->id }}</p>
                 <h2 class="text-xl font-bold text-gray-900">{{ $cut->name }}</h2>
                 <p class="text-sm text-gray-600">{{ $cut->start_date->format('Y-m-d') }} → {{ $cut->end_date->format('Y-m-d') }}</p>
+                @if($cut->contract)
+                    <p class="text-xs text-gray-500 mt-1">Contrato: {{ $cut->contract->number }}</p>
+                @endif
                 <p class="text-xs text-gray-500 mt-1">
                     Criterio de asociación: solicitudes con actividad en el rango (creación o actualización de la solicitud/tareas, y creación de evidencias/historiales).
                 </p>
@@ -76,7 +79,13 @@
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 text-sm font-semibold text-gray-900">{{ $sr->ticket_number }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->title }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->subService->service->family->name ?? 'Sin Familia' }}</td>
+                                @php
+                                    $family = $sr->subService?->service?->family;
+                                    $familyName = $family?->name ?? 'Sin Familia';
+                                    $contractNumber = $family?->contract?->number;
+                                    $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                                @endphp
+                                <td class="px-4 py-3 text-sm text-gray-700">{{ $familyLabel }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->status }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->created_at?->format('Y-m-d H:i') }}</td>
                                 <td class="px-4 py-3 text-sm">

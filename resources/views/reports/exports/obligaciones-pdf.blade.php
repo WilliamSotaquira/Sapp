@@ -147,7 +147,7 @@
     @endif
 
     <div class="footer">
-        <p>Sistema SDM - Reporte de Obligaciones</p>
+        <p>Reporte de Obligaciones</p>
     </div>
 </body>
 </html>

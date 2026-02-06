@@ -11,12 +11,19 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::with(['family', 'subServices' => function($query) {
+        $currentCompanyId = (int) session('current_company_id');
+
+        $services = Service::with(['family.contract', 'subServices' => function($query) {
             $query->where('is_active', true);
         }])
         ->withCount(['subServices' => function($query) {
             $query->where('is_active', true);
         }])
+        ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+            $query->whereHas('family.contract', function ($q) use ($currentCompanyId) {
+                $q->where('company_id', $currentCompanyId);
+            });
+        })
         ->active()
         ->ordered()
         ->get();
@@ -26,7 +33,16 @@ class ServiceController extends Controller
 
     public function create()
     {
-        $serviceFamilies = ServiceFamily::active()->ordered()->get();
+        $currentCompanyId = (int) session('current_company_id');
+        $serviceFamilies = ServiceFamily::active()
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->with('contract:id,number')
+            ->ordered()
+            ->get();
         return view('services.create', compact('serviceFamilies'));
     }
 
@@ -65,7 +81,16 @@ class ServiceController extends Controller
 
     public function edit(Service $service)
     {
-        $serviceFamilies = ServiceFamily::active()->ordered()->get();
+        $currentCompanyId = (int) session('current_company_id');
+        $serviceFamilies = ServiceFamily::active()
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->with('contract:id,number')
+            ->ordered()
+            ->get();
         return view('services.edit', compact('service', 'serviceFamilies'));
     }
 

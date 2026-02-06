@@ -86,6 +86,17 @@
         @enderror
     </div>
 
+    <!-- Contrato activo (solo lectura) -->
+    @php
+        $activeContract = $currentCompany?->activeContract;
+    @endphp
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Contrato activo</label>
+        <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
+            {{ $activeContract ? ($activeContract->number . ($activeContract->name ? ' - ' . $activeContract->name : '')) : 'Sin contrato activo' }}
+        </div>
+    </div>
+
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
     <div>
         <label for="requester_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -293,16 +304,21 @@
         <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
             Corte <span class="text-gray-500 text-xs">(Opcional)</span>
         </label>
-        <select name="cut_id" id="cut_id"
+    @php
+        $activeContractId = $currentCompany?->active_contract_id;
+    @endphp
+    <select name="cut_id" id="cut_id" data-active-contract-id="{{ $activeContractId }}"
             class="w-full px-4 py-3 border {{ $cutBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             @if(($mode ?? 'create') === 'create') tabindex="-1" @endif>
             <option value="">Sin corte asignado</option>
-            @foreach ($cuts as $cut)
-                <option value="{{ $cut->id }}" {{ $selectedCutId == $cut->id ? 'selected' : '' }}>
-                    {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }})
-                </option>
-            @endforeach
-        </select>
+        @foreach ($cuts as $cut)
+            <option value="{{ $cut->id }}"
+                    data-contract-id="{{ $cut->contract_id ?? '' }}"
+                    {{ $selectedCutId == $cut->id ? 'selected' : '' }}>
+                {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }})
+            </option>
+        @endforeach
+    </select>
         <p class="mt-1 text-sm text-gray-500">
             Selecciona un corte para vincular esta solicitud directamente. Esto permite asociar solicitudes a períodos específicos.
         </p>
@@ -335,7 +351,10 @@
                     // Agrupar los subservicios
                     $groupedSubServices = [];
                     foreach ($subServices as $subService) {
-                        $familyName = $subService->service->family->name ?? 'Sin Familia';
+                        $family = $subService->service?->family;
+                        $familyName = $family?->name ?? 'Sin Familia';
+                        $contractNumber = $family?->contract?->number;
+                        $familyName = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
                         $serviceName = $subService->service->name ?? 'Sin Servicio';
                         $groupKey = $familyName . '|' . $serviceName;
 
@@ -365,7 +384,13 @@
                             @endphp
                             <option value="{{ $subService->id }}" data-service-id="{{ $subService->service_id }}"
                                 data-service-name="{{ $subService->service->name }}"
-                                data-family-name="{{ $subService->service->family->name ?? 'Sin familia' }}"
+                                @php
+                                    $family = $subService->service?->family;
+                                    $familyName = $family?->name ?? 'Sin familia';
+                                    $contractNumber = $family?->contract?->number;
+                                    $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                                @endphp
+                                data-family-name="{{ $familyLabel }}"
                                 data-family-id="{{ $subService->service->family->id ?? '' }}"
                                 data-criticality-level="{{ $criticalityLevel }}" data-sla-id="{{ $slaId }}"
                                 {{ (string)$selectedId === (string)$subService->id ? 'selected' : '' }}>
@@ -1575,9 +1600,32 @@
 
         // Mantener sincronizados familia/servicio/SLA/criticidad al cambiar subservicio
         const subServiceSelect = document.getElementById('sub_service_id');
+        const cutSelect = document.getElementById('cut_id');
         if (subServiceSelect) {
             subServiceSelect.addEventListener('change', updateFormFields);
         }
+
+        function filterCutsByContract() {
+            if (!cutSelect) return;
+            const contractId = cutSelect.dataset.activeContractId || '';
+            let hasSelection = false;
+            Array.from(cutSelect.options).forEach(option => {
+                if (!option.value) return;
+                const optionContractId = option.dataset.contractId || '';
+                const shouldShow = !contractId || optionContractId === contractId;
+                option.hidden = !shouldShow;
+                option.disabled = !shouldShow;
+                if (shouldShow && option.selected) {
+                    hasSelection = true;
+                }
+            });
+
+            if (contractId && !hasSelection && cutSelect.value) {
+                cutSelect.value = '';
+            }
+        }
+
+        filterCutsByContract();
 
         // Ejecutar inmediatamente para establecer valores iniciales
         setTimeout(updateFormFields, 100);

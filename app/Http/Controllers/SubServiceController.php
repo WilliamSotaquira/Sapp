@@ -11,7 +11,13 @@ class SubServiceController extends Controller
 {
     public function index()
     {
-        $subServices = SubService::with(['service.family'])
+        $currentCompanyId = (int) session('current_company_id');
+        $subServices = SubService::with(['service.family.contract'])
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('service.family.contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
             ->active()
             ->ordered()
             ->paginate(10); // Cambia get() por paginate(10)
@@ -20,7 +26,12 @@ class SubServiceController extends Controller
     }
 public function create()
 {
-    $services = Service::with('family')
+    $services = Service::with('family.contract')
+        ->when((int) session('current_company_id'), function ($query) {
+            $query->whereHas('family.contract', function ($q) {
+                $q->where('company_id', (int) session('current_company_id'));
+            });
+        })
         ->active()
         ->ordered()
         ->get()
@@ -62,7 +73,16 @@ public function create()
 
     public function edit(SubService $subService)
     {
-        $services = Service::active()->ordered()->get();
+        $currentCompanyId = (int) session('current_company_id');
+        $services = Service::active()
+            ->with('family.contract')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('family.contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->ordered()
+            ->get();
         return view('sub-services.edit', compact('subService', 'services'));
     }
 

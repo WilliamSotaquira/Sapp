@@ -15,6 +15,7 @@ class StatusReportController extends ReportController
         $dateRange = $this->getDateRange($request);
 
         $requestsByStatus = ServiceRequest::reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -32,6 +33,7 @@ class StatusReportController extends ReportController
     public function getRequestsByStatusData($dateRange)
     {
         return ServiceRequest::reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')

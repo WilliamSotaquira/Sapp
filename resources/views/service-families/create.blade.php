@@ -45,6 +45,28 @@
                     @csrf
 
                     <div class="space-y-6">
+                        <!-- Contrato -->
+                        <div>
+                            <label for="contract_id" class="block text-sm font-medium text-gray-700 mb-1">
+                                Contrato <span class="text-red-500">*</span>
+                            </label>
+                            <select name="contract_id" id="contract_id"
+                                    class="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500 @error('contract_id') border-red-500 @enderror"
+                                    required>
+                                <option value="">Seleccione un contrato</option>
+                                @foreach ($contracts as $contract)
+                                    <option value="{{ $contract->id }}" {{ (string) old('contract_id') === (string) $contract->id ? 'selected' : '' }}>
+                                        {{ $contract->number }}{{ $contract->name ? ' - ' . $contract->name : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('contract_id')
+                                <p class="text-red-500 text-xs mt-1 flex items-center">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                </p>
+                            @enderror
+                        </div>
+
                         <!-- Nombre -->
                         <div>
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">

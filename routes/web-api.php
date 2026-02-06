@@ -23,8 +23,18 @@ Route::prefix('api')->name('api.')->group(function () {
     // Crear solicitante rápido (para formularios) sin recargar la página
     Route::post('/requesters/quick-create', function (Request $request) {
         try {
+            $currentCompanyId = $request->session()->get('current_company_id');
+            if ($currentCompanyId) {
+                $request->merge(['company_id' => $currentCompanyId]);
+            }
+
+            $companyRules = ['required', 'exists:companies,id'];
+            if ($currentCompanyId) {
+                $companyRules[] = Rule::in([$currentCompanyId]);
+            }
+
             $validated = $request->validate([
-                'company_id' => 'required|exists:companies,id',
+                'company_id' => $companyRules,
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email|unique:requesters,email',
                 'phone' => 'nullable|string|max:20',
@@ -132,15 +142,33 @@ Route::prefix('api')->name('api.')->group(function () {
             $page = max(1, (int)$request->get('page', 1));
             $perPage = (int)$request->get('per_page', 20);
             $perPage = max(5, min(50, $perPage));
+            $currentCompanyId = (int) session('current_company_id');
+            $activeContractId = null;
+            if ($currentCompanyId) {
+                $activeContractId = \App\Models\Company::where('id', $currentCompanyId)->value('active_contract_id');
+            }
 
             $query = SubService::query()
                 ->where('is_active', true)
                 ->with([
                     'service:id,name,service_family_id',
-                    'service.family:id,name',
+                    'service.family:id,name,contract_id',
+                    'service.family.contract:id,number',
                     // Traer SLAs activos; usamos el primero como referencia
                     'slas'
                 ]);
+
+            if ($currentCompanyId) {
+                $query->whereHas('service.family.contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            }
+
+            if (!empty($activeContractId)) {
+                $query->whereHas('service.family', function ($q) use ($activeContractId) {
+                    $q->where('contract_id', $activeContractId);
+                });
+            }
 
             if ($term !== '') {
                 $query->where(function ($q) use ($term) {
@@ -167,9 +195,12 @@ Route::prefix('api')->name('api.')->group(function () {
             $items = $items->take($perPage);
 
             $results = $items->map(function (SubService $subService) {
-                $familyName = $subService->service?->family?->name ?? 'Sin Familia';
+                $family = $subService->service?->family;
+                $familyName = $family?->name ?? 'Sin Familia';
+                $contractNumber = $family?->contract?->number;
+                $familyLabel = $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
                 $serviceName = $subService->service?->name ?? 'Sin Servicio';
-                $familyId = $subService->service?->family?->id;
+                $familyId = $family?->id;
                 $serviceId = $subService->service?->id;
 
                 $sla = $subService->relationLoaded('slas') ? $subService->slas->first() : null;
@@ -179,7 +210,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 return [
                     'id' => $subService->id,
                     'text' => $subService->name,
-                    'familyName' => $familyName,
+                    'familyName' => $familyLabel,
                     'serviceName' => $serviceName,
                     'familyId' => $familyId,
                     'serviceId' => $serviceId,

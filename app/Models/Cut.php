@@ -11,6 +11,7 @@ class Cut extends Model
     use HasFactory;
 
     protected $fillable = [
+        'contract_id',
         'name',
         'start_date',
         'end_date',
@@ -27,6 +28,11 @@ class Cut extends Model
     {
         return $this->belongsToMany(ServiceRequest::class, 'cut_service_request')
             ->withTimestamps();
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class);
     }
 
     public function creator()

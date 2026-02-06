@@ -143,7 +143,8 @@ class ServiceRequestService
             ->with([
                 'subService:id,name,service_id',
                 'subService.service:id,name,service_family_id',
-                'subService.service.family:id,name',
+                'subService.service.family:id,name,contract_id',
+                'subService.service.family.contract:id,number,name,company_id',
                 'requester:id,name,email',
                 'company:id,name'
             ])
@@ -460,12 +461,15 @@ class ServiceRequestService
     {
         $selectedSubService = null;
         if ($selectedSubServiceId) {
-            $selectedSubService = SubService::with(['service.family', 'slas'])
+            $selectedSubService = SubService::with(['service.family.contract', 'slas'])
                 ->where('is_active', true)
                 ->find($selectedSubServiceId);
         }
 
         $currentCompanyId = session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
 
         return [
             // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
@@ -476,8 +480,18 @@ class ServiceRequestService
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'department', 'company_id']),
             'companies' => \App\Models\Company::orderBy('name')->get(),
-            'currentCompany' => $currentCompanyId ? \App\Models\Company::find($currentCompanyId) : null,
-            'cuts' => Cut::orderBy('start_date', 'desc')->get(['id', 'name', 'start_date', 'end_date']),
+            'currentCompany' => $currentCompany,
+            'cuts' => Cut::with('contract:id,number,company_id')
+                ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                    $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                        $q->where('company_id', $currentCompanyId);
+                    });
+                })
+                ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
+                    $query->where('contract_id', $currentCompany->active_contract_id);
+                })
+                ->orderBy('start_date', 'desc')
+                ->get(['id', 'contract_id', 'name', 'start_date', 'end_date']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
         ];
     }
@@ -490,7 +504,8 @@ class ServiceRequestService
         return $serviceRequest->load([
             'subService:id,name,service_id',
             'subService.service:id,name,service_family_id',
-            'subService.service.family:id,name',
+            'subService.service.family:id,name,contract_id',
+            'subService.service.family.contract:id,number,name,company_id',
             'sla:id,name,criticality_level,response_time_minutes,resolution_time_minutes',
             'requester:id,name,email,phone',
             'company:id,name',
@@ -511,7 +526,7 @@ class ServiceRequestService
     {
         $selectedSubService = null;
         if ($selectedSubServiceId) {
-            $selectedSubService = SubService::with(['service.family', 'slas'])
+            $selectedSubService = SubService::with(['service.family.contract', 'slas'])
                 ->where('is_active', true)
                 ->find($selectedSubServiceId);
         }
@@ -526,10 +541,21 @@ class ServiceRequestService
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'department', 'company_id']);
         $companies = \App\Models\Company::orderBy('name')->get();
-        $currentCompany = $currentCompanyId ? \App\Models\Company::find($currentCompanyId) : null;
-        $cuts = Cut::orderBy('start_date', 'desc')->get(['id', 'name', 'start_date', 'end_date']);
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        $cuts = Cut::with('contract:id,number,company_id')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
+                $query->where('contract_id', $currentCompany->active_contract_id);
+            })
+            ->orderBy('start_date', 'desc')
+            ->get(['id', 'contract_id', 'name', 'start_date', 'end_date']);
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
-
         return compact('subServices', 'selectedSubService', 'users', 'requesters', 'companies', 'cuts', 'criticalityLevels', 'currentCompany');
     }
 

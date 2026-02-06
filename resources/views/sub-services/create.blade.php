@@ -44,7 +44,10 @@
                     <option value="">Seleccionar Servicio</option>
                     @foreach($services as $familyId => $familyServices)
                     @php
-                    $familyName = $familyServices->first()->family ? $familyServices->first()->family->name : 'Sin Familia';
+                    $family = $familyServices->first()->family;
+                    $familyName = $family?->name ?? 'Sin Familia';
+                    $contractNumber = $family?->contract?->number;
+                    $familyName = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
                     @endphp
                     <optgroup label="{{ $familyName }}">
                         @foreach($familyServices as $service)

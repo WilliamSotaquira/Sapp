@@ -14,16 +14,20 @@ class CriticalityLevelsExport implements FromCollection, WithHeadings, WithMappi
 {
     protected $startDate;
     protected $endDate;
+    protected $companyId;
 
-    public function __construct($startDate = null, $endDate = null)
+    public function __construct($startDate = null, $endDate = null, $companyId = null)
     {
         $this->startDate = $startDate ?: Carbon::now()->subDays(30);
         $this->endDate = $endDate ?: Carbon::now();
+        $this->companyId = $companyId;
     }
 
     public function collection()
     {
+        $companyId = $this->companyId ?? (int) session('current_company_id');
         return ServiceRequest::reportable()
+            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->selectRaw('criticality_level, COUNT(*) as count')
             ->groupBy('criticality_level')
@@ -41,7 +45,9 @@ class CriticalityLevelsExport implements FromCollection, WithHeadings, WithMappi
 
     public function map($data): array
     {
+        $companyId = $this->companyId ?? (int) session('current_company_id');
         $total = ServiceRequest::reportable()
+            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->count();
         $percentage = $total > 0 ? round(($data->count / $total) * 100, 2) : 0;

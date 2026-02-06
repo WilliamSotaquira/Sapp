@@ -43,6 +43,7 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Corte</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contrato</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rango</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitudes</th>
                                 <th class="px-4 py-3"></th>
@@ -54,6 +55,9 @@
                                     <td class="px-4 py-3">
                                         <div class="font-semibold text-gray-900">{{ $cut->name }}</div>
                                         <div class="text-xs text-gray-500">#{{ $cut->id }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">
+                                        {{ $cut->contract?->number ?? 'N/A' }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">
                                         {{ $cut->start_date->format('Y-m-d') }} → {{ $cut->end_date->format('Y-m-d') }}

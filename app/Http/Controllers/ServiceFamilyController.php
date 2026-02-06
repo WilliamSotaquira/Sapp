@@ -10,11 +10,18 @@ class ServiceFamilyController extends Controller
 {
     public function index()
     {
+        $currentCompanyId = (int) session('current_company_id');
         // SOLUCIÓN: Cargar solo relaciones existentes
         $serviceFamilies = ServiceFamily::with(['services' => function($query) {
             $query->withCount('subServices')->active();
         }])
+        ->with(['contract:id,number,name,company_id'])
         ->withCount('services')
+        ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+            $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                $q->where('company_id', $currentCompanyId);
+            });
+        })
         ->ordered()
         ->active()
         ->get();
@@ -24,12 +31,19 @@ class ServiceFamilyController extends Controller
 
     public function create()
     {
-        return view('service-families.create');
+        $currentCompanyId = (int) session('current_company_id');
+        $contracts = \App\Models\Contract::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderBy('number')
+            ->get(['id', 'number', 'name', 'company_id']);
+
+        return view('service-families.create', compact('contracts'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'contract_id' => 'required|exists:contracts,id',
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:10|unique:service_families,code',
             'description' => 'nullable|string',
@@ -51,6 +65,7 @@ class ServiceFamilyController extends Controller
     {
         // Cargar relaciones existentes
         $serviceFamily->load([
+            'contract',
             'services' => function($query) {
                 $query->with(['subServices' => function($q) {
                     $q->active()->ordered();
@@ -63,12 +78,19 @@ class ServiceFamilyController extends Controller
 
     public function edit(ServiceFamily $serviceFamily)
     {
-        return view('service-families.edit', compact('serviceFamily'));
+        $currentCompanyId = (int) session('current_company_id');
+        $contracts = \App\Models\Contract::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderBy('number')
+            ->get(['id', 'number', 'name', 'company_id']);
+
+        return view('service-families.edit', compact('serviceFamily', 'contracts'));
     }
 
     public function update(Request $request, ServiceFamily $serviceFamily)
     {
         $validated = $request->validate([
+            'contract_id' => 'required|exists:contracts,id',
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:10|unique:service_families,code,' . $serviceFamily->id,
             'description' => 'nullable|string',

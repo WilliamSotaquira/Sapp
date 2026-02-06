@@ -77,6 +77,15 @@
                         </h2>
                     </div>
                     <div class="p-6">
+                        <div class="mb-5">
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Contrato</label>
+                            <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">
+                                {{ $serviceFamily->contract->number ?? 'N/A' }}
+                                @if($serviceFamily->contract?->name)
+                                    <span class="text-gray-500">- {{ $serviceFamily->contract->name }}</span>
+                                @endif
+                            </p>
+                        </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-600 mb-1">Descripción</label>
                             <p class="text-gray-800 bg-gray-50 p-3 rounded-lg">

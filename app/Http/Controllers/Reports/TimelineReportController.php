@@ -104,6 +104,7 @@ class TimelineReportController extends ReportController
 
         $requests = ServiceRequest::with(['subService', 'requester', 'assignee', 'sla'])
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -126,6 +127,7 @@ class TimelineReportController extends ReportController
             'breachLogs'
         ])
         ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->findOrFail($id);
 
         $timelineEvents = $request->getTimelineEvents();
@@ -152,6 +154,7 @@ class TimelineReportController extends ReportController
         // Obtener algunos tickets de ejemplo para mostrar en la ayuda
         $sampleTickets = ServiceRequest::select('ticket_number', 'title')
             ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->orderBy('created_at', 'desc')
             ->take(3)
             ->get();
@@ -168,17 +171,18 @@ class TimelineReportController extends ReportController
     public function exportTimeline($id, $format)
     {
         try {
-            $request = ServiceRequest::with([
-                'subService.service.family',
-                'requester',
-                'requestedBy',
-                'assignee',
-                'sla',
-                'evidences.uploadedBy',
-                'breachLogs'
-            ])
-            ->reportable()
-            ->findOrFail($id);
+        $request = ServiceRequest::with([
+            'subService.service.family',
+            'requester',
+            'requestedBy',
+            'assignee',
+            'sla',
+            'evidences.uploadedBy',
+            'breachLogs'
+        ])
+        ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
+        ->findOrFail($id);
 
             // Obtener datos del timeline
             $timelineEvents = $request->getTimelineEvents();
@@ -476,6 +480,7 @@ class TimelineReportController extends ReportController
             // Buscar el ServiceRequest
             $serviceRequest = ServiceRequest::where('ticket_number', $ticketNumber)
                 ->reportable()
+                ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
                 ->with([
                     'subService.service.family',
                     'requester',
@@ -491,6 +496,7 @@ class TimelineReportController extends ReportController
                 // Buscar con variaciones comunes del ticket number
                 $serviceRequest = ServiceRequest::where('ticket_number', 'LIKE', "%{$ticketNumber}%")
                     ->reportable()
+                    ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
                     ->orWhere('id', $ticketNumber)
                     ->with([
                         'subService.service.family',
@@ -510,6 +516,7 @@ class TimelineReportController extends ReportController
                 // Sugerir algunos tickets disponibles
                 $suggestedTickets = ServiceRequest::select('ticket_number', 'title')
                     ->reportable()
+                    ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
                     ->orderBy('created_at', 'desc')
                     ->take(3)
                     ->get()

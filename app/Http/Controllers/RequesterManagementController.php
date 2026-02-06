@@ -24,7 +24,7 @@ class RequesterManagementController extends Controller
     {
         $search = $request->get('search');
         $status = $request->get('status', 'active');
-        $companyId = $request->get('company_id') ?: $request->session()->get('current_company_id');
+        $companyId = $request->session()->get('current_company_id');
 
         $requesters = Requester::with(['company:id,name'])
             ->withCount('serviceRequests')
@@ -58,12 +58,18 @@ class RequesterManagementController extends Controller
      */
     public function store(Request $request)
     {
-        if (!$request->has('company_id')) {
-            $request->merge(['company_id' => $request->session()->get('current_company_id')]);
+        $currentCompanyId = $request->session()->get('current_company_id');
+        if ($currentCompanyId) {
+            $request->merge(['company_id' => $currentCompanyId]);
+        }
+
+        $companyRules = ['required', 'exists:companies,id'];
+        if ($currentCompanyId) {
+            $companyRules[] = Rule::in([$currentCompanyId]);
         }
 
         $validated = $request->validate([
-            'company_id' => 'required|exists:companies,id',
+            'company_id' => $companyRules,
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:requesters,email',
             'phone' => 'nullable|string|max:20',
@@ -112,12 +118,18 @@ class RequesterManagementController extends Controller
     {
         $this->ensureWorkspace($requester);
 
-        if (!$request->has('company_id')) {
-            $request->merge(['company_id' => $request->session()->get('current_company_id')]);
+        $currentCompanyId = $request->session()->get('current_company_id');
+        if ($currentCompanyId) {
+            $request->merge(['company_id' => $currentCompanyId]);
+        }
+
+        $companyRules = ['required', 'exists:companies,id'];
+        if ($currentCompanyId) {
+            $companyRules[] = Rule::in([$currentCompanyId]);
         }
 
         $validated = $request->validate([
-            'company_id' => 'required|exists:companies,id',
+            'company_id' => $companyRules,
             'name' => 'required|string|max:255',
             'email' => [
                 'nullable',

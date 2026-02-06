@@ -16,6 +16,7 @@ class Company extends Model
         'status',
         'phone',
         'address',
+        'active_contract_id',
     ];
 
     protected $casts = [
@@ -35,5 +36,15 @@ class Company extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(Contract::class);
+    }
+
+    public function activeContract()
+    {
+        return $this->belongsTo(Contract::class, 'active_contract_id');
     }
 }

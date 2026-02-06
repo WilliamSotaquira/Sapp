@@ -34,7 +34,10 @@ class ObligacionesReportController extends Controller
 
         // Agrupar por servicio
         $serviceRequests = $allServiceRequests->groupBy(function ($sr) {
-            return $sr->subService?->service?->family?->name ?? 'Sin Familia';
+            $family = $sr->subService?->service?->family;
+            $familyName = $family?->name ?? 'Sin Familia';
+            $contractNumber = $family?->contract?->number;
+            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
         })->sortKeys();
 
         $statsBaseQuery = $this->applyFilters(ServiceRequest::query(), $request);
@@ -50,6 +53,11 @@ class ObligacionesReportController extends Controller
 
         $cuts = Cut::query()
             ->orderByDesc('start_date')
+            ->when((int) session('current_company_id'), function ($query) {
+                $query->whereHas('contract', function ($q) {
+                    $q->where('company_id', (int) session('current_company_id'));
+                });
+            })
             ->get(['id', 'name', 'start_date', 'end_date']);
 
         return view('reports.obligaciones.index', [
@@ -80,14 +88,23 @@ class ObligacionesReportController extends Controller
             ->get();
 
         $groupedServiceRequests = $serviceRequests->groupBy(function ($sr) {
-            return $sr->subService?->service?->family?->name ?? 'Sin Familia';
+            $family = $sr->subService?->service?->family;
+            $familyName = $family?->name ?? 'Sin Familia';
+            $contractNumber = $family?->contract?->number;
+            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
         })->sortKeys();
 
         $dateRange = $this->getDateRangeFromFilters($request);
         $selectedCut = null;
         $cutId = $request->get('cut_id');
         if ($cutId) {
-            $selectedCut = Cut::find($cutId);
+            $selectedCut = Cut::query()
+                ->when((int) session('current_company_id'), function ($query) {
+                    $query->whereHas('contract', function ($q) {
+                        $q->where('company_id', (int) session('current_company_id'));
+                    });
+                })
+                ->find($cutId);
         }
         $timestamp = now()->format('Y-m-d_His');
 
@@ -116,7 +133,7 @@ class ObligacionesReportController extends Controller
     private function buildFilteredQuery(Request $request): Builder
     {
         $query = ServiceRequest::with([
-            'subService.service.family',
+            'subService.service.family.contract',
             'requester',
             'assignedTechnician',
             'tasks.subtasks',
@@ -128,6 +145,11 @@ class ObligacionesReportController extends Controller
 
     private function applyFilters(Builder $query, Request $request): Builder
     {
+        $currentCompanyId = (int) session('current_company_id');
+        if ($currentCompanyId) {
+            $query->where('company_id', $currentCompanyId);
+        }
+
         $cutId = $request->get('cut_id');
         if ($cutId && $cutId !== 'all') {
             $query->whereHas('cuts', function ($q) use ($cutId) {
@@ -152,7 +174,13 @@ class ObligacionesReportController extends Controller
 
         $cutId = $request->get('cut_id');
         if ($cutId && $cutId !== 'all') {
-            $cut = Cut::find($cutId);
+            $cut = Cut::query()
+                ->when((int) session('current_company_id'), function ($query) {
+                    $query->whereHas('contract', function ($q) {
+                        $q->where('company_id', (int) session('current_company_id'));
+                    });
+                })
+                ->find($cutId);
             if ($cut) {
                 $dateFrom = $cut->start_date;
                 $dateTo = $cut->end_date;

@@ -1,0 +1,114 @@
+@extends('layouts.app')
+
+@section('title', 'Contratos')
+
+@section('breadcrumb')
+<nav class="text-xs sm:text-sm mb-3 sm:mb-4" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-1 sm:space-x-2 text-gray-600">
+        <li>
+            <a href="{{ route('dashboard') }}" class="hover:text-blue-600 transition-colors">
+                <i class="fas fa-home"></i>
+                <span class="hidden sm:inline ml-1">Inicio</span>
+            </a>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li>
+            <span class="text-gray-500">Catálogos</span>
+        </li>
+        <li><i class="fas fa-chevron-right text-gray-400 text-xs"></i></li>
+        <li class="text-gray-900 font-medium">
+            <i class="fas fa-file-contract"></i>
+            <span class="ml-1">Contratos</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
+@section('content')
+<div class="container mx-auto">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
+        <a href="{{ route('contracts.create') }}"
+           class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+            <i class="fas fa-plus mr-2"></i>Nuevo Contrato
+        </a>
+    </div>
+
+    @if(session('success'))
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    <div class="bg-white shadow-md rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Número
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nombre
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Espacio de trabajo
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse($contracts as $contract)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm font-semibold text-gray-900">{{ $contract->number }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ $contract->name ?? 'Sin nombre' }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ $contract->company->name ?? 'N/A' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $contract->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                            {{ $contract->is_active ? 'Activo' : 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="{{ route('contracts.show', $contract) }}" class="text-blue-600 hover:text-blue-900 mr-3">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ route('contracts.edit', $contract) }}" class="text-green-600 hover:text-green-900 mr-3">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ route('contracts.destroy', $contract) }}" method="POST" class="inline">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-900"
+                                    onclick="return confirm('¿Está seguro de eliminar este contrato?')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                        No hay contratos registrados.
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+@endsection

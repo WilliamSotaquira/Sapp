@@ -23,10 +23,18 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                         <option value="">Seleccione un servicio</option>
                         @foreach($services as $service)
+                            @php
+                                $family = $service->family;
+                                $familyName = $family?->name;
+                                $contractNumber = $family?->contract?->number;
+                                $familyLabel = $familyName
+                                    ? ($contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName)
+                                    : null;
+                            @endphp
                             <option value="{{ $service->id }}" {{ old('service_id') == $service->id ? 'selected' : '' }}>
                                 {{ $service->name }}
-                                @if($service->family)
-                                    ({{ $service->family->name }})
+                                @if($familyLabel)
+                                    ({{ $familyLabel }})
                                 @endif
                             </option>
                         @endforeach

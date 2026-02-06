@@ -12,6 +12,7 @@ class ServiceFamily extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'contract_id',
         'name',
         'code',
         'description',
@@ -29,6 +30,11 @@ class ServiceFamily extends Model
     public function services()
     {
         return $this->hasMany(Service::class, 'service_family_id');
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class);
     }
 
     public function activeServices()

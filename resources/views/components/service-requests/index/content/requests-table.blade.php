@@ -304,7 +304,13 @@
                                         {{ $request->subService->name ?? 'N/A' }}
                                     </div>
                                     <div class="text-xs text-gray-500 truncate">
-                                        {{ $request->subService->service->family->name ?? '' }}
+                                        @php
+                                            $family = $request->subService?->service?->family;
+                                            $familyName = $family?->name ?? '';
+                                            $contractNumber = $family?->contract?->number;
+                                            $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                                        @endphp
+                                        {{ $familyLabel }}
                                     </div>
                                 </div>
                             </div>
