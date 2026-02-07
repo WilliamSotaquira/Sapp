@@ -43,9 +43,9 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
             $rangeLabel = ($rangeStart ? $rangeStart->format('Y-m-d') : '') . ' - ' . ($rangeEnd ? $rangeEnd->format('Y-m-d') : '');
         }
         $totalAcciones = $this->serviceRequests->count();
-        $cutName = $this->cut?->name ?? 'Sin corte';
+        $headerLabel = $this->resolveContractPeriodLabel();
 
-        $rows[] = ['Corte', $cutName, '', '']; $rowIndex++;
+        $rows[] = ['Contrato y periodo', $headerLabel, '', '']; $rowIndex++;
         $rows[] = ['Rango', $rangeLabel, '', '']; $rowIndex++;
         $rows[] = ['Total acciones', $totalAcciones, '', '']; $rowIndex++;
         $this->summaryEndRow = $rowIndex;
@@ -269,6 +269,36 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';
 
         return preg_replace($pattern, '', $title) ?? $title;
+    }
+
+    private function resolveContractPeriodLabel(): string
+    {
+        $contractNumber = $this->cut?->contract?->number;
+        if (empty($contractNumber)) {
+            $contractNumbers = $this->serviceRequests
+                ->pluck('subService.service.family.contract.number')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($contractNumbers->count() === 1) {
+                $contractNumber = (string) $contractNumbers->first();
+            } elseif ($contractNumbers->count() > 1) {
+                $contractNumber = 'Varios contratos';
+            } else {
+                $contractNumber = 'Sin contrato';
+            }
+        }
+
+        $periodLabel = $this->cut?->name;
+        if (empty($periodLabel) && !empty($this->dateRange['start'])) {
+            $periodLabel = ucfirst($this->dateRange['start']->locale('es')->translatedFormat('F Y'));
+        }
+        if (empty($periodLabel)) {
+            $periodLabel = 'Periodo';
+        }
+
+        return $contractNumber . ': ' . $periodLabel;
     }
 
     private function extractFirstUrl(string $value): ?string

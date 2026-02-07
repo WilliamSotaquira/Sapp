@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
@@ -99,6 +100,7 @@ class ObligacionesReportController extends Controller
         $cutId = $request->get('cut_id');
         if ($cutId) {
             $selectedCut = Cut::query()
+                ->with('contract')
                 ->when((int) session('current_company_id'), function ($query) {
                     $query->whereHas('contract', function ($q) {
                         $q->where('company_id', (int) session('current_company_id'));
@@ -106,7 +108,7 @@ class ObligacionesReportController extends Controller
                 })
                 ->find($cutId);
         }
-        $timestamp = now()->format('Y-m-d_His');
+        $exportFilename = $this->buildExportFilename($serviceRequests, $selectedCut, $dateRange, $format);
 
         if ($format === 'pdf') {
             $pdf = Pdf::loadView('reports.exports.obligaciones-pdf', [
@@ -117,11 +119,11 @@ class ObligacionesReportController extends Controller
             ])->setPaper('a4', 'portrait')
                 ->setOption('isRemoteEnabled', true);
 
-            return $pdf->download("reporte-obligaciones-{$timestamp}.pdf");
+            return $pdf->download($exportFilename);
         }
 
         if ($format === 'xlsx') {
-            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange), "reporte-obligaciones-{$timestamp}.xlsx");
+            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange), $exportFilename);
         }
 
         return response('Formato no válido', 400);
@@ -191,6 +193,58 @@ class ObligacionesReportController extends Controller
             'start' => $dateFrom ? Carbon::parse($dateFrom)->startOfDay() : null,
             'end' => $dateTo ? Carbon::parse($dateTo)->endOfDay() : null,
         ];
+    }
+
+    private function buildExportFilename($serviceRequests, ?Cut $selectedCut, array $dateRange, string $format): string
+    {
+        $contractNumber = $selectedCut?->contract?->number;
+
+        if (empty($contractNumber)) {
+            $contractNumbers = $serviceRequests
+                ->pluck('subService.service.family.contract.number')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($contractNumbers->count() === 1) {
+                $contractNumber = $contractNumbers->first();
+            } elseif ($contractNumbers->count() > 1) {
+                $contractNumber = 'varios-contratos';
+            } else {
+                $contractNumber = 'sin-contrato';
+            }
+        }
+
+        $monthNumber = ($dateRange['start'] ?? null)
+            ? Carbon::parse($dateRange['start'])->format('m')
+            : now()->format('m');
+
+        $rangeStart = ($dateRange['start'] ?? null)
+            ? Carbon::parse($dateRange['start'])->format('Ymd')
+            : 'sin-fecha-inicio';
+
+        $rangeEnd = ($dateRange['end'] ?? null)
+            ? Carbon::parse($dateRange['end'])->format('Ymd')
+            : 'sin-fecha-fin';
+
+        $elaborationDate = now()->format('Ymd');
+
+        $baseName = implode('_', [
+            $this->sanitizeFilenameSegmentCompact((string) $contractNumber),
+            $monthNumber,
+            $rangeStart . $rangeEnd,
+            $elaborationDate,
+        ]);
+
+        return $baseName . '.' . $format;
+    }
+
+    private function sanitizeFilenameSegmentCompact(string $value): string
+    {
+        $ascii = Str::ascii($value);
+        $clean = preg_replace('/[^A-Za-z0-9]+/', '', $ascii) ?? '';
+
+        return $clean !== '' ? $clean : 'sinvalor';
     }
 
     private function formatActivities(ServiceRequest $serviceRequest): string

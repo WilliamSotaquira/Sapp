@@ -66,11 +66,11 @@
                     </div>
 
                     <!-- Tabla de Obligaciones de la Familia -->
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="min-w-full table-fixed divide-y divide-gray-200">
                         <colgroup>
-                            <col class="w-[35%]">
-                            <col class="w-[35%]">
-                            <col class="w-[30%]">
+                            <col class="w-1/3">
+                            <col class="w-1/3">
+                            <col class="w-1/3">
                         </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
@@ -117,7 +117,7 @@
                                     </td>
 
                                     <!-- PRODUCTOS PRESENTADOS -->
-                                    <td class="px-6 py-3 text-sm">
+                                    <td class="px-6 py-3 text-sm break-words">
                                         @php
                                             $fileEvidences = $sr->evidences->where('file_path');
                                             $linkEvidences = $sr->evidences->where('evidence_type', 'ENLACE');
@@ -127,7 +127,7 @@
                                             <ul class="space-y-1">
                                                 @foreach($fileEvidences as $evidence)
                                                     <li>
-                                                        <a href="{{ $evidence->file_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
+                                                        <a href="{{ $evidence->file_url }}" target="_blank" class="inline-block max-w-full break-all text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
                                                             {{ $evidence->file_original_name }}
                                                         </a>
                                                     </li>
@@ -138,7 +138,7 @@
                                                     @endphp
                                                     @if($linkUrl)
                                                         <li>
-                                                            <a href="{{ $linkUrl }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
+                                                            <a href="{{ $linkUrl }}" target="_blank" rel="noopener noreferrer" class="inline-block max-w-full break-all text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
                                                                 {{ $linkUrl }}
                                                             </a>
                                                         </li>
