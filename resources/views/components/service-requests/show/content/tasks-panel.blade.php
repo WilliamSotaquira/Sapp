@@ -8,17 +8,18 @@
     $canManageTasks = in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO']);
     $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
 @endphp
 
 <div class="bg-white shadow rounded-lg overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
-    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+    <div class="px-4 sm:px-6 py-4 border-b {{ $isDead ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50' }}">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center">
-                <div class="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg mr-3">
-                    <i class="fas fa-tasks text-purple-600"></i>
+                <div class="flex items-center justify-center w-9 h-9 bg-purple-100 rounded-lg mr-3">
+                    <i class="fas fa-tasks text-purple-600 text-sm"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Tareas Asociadas</h3>
+                    <h3 class="sr-card-title text-gray-900">Tareas Asociadas</h3>
                     <p id="tasksCountLabel"
                        data-count="{{ $tasks->count() }}"
                        class="text-xs text-gray-500 mt-0.5">
@@ -28,12 +29,12 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
-                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
+                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
                     <i class="fas fa-external-link-alt mr-2"></i>
                     Abrir Gestor
                 </a>
                 <button type="button"
-                        class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
+                        class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
                         data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}"
                         data-enabled-class="border-purple-600 text-purple-700 bg-white hover:bg-purple-50"
                         data-disabled-class="border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed">
@@ -41,7 +42,7 @@
                     Tarea Rápida
                 </button>
                 <button type="button"
-                        class="copy-completed-tasks inline-flex items-center px-3 py-2 border border-purple-600 text-purple-700 bg-white hover:bg-purple-50 rounded-md text-xs font-semibold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
+                        class="copy-completed-tasks inline-flex items-center px-3 py-2 border border-purple-600 text-purple-700 bg-white hover:bg-purple-50 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
                         title="Copiar tareas y subtareas completas">
                     <i class="fas fa-copy mr-2"></i>
                     Copiar Completas
@@ -51,7 +52,7 @@
         @if(!$hasTechnicianAssigned)
             <p class="mt-2 text-xs text-amber-600 flex items-center" data-quick-task-warning>
                 <i class="fas fa-info-circle mr-1"></i>
-                Debes asignar un técnico para poder crear tareas rápidas.
+                Asigna un técnico para habilitar la tarea rápida.
             </p>
         @endif
     </div>

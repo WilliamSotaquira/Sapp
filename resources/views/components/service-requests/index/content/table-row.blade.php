@@ -6,21 +6,25 @@
     tabindex="0">
 
     <!-- Ticket - Mejorado con enlace azul y más visible -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap">
         <a href="{{ route('service-requests.show', $request) }}"
            class="font-mono text-blue-600 hover:text-blue-800 hover:underline font-bold text-xs sm:text-sm transition-colors">
             {{ $request->ticket_number }}
         </a>
+        <div class="mt-1 text-[11px] text-gray-600 sm:hidden">
+            <div class="font-medium text-gray-800">{{ Str::limit($request->title, 45) }}</div>
+            <div class="text-gray-500">{{ $request->subService->name ?? 'Sin servicio' }}</div>
+        </div>
     </td>
 
     <!-- Título y Descripción -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 hidden md:table-cell">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 hidden md:table-cell">
         <div class="font-medium text-gray-900 text-xs">{{ Str::limit($request->title, 65) }}</div>
         <div class="text-xs text-gray-500 mt-0.5">{{ Str::limit($request->description, 60) }}</div>
     </td>
 
     <!-- Servicio -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 hidden lg:table-cell">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 hidden lg:table-cell">
         <div class="font-medium text-xs text-gray-900">{{ $request->subService->name ?? 'N/A' }}</div>
         @php
             $family = $request->subService?->service?->family;
@@ -32,17 +36,17 @@
     </td>
 
     <!-- Prioridad -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap">
         <x-service-requests.index.content.priority-badge :priority="$request->criticality_level" compact />
     </td>
 
     <!-- Estado -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap">
         <x-service-requests.index.content.status-badge :status="$request->status" compact />
     </td>
 
     <!-- Solicitante con Avatar mejorado -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap hidden sm:table-cell">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap hidden sm:table-cell">
         <div class="flex items-center space-x-1.5 sm:space-x-2">
             @php
                 $name = $request->requester->name ?? 'N/A';
@@ -60,13 +64,13 @@
     </td>
 
     <!-- Fecha con formato relativo -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap hidden xl:table-cell">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap hidden xl:table-cell">
         <div class="text-xs text-gray-900">{{ $request->created_at->format('d/m/Y') }}</div>
         <div class="text-xs text-gray-500">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
     </td>
 
     <!-- Acciones -->
-    <td class="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap">
+    <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 whitespace-nowrap">
         <x-service-requests.index.content.table-actions :request="$request" compact />
     </td>
 </tr>

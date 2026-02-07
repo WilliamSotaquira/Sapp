@@ -3,7 +3,7 @@
 <div id="history-section" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
     <div class="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
         <div class="flex items-center justify-between">
-            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <h3 class="sr-card-title text-gray-800 flex items-center">
                 <i class="fas fa-history text-purple-600 mr-3"></i>
                 Historial y Timeline
             </h3>

@@ -6,37 +6,32 @@
     $technicians = User::orderBy('name')->get();
 
     $headerGradient = match($serviceRequest->status) {
-        'CERRADA', 'CANCELADA', 'RECHAZADA' => 'from-gray-700 to-gray-900',
-        default => 'from-blue-600 to-indigo-700',
+        'CERRADA', 'CANCELADA', 'RECHAZADA' => 'from-gray-50 to-gray-100',
+        default => 'from-white to-slate-50',
     };
 @endphp
 
 <!-- Header Principal -->
-<div class="bg-gradient-to-r {{ $headerGradient }} shadow-xl rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 md:mb-8 w-full">
-    <div class="px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 text-white">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-1">
-                <div class="bg-white/20 p-2 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm flex items-center flex-col self-start sm:self-auto">
-                    <i class="fas fa-ticket-alt text-3xl sm:text-4xl md:text-5xl"></i>
-                    <span class="mt-1.5 sm:mt-2 inline-flex">
-                        <x-service-requests.show.header.criticality-indicator :criticality="$serviceRequest->criticality_level" />
-                    </span>
+<div class="bg-gradient-to-r {{ $headerGradient }} border border-slate-200 shadow-sm rounded-xl overflow-hidden mb-4 sm:mb-6 w-full">
+    <div class="px-4 sm:px-5 py-3 text-slate-900">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div class="flex items-start gap-3 flex-1">
+                <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
+                    <i class="fas fa-ticket-alt text-sm"></i>
                 </div>
-                <div class="flex flex-col max-w-full sm:max-w-md lg:max-w-lg">
+                <div class="flex flex-col max-w-full sm:max-w-lg">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <h1 class="text-lg sm:text-xl md:text-2xl font-bold">Solicitud {{ $serviceRequest->ticket_number }}</h1>
+                        <h1 class="text-base sm:text-lg font-semibold text-slate-900">Solicitud {{ $serviceRequest->ticket_number }}</h1>
                         <button type="button"
-                            class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition text-white border border-white/40 focus:outline-none focus:ring-2 focus:ring-white/60"
+                            class="copy-ticket-btn inline-flex items-center justify-center w-6 h-6 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
                             data-default-icon="fa-copy"
                             data-success-icon="fa-check"
                             aria-label="Copiar número de ticket"
                             onclick="copyTicketNumber('{{ $serviceRequest->ticket_number }}', this)">
-                            <i class="fas fa-copy"></i>
+                            <i class="fas fa-copy text-[11px]"></i>
                         </button>
                     </div>
-                    <span class="inline-flex">
-                        <p class="text-blue-100 opacity-90 mt-0.5 sm:mt-1 text-xs sm:text-sm line-clamp-2">{{ $serviceRequest->title }}</p>
-                    </span>
+                    <p class="text-slate-600 mt-1 text-[11px] sm:text-xs line-clamp-2">{{ $serviceRequest->title }}</p>
                 </div>
             </div>
 
@@ -45,8 +40,7 @@
                 <x-service-requests.show.header.workflow-actions :serviceRequest="$serviceRequest" :technicians="$technicians" :showLabels="true"
                     :compact="false" />
 
-                <!-- SOLUCIÓN: Usar solo el componente status-indicator -->
-                <x-service-requests.show.header.status-indicator :serviceRequest="$serviceRequest" />
+                <!-- Estado mostrado en tarjeta de información -->
             </div>
         </div>
     </div>

@@ -3,64 +3,65 @@
 @php
     $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
     $selectedEntryChannel = $serviceRequest->entry_channel;
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
 @endphp
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
-            <i class="fas fa-cogs text-blue-600 mr-3"></i>
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-5 py-3 border-b">
+        <h3 class="sr-card-title text-gray-800 flex items-center">
+            <i class="fas fa-cogs {{ $isDead ? 'text-gray-500' : 'text-blue-600' }} mr-2"></i>
             Información del Servicio
         </h3>
     </div>
-    <div class="p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="p-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-                <label class="text-sm font-medium text-gray-500">Espacio de trabajo</label>
-                <p class="text-gray-900 font-semibold">{{ $serviceRequest->company->name ?? 'N/A' }}</p>
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Espacio</label>
+                <p class="text-sm text-gray-900 font-medium">{{ $serviceRequest->company->name ?? 'N/A' }}</p>
             </div>
             <div>
-                <label class="text-sm font-medium text-gray-500">Contrato</label>
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Servicio</label>
+                @php
+                    $familyName = $serviceRequest->subService?->service?->family?->name;
+                    $serviceName = $serviceRequest->subService?->service?->name;
+                    $subServiceName = $serviceRequest->subService?->name;
+                    $serviceLabel = trim(collect([$familyName, $serviceName, $subServiceName])->filter()->join(' · '));
+                @endphp
+                <p class="text-sm text-gray-900 font-medium">{{ $serviceLabel ?: 'N/A' }}</p>
+            </div>
+            <div>
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Contrato</label>
                 @php
                     $contract = $serviceRequest->subService?->service?->family?->contract;
                     $contractLabel = $contract ? ($contract->name ?: $contract->number) : null;
                 @endphp
-                <p class="text-gray-900 font-semibold">{{ $contractLabel ?? 'N/A' }}</p>
+                <p class="text-sm text-gray-900 font-medium">{{ $contractLabel ?? 'N/A' }}</p>
             </div>
             <div>
-                <label class="text-sm font-medium text-gray-500">Familia de Servicio</label>
-                <p class="text-gray-900 font-semibold">{{ $serviceRequest->subService->service->family->name ?? 'N/A' }}
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Estado y creada</label>
+                <p class="text-sm text-gray-900 font-medium">
+                    {{ $serviceRequest->status }} · {{ $serviceRequest->criticality_level }}
+                </p>
+                <p class="text-xs text-gray-500">
+                    {{ $serviceRequest->created_at->format('d/m/Y') }} ({{ $serviceRequest->created_at->locale('es')->diffForHumans() }})
                 </p>
             </div>
             <div>
-                <label class="text-sm font-medium text-gray-500">Servicio</label>
-                <p class="text-gray-900 font-semibold">{{ $serviceRequest->subService->service->name ?? 'N/A' }}</p>
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-500">Subservicio</label>
-                <p class="text-gray-900 font-semibold">{{ $serviceRequest->subService->name ?? 'N/A' }}</p>
-            </div>
-            <div>
-                <label class="text-sm font-medium text-gray-500 block mb-2">Canal de ingreso</label>
+                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Canal</label>
                 @if ($selectedEntryChannel && isset($entryChannelOptions[$selectedEntryChannel]))
                     @php
                         $selectedOption = $entryChannelOptions[$selectedEntryChannel];
                     @endphp
-                    <span
-                        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-sm font-semibold min-h-[2.5rem]">
-                        <span class="text-lg">{{ $selectedOption['emoji'] ?? '📥' }}</span>
-                        <span>{{ $selectedOption['label'] }}</span>
-                    </span>
+                    <p class="text-sm text-gray-900 font-medium">{{ $selectedOption['label'] }}</p>
                 @else
-                    <span class="inline-flex items-center px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm">
-                        No registrado
-                    </span>
+                    <p class="text-sm text-gray-500">No registrado</p>
                 @endif
             </div>
             <div>
-                <div class="flex items-center gap-2">
-                    <label class="text-sm font-medium text-gray-500">Corte asociado</label>
+                <div class="flex items-center gap-2 mb-1">
+                    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Corte</label>
                     <button type="button" data-edit-cut
-                            class="inline-flex items-center justify-center h-6 px-2 rounded-full border border-indigo-100 bg-indigo-50 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition">
+                            class="inline-flex items-center justify-center h-6 px-2 rounded-md border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition">
                         <i class="fas fa-edit mr-1 text-[10px]"></i>
                         {{ ($serviceRequest->cuts ?? collect())->isEmpty() ? 'Asignar' : 'Editar' }}
                     </button>
@@ -68,15 +69,15 @@
                 @php
                     $cuts = $serviceRequest->cuts ?? collect();
                 @endphp
-                <div id="cutAssociationContainer" class="mt-2">
+                <div id="cutAssociationContainer" class="mt-1">
                     @if ($cuts->isEmpty())
-                        <p class="text-sm text-gray-500">Sin corte asociado.</p>
+                        <p class="text-sm text-gray-500">Sin corte asociado</p>
                     @else
                         @foreach ($cuts as $cut)
-                            <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold hover:bg-indigo-100 transition min-h-[2.5rem]">
+                            <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
                                 <i class="fas fa-cut"></i>
                                 <span class="truncate">{{ $cut->name }}</span>
-                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} — {{ $cut->end_date->format('d/m/Y') }}</span>
+                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }}</span>
                             </a>
                         @endforeach
                     @endif
@@ -201,10 +202,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             editBtn.innerHTML = '<i class="fas fa-edit mr-1 text-[10px]"></i>Editar';
                         }
                         container.innerHTML = `
-                            <a href="/reports/cuts/${cut.id}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-semibold hover:bg-indigo-100 transition min-h-[2.5rem]">
+                            <a href="/reports/cuts/${cut.id}" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
                                 <i class="fas fa-cut"></i>
                                 <span class="truncate">${cut.name}</span>
-                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">${cut.start_date} — ${cut.end_date}</span>
+                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">${cut.start_date} - ${cut.end_date}</span>
                             </a>
                         `;
                     }

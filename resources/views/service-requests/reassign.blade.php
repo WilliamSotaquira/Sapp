@@ -52,15 +52,22 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Selecciona un técnico...</option>
                             @foreach ($technicians as $technician)
+                                @php
+                                    $specialization = $technician->technician?->specialization;
+                                    $specializationLabel = $specialization ? (' - ' . $specialization) : '';
+                                    $openTasks = $technician->technician?->open_tasks_count;
+                                    $openTasksLabel = is_null($openTasks) ? '' : (' · Carga: ' . $openTasks);
+                                @endphp
                                 <option value="{{ $technician->id }}"
                                     {{ old('assigned_to', $service_request->assigned_to) == $technician->id ? 'selected' : '' }}>
-                                    {{ $technician->name }} - {{ $technician->email }}
+                                    {{ $technician->name }} - {{ $technician->email }}{{ $specializationLabel }}{{ $openTasksLabel }}
                                 </option>
                             @endforeach
                         </select>
                         @error('assigned_to')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
+                        <p class="mt-1 text-xs text-gray-500">Si hay notificaciones habilitadas, el técnico recibirá el aviso de reasignación.</p>
                     </div>
 
                     <!-- Razón de Reasignación -->

@@ -28,12 +28,6 @@
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
-
-            {{-- Mostrar datos enviados --}}
-            <div class="mt-4 p-3 bg-red-100 rounded">
-                <h4 class="font-medium text-red-800">Datos enviados:</h4>
-                <pre class="text-sm text-red-700 mt-2">{{ json_encode(old(), JSON_PRETTY_PRINT) }}</pre>
-            </div>
         </div>
     @endif
 
@@ -56,6 +50,7 @@
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
                     <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
+                    <p class="text-sm text-gray-600 mt-1">Los campos marcados con * son obligatorios.</p>
                 </div>
                 <div class="p-6">
                     @include('components.service-requests.forms.basic-fields', [
@@ -88,6 +83,7 @@
                                 <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
                                 <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
                             </select>
+                            <p class="mt-1 text-sm text-gray-500">Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.</p>
 
                         </div>
 

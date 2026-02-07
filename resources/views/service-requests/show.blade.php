@@ -26,6 +26,7 @@
 @section('content')
 
     @php
+        $isDeadState = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
         if (!isset($previousRequestNav)) {
             $previousRequestNav = \App\Models\ServiceRequest::where('id', '<', $serviceRequest->id)
                 ->orderBy('id', 'desc')
@@ -36,70 +37,45 @@
         }
     @endphp
 
-    <div class="space-y-4 sm:space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm text-slate-600 rounded-2xl px-4 py-3 bg-gradient-to-r from-sky-50 via-white to-indigo-50 border border-blue-100/60 shadow"
+    <div class="sr-view space-y-4 sm:space-y-6 {{ $isDeadState ? 'sr-dead-state' : '' }}">
+        <div class="flex items-center justify-between gap-2 rounded-lg border {{ $isDeadState ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-200 bg-slate-50 text-slate-600' }} px-3 py-2 text-xs sm:text-sm"
             id="requestNavigation"
             data-prev-url="{{ $previousRequestNav ? route('service-requests.show', $previousRequestNav) : '' }}"
             data-next-url="{{ $nextRequestNav ? route('service-requests.show', $nextRequestNav) : '' }}" role="navigation"
             aria-label="Navegación entre solicitudes">
-            <div class="flex items-center flex-1">
-                @if ($previousRequestNav)
-                    <a href="{{ route('service-requests.show', $previousRequestNav) }}"
-                        class="nav-direction nav-direction--prev focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
-                        title="Ir a la solicitud {{ $previousRequestNav->ticket_number }}"
-                        aria-label="Ver solicitud anterior {{ $previousRequestNav->ticket_number }}">
-                        <span class="nav-direction__icon" aria-hidden="true">
-                            <i class="fas fa-arrow-left text-[10px]"></i>
-                        </span>
-                        <span class="nav-direction__content">
-                            <span class="nav-direction__eyebrow">Anterior</span>
-                            <span class="nav-direction__ticket">{{ $previousRequestNav->ticket_number }}</span>
-                        </span>
-                    </a>
-                @else
-                    <span class="nav-direction nav-direction--disabled nav-direction--prev" aria-disabled="true">
-                        <span class="nav-direction__icon" aria-hidden="true">
-                            <i class="fas fa-arrow-left text-[10px]"></i>
-                        </span>
-                        <span class="nav-direction__content">
-                            <span class="nav-direction__eyebrow">Anterior</span>
-                            <span class="nav-direction__ticket">No disponible</span>
-                        </span>
-                    </span>
-                @endif
-            </div>
-            <div class="hidden sm:flex justify-center w-full sm:w-auto">
-                <div class="nav-pill-current" aria-live="polite">
-                    <span class="nav-pill-current__eyebrow">Solicitud actual</span>
-                    <span class="nav-pill-current__ticket">{{ $serviceRequest->ticket_number }}</span>
-                </div>
-            </div>
-            <div class="flex items-center flex-1 justify-end">
-                @if ($nextRequestNav)
-                    <a href="{{ route('service-requests.show', $nextRequestNav) }}"
-                        class="nav-direction nav-direction--reverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
-                        title="Ir a la solicitud {{ $nextRequestNav->ticket_number }}"
-                        aria-label="Ver siguiente solicitud {{ $nextRequestNav->ticket_number }}">
-                        <span class="nav-direction__icon" aria-hidden="true">
-                            <i class="fas fa-arrow-right text-[10px]"></i>
-                        </span>
-                        <span class="nav-direction__content">
-                            <span class="nav-direction__eyebrow">Siguiente</span>
-                            <span class="nav-direction__ticket">{{ $nextRequestNav->ticket_number }}</span>
-                        </span>
-                    </a>
-                @else
-                    <span class="nav-direction nav-direction--disabled nav-direction--reverse" aria-disabled="true">
-                        <span class="nav-direction__icon" aria-hidden="true">
-                            <i class="fas fa-arrow-right text-[10px]"></i>
-                        </span>
-                        <span class="nav-direction__content">
-                            <span class="nav-direction__eyebrow">Siguiente</span>
-                            <span class="nav-direction__ticket">No disponible</span>
-                        </span>
-                    </span>
-                @endif
-            </div>
+            @if ($previousRequestNav)
+                <a href="{{ route('service-requests.show', $previousRequestNav) }}"
+                    rel="prev"
+                    class="inline-flex items-center gap-2 rounded-md px-2 py-1 text-slate-700 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
+                    title="Ir a la solicitud {{ $previousRequestNav->ticket_number }}"
+                    aria-label="Ver solicitud anterior {{ $previousRequestNav->ticket_number }}">
+                    <i class="fas fa-arrow-left text-[10px]" aria-hidden="true"></i>
+                    <span class="hidden sm:inline">Anterior</span>
+                    <span class="font-medium">{{ $previousRequestNav->ticket_number }}</span>
+                </a>
+            @else
+                <span class="inline-flex items-center gap-2 px-2 py-1 text-slate-400" aria-disabled="true">
+                    <i class="fas fa-arrow-left text-[10px]" aria-hidden="true"></i>
+                    <span class="hidden sm:inline">Anterior</span>
+                </span>
+            @endif
+
+            @if ($nextRequestNav)
+                <a href="{{ route('service-requests.show', $nextRequestNav) }}"
+                    rel="next"
+                    class="inline-flex items-center gap-2 rounded-md px-2 py-1 text-slate-700 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-200"
+                    title="Ir a la solicitud {{ $nextRequestNav->ticket_number }}"
+                    aria-label="Ver siguiente solicitud {{ $nextRequestNav->ticket_number }}">
+                    <span class="font-medium">{{ $nextRequestNav->ticket_number }}</span>
+                    <span class="hidden sm:inline">Siguiente</span>
+                    <i class="fas fa-arrow-right text-[10px]" aria-hidden="true"></i>
+                </a>
+            @else
+                <span class="inline-flex items-center gap-2 px-2 py-1 text-slate-400" aria-disabled="true">
+                    <span class="hidden sm:inline">Siguiente</span>
+                    <i class="fas fa-arrow-right text-[10px]" aria-hidden="true"></i>
+                </span>
+            @endif
         </div>
 
         <!-- Header Principal con botón de edición -->
@@ -170,6 +146,18 @@
             ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
         toastEl.classList.remove('hidden');
         setTimeout(function(){ toastEl.classList.add('hidden'); }, 3000);
+    }
+
+    if (typeof window.showCopyNotification !== 'function') {
+        window.showCopyNotification = function(ticketNumber, success, options) {
+            if (success) {
+                toast((options && options.successMessage) ? options.successMessage : ('Ticket ' + ticketNumber + ' copiado'), 'success');
+                announce((options && options.successTitle) ? options.successTitle : 'Número copiado');
+                return;
+            }
+            toast((options && options.errorMessage) ? options.errorMessage : 'No se pudo copiar el número de ticket', 'error');
+            announce((options && options.errorTitle) ? options.errorTitle : 'No se pudo copiar');
+        };
     }
 
     function getFocusable(container) {
@@ -274,8 +262,23 @@
 </script>
 @endpush
 
-@section('styles')
+@push('styles')
     <style>
+        .sr-card-title {
+            font-family: "Segoe UI", "Segoe UI Variable", Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 1.125rem !important;
+            font-weight: 600 !important;
+            line-height: 1.3;
+            letter-spacing: 0;
+        }
+
+        .sr-view h1,
+        .sr-view h2,
+        .sr-view h3,
+        .sr-view h4 {
+            font-weight: 600 !important;
+        }
+
         .nav-direction {
             color: #0f172a;
             display: flex;
@@ -411,6 +414,22 @@
             }
         }
 
+        .sr-dead-state {
+            filter: grayscale(1);
+        }
+
+        .sr-dead-state a,
+        .sr-dead-state button,
+        .sr-dead-state i,
+        .sr-dead-state svg {
+            filter: grayscale(1) saturate(0) !important;
+        }
+
+        .sr-dead-state a:hover,
+        .sr-dead-state button:hover {
+            background-image: none !important;
+        }
+
         /* Timeline Styles */
         .timeline-item::before {
             content: '';
@@ -457,7 +476,7 @@
             }
         }
     </style>
-@endsection
+@endpush
 
 @push('scripts')
     <script>
@@ -508,7 +527,7 @@
             }
 
             document.addEventListener('keydown', function(e) {
-                if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                if (e.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
                     return;
                 }
                 if (e.key === 'ArrowLeft') {
@@ -522,7 +541,7 @@
             let touchStartX = null;
             let touchStartY = null;
 
-            document.addEventListener('touchstart', function(e) {
+            navContainer.addEventListener('touchstart', function(e) {
                 if (e.touches.length === 1) {
                     touchStartX = e.touches[0].clientX;
                     touchStartY = e.touches[0].clientY;
@@ -531,7 +550,7 @@
                 passive: true
             });
 
-            document.addEventListener('touchend', function(e) {
+            navContainer.addEventListener('touchend', function(e) {
                 if (touchStartX === null || touchStartY === null) {
                     return;
                 }

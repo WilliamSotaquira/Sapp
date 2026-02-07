@@ -21,7 +21,7 @@
 
 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
     <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+        <h3 class="sr-card-title text-gray-800 flex items-center">
             <i class="fas fa-globe text-green-600 mr-3"></i>
             Rutas Web y URLs
         </h3>

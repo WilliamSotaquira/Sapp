@@ -1,15 +1,18 @@
 @props(['serviceRequest'])
 
+@php
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+@endphp
+
 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-orange-50 to-amber-50 px-6 py-4 border-b border-orange-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
-            <i class="fas fa-clock text-orange-600 mr-3"></i>
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-100' }} px-6 py-4 border-b">
+        <h3 class="sr-card-title text-gray-800 flex items-center">
+            <i class="fas fa-clock {{ $isDead ? 'text-gray-500' : 'text-orange-600' }} mr-3"></i>
             Tiempo de Respuesta
         </h3>
     </div>
     <div class="p-6">
-        <!-- Estado principal del SLA -->
-        <div class="text-center mb-6">
+        <div class="flex items-center justify-between mb-4">
             @php
                 $slaHours = $serviceRequest->subService->sla_hours ?? 72;
                 $elapsedHours = $serviceRequest->created_at->diffInHours(now());
@@ -55,141 +58,27 @@
                     $icon = 'fa-check-circle';
                 }
             @endphp
-
-            <div class="inline-flex items-center px-4 py-2 rounded-full {{ $bgColor }} {{ $borderColor }} border">
+            <div class="inline-flex items-center px-3 py-1.5 rounded-full {{ $bgColor }} {{ $borderColor }} border text-sm">
                 <i class="fas {{ $icon }} {{ $statusColor }} mr-2"></i>
                 <span class="font-semibold {{ $statusColor }}">{{ $status }}</span>
             </div>
+            <div class="text-sm font-medium text-gray-700">{{ number_format($progress, 0) }}%</div>
         </div>
 
-        <!-- Barra de progreso mejorada -->
-        <div class="mb-6">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium text-gray-700">Progreso del tiempo</span>
-                <span class="text-sm font-bold text-gray-900">{{ number_format($progress, 0) }}%</span>
+        <div class="mb-4">
+            <div class="bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div class="h-2 rounded-full {{ $progressColor }}" style="width: {{ $progress }}%"></div>
             </div>
-
-            <div class="bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div
-                    class="h-3 rounded-full {{ $progressColor }} transition-all duration-500 ease-out"
-                    style="width: {{ $progress }}%"
-                ></div>
-            </div>
-
-            <div class="flex justify-between items-center mt-2">
-                <div class="text-left">
-                    <p class="text-xs text-gray-500">Transcurrido</p>
-                    <p class="text-sm font-semibold text-gray-900">
-                        @if($elapsedDays > 0)
-                            {{ $elapsedDays }}d {{ round($elapsedRemainingHours) }}h
-                        @else
-                            {{ round($elapsedRemainingHours) }}h
-                        @endif
-                    </p>
-                </div>
-
-                <div class="text-center">
-                    <p class="text-xs text-gray-500">Restante</p>
-                    <p class="text-sm font-semibold {{ $progress >= 90 ? 'text-red-600' : 'text-gray-900' }}">
-                        @if($remainingDays > 0)
-                            {{ $remainingDays }}d {{ round($remainingRemainingHours) }}h
-                        @else
-                            {{ round($remainingRemainingHours) }}h
-                        @endif
-                    </p>
-                </div>
-
-                <div class="text-right">
-                    <p class="text-xs text-gray-500">Límite total</p>
-                    <p class="text-sm font-semibold text-gray-900">
-                        @if($slaDays > 0)
-                            {{ $slaDays }}d {{ $slaRemainingHours }}h
-                        @else
-                            {{ $slaHours }}h
-                        @endif
-                    </p>
-                </div>
+            <div class="mt-2 flex justify-between text-xs text-gray-600">
+                <span>Transcurrido: {{ $elapsedDays > 0 ? ($elapsedDays . 'd ' . round($elapsedRemainingHours) . 'h') : (round($elapsedRemainingHours) . 'h') }}</span>
+                <span>Restante: {{ $remainingDays > 0 ? ($remainingDays . 'd ' . round($remainingRemainingHours) . 'h') : (round($remainingRemainingHours) . 'h') }}</span>
+                <span>Total: {{ $slaDays > 0 ? ($slaDays . 'd ' . $slaRemainingHours . 'h') : ($slaHours . 'h') }}</span>
             </div>
         </div>
 
-        <!-- Información resumida -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
-            <div class="text-center p-3 bg-blue-50 rounded-lg">
-                <div class="text-xl font-bold text-blue-600 mb-1">
-                    {{ $elapsedDays }}d {{ round($elapsedRemainingHours) }}h
-                </div>
-                <p class="text-sm font-medium text-gray-700">Tiempo transcurrido</p>
-                <p class="text-xs text-gray-500">Desde la creación</p>
-            </div>
-
-            <div class="text-center p-3 {{ $progress >= 90 ? 'bg-red-50' : 'bg-green-50' }} rounded-lg">
-                <div class="text-xl font-bold {{ $progress >= 90 ? 'text-red-600' : 'text-green-600' }} mb-1">
-                    @if($remainingDays > 0)
-                        {{ $remainingDays }}d {{ round($remainingRemainingHours) }}h
-                    @else
-                        {{ round($remainingRemainingHours) }}h
-                    @endif
-                </div>
-                <p class="text-sm font-medium text-gray-700">Tiempo restante</p>
-                <p class="text-xs text-gray-500">Para cumplir el SLA</p>
-            </div>
-
-            <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <div class="text-xl font-bold text-gray-700 mb-1">
-                    @if($slaDays > 0)
-                        {{ $slaDays }}d {{ $slaRemainingHours }}h
-                    @else
-                        {{ $slaHours }}h
-                    @endif
-                </div>
-                <p class="text-sm font-medium text-gray-700">Plazo establecido</p>
-                <p class="text-xs text-gray-500">Tiempo límite total</p>
-            </div>
-        </div>
-
-        <!-- Alerta crítica -->
-        @if($progress >= 90)
-        <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div class="flex items-center">
-                <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
-                <span class="text-sm font-medium text-red-700">
-                    @if($remainingHours <= 0)
-                    ⚠️ El tiempo de respuesta ha sido excedido
-                    @else
-                    ⚠️ Tiempo de respuesta crítico - Actúe pronto
-                    @endif
-                </span>
-            </div>
-        </div>
-        @elseif($progress >= 75)
-        <div class="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-            <div class="flex items-center">
-                <i class="fas fa-clock text-orange-500 mr-2"></i>
-                <span class="text-sm font-medium text-orange-700">
-                    ⏳ Tiempo de respuesta en riesgo - Monitoree de cerca
-                </span>
-            </div>
-        </div>
-        @endif
-
-        <!-- Fechas importantes -->
-        <div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                <i class="fas fa-calendar-alt text-gray-500 mr-2"></i>
-                Fechas clave
-            </h4>
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-600">Fecha de inicio:</span>
-                    <span class="text-xs font-medium text-gray-900">{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-600">Fecha límite:</span>
-                    <span class="text-xs font-medium {{ $progress >= 90 ? 'text-red-600' : 'text-gray-900' }}">
-                        {{ $serviceRequest->created_at->addHours($slaHours)->format('d/m/Y H:i') }}
-                    </span>
-                </div>
-            </div>
+        <div class="text-xs text-gray-500">
+            Inicio: {{ $serviceRequest->created_at->format('d/m/Y H:i') }} ·
+            Límite: {{ $serviceRequest->created_at->addHours($slaHours)->format('d/m/Y H:i') }}
         </div>
     </div>
 </div>
