@@ -3,10 +3,11 @@
 <div class="flex items-center gap-1" data-request-id="{{ $request->id }}">
     <!-- Ver Detalles -->
     <a href="{{ route('service-requests.show', $request) }}"
-       class="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors duration-150"
+       class="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors duration-150 inline-flex items-center"
        title="Ver detalles"
        aria-label="Ver detalles de la solicitud {{ $request->ticket_number }}">
         <i class="fas fa-eye {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+        <span class="ml-1 text-[10px] text-gray-700 hidden sm:inline">Ver</span>
     </a>
 
     <!-- Aceptar -->
@@ -14,10 +15,11 @@
         <form method="POST" action="{{ route('service-requests.accept', $request) }}" class="sr-action-form inline" data-action="accept">
             @csrf
             @method('PATCH')
-            <button type="submit" class="text-green-600 hover:text-green-800 p-1 rounded transition-colors duration-150"
+            <button type="submit" class="text-green-600 hover:text-green-800 p-1 rounded transition-colors duration-150 inline-flex items-center"
                     title="Aceptar solicitud"
                     aria-label="Aceptar solicitud {{ $request->ticket_number }}">
                 <i class="fas fa-check {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+                <span class="ml-1 text-[10px] text-gray-700 hidden sm:inline">Aceptar</span>
             </button>
         </form>
     @endif
@@ -28,22 +30,24 @@
             @csrf
             @method('PATCH')
             <input type="hidden" name="use_standard_tasks" value="0" />
-            <button type="submit" class="text-purple-600 hover:text-purple-800 p-1 rounded transition-colors duration-150"
+            <button type="submit" class="text-purple-600 hover:text-purple-800 p-1 rounded transition-colors duration-150 inline-flex items-center"
                     title="Marcar en proceso"
                     aria-label="Marcar en proceso solicitud {{ $request->ticket_number }}">
                 <i class="fas fa-cog {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+                <span class="ml-1 text-[10px] text-gray-700 hidden sm:inline">Proceso</span>
             </button>
         </form>
     @endif
 
     <!-- Menú Más Opciones (placeholder) -->
     <div class="relative">
-        <button type="button" class="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors duration-150 sr-more-btn"
+        <button type="button" class="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors duration-150 sr-more-btn inline-flex items-center"
                 title="Más opciones"
                 aria-haspopup="true"
                 aria-expanded="false"
                 aria-label="Más opciones para solicitud {{ $request->ticket_number }}">
             <i class="fas fa-ellipsis-h {{ $compact ? 'text-xs' : 'text-sm' }}"></i>
+            <span class="ml-1 text-[10px] text-gray-700 hidden sm:inline">Más</span>
         </button>
         <div class="sr-more-menu absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow text-xs hidden z-10">
             <a href="{{ route('service-requests.timeline', $request) }}" class="block px-3 py-2 hover:bg-gray-50" aria-label="Ver línea de tiempo">Línea de tiempo</a>

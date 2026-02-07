@@ -60,7 +60,14 @@
                     </p>
                 </div>
 
-                <div class="space-y-3">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm text-gray-600">Evidencias registradas</span>
+                    <button type="button" id="toggleEvidencesBtn" class="text-sm text-blue-600 hover:text-blue-800">
+                        Ocultar evidencias
+                    </button>
+                </div>
+
+                <div class="space-y-3" id="evidencesList">
                     @foreach($serviceRequest->evidences as $evidence)
                         <div class="bg-gray-50 border rounded-lg p-4">
                             <div class="flex justify-between items-start">
@@ -129,7 +136,7 @@
         </div>
 
         <!-- Formulario de Resolución -->
-        <form action="{{ route('service-requests.resolve', $serviceRequest) }}" method="POST">
+        <form action="{{ route('service-requests.resolve', $serviceRequest) }}" method="POST" id="resolveForm">
             @csrf
 
             <div class="p-6">
@@ -162,7 +169,7 @@
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                     <p class="mt-1 text-sm text-gray-500">
-                        Tiempo estimado por SLA: {{ $serviceRequest->sla->resolution_time_minutes }} minutos
+                        Se usa para métricas y cumplimiento de SLA. Estimado SLA: {{ $serviceRequest->sla->resolution_time_minutes }} minutos.
                     </p>
                 </div>
 
@@ -211,7 +218,7 @@
                         </button>
                     @else
                         <button type="button"
-                            onclick="confirmResolutionWithoutEvidence()"
+                            onclick="openNoEvidenceModal()"
                             class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
                             <i class="fas fa-exclamation-triangle mr-2"></i>
                             Resolver Sin Evidencias
@@ -222,15 +229,60 @@
         </form>
     </div>
 </div>
+
+<!-- Modal de confirmación sin evidencias -->
+<div id="noEvidenceModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-black/40" data-overlay></div>
+    <div class="relative w-full min-h-screen flex items-center justify-center p-4">
+        <div class="w-[96%] max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200">
+                <h4 class="text-lg font-semibold text-gray-900">Resolver sin evidencias</h4>
+                <p class="text-sm text-gray-600 mt-1">No hay evidencias registradas. Se recomienda agregar al menos una antes de resolver.</p>
+            </div>
+            <div class="px-5 py-4">
+                <p class="text-sm text-gray-700">¿Deseas continuar de todos modos?</p>
+            </div>
+            <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button type="button" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100" onclick="closeNoEvidenceModal()">Cancelar</button>
+                <button type="button" class="px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600" onclick="submitResolveForm()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
 <script>
-    function confirmResolutionWithoutEvidence() {
-        if (confirm('⚠️ ¿Está seguro de resolver esta solicitud sin evidencias?\n\nSe recomienda agregar al menos una evidencia paso a paso o archivo adjunto antes de resolver.')) {
-            document.querySelector('form').submit();
-        }
+    function openNoEvidenceModal() {
+        const modal = document.getElementById('noEvidenceModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
     }
+
+    function closeNoEvidenceModal() {
+        const modal = document.getElementById('noEvidenceModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function submitResolveForm() {
+        const form = document.getElementById('resolveForm');
+        if (form) form.submit();
+    }
+
+    (function(){
+        const modal = document.getElementById('noEvidenceModal');
+        if (!modal) return;
+        const overlay = modal.querySelector('[data-overlay]');
+        if (overlay) overlay.addEventListener('click', closeNoEvidenceModal);
+        document.addEventListener('keydown', function(e){
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeNoEvidenceModal();
+            }
+        });
+    })();
 
     // Validación del tiempo de resolución
     document.getElementById('actual_resolution_time').addEventListener('change', function() {
@@ -243,5 +295,16 @@
             }
         }
     });
+
+    // Toggle evidences list
+    (function(){
+        const btn = document.getElementById('toggleEvidencesBtn');
+        const list = document.getElementById('evidencesList');
+        if (!btn || !list) return;
+        btn.addEventListener('click', function(){
+            const isHidden = list.classList.toggle('hidden');
+            btn.textContent = isHidden ? 'Mostrar evidencias' : 'Ocultar evidencias';
+        });
+    })();
 </script>
 @endsection

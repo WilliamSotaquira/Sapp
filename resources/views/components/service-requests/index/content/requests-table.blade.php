@@ -1,8 +1,35 @@
 @props(['serviceRequests', 'services' => null])
 
+@php
+    $activeFilters = [];
+    $search = request('search');
+    $status = request('status');
+    $criticality = request('criticality');
+    $requester = request('requester');
+    $startDate = request('start_date');
+    $endDate = request('end_date');
+    $open = request('open');
+    $serviceId = request('service_id');
+    $baseParams = request()->except(['page']);
+
+    if ($search) $activeFilters[] = ['label' => 'Búsqueda: ' . \Illuminate\Support\Str::limit($search, 30), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['search' => true]))];
+    if ($status) $activeFilters[] = ['label' => 'Estado: ' . ucfirst(strtolower(str_replace('_',' ', $status))), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['status' => true]))];
+    if ($criticality) $activeFilters[] = ['label' => 'Prioridad: ' . ucfirst(strtolower($criticality)), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['criticality' => true]))];
+    if ($requester) $activeFilters[] = ['label' => 'Solicitante: ' . \Illuminate\Support\Str::limit($requester, 24), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['requester' => true]))];
+    if ($serviceId && $services) {
+        $serviceName = optional($services->firstWhere('id', (int) $serviceId))->name;
+        if ($serviceName) $activeFilters[] = ['label' => 'Servicio: ' . \Illuminate\Support\Str::limit($serviceName, 28), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['service_id' => true]))];
+    }
+    if ($startDate || $endDate) {
+        $rangeLabel = trim(($startDate ?: '...') . ' a ' . ($endDate ?: '...'));
+        $activeFilters[] = ['label' => 'Fechas: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
+    }
+    if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
+@endphp
+
 <div class="bg-white rounded-lg shadow-sm border border-gray-200" role="region" aria-labelledby="requests-table-title">
     <!-- Header Compacto -->
-    <div class="bg-gray-50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-gray-200">
+    <div class="bg-gray-50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 border-b border-gray-200">
         <div class="flex items-center justify-between flex-wrap gap-2">
             <h3 id="requests-table-title" class="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
                 <i class="fas fa-tasks text-blue-500 mr-1.5 sm:mr-2 text-xs sm:text-sm"></i>
@@ -39,12 +66,13 @@
                     <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></span>
                     {{ $resolvedCount ?? 0 }}
                 </span>
+                <span class="hidden sm:inline text-[11px] text-gray-500 ml-1">Totales según filtros</span>
             </div>
         </div>
     </div>
 
     <!-- Nueva Barra de Búsqueda y Filtros Rápidos -->
-    <div class="px-3 sm:px-4 py-3 bg-white border-b border-gray-200">
+    <div class="px-2.5 sm:px-3.5 py-2.5 bg-white border-b border-gray-200">
         <div class="flex flex-col sm:flex-row gap-3">
             <!-- Búsqueda Principal -->
             <div class="flex-1 relative">
@@ -84,7 +112,7 @@
         </div>
 
         <!-- Filtros Rápidos -->
-        <div class="flex gap-2 mt-3 flex-wrap">
+            <div class="flex gap-2 mt-2.5 flex-wrap">
             <button type="button" onclick="applyQuickFilter('criticality', 'CRITICA')" 
                     class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-red-300 text-red-700 hover:bg-red-50 transition-colors">
                 <i class="fas fa-exclamation-circle mr-1"></i>Críticas
@@ -106,6 +134,23 @@
                 <i class="fas fa-star mr-1"></i>Presets
             </button>
         </div>
+
+        @if (count($activeFilters) > 0)
+            <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-gray-500">Filtros activos:</span>
+                @foreach ($activeFilters as $filter)
+                    <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[11px]">
+                        <i class="fas fa-filter text-[10px]"></i>
+                        {{ $filter['label'] }}
+                        <a href="{{ $filter['remove'] }}" class="ml-1 text-blue-600 hover:text-blue-800" aria-label="Quitar filtro">
+                            <i class="fas fa-times text-[10px]"></i>
+                        </a>
+                    </span>
+                @endforeach
+                <a href="{{ route('service-requests.index') }}"
+                   class="text-xs text-blue-600 hover:text-blue-800 ml-1">Limpiar filtros</a>
+            </div>
+        @endif
     </div>
 
     <!-- Sidebar de Filtros Avanzados -->
@@ -221,21 +266,21 @@
     <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40" onclick="document.getElementById('filtersSidebar').classList.add('translate-x-full'); this.classList.add('hidden');"></div>
 
     <!-- Contenido Compacto -->
-    <div class="p-3 sm:p-4" id="tableContainer">
+    <div class="p-2.5 sm:p-3.5" id="tableContainer">
         @if ($serviceRequests->count() > 0)
-            <div class="overflow-x-auto -mx-3 sm:mx-0">
+            <div class="overflow-x-auto -mx-2.5 sm:mx-0">
                 <!-- Tabla Compacta -->
                 <table class="min-w-full text-xs sm:text-sm" aria-describedby="table-instructions">
                     <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
                         <tr>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium">Ticket</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium w-1/5 hidden md:table-cell">Solicitud</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium w-1/5 hidden lg:table-cell">Servicio</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium">Prioridad</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium">Estado</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium hidden sm:table-cell">Solicitante</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium hidden xl:table-cell">Fecha</th>
-                            <th class="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium">Acciones</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Ticket</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium w-1/5 hidden md:table-cell">Solicitud</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium w-1/5 hidden lg:table-cell">Servicio</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Prioridad</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Estado</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium hidden sm:table-cell">Solicitante</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium hidden xl:table-cell">Fecha</th>
+                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Acciones</th>
                         </tr>
                     </thead>
 

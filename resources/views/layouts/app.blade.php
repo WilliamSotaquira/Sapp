@@ -718,7 +718,14 @@
         @endphp
         @if(!$hidePageHeader && $pageTitle !== '')
             <div class="mb-4 sm:mb-6">
-                <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{{ $pageTitle }}</h1>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{{ $pageTitle }}</h1>
+                    @if(isset($serviceRequest) && ($serviceRequest->status ?? null) === 'CERRADA')
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md border border-red-500/70 bg-red-600 text-[11px] font-semibold uppercase tracking-wide text-white">
+                            Cerrada
+                        </span>
+                    @endif
+                </div>
                 @yield('breadcrumb')
             </div>
         @endif

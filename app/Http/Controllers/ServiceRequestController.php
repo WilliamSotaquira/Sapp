@@ -337,7 +337,18 @@ class ServiceRequestController extends Controller
         }
 
         // Todos los usuarios son técnicos - excluir solo el actual
-        $technicians = User::where('id', '!=', $service_request->assigned_to)->orderBy('name')->get();
+        $technicians = User::with([
+                'technician' => function ($query) {
+                    $query->withCount([
+                        'tasks as open_tasks_count' => function ($taskQuery) {
+                            $taskQuery->whereNotIn('status', ['completed', 'cancelled']);
+                        },
+                    ]);
+                },
+            ])
+            ->where('id', '!=', $service_request->assigned_to)
+            ->orderBy('name')
+            ->get();
 
         return view('service-requests.reassign', compact('service_request', 'technicians'));
     }

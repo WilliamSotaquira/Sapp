@@ -1,15 +1,15 @@
 @props(['serviceRequest'])
 
+@php
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+@endphp
+
 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
-            <i class="fas fa-cog text-purple-600 mr-3"></i>
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-6 py-4 border-b">
+        <h3 class="sr-card-title text-gray-800 flex items-center">
+            <i class="fas fa-cog {{ $isDead ? 'text-gray-500' : 'text-purple-600' }} mr-3"></i>
             Acciones y Compartir
         </h3>
-        <p class="text-sm text-gray-600 mt-1">
-            <i class="fas fa-info-circle mr-1"></i>
-            Los links compartidos permiten consultar sin autenticación
-        </p>
     </div>
     <div class="p-6">
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -18,46 +18,46 @@
             <!-- Editar -->
             @if (in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA']))
                 <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                    class="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
-                    <i class="fas fa-edit text-green-600 text-xl mb-2"></i>
-                    <span class="font-medium text-gray-900">Editar</span>
-                    <span class="text-sm text-gray-500 mt-1">Modificar solicitud</span>
+                    class="flex flex-col items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
+                    <i class="fas fa-edit text-green-600 text-lg mb-1"></i>
+                    <span class="font-medium text-gray-900 text-sm">Editar</span>
+                    <span class="text-xs text-gray-500">Modificar</span>
                 </a>
             @else
-                <div class="flex flex-col items-center p-4 bg-gray-100 rounded-lg text-center opacity-50">
-                    <i class="fas fa-edit text-gray-400 text-xl mb-2"></i>
-                    <span class="font-medium text-gray-500">Editar</span>
-                    <span class="text-sm text-gray-400 mt-1">No disponible</span>
+                <div class="flex flex-col items-center p-3 bg-gray-100 rounded-lg text-center opacity-50">
+                    <i class="fas fa-edit text-gray-400 text-lg mb-1"></i>
+                    <span class="font-medium text-gray-500 text-sm">Editar</span>
+                    <span class="text-xs text-gray-400">No disponible</span>
                 </div>
             @endif
 
             <!-- Eliminar -->
             @if (in_array($serviceRequest->status, ['PENDIENTE', 'CANCELADA']))
                 <form action="{{ route('service-requests.destroy', $serviceRequest) }}" method="POST"
-                    class="flex flex-col items-center p-4 bg-red-50 rounded-lg hover:bg-red-100 transition duration-150 text-center"
+                    class="flex flex-col items-center p-3 bg-red-50 rounded-lg hover:bg-red-100 transition duration-150 text-center"
                     onsubmit="return confirm('¿Está seguro de que desea eliminar esta solicitud?')">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="flex flex-col items-center">
-                        <i class="fas fa-trash text-red-600 text-xl mb-2"></i>
-                        <span class="font-medium text-gray-900">Eliminar</span>
-                        <span class="text-sm text-gray-500 mt-1">Remover solicitud</span>
+                        <i class="fas fa-trash text-red-600 text-lg mb-1"></i>
+                        <span class="font-medium text-gray-900 text-sm">Eliminar</span>
+                        <span class="text-xs text-gray-500">Remover</span>
                     </button>
                 </form>
             @else
-                <div class="flex flex-col items-center p-4 bg-gray-100 rounded-lg text-center opacity-50">
-                    <i class="fas fa-trash text-gray-400 text-xl mb-2"></i>
-                    <span class="font-medium text-gray-500">Eliminar</span>
-                    <span class="text-sm text-gray-400 mt-1">No disponible</span>
+                <div class="flex flex-col items-center p-3 bg-gray-100 rounded-lg text-center opacity-50">
+                    <i class="fas fa-trash text-gray-400 text-lg mb-1"></i>
+                    <span class="font-medium text-gray-500 text-sm">Eliminar</span>
+                    <span class="text-xs text-gray-400">No disponible</span>
                 </div>
             @endif
 
             <!-- Descargar Reporte -->
             <a href="{{ route('service-requests.download-report', $serviceRequest) }}"
-                class="flex flex-col items-center p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition duration-150 text-center">
-                <i class="fas fa-download text-indigo-600 text-xl mb-2"></i>
-                <span class="font-medium text-gray-900">Descargar</span>
-                <span class="text-sm text-gray-500 mt-1">Reporte PDF</span>
+                class="flex flex-col items-center p-3 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition duration-150 text-center">
+                <i class="fas fa-download text-indigo-600 text-lg mb-1"></i>
+                <span class="font-medium text-gray-900 text-sm">Descargar</span>
+                <span class="text-xs text-gray-500">PDF</span>
             </a>
 
             <!-- Compartir por WhatsApp -->
@@ -113,38 +113,29 @@
 
             <!-- WhatsApp -->
             <a href="{{ $whatsappUrl }}" target="_blank"
-                class="flex flex-col items-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg hover:from-green-100 hover:to-green-200 transition-all duration-150 text-center group shadow-sm hover:shadow-md">
-                <i class="fab fa-whatsapp text-green-600 text-2xl mb-2 group-hover:scale-110 transition-transform"></i>
-                <span class="font-bold text-gray-900">WhatsApp</span>
-                <span class="text-xs text-gray-600 mt-1">Link público sin login</span>
+                class="flex flex-col items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
+                <i class="fab fa-whatsapp text-green-600 text-lg mb-1"></i>
+                <span class="font-medium text-gray-900 text-sm">WhatsApp</span>
+                <span class="text-xs text-gray-500">Link público</span>
             </a>
 
             <!-- Email -->
             <a href="{{ $emailUrl }}" target="_blank"
-                class="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all duration-150 text-center group shadow-sm hover:shadow-md">
-                <i class="fas fa-envelope text-blue-600 text-2xl mb-2 group-hover:scale-110 transition-transform"></i>
-                <span class="font-bold text-gray-900">Email</span>
-                <span class="text-xs text-gray-600 mt-1">Enviar sin login</span>
+                class="flex flex-col items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-150 text-center">
+                <i class="fas fa-envelope text-blue-600 text-lg mb-1"></i>
+                <span class="font-medium text-gray-900 text-sm">Email</span>
+                <span class="text-xs text-gray-500">Link público</span>
             </a>
 
             <!-- Copiar Enlace Público -->
             <button onclick="copyPublicLink()" type="button"
-                class="flex flex-col items-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all duration-150 text-center group shadow-sm hover:shadow-md">
-                <i class="fas fa-copy text-purple-600 text-2xl mb-2 group-hover:scale-110 transition-transform"></i>
-                <span class="font-bold text-gray-900">Copiar Link</span>
-                <span class="text-xs text-gray-600 mt-1">Acceso sin login</span>
+                class="flex flex-col items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition duration-150 text-center">
+                <i class="fas fa-copy text-purple-600 text-lg mb-1"></i>
+                <span class="font-medium text-gray-900 text-sm">Copiar Link</span>
+                <span class="text-xs text-gray-500">Link público</span>
             </button>
 
         </div>
 
-        <!-- Nota Informativa -->
-        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div class="flex items-start">
-                <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-2"></i>
-                <div class="text-sm text-blue-800">
-                    <span class="font-semibold">Enlaces públicos:</span> Las personas con quienes compartas estos enlaces podrán consultar el estado de la solicitud sin necesidad de crear cuenta o iniciar sesión.
-                </div>
-            </div>
-        </div>
     </div>
 </div>

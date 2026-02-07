@@ -18,11 +18,13 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function create(ServiceRequest $serviceRequest)
     {
-        // Solo permitir agregar evidencias cuando la solicitud está en proceso
-        if ($serviceRequest->status !== 'EN_PROCESO') {
+        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+
+        // Permitir agregar evidencias en proceso y también después de cerrada
+        if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso.');
+                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
         }
 
         // Obtener el siguiente número de paso
@@ -42,17 +44,38 @@ class ServiceRequestEvidenceController extends Controller
         \Log::info('Request data:', $request->all());
         \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
 
-        // Solo permitir carga de evidencias cuando la solicitud está en proceso
-        if ($serviceRequest->status !== 'EN_PROCESO') {
+        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+
+        // Permitir carga en proceso y cerrada
+        if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso.');
+                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
         }
 
         try {
+            // Permite guardar enlace desde el mismo endpoint
+            if ($request->filled('link_url')) {
+                $validatedLink = $request->validate([
+                    'link_url' => 'required|url|max:2048',
+                ]);
+
+                ServiceRequestEvidence::create([
+                    'service_request_id' => $serviceRequest->id,
+                    'title' => 'Enlace - ' . now()->format('d/m/Y H:i'),
+                    'description' => $validatedLink['link_url'],
+                    'evidence_type' => 'ENLACE',
+                    'evidence_data' => ['url' => $validatedLink['link_url']],
+                    'user_id' => auth()->id(),
+                ]);
+
+                return redirect()->back()->with('success', 'Enlace agregado correctamente.');
+            }
+
             // Nuestro formulario usa 'files[]' no 'file'
             $request->validate([
-                'files.*' => 'required|file|max:10240',
+                'files' => 'required|array|min:1|max:5',
+                'files.*' => 'required|file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,txt,zip,rar,csv,svg',
             ]);
 
             \Log::info('✅ Validation passed');

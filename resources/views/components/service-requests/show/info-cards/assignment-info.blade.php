@@ -1,51 +1,25 @@
 @props(['serviceRequest'])
 
+@php
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+@endphp
+
 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
-    <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
-            <i class="fas fa-users text-green-600 mr-3"></i>
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100' }} px-6 py-3 border-b">
+        <h3 class="sr-card-title text-gray-800 flex items-center">
+            <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-green-600' }} mr-3"></i>
             Asignación y Responsables
         </h3>
     </div>
 
-    <div class="p-6">
-        <!-- Alertas de estado -->
+    <div class="p-4">
         @if ($serviceRequest->status === 'EN_PROCESO' && !$serviceRequest->assigned_to)
-            <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg" data-assign-alert>
-                <div class="flex items-center">
-                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
-                    <div>
-                        <p class="text-red-800 font-semibold">Inconsistencia detectada</p>
-                        <p class="text-red-600 text-sm">La solicitud está en proceso pero no tiene técnico asignado.</p>
-                    </div>
-                </div>
+            <div class="mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                Falta asignar técnico para continuar.
             </div>
-        @endif
-
-        @if ($serviceRequest->status === 'ACEPTADA' && !$serviceRequest->assigned_to)
-            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg" data-assign-alert>
-                <div class="flex items-center">
-                    <i class="fas fa-info-circle text-amber-500 mr-3"></i>
-                    <div>
-                        <p class="text-amber-800 font-semibold">Asignación pendiente</p>
-                        <p class="text-amber-600 text-sm">La solicitud está aceptada pero requiere asignación de técnico
-                            para iniciar el proceso.</p>
-                        @if($serviceRequest->status !== 'CERRADA')
-                        <div class="mt-2 flex flex-wrap gap-2">
-                            <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
-                                <i class="fas fa-edit mr-1"></i>
-                                Editar Solicitud
-                            </a>
-                            <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                class="quick-assign-btn inline-flex items-center justify-center w-full sm:w-auto px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                <i class="fas fa-user-plus mr-1"></i>
-                                Asignar Técnico
-                            </button>
-                        </div>
-                        @endif
-                    </div>
-                </div>
+        @elseif ($serviceRequest->status === 'ACEPTADA' && !$serviceRequest->assigned_to)
+            <div class="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                Asignación pendiente para iniciar el proceso.
             </div>
         @endif
 
@@ -54,135 +28,62 @@
                 ->where('is_active', true)
                 ->get();
         @endphp
-        <div class="space-y-6">
+
+        <div class="grid grid-cols-1 gap-2.5">
             <!-- Solicitante -->
-            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div
-                    class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    <span data-requester-initial>{{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}</span>
-                </div>
-                <div class="flex-1 min-w-0 w-full">
-                    <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
-                        <div class="space-y-1">
-                            <label class="text-sm font-medium text-gray-500 block">Solicitante</label>
-                            <p class="text-gray-900 font-semibold break-words" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</p>
-                            <p class="text-sm text-gray-500 break-all" data-requester-email>{{ $serviceRequest->requester->email ?? '' }}</p>
-                        </div>
-                        @if($serviceRequest->status !== 'CERRADA')
-                        <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
-                            <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                class="quick-requester-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                                <i class="fas fa-user-edit mr-1"></i>
-                                <span data-requester-action-label>{{ $serviceRequest->requester ? 'Reasignar' : 'Asignar' }}</span>
-                            </button>
-                            <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
-                                <i class="fas fa-edit mr-1"></i>
-                                Editar
-                            </a>
-                        </div>
-                        @endif
+            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+                <div class="grid grid-cols-[auto,1fr,auto] gap-2.5 items-start">
+                    <div class="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        <span data-requester-initial>{{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}</span>
                     </div>
-                    @if(!$serviceRequest->requester)
-                        <p class="text-sm text-amber-600 font-medium mt-2">
-                            ⚠️ Asigna un solicitante para completar la información de contacto.
-                        </p>
-                    @endif
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium uppercase tracking-normal text-gray-500">Solicitante</div>
+                        <div class="font-semibold text-gray-900 leading-snug mt-0.5 text-sm" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</div>
+                        <div class="text-sm text-gray-600 mt-0.5 leading-snug truncate" data-requester-email title="{{ $serviceRequest->requester->email ?? '' }}">{{ $serviceRequest->requester->email ?? '' }}</div>
+                    </div>
+                @if($serviceRequest->status !== 'CERRADA')
+                    <div class="self-start">
+                        <button type="button" data-request-id="{{ $serviceRequest->id }}"
+                            class="quick-requester-btn inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
+                            <i class="fas fa-user-edit mr-1"></i>
+                            <span data-requester-action-label>{{ $serviceRequest->requester ? 'Cambiar' : 'Asignar' }}</span>
+                        </button>
+                    </div>
+                @endif
                 </div>
             </div>
 
-            <div class="border-t border-gray-200"></div>
-
-            <!-- Asignado a -->
-            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div class="{{ $serviceRequest->assigned_to ? '' : 'hidden' }} flex flex-col sm:flex-row sm:items-center gap-4" data-assigned-block>
-                    <div
-                        class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        <span data-assignee-initial>{{ substr($serviceRequest->assignee->name ?? 'T', 0, 1) }}</span>
+            <!-- Técnico -->
+            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+                <div class="grid grid-cols-[auto,1fr,auto] gap-2.5 items-start">
+                    <div data-assignee-avatar class="flex-shrink-0 w-9 h-9 {{ $serviceRequest->assigned_to ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' : 'bg-amber-100 text-amber-700' }} rounded-full flex items-center justify-center font-bold text-sm">
+                        <span data-assignee-initial>{{ $serviceRequest->assigned_to ? substr($serviceRequest->assignee->name ?? 'T', 0, 1) : '?' }}</span>
                     </div>
-                    <div class="flex-1 min-w-0 w-full">
-                        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
-                            <div class="space-y-1">
-                                <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                                <p class="text-gray-900 font-semibold break-words" data-assignee-name>{{ $serviceRequest->assignee->name ?? 'N/A' }}</p>
-                                <p class="text-sm text-gray-500 break-all" data-assignee-email>{{ $serviceRequest->assignee->email ?? '' }}</p>
-                            </div>
-                            @if($serviceRequest->status !== 'CERRADA')
-                                <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
-                                    <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                        class="quick-assign-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        <i class="fas fa-sync-alt mr-1"></i>
-                                        <span>Reasignar</span>
-                                    </button>
-                                    <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                        class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        <i class="fas fa-edit mr-1"></i>
-                                        Editar
-                                    </a>
-                                </div>
-                            @endif
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium uppercase tracking-normal text-gray-500">Técnico asignado</div>
+                        <div class="font-semibold text-gray-900 leading-snug mt-0.5 text-sm" data-assignee-name>
+                            {{ $serviceRequest->assignee->name ?? 'Sin asignar' }}
                         </div>
-
-
+                        <div class="text-sm text-gray-600 mt-0.5 leading-snug truncate" data-assignee-email title="{{ $serviceRequest->assignee->email ?? '' }}">{{ $serviceRequest->assignee->email ?? '' }}</div>
                     </div>
-                </div>
-                <div class="{{ $serviceRequest->assigned_to ? 'hidden' : '' }} flex flex-col sm:flex-row sm:items-center gap-4" data-unassigned-block>
-                    <div
-                        class="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-                        <i class="fas fa-user-plus text-lg"></i>
+                @if($serviceRequest->status !== 'CERRADA')
+                    <div class="self-start">
+                        <button type="button" data-request-id="{{ $serviceRequest->id }}"
+                            class="quick-assign-btn inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
+                            <i class="fas fa-user-plus mr-1"></i>
+                            <span data-assignee-action-label>{{ $serviceRequest->assigned_to ? 'Reasignar' : 'Asignar' }}</span>
+                        </button>
                     </div>
-                    <div class="flex-1 min-w-0 w-full">
-                        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 sm:items-start">
-                            <div class="space-y-1">
-                                <label class="text-sm font-medium text-gray-500 block">Técnico Asignado</label>
-                                <p class="text-gray-900 font-semibold @if ($serviceRequest->status === 'EN_PROCESO') text-red-600 @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 @endif">
-                                    No asignado
-                                    @if ($serviceRequest->status === 'EN_PROCESO')
-                                        <i class="fas fa-exclamation-circle text-red-500 ml-2"></i>
-                                    @elseif($serviceRequest->status === 'ACEPTADA')
-                                        <i class="fas fa-info-circle text-amber-500 ml-2"></i>
-                                    @endif
-                                </p>
-                                <p class="text-sm @if ($serviceRequest->status === 'EN_PROCESO') text-red-500 font-medium @elseif($serviceRequest->status === 'ACEPTADA') text-amber-600 font-medium @else text-gray-500 @endif">
-                                    @if ($serviceRequest->status === 'EN_PROCESO')
-                                        ⚠️ Asignación requerida para continuar
-                                    @elseif($serviceRequest->status === 'ACEPTADA')
-                                        📋 Asignación requerida para iniciar el proceso
-                                    @else
-                                        Este caso requiere asignación de técnico
-                                    @endif
-                                </p>
-                            </div>
-                            @if($serviceRequest->status !== 'CERRADA')
-                                <div class="grid grid-cols-2 gap-2 w-full sm:w-max sm:justify-self-end">
-                                    <a href="{{ route('service-requests.edit', $serviceRequest) }}"
-                                        class="inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        <i class="fas fa-edit mr-1"></i>
-                                        Editar Solicitud
-                                    </a>
-                                    <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                                        class="quick-assign-btn inline-flex items-center justify-center min-h-[2.25rem] w-full sm:min-w-[7.5rem] px-3 py-1.5 border border-transparent text-xs font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                        <i class="fas fa-user-plus mr-1"></i>
-                                        Asignar Técnico
-                                    </button>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
+                @endif
                 </div>
             </div>
-
-            @if ($serviceRequest->status === 'CERRADA')
-                <div class="mt-4 p-3 bg-gray-100 border border-gray-300 rounded-lg">
-                    <div class="flex items-center text-gray-600">
-                        <i class="fas fa-lock mr-2"></i>
-                        <span class="text-sm font-medium">Esta solicitud está cerrada. No se pueden realizar cambios de asignación.</span>
-                    </div>
-                </div>
-            @endif
-
-
         </div>
+
+        @if ($serviceRequest->status === 'CERRADA')
+            <div class="mt-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600">
+                Solicitud cerrada. No se permiten cambios de asignación.
+            </div>
+        @endif
     </div>
 </div>
 
@@ -436,22 +337,25 @@
             return;
         }
 
-        var assignedBlock = card.querySelector('[data-assigned-block]');
-        var unassignedBlock = card.querySelector('[data-unassigned-block]');
         var nameEl = card.querySelector('[data-assignee-name]');
         var emailEl = card.querySelector('[data-assignee-email]');
         var initialEl = card.querySelector('[data-assignee-initial]');
-        var alertEls = card.querySelectorAll('[data-assign-alert]');
+        var avatarEl = card.querySelector('[data-assignee-avatar]');
+        var actionLabel = card.querySelector('[data-assignee-action-label]');
 
-        if (nameEl) nameEl.textContent = name || 'Técnico asignado';
+        if (nameEl) nameEl.textContent = name || 'Sin asignar';
         if (emailEl) emailEl.textContent = email || '';
-        if (initialEl && name) initialEl.textContent = name.charAt(0).toUpperCase();
+        if (initialEl) initialEl.textContent = (name && name.length) ? name.charAt(0).toUpperCase() : '?';
+        if (actionLabel) actionLabel.textContent = (name && name.length) ? 'Reasignar' : 'Asignar';
 
-        if (alertEls && alertEls.length) {
-            alertEls.forEach(function(el) { el.classList.add('hidden'); });
+        if (avatarEl) {
+            avatarEl.classList.remove('bg-amber-100', 'text-amber-700', 'bg-gradient-to-br', 'from-blue-500', 'to-cyan-500', 'text-white');
+            if (name && name.length) {
+                avatarEl.classList.add('bg-gradient-to-br', 'from-blue-500', 'to-cyan-500', 'text-white');
+            } else {
+                avatarEl.classList.add('bg-amber-100', 'text-amber-700');
+            }
         }
-        if (assignedBlock) assignedBlock.classList.remove('hidden');
-        if (unassignedBlock) unassignedBlock.classList.add('hidden');
     };
 
     function initAssignmentCard() {
