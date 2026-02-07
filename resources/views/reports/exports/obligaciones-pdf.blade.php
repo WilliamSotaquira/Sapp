@@ -8,10 +8,11 @@
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; }
         .meta { font-size: 10px; color: #555; margin-top: 6px; }
         .section-title { margin-top: 18px; background: #1e3a8a; color: #fff; padding: 6px 10px; font-weight: bold; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
         .table th, .table td { border: 1px solid #ddd; padding: 6px; vertical-align: top; }
         .table th { background-color: #f2f2f2; font-weight: bold; }
         .muted { color: #666; }
+        .link-wrap { word-break: break-all; overflow-wrap: anywhere; }
         .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #666; }
         .pill { display: inline-block; padding: 2px 6px; border-radius: 10px; background: #eef2ff; color: #1e3a8a; font-size: 9px; }
     </style>
@@ -21,11 +22,38 @@
         $totalSolicitudes = $serviceRequests->sum(fn($group) => $group->count());
         $rangeStart = $dateRange['start'] ? $dateRange['start']->format('Y-m-d') : '';
         $rangeEnd = $dateRange['end'] ? $dateRange['end']->format('Y-m-d') : '';
-        $cutName = $cut?->name ?? 'Sin corte';
+        $contractNumber = $cut?->contract?->number;
+
+        if (empty($contractNumber)) {
+            $contractNumbers = $serviceRequests
+                ->flatten(1)
+                ->pluck('subService.service.family.contract.number')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($contractNumbers->count() === 1) {
+                $contractNumber = $contractNumbers->first();
+            } elseif ($contractNumbers->count() > 1) {
+                $contractNumber = 'Varios contratos';
+            } else {
+                $contractNumber = 'Sin contrato';
+            }
+        }
+
+        $periodLabel = $cut?->name;
+        if (empty($periodLabel) && !empty($dateRange['start'])) {
+            $periodLabel = ucfirst($dateRange['start']->locale('es')->translatedFormat('F Y'));
+        }
+        if (empty($periodLabel)) {
+            $periodLabel = 'Periodo';
+        }
+
+        $headerLabel = $contractNumber . ': ' . $periodLabel;
     @endphp
 
     <div class="header" style="text-align: left;">
-        <h1 style="margin: 0 0 4px 0;">Corte: {{ $cutName }}</h1>
+        <h1 style="margin: 0 0 4px 0;">{{ $headerLabel }}</h1>
         <div class="meta" style="margin-top: 4px;">
             <div><strong>Rango:</strong> {{ $rangeStart }} - {{ $rangeEnd }} | <span>Generado: {{ now()->format('Y-m-d H:i') }}</span></div>
             <div style="margin-top: 6px;">
@@ -60,9 +88,9 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="width: 35%;">Obligaciones</th>
-                        <th style="width: 35%;">Actividades Ejecutadas</th>
-                        <th style="width: 30%;">Productos Presentados</th>
+                        <th style="width: 33.33%;">Obligaciones</th>
+                        <th style="width: 33.33%;">Actividades Ejecutadas</th>
+                        <th style="width: 33.33%;">Productos Presentados</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -113,7 +141,7 @@
                                         @endphp
                                         @if(!empty($evidence->file_url))
                                             <div>
-                                                <a href="{{ $evidence->file_url }}" style="color:#2563eb; text-decoration: underline;">
+                                                <a href="{{ $evidence->file_url }}" class="link-wrap" style="color:#2563eb; text-decoration: underline;">
                                                     {{ $evidenceLabel }}
                                                 </a>
                                             </div>
@@ -127,7 +155,7 @@
                                         @endphp
                                         @if($linkUrl)
                                             <div>
-                                                <a href="{{ $linkUrl }}" style="color:#2563eb; text-decoration: underline;">
+                                                <a href="{{ $linkUrl }}" class="link-wrap" style="color:#2563eb; text-decoration: underline;">
                                                     {{ $linkUrl }}
                                                 </a>
                                             </div>
