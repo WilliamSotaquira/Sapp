@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ServiceRequest;
+use App\Models\ServiceLevelAgreement;
 use App\Models\StandardTask;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -113,6 +114,28 @@ class StoreServiceRequestRequest extends FormRequest
                 if ($activeContractId && $family && (string) $family->contract_id !== (string) $activeContractId) {
                     $validator->errors()->add('sub_service_id', 'El subservicio no pertenece al contrato activo del espacio de trabajo.');
                 }
+
+                $slaId = $this->input('sla_id');
+                $availableSlaId = ServiceLevelAgreement::query()
+                    ->where('sub_service_id', $subServiceId)
+                    ->where('is_active', true)
+                    ->orderByDesc('id')
+                    ->value('id');
+
+                if (!$availableSlaId) {
+                    $validator->errors()->add('sub_service_id', 'El subservicio seleccionado no tiene un SLA activo configurado.');
+                }
+
+                if (!empty($slaId)) {
+                    $slaMatchesSubservice = ServiceLevelAgreement::query()
+                        ->where('id', $slaId)
+                        ->where('sub_service_id', $subServiceId)
+                        ->exists();
+
+                    if (!$slaMatchesSubservice) {
+                        $validator->errors()->add('sla_id', 'El SLA no corresponde al subservicio seleccionado.');
+                    }
+                }
             }
 
             $cutId = $this->input('cut_id');
@@ -207,6 +230,18 @@ class StoreServiceRequestRequest extends FormRequest
     {
         if (!$this->has('company_id')) {
             $this->merge(['company_id' => session('current_company_id')]);
+        }
+
+        if (!$this->filled('sla_id') && $this->filled('sub_service_id')) {
+            $derivedSlaId = ServiceLevelAgreement::query()
+                ->where('sub_service_id', $this->input('sub_service_id'))
+                ->where('is_active', true)
+                ->orderByDesc('id')
+                ->value('id');
+
+            if ($derivedSlaId) {
+                $this->merge(['sla_id' => $derivedSlaId]);
+            }
         }
 
         // Procesar web_routes (puede venir como string JSON o como array)

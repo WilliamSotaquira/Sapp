@@ -300,6 +300,7 @@
                         $initials = collect(explode(' ', $name))->map(fn($word) => strtoupper(substr($word, 0, 1)))->take(2)->join('');
                         $colors = ['from-purple-500 to-pink-500', 'from-blue-500 to-cyan-500', 'from-green-500 to-emerald-500', 'from-orange-500 to-red-500', 'from-indigo-500 to-purple-500'];
                         $colorIndex = ord(substr($name, 0, 1)) % count($colors);
+                        $isClosedCard = strtoupper((string) $request->status) === 'CERRADA';
                         
                         $statusColors = [
                             'PENDIENTE' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -319,15 +320,15 @@
                         ];
                     @endphp
                     
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden">
+                    <div class="{{ $isClosedCard ? 'bg-gray-50 rounded-lg shadow-sm border border-gray-300 hover:shadow-sm transition-shadow overflow-hidden' : 'bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden' }}">
                         <!-- Header de la tarjeta -->
                         <div class="p-4 border-b border-gray-100">
                             <div class="flex items-start justify-between mb-2">
                                 <a href="{{ route('service-requests.show', $request) }}" 
-                                   class="font-mono text-blue-600 hover:text-blue-800 hover:underline font-bold text-sm">
+                                   class="font-mono {{ $isClosedCard ? 'text-gray-700 hover:text-gray-900' : 'text-blue-600 hover:text-blue-800' }} hover:underline font-bold text-sm">
                                     {{ $request->ticket_number }}
                                 </a>
-                                <span class="px-2 py-1 text-xs font-semibold rounded {{ $criticalityColors[$request->criticality_level] ?? 'bg-gray-500 text-white' }}">
+                                <span class="px-2 py-1 text-xs font-semibold rounded {{ $isClosedCard ? 'bg-gray-200 text-gray-700' : ($criticalityColors[$request->criticality_level] ?? 'bg-gray-500 text-white') }}">
                                     {{ $request->criticality_level }}
                                 </span>
                             </div>
@@ -343,7 +344,7 @@
                         <div class="p-4 space-y-3">
                             <!-- Servicio -->
                             <div class="flex items-start gap-2">
-                                <i class="fas fa-cog text-gray-400 text-xs mt-0.5"></i>
+                                <i class="fas fa-cog {{ $isClosedCard ? 'text-gray-500' : 'text-gray-400' }} text-xs mt-0.5"></i>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-xs font-medium text-gray-900 truncate">
                                         {{ $request->subService->name ?? 'N/A' }}
@@ -363,7 +364,7 @@
                             
                             <!-- Solicitante -->
                             <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 bg-gradient-to-br {{ $colors[$colorIndex] }} rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">
+                                <div class="w-8 h-8 {{ $isClosedCard ? 'bg-gray-400 text-white' : 'bg-gradient-to-br ' . $colors[$colorIndex] . ' text-white' }} rounded-full flex items-center justify-center text-xs font-bold shadow-sm flex-shrink-0">
                                     {{ $initials }}
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -379,12 +380,12 @@
                                 </span>
                                 <div class="flex gap-2">
                                     <a href="{{ route('service-requests.show', $request) }}" 
-                                       class="text-blue-600 hover:text-blue-800 transition-colors" 
+                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-blue-600 hover:text-blue-800' }} transition-colors" 
                                        title="Ver detalles">
                                         <i class="fas fa-eye text-sm"></i>
                                     </a>
                                     <a href="{{ route('service-requests.edit', $request) }}" 
-                                       class="text-yellow-600 hover:text-yellow-800 transition-colors" 
+                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-yellow-600 hover:text-yellow-800' }} transition-colors" 
                                        title="Editar">
                                         <i class="fas fa-edit text-sm"></i>
                                     </a>

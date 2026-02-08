@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Módulo de Informes')
+@section('title', 'Informes')
 
 @section('breadcrumb')
 <nav class="flex" aria-label="Breadcrumb">
@@ -20,8 +20,7 @@
 
 @section('content')
 <div class="mb-4 sm:mb-6">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Módulo de Informes</h1>
-    <p class="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Genera reportes y análisis de los servicios y solicitudes</p>
+    <p class="text-gray-600 text-sm sm:text-base">Genera reportes y análisis de los servicios y solicitudes</p>
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">

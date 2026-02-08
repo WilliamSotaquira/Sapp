@@ -24,7 +24,23 @@ class RequesterManagementController extends Controller
     {
         $search = $request->get('search');
         $status = $request->get('status', 'active');
+        $department = $request->get('department');
+        $position = $request->get('position');
+        $hasRequests = $request->get('has_requests');
+        $sortBy = $request->get('sort_by', 'name');
+        $sortDir = strtolower($request->get('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $companyId = $request->session()->get('current_company_id');
+
+        $allowedSorts = [
+            'name',
+            'department',
+            'position',
+            'service_requests_count',
+            'is_active',
+        ];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'name';
+        }
 
         $requesters = Requester::with(['company:id,name'])
             ->withCount('serviceRequests')
@@ -34,13 +50,37 @@ class RequesterManagementController extends Controller
             ->when($status !== 'all', function($query) use ($status) {
                 return $query->where('is_active', $status === 'active');
             })
+            ->when($department, function ($query) use ($department) {
+                return $query->where('department', 'like', '%' . $department . '%');
+            })
+            ->when($position, function ($query) use ($position) {
+                return $query->where('position', 'like', '%' . $position . '%');
+            })
+            ->when($hasRequests === 'yes', function ($query) {
+                return $query->has('serviceRequests');
+            })
+            ->when($hasRequests === 'no', function ($query) {
+                return $query->doesntHave('serviceRequests');
+            })
             ->when($companyId, function($query) use ($companyId) {
                 return $query->where('company_id', $companyId);
             })
+            ->orderBy($sortBy, $sortDir)
             ->orderBy('name')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('requester-management.requesters.index', compact('requesters', 'search', 'status', 'companyId'));
+        return view('requester-management.requesters.index', compact(
+            'requesters',
+            'search',
+            'status',
+            'department',
+            'position',
+            'hasRequests',
+            'sortBy',
+            'sortDir',
+            'companyId'
+        ));
     }
 
     /**

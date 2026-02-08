@@ -12,8 +12,16 @@ class WorkspaceController extends Controller
     {
         $user = $request->user();
         $companies = $user->companies()
+            ->with('activeContract:id,number,name')
             ->orderBy('name')
-            ->get(['companies.id', 'companies.name']);
+            ->get([
+                'companies.id',
+                'companies.name',
+                'companies.logo_path',
+                'companies.primary_color',
+                'companies.alternate_color',
+                'companies.active_contract_id',
+            ]);
 
         return view('workspaces.select', [
             'companies' => $companies,
@@ -32,11 +40,11 @@ class WorkspaceController extends Controller
 
         $companyId = (int) $request->input('company_id');
         if (!$companies->contains('id', $companyId)) {
-            return back()->with('error', 'No tienes acceso a ese espacio de trabajo.');
+            return back()->with('error', 'No tienes acceso a esa entidad.');
         }
 
         $request->session()->put('current_company_id', $companyId);
 
-        return redirect()->intended(route('dashboard'))->with('success', 'Espacio de trabajo actualizado.');
+        return redirect()->intended(route('dashboard'))->with('success', 'Entidad activa actualizada.');
     }
 }

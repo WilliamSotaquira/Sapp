@@ -19,11 +19,10 @@
     }
 </style>
 
-    {{-- Mostrar todos los errores de validación --}}
     @if ($errors->any())
         <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <h3 class="text-lg font-medium text-red-800 mb-2">Errores de validación:</h3>
-            <ul class="list-disc list-inside text-red-700">
+            <h3 class="text-sm font-semibold text-red-800 mb-1">Revisa los campos obligatorios</h3>
+            <ul class="list-disc list-inside text-sm text-red-700">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -49,6 +48,7 @@
         <div class="max-w-4xl mx-auto">
             <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 1 de 2</p>
                     <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
                     <p class="text-sm text-gray-600 mt-1">Los campos marcados con * son obligatorios.</p>
                 </div>
@@ -69,6 +69,7 @@
             <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                 <button type="button" id="toggleTasksSection" class="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100">
                     <div class="text-left">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 2 de 2</p>
                         <div class="text-lg font-bold text-gray-800">Tareas (opcional)</div>
                         <div class="text-gray-600 text-sm">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
                     </div>
@@ -103,8 +104,8 @@
                 </div>
             </div>
 
-            <div class="mt-8 pt-6 border-t border-gray-200">
-                <div class="flex flex-col sm:flex-row justify-end gap-3">
+            <div class="mt-8 pt-6 border-t border-gray-200 sticky bottom-3 z-20">
+                <div class="flex flex-col sm:flex-row justify-end gap-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border border-gray-200 rounded-xl p-3 shadow-md">
                     <!-- Botón Cancelar - Simplificado -->
                     <a href="{{ route('service-requests.index') }}"
                         class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
@@ -125,6 +126,7 @@
                         Crear Solicitud
                     </button>
                 </div>
+                <p id="createFormInlineError" class="hidden mt-2 text-sm text-red-600 font-medium"></p>
             </div>
         </div>
     </form>
@@ -132,6 +134,8 @@
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');
+        const inlineErrorEl = document.getElementById('createFormInlineError');
+        let createConfirmed = false;
 
             // Posicionar foco correctamente:
             // - Si hay errores de validación, enfocar el primer campo con error.
@@ -183,6 +187,58 @@
 
         const initialTasks = @json(old('tasks', []));
         const initialTemplate = @json(old('tasks_template', 'none'));
+
+        function setFieldValidity(el, ok) {
+            if (!el) return;
+            el.classList.remove('border-red-500');
+            if (!ok) el.classList.add('border-red-500');
+        }
+
+        function validateMainFields() {
+            const title = document.getElementById('title');
+            const description = document.getElementById('description');
+            const requester = document.getElementById('requester_id');
+            const subService = document.getElementById('sub_service_id');
+            const entryChannel = document.getElementById('entry_channel');
+
+            const checks = [
+                { el: title, ok: !!title?.value?.trim(), label: 'Título' },
+                { el: description, ok: !!description?.value?.trim(), label: 'Descripción' },
+                { el: requester, ok: !!requester?.value, label: 'Solicitante' },
+                { el: subService, ok: !!subService?.value, label: 'Subservicio' },
+                { el: entryChannel, ok: !!entryChannel?.value, label: 'Canal de ingreso' },
+            ];
+
+            checks.forEach(({ el, ok }) => setFieldValidity(el, ok));
+            const missing = checks.filter(c => !c.ok).map(c => c.label);
+            return { valid: missing.length === 0, missing };
+        }
+
+        function buildSummaryText() {
+            const title = document.getElementById('title')?.value?.trim() || '(sin título)';
+            const requester = document.getElementById('requester_id');
+            const subService = document.getElementById('sub_service_id');
+            const channel = document.getElementById('entry_channel');
+            const cut = document.getElementById('cut_id');
+            const tasksCount = document.querySelectorAll('#tasksList [data-task-row]').length;
+
+            const requesterText = requester?.selectedOptions?.[0]?.textContent?.trim() || 'Sin solicitante';
+            const subServiceText = subService?.selectedOptions?.[0]?.textContent?.trim() || 'Sin subservicio';
+            const channelText = channel?.selectedOptions?.[0]?.textContent?.trim() || 'Sin canal';
+            const cutText = cut?.selectedOptions?.[0]?.textContent?.trim() || 'Sin corte';
+
+            return [
+                'Resumen de la solicitud:',
+                `- Título: ${title}`,
+                `- Solicitante: ${requesterText}`,
+                `- Subservicio: ${subServiceText}`,
+                `- Canal: ${channelText}`,
+                `- Corte: ${cutText}`,
+                `- Tareas: ${tasksCount}`,
+                '',
+                '¿Deseas crear la solicitud?'
+            ].join('\n');
+        }
 
         function setNotice(message) {
             if (!message) {
@@ -247,6 +303,13 @@
 
         toggleBtn?.addEventListener('click', function() {
             isOpen() ? closeSection() : openSection();
+        });
+
+        ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel'].forEach((id) => {
+            const field = document.getElementById(id);
+            if (!field) return;
+            field.addEventListener('input', validateMainFields);
+            field.addEventListener('change', validateMainFields);
         });
 
         function getRowData(rowEl) {
@@ -1048,6 +1111,38 @@
                 setNotice('El subservicio cambió. Vuelve a cargar la plantilla para actualizar las tareas.');
             }
         });
+
+        if (formEl) {
+            formEl.addEventListener('submit', function(e) {
+                if (createConfirmed) return;
+
+                const validation = validateMainFields();
+                if (!validation.valid) {
+                    e.preventDefault();
+                    if (inlineErrorEl) {
+                        inlineErrorEl.textContent = `Completa los campos obligatorios: ${validation.missing.join(', ')}.`;
+                        inlineErrorEl.classList.remove('hidden');
+                    }
+
+                    const firstInvalid = formEl.querySelector('.border-red-500');
+                    firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid?.focus();
+                    return;
+                }
+
+                if (inlineErrorEl) {
+                    inlineErrorEl.classList.add('hidden');
+                    inlineErrorEl.textContent = '';
+                }
+
+                e.preventDefault();
+                const confirmed = window.confirm(buildSummaryText());
+                if (!confirmed) return;
+
+                createConfirmed = true;
+                formEl.submit();
+            });
+        }
 
     });
     </script>

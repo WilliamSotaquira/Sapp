@@ -16,6 +16,10 @@ class Company extends Model
         'status',
         'phone',
         'address',
+        'primary_color',
+        'alternate_color',
+        'contrast_color',
+        'logo_path',
         'active_contract_id',
     ];
 
