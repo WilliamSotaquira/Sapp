@@ -19,16 +19,26 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
     private Collection $serviceRequests;
     private ?Cut $cut;
     private array $dateRange;
+    private string $primaryColor;
+    private string $contrastColor;
     private int $headerRowIndex = 0;
     private array $familyRowIndexes = [];
     private int $summaryStartRow = 1;
     private int $summaryEndRow = 0;
 
-    public function __construct(Collection $serviceRequests, ?Cut $cut = null, array $dateRange = [])
+    public function __construct(
+        Collection $serviceRequests,
+        ?Cut $cut = null,
+        array $dateRange = [],
+        string $primaryColor = '#1E3A8A',
+        string $contrastColor = '#FFFFFF'
+    )
     {
         $this->serviceRequests = $serviceRequests;
         $this->cut = $cut;
         $this->dateRange = $dateRange;
+        $this->primaryColor = $this->normalizeHexColor($primaryColor);
+        $this->contrastColor = $this->normalizeHexColor($contrastColor, '#FFFFFF');
     }
 
     public function array(): array
@@ -131,10 +141,13 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 // Estilo del encabezado de columnas
                 if ($this->headerRowIndex > 0) {
                     $sheet->getStyle("A{$this->headerRowIndex}:D{$this->headerRowIndex}")
-                        ->getFont()->setBold(true);
+                        ->getFont()
+                        ->setBold(true)
+                        ->getColor()
+                        ->setARGB($this->hexToArgb($this->contrastColor));
                     $sheet->getStyle("A{$this->headerRowIndex}:D{$this->headerRowIndex}")
                         ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                        ->getStartColor()->setARGB('FFE5E7EB');
+                        ->getStartColor()->setARGB($this->hexToArgb($this->primaryColor));
                 }
 
                 // Estilo del bloque de resumen
@@ -146,10 +159,13 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                 // Estilo de filas de familia
                 foreach ($this->familyRowIndexes as $row) {
                     $sheet->getStyle("A{$row}:D{$row}")
-                        ->getFont()->setBold(true);
+                        ->getFont()
+                        ->setBold(true)
+                        ->getColor()
+                        ->setARGB($this->hexToArgb($this->contrastColor));
                     $sheet->getStyle("A{$row}:D{$row}")
                         ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                        ->getStartColor()->setARGB('FFDBEAFE');
+                        ->getStartColor()->setARGB($this->hexToArgb($this->primaryColor));
                 }
 
                 // Convertir enlaces en la columna D (Productos Presentados)
@@ -309,4 +325,20 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
         return null;
     }
+
+    private function normalizeHexColor(string $value, string $fallback = '#1E3A8A'): string
+    {
+        $value = strtoupper(trim($value));
+        if (preg_match('/^#([A-F0-9]{6})$/', $value)) {
+            return $value;
+        }
+
+        return $fallback;
+    }
+
+    private function hexToArgb(string $hex): string
+    {
+        return 'FF' . ltrim($hex, '#');
+    }
+
 }

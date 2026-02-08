@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $reportPrimaryColor = (isset($currentWorkspace?->primary_color) && preg_match('/^#([A-Fa-f0-9]{6})$/', $currentWorkspace->primary_color))
+        ? strtoupper($currentWorkspace->primary_color)
+        : '#2563EB';
+    $reportContrastColor = (isset($currentWorkspace?->contrast_color) && preg_match('/^#([A-Fa-f0-9]{6})$/', $currentWorkspace->contrast_color))
+        ? strtoupper($currentWorkspace->contrast_color)
+        : '#FFFFFF';
+@endphp
 <div class="py-8 px-4 sm:px-6 lg:px-8">
     <!-- Header -->
     <div class="mb-8">
@@ -51,17 +59,17 @@
             @foreach($serviceRequests as $serviceName => $obligaciones)
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <!-- Encabezado de la Familia -->
-                    <div class="bg-blue-600 px-6 py-3">
+                    <div class="px-6 py-3" style="background-color: {{ $reportPrimaryColor }};">
                         @php
                             $familyDescription = $obligaciones->first()?->subService?->service?->family?->description;
                             $familyTotal = $obligaciones->count();
                         @endphp
-                        <h2 class="text-lg font-bold text-white">{{ $serviceName }}</h2>
+                        <h2 class="text-lg font-bold" style="color: {{ $reportContrastColor }};">{{ $serviceName }}</h2>
                         @if($familyDescription)
-                            <p class="text-blue-100 text-sm mt-1">{{ $familyDescription }}</p>
+                            <p class="text-sm mt-1" style="color: {{ $reportContrastColor }}; opacity: .9;">{{ $familyDescription }}</p>
                         @endif
-                        <p class="text-blue-100 text-sm mt-1">
-                            Total acciones: <span class="font-semibold text-white">{{ $familyTotal }}</span>
+                        <p class="text-sm mt-1" style="color: {{ $reportContrastColor }}; opacity: .9;">
+                            Total acciones: <span class="font-semibold" style="color: {{ $reportContrastColor }};">{{ $familyTotal }}</span>
                         </p>
                     </div>
 

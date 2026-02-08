@@ -321,16 +321,16 @@
                 'match' => ['service-requests.*'],
                 'links' => [
                     [
-                        'route' => 'service-requests.index',
-                        'label' => 'Ver Solicitudes',
-                        'icon' => 'fas fa-list',
-                        'match' => ['service-requests.index'],
-                    ],
-                    [
                         'route' => 'service-requests.create',
                         'label' => 'Crear Solicitud',
                         'icon' => 'fas fa-plus-circle',
                         'match' => ['service-requests.create'],
+                    ],
+                    [
+                        'route' => 'service-requests.index',
+                        'label' => 'Ver Solicitudes',
+                        'icon' => 'fas fa-list',
+                        'match' => ['service-requests.index'],
                     ],
                 ],
             ],
@@ -465,13 +465,19 @@
                 'label' => 'Catálogos',
                 'icon' => 'fas fa-list-alt',
                 'type' => 'dropdown',
-                'match' => ['requester-management.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*'],
+                'match' => ['requester-management.*', 'companies.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*'],
                 'links' => [
                     [
                         'route' => 'requester-management.requesters.index',
                         'label' => 'Solicitantes',
                         'icon' => 'fas fa-users',
                         'match' => ['requester-management.*'],
+                    ],
+                    [
+                        'route' => 'companies.index',
+                        'label' => 'Entidades',
+                        'icon' => 'fas fa-building',
+                        'match' => ['companies.*'],
                     ],
                     [
                         'route' => 'contracts.index',
@@ -518,12 +524,23 @@
         $workspaceName = $currentWorkspace->name ?? '';
         $workspaceDisplayName = $workspaceName;
         $workspaceKey = Str::lower($workspaceName);
-        $workspaceAccent = '#DC2626';
-        if (Str::contains($workspaceKey, 'movilidad')) {
+        $workspaceAccent = $currentWorkspace->primary_color ?? '#DC2626';
+        $workspaceAccentBg = $workspaceAccent . '1A';
+        $workspaceLogo = !empty($currentWorkspace?->logo_path) ? asset('storage/' . $currentWorkspace->logo_path) : null;
+        $activeContract = $currentWorkspace?->activeContract;
+        $activeContractLabel = $activeContract ? ($activeContract->number ?: $activeContract->name) : 'Sin contrato activo';
+        if (!$currentWorkspace?->primary_color && Str::contains($workspaceKey, 'movilidad')) {
             $workspaceAccent = '#BED000';
-        } elseif (Str::contains($workspaceKey, 'cultura')) {
+            $workspaceAccentBg = '#BED0002E';
+        } elseif (!$currentWorkspace?->primary_color && Str::contains($workspaceKey, 'cultura')) {
             $workspaceAccent = '#493D86';
-            $workspaceDisplayName = 'Min Culturas';
+            $workspaceAccentBg = '#493D861F';
+        }
+
+        if (!$workspaceLogo && Str::contains($workspaceKey, 'movilidad')) {
+            $workspaceLogo = asset('movilidad.jpg');
+        } elseif (!$workspaceLogo && Str::contains($workspaceKey, 'cultura')) {
+            $workspaceLogo = asset('cultura.png');
         }
     @endphp
     <!-- Navigation -->
@@ -591,7 +608,25 @@
                 <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
                     @auth
                         @if(isset($currentWorkspace))
-                            <span class="hidden sm:inline text-sm text-white/80">{{ $workspaceDisplayName }}</span>
+                            <a href="{{ route('workspaces.select') }}"
+                               class="hidden lg:flex items-center w-[150px] px-2 py-1.5 rounded-xl border border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition"
+                               title="Cambiar entidad activa">
+                                <div class="flex items-center gap-2 w-full">
+                                    @if ($workspaceLogo)
+                                        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-white ring-1 ring-black/10 shrink-0">
+                                            <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.75rem] max-h-[1.75rem] object-contain">
+                                        </div>
+                                    @else
+                                        <div class="flex items-center justify-center w-9 h-9 rounded-lg ring-1 ring-white/20 shrink-0" style="background-color: {{ $workspaceAccentBg }}; color: #ffffff;">
+                                            <i class="fas fa-building text-sm"></i>
+                                        </div>
+                                    @endif
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-[13px] font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
+                                        <p class="text-[11px] text-white/80 leading-none truncate">{{ $activeContractLabel }}</p>
+                                    </div>
+                                </div>
+                            </a>
                         @endif
 
                         <div
@@ -632,9 +667,15 @@
                     class="mobile-menu md:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
                     <div class="py-4 px-4 space-y-3">
                         @if(isset($currentWorkspace))
-                            <div class="bg-white/10 rounded-2xl p-3 text-sm text-white/80">
-                                {{ $workspaceDisplayName }}
-                            </div>
+                            <a href="{{ route('workspaces.select') }}" class="block bg-white/10 rounded-2xl p-3 hover:bg-white/20 transition">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-base text-white font-semibold truncate">{{ $workspaceDisplayName }}</p>
+                                        <p class="text-sm text-white/80 truncate">{{ $activeContractLabel }}</p>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-white/80 text-xs"></i>
+                                </div>
+                            </a>
                         @endif
 
                         @foreach ($navSections as $section)

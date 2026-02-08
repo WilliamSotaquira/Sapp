@@ -20,20 +20,8 @@
         $subServiceBorderClass = $errors->has('sub_service_id') ? 'border-red-500' : 'border-gray-300';
     @endphp
 
-    {{-- En tu formulario, muestra todos los errores --}}
-    @if ($errors->any())
-        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <h3 class="text-lg font-medium text-red-800 mb-2">Errores de validación:</h3>
-            <ul class="list-disc list-inside text-red-700">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
-    <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', '1') }}">
+    <input type="hidden" name="sla_id" id="sla_id" value="{{ old('sla_id', $serviceRequest->sla_id ?? '') }}">
     <input type="hidden" name="web_routes" id="web_routes_json" value="{{ old('web_routes', '[]') }}">
     <input type="hidden" name="requested_by" id="requested_by"
         value="{{ old('requested_by', $serviceRequest->requested_by ?? auth()->id()) }}">
@@ -52,7 +40,7 @@
         @error('title')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
-        <p class="mt-1 text-sm text-gray-500">Máximo 255 caracteres</p>
+        <p class="mt-1 text-xs text-gray-500">Máximo 255 caracteres.</p>
     </div>
 
 
@@ -68,7 +56,7 @@
         @error('description')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
-        <p class="mt-1 text-sm text-gray-500">Proporcione todos los detalles necesarios para atender la solicitud</p>
+        <p class="mt-1 text-xs text-gray-500">Describe lo necesario para atenderla.</p>
     </div>
 
     <!-- Espacio de trabajo -->
@@ -123,9 +111,9 @@
             @endforeach
         </select>
 
-        <p class="mt-1 text-sm text-gray-500 flex items-center gap-2">
+        <p class="mt-1 text-xs text-gray-500 flex items-center gap-2">
             <i class="fas fa-info-circle text-blue-500"></i>
-            <span>Seleccione la persona que realiza la solicitud</span>
+            <span>Selecciona quién realiza la solicitud.</span>
         </p>
 
         <div class="mt-2 flex justify-end">
@@ -283,8 +271,8 @@
                 </option>
             @endforeach
         </select>
-        <p class="mt-1 text-sm text-gray-500">
-            Usa este campo para saber desde qué canal se originó la solicitud.
+        <p class="mt-1 text-xs text-gray-500">
+            Indica el origen de la solicitud.
         </p>
         @error('entry_channel')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -319,8 +307,8 @@
             </option>
         @endforeach
     </select>
-        <p class="mt-1 text-sm text-gray-500">
-            Selecciona un corte para vincular esta solicitud directamente. Esto permite asociar solicitudes a períodos específicos.
+        <p class="mt-1 text-xs text-gray-500">
+            Vincula esta solicitud a un período (opcional).
         </p>
         @error('cut_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -1438,7 +1426,7 @@
             console.log('📭 No hay selección - estableciendo valores por defecto');
             if (serviceIdInput) serviceIdInput.value = '';
             if (familyIdInput) familyIdInput.value = '';
-            if (slaIdInput) slaIdInput.value = '1';
+            if (slaIdInput) slaIdInput.value = '';
             if (familyDisplay) {
                 familyDisplay.textContent = 'Seleccione un subservicio';
                 familyDisplay.className = 'text-gray-500';
@@ -1484,7 +1472,7 @@
         serviceName = serviceName || 'Servicio';
         familyName = familyName || 'Familia';
         criticalityLevel = criticalityLevel || 'MEDIA';
-        slaId = slaId || '1';
+        slaId = slaId || '';
 
         console.log('📋 Datos extraídos:', {
             serviceId,

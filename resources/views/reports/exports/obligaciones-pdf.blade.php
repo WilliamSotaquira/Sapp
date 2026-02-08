@@ -4,13 +4,30 @@
     <meta charset="utf-8">
     <title>Reporte de Obligaciones</title>
     <style>
+        @php
+            $pdfPrimaryColor = (isset($primaryColor) && preg_match('/^#([A-Fa-f0-9]{6})$/', $primaryColor))
+                ? strtoupper($primaryColor)
+                : '#1E3A8A';
+            $pdfContrastColor = (isset($contrastColor) && preg_match('/^#([A-Fa-f0-9]{6})$/', $contrastColor))
+                ? strtoupper($contrastColor)
+                : '#FFFFFF';
+        @endphp
         body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; color: #111; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 8px; }
-        .meta { font-size: 10px; color: #555; margin-top: 6px; }
-        .section-title { margin-top: 18px; background: #1e3a8a; color: #fff; padding: 6px 10px; font-weight: bold; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid {{ $pdfPrimaryColor }}; padding-bottom: 8px; }
+        .meta { font-size: 10px; color: #555; margin-top: 0; line-height: 1.15; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
         .table th, .table td { border: 1px solid #ddd; padding: 6px; vertical-align: top; }
         .table th { background-color: #f2f2f2; font-weight: bold; }
+        .table .section-head-cell {
+            background: {{ $pdfPrimaryColor }};
+            color: {{ $pdfContrastColor }};
+            text-align: left;
+            font-weight: bold;
+            border-color: {{ $pdfPrimaryColor }};
+            padding: 6px 10px;
+        }
+        .table thead { display: table-header-group; }
+        .table tr { page-break-inside: avoid; }
         .muted { color: #666; }
         .link-wrap { word-break: break-all; overflow-wrap: anywhere; }
         .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #666; }
@@ -53,12 +70,15 @@
     @endphp
 
     <div class="header" style="text-align: left;">
-        <h1 style="margin: 0 0 4px 0;">{{ $headerLabel }}</h1>
-        <div class="meta" style="margin-top: 4px;">
-            <div><strong>Rango:</strong> {{ $rangeStart }} - {{ $rangeEnd }} | <span>Generado: {{ now()->format('Y-m-d H:i') }}</span></div>
-            <div style="margin-top: 6px;">
+        <h1 style="margin: 0 0 1px 0;">{{ $headerLabel }}</h1>
+        <div class="meta" style="margin-top: 0;">
+            @if(!empty($generatedByName))
+                <div style="margin-top: 1px;"><strong>{{ $generatedByName }}</strong></div>
+            @endif
+            <div style="margin-top: 1px;"><strong>Rango:</strong> {{ $rangeStart }} - {{ $rangeEnd }} | <span>Generado: {{ now()->format('Y-m-d H:i') }}</span></div>
+            <div style="margin-top: 1px;">
                 <strong>Total acciones:</strong>
-                <span style="background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 6px; font-weight: bold;">
+                <span style="background: {{ $pdfPrimaryColor }}22; color: {{ $pdfPrimaryColor }}; padding: 2px 6px; border-radius: 6px; font-weight: bold;">
                     {{ $totalSolicitudes }}
                 </span>
             </div>
@@ -74,19 +94,21 @@
             @php
                 $familyTotal = $obligaciones->count();
             @endphp
-            <div class="section-title">
-                <div style="font-weight: bold;">{{ $serviceName }}</div>
-                @if($familyDescription)
-                    <div style="font-weight: normal; color: #e0e7ff; font-size: 10px; margin-top: 2px;">
-                        {{ $familyDescription }}
-                    </div>
-                @endif
-                <div style="font-weight: normal; color: #e0e7ff; font-size: 10px; margin-top: 2px;">
-                    Total acciones: {{ $familyTotal }}
-                </div>
-            </div>
             <table class="table">
                 <thead>
+                    <tr>
+                        <th colspan="3" class="section-head-cell">
+                            <div style="font-weight: bold;">{{ $serviceName }}</div>
+                            @if($familyDescription)
+                                <div style="font-weight: normal; color: {{ $pdfContrastColor }}; opacity: 0.9; font-size: 10px; margin-top: 2px;">
+                                    {{ $familyDescription }}
+                                </div>
+                            @endif
+                            <div style="font-weight: normal; color: {{ $pdfContrastColor }}; opacity: 0.9; font-size: 10px; margin-top: 2px;">
+                                Total acciones: {{ $familyTotal }}
+                            </div>
+                        </th>
+                    </tr>
                     <tr>
                         <th style="width: 33.33%;">Obligaciones</th>
                         <th style="width: 33.33%;">Actividades Ejecutadas</th>

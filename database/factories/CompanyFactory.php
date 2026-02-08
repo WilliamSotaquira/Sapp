@@ -17,6 +17,9 @@ class CompanyFactory extends Factory
             'status' => 'active',
             'phone' => fake()->numerify('3#########'),
             'address' => fake()->address(),
+            'primary_color' => fake()->hexColor(),
+            'alternate_color' => fake()->hexColor(),
+            'contrast_color' => fake()->hexColor(),
         ];
     }
 }

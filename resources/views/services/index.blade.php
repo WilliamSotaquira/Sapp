@@ -92,37 +92,37 @@
     <!-- Tabla de Servicios -->
     <div class="bg-white shadow-md rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="name">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="name">
                             <div class="flex items-center">
                                 <span>Nombre</span>
                                 <i class="fas fa-sort ml-1 text-gray-400"></i>
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="code">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="code">
                             <div class="flex items-center">
                                 <span>Código</span>
                                 <i class="fas fa-sort ml-1 text-gray-400"></i>
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="family">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="family">
                             <div class="flex items-center">
                                 <span>Familia</span>
                                 <i class="fas fa-sort ml-1 text-gray-400"></i>
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Sub-Servicios
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer sortable" data-sort="status">
                             <div class="flex items-center">
                                 <span>Estado</span>
                                 <i class="fas fa-sort ml-1 text-gray-400"></i>
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Acciones
                         </th>
                     </tr>
@@ -139,29 +139,29 @@
                         @endphp
                         data-family="{{ $familyLabel ? strtolower($familyLabel) : '' }}"
                         data-status="{{ $service->is_active ? 'active' : 'inactive' }}">
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <div class="flex items-center">
-                                <div class="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-cog text-blue-600"></i>
+                                <div class="flex-shrink-0 h-9 w-9 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-cog text-blue-600 text-sm"></i>
                                 </div>
-                                <div class="ml-4">
+                                <div class="ml-3">
                                     <div class="text-sm font-medium text-gray-900">{{ $service->name }}</div>
                                     @if($service->description)
-                                    <div class="text-sm text-gray-500">{{ Str::limit($service->description, 60) }}</div>
+                                    <div class="text-xs text-gray-500 leading-5">{{ Str::limit($service->description, 60) }}</div>
                                     @endif
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                                 <i class="fas fa-hashtag mr-1"></i>
                                 {{ $service->code }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @if($service->family)
                             <div class="flex items-center">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
                                     {{ $service->family->code }}
                                 </span>
                                 <span class="text-sm text-gray-700">{{ $familyLabel }}</span>
@@ -170,7 +170,7 @@
                             <span class="text-sm text-gray-400 italic">Sin familia</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap">
                             <div class="flex items-center">
                                 <span class="text-sm text-gray-700 font-medium mr-2">
                                     {{ $service->sub_services_count ?? 0 }}
@@ -185,21 +185,21 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $service->is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {{ $service->is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
                                 <i class="fas fa-circle mr-1 text-{{ $service->is_active ? 'green' : 'red' }}-500" style="font-size: 6px;"></i>
                                 {{ $service->is_active ? 'Activo' : 'Inactivo' }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center space-x-2">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5">
                                 <a href="{{ route('services.show', $service) }}"
-                                   class="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition duration-200"
+                                   class="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 transition duration-200"
                                    title="Ver detalles">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 <a href="{{ route('services.edit', $service) }}"
-                                   class="text-green-500 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition duration-200"
+                                   class="text-green-500 hover:text-green-700 p-1.5 rounded-md hover:bg-green-50 transition duration-200"
                                    title="Editar servicio">
                                     <i class="fas fa-edit"></i>
                                 </a>
@@ -207,7 +207,7 @@
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit"
-                                            class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition duration-200"
+                                            class="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition duration-200"
                                             onclick="return confirm('¿Está seguro de eliminar el servicio \"{{ $service->name }}\"? Esta acción no se puede deshacer.')"
                                             title="Eliminar servicio">
                                         <i class="fas fa-trash"></i>
@@ -218,7 +218,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="6" class="px-4 py-10 text-center">
                             <div class="flex flex-col items-center justify-center text-gray-400">
                                 <i class="fas fa-cogs text-4xl mb-3"></i>
                                 <p class="text-lg font-medium mb-1">No hay servicios registrados</p>
@@ -237,12 +237,12 @@
 
         <!-- Información de resultados -->
         @if($services->count() > 0)
-        <div class="bg-gray-50 px-6 py-3 border-t border-gray-200">
-            <div class="flex justify-between items-center text-sm text-gray-600">
+        <div class="bg-gray-50 px-4 py-2.5 border-t border-gray-200">
+            <div class="flex justify-between items-center text-sm text-gray-600 gap-3 flex-wrap">
                 <div>
                     Mostrando <span class="font-medium">{{ $services->count() }}</span> servicios
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3">
                     <span id="activeCount" class="flex items-center">
                         <i class="fas fa-circle text-green-500 mr-1" style="font-size: 6px;"></i>
                         <span class="font-medium">{{ $services->where('is_active', true)->count() }}</span> activos

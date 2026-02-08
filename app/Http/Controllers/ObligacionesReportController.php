@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ServiceRequest;
 use App\Models\Task;
 use App\Models\Cut;
+use App\Models\Company;
 use App\Exports\ObligacionesExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -26,6 +27,23 @@ class ObligacionesReportController extends Controller
      */
     public function index(Request $request): View
     {
+        $cuts = Cut::query()
+            ->orderByDesc('start_date')
+            ->when((int) session('current_company_id'), function ($query) {
+                $query->whereHas('contract', function ($q) {
+                    $q->where('company_id', (int) session('current_company_id'));
+                });
+            })
+            ->get(['id', 'name', 'start_date', 'end_date']);
+
+        // Si no llega cut_id, preselecciona el corte más reciente.
+        if (!$request->filled('cut_id')) {
+            $latestCutId = $cuts->first()?->id;
+            if ($latestCutId) {
+                $request->merge(['cut_id' => (string) $latestCutId]);
+            }
+        }
+
         $cutId = $request->get('cut_id');
 
         // Ordenar por fecha descendente
@@ -51,15 +69,6 @@ class ObligacionesReportController extends Controller
             'obligaciones_en_progreso' => (clone $statsBaseQuery)->where('status', 'EN_PROCESO')->count(),
             'obligaciones_resueltas' => (clone $statsBaseQuery)->where('status', 'RESUELTA')->count(),
         ];
-
-        $cuts = Cut::query()
-            ->orderByDesc('start_date')
-            ->when((int) session('current_company_id'), function ($query) {
-                $query->whereHas('contract', function ($q) {
-                    $q->where('company_id', (int) session('current_company_id'));
-                });
-            })
-            ->get(['id', 'name', 'start_date', 'end_date']);
 
         return view('reports.obligaciones.index', [
             'pageTitle' => 'Reporte de Obligaciones',
@@ -108,6 +117,8 @@ class ObligacionesReportController extends Controller
                 })
                 ->find($cutId);
         }
+        $primaryColor = $this->resolvePrimaryColor();
+        $contrastColor = $this->resolveContrastColor();
         $exportFilename = $this->buildExportFilename($serviceRequests, $selectedCut, $dateRange, $format);
 
         if ($format === 'pdf') {
@@ -116,14 +127,34 @@ class ObligacionesReportController extends Controller
                 'dateRange' => $dateRange,
                 'cut' => $selectedCut,
                 'filters' => $this->getFiltersFromRequest($request),
+                'primaryColor' => $primaryColor,
+                'contrastColor' => $contrastColor,
+                'generatedByName' => optional($request->user())->name,
             ])->setPaper('a4', 'portrait')
                 ->setOption('isRemoteEnabled', true);
 
-            return $pdf->download($exportFilename);
+            $domPdf = $pdf->getDomPDF();
+            $domPdf->render();
+
+            $canvas = $domPdf->getCanvas();
+            $font = $domPdf->getFontMetrics()->getFont('Helvetica', 'normal');
+            $canvas->page_text(
+                470,
+                820,
+                'Página {PAGE_NUM} de {PAGE_COUNT}',
+                $font,
+                8,
+                [156 / 255, 163 / 255, 175 / 255]
+            );
+
+            return response($domPdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $exportFilename . '"',
+            ]);
         }
 
         if ($format === 'xlsx') {
-            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange), $exportFilename);
+            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange, $primaryColor, $contrastColor), $exportFilename);
         }
 
         return response('Formato no válido', 400);
@@ -245,6 +276,41 @@ class ObligacionesReportController extends Controller
         $clean = preg_replace('/[^A-Za-z0-9]+/', '', $ascii) ?? '';
 
         return $clean !== '' ? $clean : 'sinvalor';
+    }
+
+    private function resolvePrimaryColor(): string
+    {
+        $companyId = (int) session('current_company_id');
+        if ($companyId > 0) {
+            $color = Company::query()->where('id', $companyId)->value('primary_color');
+            if ($this->isValidHexColor($color)) {
+                return strtoupper((string) $color);
+            }
+        }
+
+        return '#1E3A8A';
+    }
+
+    private function isValidHexColor(?string $value): bool
+    {
+        if (empty($value)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^#([A-Fa-f0-9]{6})$/', $value);
+    }
+
+    private function resolveContrastColor(): string
+    {
+        $companyId = (int) session('current_company_id');
+        if ($companyId > 0) {
+            $color = Company::query()->where('id', $companyId)->value('contrast_color');
+            if ($this->isValidHexColor($color)) {
+                return strtoupper((string) $color);
+            }
+        }
+
+        return '#FFFFFF';
     }
 
     private function formatActivities(ServiceRequest $serviceRequest): string

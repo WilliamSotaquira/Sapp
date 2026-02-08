@@ -5,6 +5,20 @@
 @section('hidePageHeader', true)
 
 @section('content')
+@php
+    $workspaceName = $currentWorkspace->name ?? '';
+    $workspaceKey = Str::lower($workspaceName);
+    $workspaceAccent = $currentWorkspace->primary_color ?? '#DC2626';
+    $workspaceAccentBg = $workspaceAccent . '1A';
+
+    if (!$currentWorkspace?->primary_color && Str::contains($workspaceKey, 'movilidad')) {
+        $workspaceAccent = '#BED000';
+        $workspaceAccentBg = '#BED0002E';
+    } elseif (!$currentWorkspace?->primary_color && Str::contains($workspaceKey, 'cultura')) {
+        $workspaceAccent = '#493D86';
+        $workspaceAccentBg = '#493D861F';
+    }
+@endphp
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" role="main">
     <a href="#recent-requests-heading" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-blue-600 text-white px-3 py-1 rounded">Saltar a solicitudes recientes</a>
     <!-- Encabezado con breadcrumb y título -->
@@ -20,62 +34,9 @@
                 </li>
             </ol>
         </nav>
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div class="flex flex-col gap-2">
-                <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
-                <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
-            </div>
-
-            <div class="w-full lg:w-auto">
-                @php
-                    $workspaceName = $currentWorkspace->name ?? 'Sin espacio';
-                    $workspaceDisplayName = $workspaceName;
-                    $workspaceKey = Str::lower($workspaceName);
-                    $workspaceAccent = '#DC2626';
-                    $workspaceAccentBg = 'rgba(220, 38, 38, 0.08)';
-                    $workspaceImage = null;
-
-                    if (Str::contains($workspaceKey, 'movilidad')) {
-                        $workspaceAccent = '#BED000';
-                        $workspaceAccentBg = 'rgba(190, 208, 0, 0.18)';
-                        $workspaceImage = asset('movilidad.jpg');
-                    } elseif (Str::contains($workspaceKey, 'cultura')) {
-                        $workspaceAccent = '#493D86';
-                        $workspaceAccentBg = 'rgba(73, 61, 134, 0.12)';
-                        $workspaceImage = asset('cultura.png');
-                        $workspaceDisplayName = 'Min Culturas';
-                    }
-                @endphp
-                <div class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    @if ($workspaceImage)
-                        <div class="flex items-center justify-center w-11 h-11 rounded-xl bg-white/80 ring-1 ring-black/5">
-                            <img src="{{ $workspaceImage }}" alt="{{ $workspaceDisplayName }}"
-                                 class="max-w-[2.25rem] max-h-[2.25rem] object-contain">
-                        </div>
-                    @else
-                        <div class="flex items-center justify-center w-11 h-11 rounded-xl" style="background-color: {{ $workspaceAccentBg }}; color: {{ $workspaceAccent }};">
-                            <i class="fas fa-building text-lg"></i>
-                        </div>
-                    @endif
-                    <div class="min-w-0">
-                        <p class="text-[11px] uppercase tracking-wider text-gray-400">Espacio activo</p>
-                        <p class="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                            {{ $workspaceDisplayName }}
-                        </p>
-                        @php
-                            $activeContract = $currentWorkspace?->activeContract;
-                        @endphp
-                        <p class="text-xs text-gray-500 truncate">
-                            {{ $activeContract ? ($activeContract->name ?: $activeContract->number) : 'Sin contrato activo' }}
-                        </p>
-                    </div>
-                    <a href="{{ route('workspaces.select') }}"
-                       class="ml-auto text-xs sm:text-sm font-semibold hover:opacity-80"
-                       style="color: {{ $workspaceAccent }};">
-                        Cambiar
-                    </a>
-                </div>
-            </div>
+        <div class="flex flex-col gap-2">
+            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
+            <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
         </div>
     </div>
 
@@ -106,16 +67,6 @@
                     'arrow' => 'text-indigo-500',
                 ],
                 [
-                    'href' => route('service-requests.create'),
-                    'border' => 'border-blue-100',
-                    'bg' => 'bg-blue-50/50',
-                    'iconWrap' => 'text-blue-600',
-                    'icon' => 'fas fa-plus-circle',
-                    'title' => 'Nueva Solicitud',
-                    'subtitle' => 'Alta inmediata',
-                    'arrow' => 'text-blue-500',
-                ],
-                [
                     'href' => route('service-requests.index'),
                     'border' => 'border-purple-100',
                     'bg' => 'bg-purple-50/50',
@@ -124,6 +75,16 @@
                     'title' => 'Ver Solicitudes',
                     'subtitle' => 'Panel operativo',
                     'arrow' => 'text-purple-500',
+                ],
+                [
+                    'href' => route('service-requests.create'),
+                    'border' => 'border-blue-100',
+                    'bg' => 'bg-blue-50/50',
+                    'iconWrap' => 'text-blue-600',
+                    'icon' => 'fas fa-plus-circle',
+                    'title' => 'Nueva Solicitud',
+                    'subtitle' => 'Alta inmediata',
+                    'arrow' => 'text-blue-500',
                 ],
                 [
                     'href' => route('tasks.index'),

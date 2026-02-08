@@ -24,6 +24,28 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto">
+    @php
+        $currentSortBy = request('sort_by', 'name');
+        $currentSortDir = request('sort_dir', 'asc');
+        $sortIcon = function (string $column) use ($currentSortBy, $currentSortDir): string {
+            if ($currentSortBy !== $column) {
+                return 'fa-sort text-gray-400';
+            }
+
+            return $currentSortDir === 'asc'
+                ? 'fa-sort-up text-red-600'
+                : 'fa-sort-down text-red-600';
+        };
+        $sortLink = function (string $column) use ($currentSortBy, $currentSortDir): string {
+            $nextDir = ($currentSortBy === $column && $currentSortDir === 'asc') ? 'desc' : 'asc';
+            return route('requester-management.requesters.index', array_merge(request()->query(), [
+                'sort_by' => $column,
+                'sort_dir' => $nextDir,
+                'page' => null,
+            ]));
+        };
+    @endphp
+
     <!-- Estadísticas -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-red-600 text-white rounded-lg shadow p-6">
@@ -71,8 +93,8 @@
         <div class="p-6">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex-1">
-                    <form action="{{ route('requester-management.requesters.index') }}" method="GET" class="flex flex-col md:flex-row gap-2">
-                        <div class="flex-1 flex gap-2">
+                    <form action="{{ route('requester-management.requesters.index') }}" method="GET" class="flex flex-col gap-2">
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
                             <input type="text" name="search"
                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                                    placeholder="Buscar por nombre, email, departamento o cargo..."
@@ -82,8 +104,23 @@
                                 <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Activos</option>
                                 <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactivos</option>
                             </select>
+                            <input type="text" name="department"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                   placeholder="Filtrar por departamento"
+                                   value="{{ request('department') }}">
+                            <input type="text" name="position"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                   placeholder="Filtrar por cargo"
+                                   value="{{ request('position') }}">
+                            <select name="has_requests" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                                <option value="">Con/Sin solicitudes</option>
+                                <option value="yes" {{ request('has_requests') == 'yes' ? 'selected' : '' }}>Con solicitudes</option>
+                                <option value="no" {{ request('has_requests') == 'no' ? 'selected' : '' }}>Sin solicitudes</option>
+                            </select>
                         </div>
                         <div class="flex gap-2">
+                            <input type="hidden" name="sort_by" value="{{ request('sort_by', 'name') }}">
+                            <input type="hidden" name="sort_dir" value="{{ request('sort_dir', 'asc') }}">
                             <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200">
                                 <i class="fas fa-search mr-2"></i>Buscar
                             </button>
@@ -110,12 +147,37 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="{{ $sortLink('name') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
+                                Nombre
+                                <i class="fas {{ $sortIcon('name') }}"></i>
+                            </a>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Departamento</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cargo</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solicitudes</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="{{ $sortLink('department') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
+                                Departamento
+                                <i class="fas {{ $sortIcon('department') }}"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="{{ $sortLink('position') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
+                                Cargo
+                                <i class="fas {{ $sortIcon('position') }}"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="{{ $sortLink('service_requests_count') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
+                                Solicitudes
+                                <i class="fas {{ $sortIcon('service_requests_count') }}"></i>
+                            </a>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <a href="{{ $sortLink('is_active') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
+                                Estado
+                                <i class="fas {{ $sortIcon('is_active') }}"></i>
+                            </a>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
