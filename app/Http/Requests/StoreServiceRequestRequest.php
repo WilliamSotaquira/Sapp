@@ -117,7 +117,7 @@ class StoreServiceRequestRequest extends FormRequest
 
                 $slaId = $this->input('sla_id');
                 $availableSlaId = ServiceLevelAgreement::query()
-                    ->where('sub_service_id', $subServiceId)
+                    ->forSubService($subServiceId)
                     ->where('is_active', true)
                     ->orderByDesc('id')
                     ->value('id');
@@ -129,7 +129,7 @@ class StoreServiceRequestRequest extends FormRequest
                 if (!empty($slaId)) {
                     $slaMatchesSubservice = ServiceLevelAgreement::query()
                         ->where('id', $slaId)
-                        ->where('sub_service_id', $subServiceId)
+                        ->forSubService($subServiceId)
                         ->exists();
 
                     if (!$slaMatchesSubservice) {
@@ -234,7 +234,7 @@ class StoreServiceRequestRequest extends FormRequest
 
         if (!$this->filled('sla_id') && $this->filled('sub_service_id')) {
             $derivedSlaId = ServiceLevelAgreement::query()
-                ->where('sub_service_id', $this->input('sub_service_id'))
+                ->forSubService($this->input('sub_service_id'))
                 ->where('is_active', true)
                 ->orderByDesc('id')
                 ->value('id');
