@@ -6,6 +6,7 @@ use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceFamily;
 use App\Models\ServiceSubservice;
 use App\Models\SubService; // Import faltante
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log; // Import faltante
 use Illuminate\Validation\Rule;
@@ -15,9 +16,22 @@ class SLAController extends Controller
     public function index()
     {
         try {
-            $slas = ServiceLevelAgreement::with(['serviceSubservice', 'serviceFamily'])
-                ->latest()
-                ->paginate(10);
+            $currentCompanyId = session('current_company_id');
+            $activeContractId = $currentCompanyId
+                ? Company::where('id', $currentCompanyId)->value('active_contract_id')
+                : null;
+
+            $slasQuery = ServiceLevelAgreement::with(['serviceSubservice', 'serviceFamily']);
+
+            if ($activeContractId) {
+                $slasQuery->whereHas('serviceFamily', function ($query) use ($activeContractId) {
+                    $query->where('contract_id', $activeContractId);
+                });
+            } else {
+                $slasQuery->whereRaw('1 = 0');
+            }
+
+            $slas = $slasQuery->latest()->paginate(10);
 
             return view('slas.index', compact('slas'));
         } catch (\Exception $e) {
@@ -251,7 +265,8 @@ class SLAController extends Controller
 
             // Obtener SLAs activos para este sub-servicio
             // Usando ServiceLevelAgreement que es el modelo correcto
-            $slas = ServiceLevelAgreement::where('sub_service_id', $subServiceId)
+            $slas = ServiceLevelAgreement::query()
+                ->forSubService($subServiceId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
