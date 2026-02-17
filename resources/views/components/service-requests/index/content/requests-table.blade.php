@@ -1,8 +1,8 @@
-@props(['serviceRequests', 'services' => null])
+@props(['serviceRequests', 'services' => null, 'savedFilters' => collect()])
 
 @php
     $activeFilters = [];
-    $search = request('search');
+    $search = request('q', request('search'));
     $status = request('status');
     $criticality = request('criticality');
     $requester = request('requester');
@@ -10,6 +10,7 @@
     $endDate = request('end_date');
     $open = request('open');
     $serviceId = request('service_id');
+    $sortBy = request('sort_by', 'recent');
     $baseParams = request()->except(['page']);
 
     if ($search) $activeFilters[] = ['label' => 'Búsqueda: ' . \Illuminate\Support\Str::limit($search, 30), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['search' => true]))];
@@ -25,6 +26,16 @@
         $activeFilters[] = ['label' => 'Fechas: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
     }
     if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
+    if ($sortBy && $sortBy !== 'recent') {
+        $sortLabels = [
+            'oldest' => 'Antiguedad (más antiguas)',
+            'priority_high' => 'Prioridad alta a baja',
+            'priority_low' => 'Prioridad baja a alta',
+            'status_az' => 'Estado A-Z',
+            'status_za' => 'Estado Z-A',
+        ];
+        $activeFilters[] = ['label' => 'Orden: ' . ($sortLabels[$sortBy] ?? $sortBy), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['sort_by' => true]))];
+    }
 @endphp
 
 <div class="bg-white rounded-lg shadow-sm border border-gray-200" role="region" aria-labelledby="requests-table-title">
@@ -80,9 +91,9 @@
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input id="searchFilter" 
                            name="search" 
-                           value="{{ request('search') }}" 
+                           value="{{ request('q', request('search')) }}" 
                            type="text" 
-                           placeholder="Buscar por ticket, título o descripción..." 
+                           placeholder="Búsqueda global: ticket, título, solicitante, servicio, familia o contrato..." 
                            class="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                            autocomplete="off">
                     <button type="button" 
@@ -233,6 +244,19 @@
                                 <input id="endDateFilterAdv" name="end_date" value="{{ request('end_date') }}" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Orden -->
+                    <div>
+                        <label for="sortByFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Ordenar por</label>
+                        <select id="sortByFilterAdv" name="sort_by" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="recent" {{ request('sort_by', 'recent') === 'recent' ? 'selected' : '' }}>Más recientes primero</option>
+                            <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>Antigüedad (más antiguas primero)</option>
+                            <option value="priority_high" {{ request('sort_by') === 'priority_high' ? 'selected' : '' }}>Prioridad alta a baja</option>
+                            <option value="priority_low" {{ request('sort_by') === 'priority_low' ? 'selected' : '' }}>Prioridad baja a alta</option>
+                            <option value="status_az" {{ request('sort_by') === 'status_az' ? 'selected' : '' }}>Estado A-Z</option>
+                            <option value="status_za" {{ request('sort_by') === 'status_za' ? 'selected' : '' }}>Estado Z-A</option>
+                        </select>
                     </div>
                 </form>
 
@@ -481,6 +505,12 @@ const STORAGE_KEYS = {
     searchHistory: 'sr_search_history',
     filterPresets: 'sr_filter_presets'
 };
+const SAVED_FILTERS_API = {
+    list: '{{ route('service-requests.saved-filters.index') }}',
+    store: '{{ route('service-requests.saved-filters.store') }}',
+    destroyBase: '{{ route('service-requests.saved-filters.destroy', ['savedFilter' => '__ID__']) }}'
+};
+let savedPresetsCache = @json(($savedFilters ?? collect())->map(fn($item) => ['id' => $item->id, 'name' => $item->name, 'filters' => $item->filters])->values());
 
 // === Sidebar Toggle ===
 document.getElementById('toggleFiltersSidebar')?.addEventListener('click', function() {
@@ -555,70 +585,107 @@ function savePreset() {
     if (!name) return;
     
     const filters = gatherFilters();
-    try {
-        let presets = JSON.parse(localStorage.getItem(STORAGE_KEYS.filterPresets) || '{}');
-        presets[name] = filters;
-        localStorage.setItem(STORAGE_KEYS.filterPresets, JSON.stringify(presets));
+    const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
+    fetch(SAVED_FILTERS_API.store, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token || '',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ name, filters })
+    })
+    .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || 'Error al guardar preset');
+        }
+        return data;
+    })
+    .then((payload) => {
+        if (payload.preset) {
+            const existingIndex = savedPresetsCache.findIndex((p) => Number(p.id) === Number(payload.preset.id));
+            if (existingIndex >= 0) {
+                savedPresetsCache[existingIndex] = payload.preset;
+            } else {
+                savedPresetsCache.push(payload.preset);
+            }
+        }
         renderPresets();
-        showToast('Preset guardado exitosamente');
-    } catch(e) {
-        showToast('Error al guardar preset', 'error');
-    }
+        showToast(payload.message || 'Preset guardado exitosamente');
+    })
+    .catch((err) => {
+        showToast(err.message || 'Error al guardar preset', 'error');
+    });
 }
 
-function loadPreset(name) {
-    try {
-        const presets = JSON.parse(localStorage.getItem(STORAGE_KEYS.filterPresets) || '{}');
-        const filters = presets[name];
-        if (!filters) return;
+function loadPresetById(id) {
+    const preset = savedPresetsCache.find((item) => Number(item.id) === Number(id));
+    if (!preset || !preset.filters) return;
         
         const params = new URLSearchParams();
-        Object.keys(filters).forEach(key => {
-            if (filters[key]) params.set(key, filters[key]);
+        Object.keys(preset.filters).forEach(key => {
+            if (preset.filters[key]) params.set(key, preset.filters[key]);
         });
         
         window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
-    } catch(e) {}
 }
 
-function deletePreset(name) {
-    if (!confirm(`¿Eliminar preset "${name}"?`)) return;
+function deletePresetById(id) {
+    const preset = savedPresetsCache.find((item) => Number(item.id) === Number(id));
+    if (!preset) return;
+    if (!confirm(`¿Eliminar preset \"${preset.name}\"?`)) return;
     
-    try {
-        let presets = JSON.parse(localStorage.getItem(STORAGE_KEYS.filterPresets) || '{}');
-        delete presets[name];
-        localStorage.setItem(STORAGE_KEYS.filterPresets, JSON.stringify(presets));
+    const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
+    const url = SAVED_FILTERS_API.destroyBase.replace('__ID__', String(id));
+    fetch(url, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': token || '',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || 'Error al eliminar preset');
+        }
+        return data;
+    })
+    .then((payload) => {
+        savedPresetsCache = savedPresetsCache.filter((item) => Number(item.id) !== Number(id));
         renderPresets();
-        showToast('Preset eliminado');
-    } catch(e) {}
+        showToast(payload.message || 'Preset eliminado');
+    })
+    .catch((err) => {
+        showToast(err.message || 'Error al eliminar preset', 'error');
+    });
 }
 
 function renderPresets() {
     const container = document.getElementById('presetsContainer');
     if (!container) return;
     
-    try {
-        const presets = JSON.parse(localStorage.getItem(STORAGE_KEYS.filterPresets) || '{}');
-        const names = Object.keys(presets);
-        
-        if (names.length === 0) {
-            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay presets guardados</p>';
-            return;
-        }
-        
-        container.innerHTML = names.map(name => 
-            `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <button type="button" onclick="loadPreset('${name.replace(/'/g, "\\'")}')"
-                        class="flex-1 text-left text-sm font-medium text-gray-700">
-                    <i class="fas fa-star text-purple-500 mr-2"></i>${name}
+    const presets = Array.isArray(savedPresetsCache) ? savedPresetsCache : [];
+    if (presets.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay presets guardados</p>';
+        return;
+    }
+
+    container.innerHTML = presets.map(preset => 
+        `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <button type="button" onclick="loadPresetById(${Number(preset.id)})"
+                        class="flex-1 text-left text-sm font-medium text-gray-700" title="Aplicar preset">
+                    <i class="fas fa-star text-purple-500 mr-2"></i>${preset.name}
                 </button>
-                <button type="button" onclick="deletePreset('${name.replace(/'/g, "\\'")}')"
+                <button type="button" onclick="deletePresetById(${Number(preset.id)})"
                         class="text-red-500 hover:text-red-700 ml-2">
                     <i class="fas fa-trash text-xs"></i>
                 </button>
             </div>`
-        ).join('');
-    } catch(e) {}
+    ).join('');
 }
 
 // === Aplicar Filtros ===
@@ -630,7 +697,9 @@ function gatherFilters() {
         service_id: document.getElementById('serviceFilterAdv')?.value || '',
         requester: document.getElementById('requesterFilterAdv')?.value || '',
         start_date: document.getElementById('startDateFilterAdv')?.value || '',
-        end_date: document.getElementById('endDateFilterAdv')?.value || ''
+        end_date: document.getElementById('endDateFilterAdv')?.value || '',
+        open: document.getElementById('openFilter')?.value || '',
+        sort_by: document.getElementById('sortByFilterAdv')?.value || 'recent'
     };
 }
 

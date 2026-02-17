@@ -25,3 +25,8 @@ Route::get('/service-requests/suggest-requesters', [ServiceRequestController::cl
 
 // Actualizar corte asociado (AJAX)
 Route::post('/service-requests/{service_request}/update-cut', [ServiceRequestController::class, 'updateCut'])->name('service-requests.update-cut');
+
+// Filtros guardados por usuario (persistentes)
+Route::get('/service-requests/saved-filters', [ServiceRequestController::class, 'savedFiltersIndex'])->name('service-requests.saved-filters.index');
+Route::post('/service-requests/saved-filters', [ServiceRequestController::class, 'savedFiltersStore'])->name('service-requests.saved-filters.store');
+Route::delete('/service-requests/saved-filters/{savedFilter}', [ServiceRequestController::class, 'savedFiltersDestroy'])->name('service-requests.saved-filters.destroy');

@@ -16,6 +16,35 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class ServiceRequestService
 {
+    private function applySorting($query, ?string $sortBy): void
+    {
+        switch ($sortBy) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc');
+                break;
+            case 'priority_high':
+                $query->orderByRaw("FIELD(criticality_level, 'CRITICA','ALTA','MEDIA','BAJA') ASC")
+                    ->orderByDesc('created_at');
+                break;
+            case 'priority_low':
+                $query->orderByRaw("FIELD(criticality_level, 'BAJA','MEDIA','ALTA','CRITICA') ASC")
+                    ->orderByDesc('created_at');
+                break;
+            case 'status_az':
+                $query->orderBy('status', 'asc')
+                    ->orderByDesc('created_at');
+                break;
+            case 'status_za':
+                $query->orderBy('status', 'desc')
+                    ->orderByDesc('created_at');
+                break;
+            case 'recent':
+            default:
+                $query->orderBy('created_at', 'desc');
+                break;
+        }
+    }
+
     private function calculateEstimatedMinutesFromSubtasks(array $subtasks): int
     {
         $totalMinutes = 0;
@@ -59,14 +88,31 @@ class ServiceRequestService
 
         // Búsqueda general
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
+            $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('ticket_number', 'LIKE', "%{$search}%")
                     ->orWhere('title', 'LIKE', "%{$search}%")
                     ->orWhere('description', 'LIKE', "%{$search}%")
                     ->orWhereHas('requester', function ($rq) use ($search) {
                         $rq->where('name', 'LIKE', "%{$search}%")
-                           ->orWhere('email', 'LIKE', "%{$search}%");
+                           ->orWhere('email', 'LIKE', "%{$search}%")
+                           ->orWhere('department', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('subService', function ($subQ) use ($search) {
+                        $subQ->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('code', 'LIKE', "%{$search}%")
+                            ->orWhereHas('service', function ($serviceQ) use ($search) {
+                                $serviceQ->where('name', 'LIKE', "%{$search}%")
+                                    ->orWhere('code', 'LIKE', "%{$search}%")
+                                    ->orWhereHas('family', function ($familyQ) use ($search) {
+                                        $familyQ->where('name', 'LIKE', "%{$search}%")
+                                            ->orWhere('code', 'LIKE', "%{$search}%")
+                                            ->orWhereHas('contract', function ($contractQ) use ($search) {
+                                                $contractQ->where('number', 'LIKE', "%{$search}%")
+                                                    ->orWhere('name', 'LIKE', "%{$search}%");
+                                            });
+                                    });
+                            });
                     });
             });
         }
@@ -154,7 +200,9 @@ class ServiceRequestService
                 'created_at', 'updated_at'
             ]);
 
-        return $query->latest()->paginate($perPage);
+        $this->applySorting($query, $filters['sort_by'] ?? 'recent');
+
+        return $query->paginate($perPage);
     }
 
     /**
