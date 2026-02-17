@@ -74,6 +74,58 @@
         </div>
     </div>
 
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+        <form method="GET" action="{{ route('sub-services.index') }}">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2">Buscar</label>
+                    <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Nombre, código, servicio o familia..."
+                           class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2">Familia</label>
+                    <select name="family_id" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="">Todas las familias</option>
+                        @foreach($families as $family)
+                            @php
+                                $familyLabel = $family->contract?->number
+                                    ? ($family->contract->number . ' - ' . $family->name)
+                                    : $family->name;
+                            @endphp
+                            <option value="{{ $family->id }}" {{ (string) ($familyId ?? '') === (string) $family->id ? 'selected' : '' }}>
+                                {{ $familyLabel }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2">Estado</label>
+                    <select name="status" class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                        <option value="">Todos los estados</option>
+                        <option value="active" {{ ($status ?? '') === 'active' ? 'selected' : '' }}>Activos</option>
+                        <option value="inactive" {{ ($status ?? '') === 'inactive' ? 'selected' : '' }}>Inactivos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs sm:text-sm text-slate-600">
+                    Mostrando <span class="font-semibold text-slate-900">{{ $subServices->count() }}</span>
+                    de <span class="font-semibold text-slate-900">{{ $subServices->total() }}</span> registros
+                </p>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('sub-services.index') }}"
+                        class="inline-flex items-center px-3 py-1.5 text-xs sm:text-sm border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 transition">
+                        <i class="fas fa-rotate-left mr-1.5"></i>Limpiar filtros
+                    </a>
+                    <button type="submit"
+                        class="inline-flex items-center px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                        <i class="fas fa-search mr-1.5"></i>Aplicar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
     <!-- Tabla de Sub-Servicios -->
     <div class="bg-white shadow-md rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
@@ -90,9 +142,21 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-gray-200" id="subServicesTable">
                     @forelse($subServices as $subService)
-                        <tr class="hover:bg-gray-50 transition duration-150">
+                        @php
+                            $family = $subService->service?->family;
+                            $familyName = $family?->name ?? 'N/A';
+                            $contractNumber = $family?->contract?->number;
+                            $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                        @endphp
+                        <tr class="sub-service-row hover:bg-gray-50 transition duration-150"
+                            data-name="{{ strtolower($subService->name) }}"
+                            data-code="{{ strtolower($subService->code) }}"
+                            data-description="{{ strtolower(strip_tags($subService->description ?? '')) }}"
+                            data-service="{{ strtolower($subService->service->name ?? '') }}"
+                            data-family="{{ strtolower($familyLabel) }}"
+                            data-status="{{ $subService->is_active ? 'active' : 'inactive' }}">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -121,12 +185,6 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    @php
-                                        $family = $subService->service?->family;
-                                        $familyName = $family?->name ?? 'N/A';
-                                        $contractNumber = $family?->contract?->number;
-                                        $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
-                                    @endphp
                                     {{ $familyLabel }}
                                 </span>
                             </td>

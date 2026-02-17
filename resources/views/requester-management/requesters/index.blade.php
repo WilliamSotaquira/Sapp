@@ -142,89 +142,102 @@
     </div>
 
     <!-- Lista -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+            <table class="min-w-full table-fixed divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="w-[26%] px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <a href="{{ $sortLink('name') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
-                                Nombre
+                                Solicitante
                                 <i class="fas {{ $sortIcon('name') }}"></i>
                             </a>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="w-[28%] px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contacto</th>
+                        <th class="w-[24%] px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <a href="{{ $sortLink('department') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
-                                Departamento
+                                Área / Cargo
                                 <i class="fas {{ $sortIcon('department') }}"></i>
                             </a>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <a href="{{ $sortLink('position') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
-                                Cargo
-                                <i class="fas {{ $sortIcon('position') }}"></i>
-                            </a>
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="w-[14%] px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <a href="{{ $sortLink('service_requests_count') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
-                                Solicitudes
+                                Gestión
                                 <i class="fas {{ $sortIcon('service_requests_count') }}"></i>
                             </a>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <a href="{{ $sortLink('is_active') }}" class="inline-flex items-center gap-1 hover:text-gray-800">
-                                Estado
-                                <i class="fas {{ $sortIcon('is_active') }}"></i>
-                            </a>
-                        </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        <th class="w-[8%] px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-slate-200">
                     @forelse($requesters as $requester)
-                        <tr class="hover:bg-gray-50 transition-colors duration-150">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ $requester->name }}</div>
-                                @if($requester->email)
-                                    <div class="text-sm text-gray-500">{{ $requester->email }}</div>
-                                @endif
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="h-9 w-9 rounded-full bg-red-50 text-red-700 flex items-center justify-center font-semibold text-xs">
+                                        {{ strtoupper(\Illuminate\Support\Str::substr($requester->name, 0, 2)) }}
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-slate-900">{{ $requester->name }}</div>
+                                        <div class="text-xs text-slate-500">ID #{{ $requester->id }}</div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4">
+                                @if($requester->email)
+                                    <div class="flex items-center text-sm text-slate-700">
+                                        <i class="fas fa-envelope text-slate-400 mr-2"></i>
+                                        <span class="break-all">{{ $requester->email }}</span>
+                                    </div>
+                                @else
+                                    <div class="text-sm text-slate-400">Sin correo</div>
+                                @endif
                                 @if($requester->phone)
-                                    <div class="flex items-center text-sm text-gray-900">
-                                        <i class="fas fa-phone text-gray-400 mr-2"></i>
+                                    <div class="flex items-center text-sm text-slate-700 mt-1">
+                                        <i class="fas fa-phone text-slate-400 mr-2"></i>
                                         {{ $requester->phone }}
                                     </div>
                                 @else
-                                    <span class="text-sm text-gray-500">N/A</span>
+                                    <div class="text-sm text-slate-400 mt-1">Sin teléfono</div>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ $requester->department ?? 'N/A' }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ $requester->position ?? 'N/A' }}
+                            <td class="px-6 py-4">
+                                @if($requester->department)
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        {{ $requester->department }}
+                                    </span>
+                                @else
+                                    <span class="text-sm text-slate-400">Sin departamento</span>
+                                @endif
+                                <div class="mt-1">
+                                    @if($requester->position)
+                                        <span class="text-sm text-slate-700">{{ $requester->position }}</span>
+                                    @else
+                                        <span class="text-sm text-slate-400">Sin cargo</span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                    {{ $requester->service_requests_count }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $requester->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ $requester->is_active ? 'Activo' : 'Inactivo' }}
-                                </span>
+                                <div class="flex flex-col gap-1">
+                                    <span class="inline-flex w-fit items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                                        <i class="fas fa-ticket-alt mr-1"></i>
+                                        {{ $requester->service_requests_count }}
+                                    </span>
+                                    <span class="inline-flex w-fit items-center px-2.5 py-1 rounded-full text-xs font-medium border {{ $requester->is_active ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100' }}">
+                                        <i class="fas fa-circle mr-1 text-[8px]"></i>
+                                        {{ $requester->is_active ? 'Activo' : 'Inactivo' }}
+                                    </span>
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex items-center space-x-2">
                                     <a href="{{ route('requester-management.requesters.show', $requester) }}"
-                                       class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                                       class="text-blue-600 hover:text-blue-900 p-1.5 rounded-md hover:bg-blue-50 transition-colors duration-200"
                                        title="Ver detalle">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     <a href="{{ route('requester-management.requesters.edit', $requester) }}"
-                                       class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
+                                       class="text-amber-600 hover:text-amber-900 p-1.5 rounded-md hover:bg-amber-50 transition-colors duration-200"
                                        title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
@@ -233,7 +246,7 @@
                                         @csrf
                                         @method('PATCH')
                                         <button type="submit"
-                                                class="text-{{ $requester->is_active ? 'yellow' : 'green' }}-600 hover:text-{{ $requester->is_active ? 'yellow' : 'green' }}-900 transition-colors duration-200"
+                                                class="text-{{ $requester->is_active ? 'yellow' : 'green' }}-600 hover:text-{{ $requester->is_active ? 'yellow' : 'green' }}-900 p-1.5 rounded-md hover:bg-{{ $requester->is_active ? 'yellow' : 'green' }}-50 transition-colors duration-200"
                                                 title="{{ $requester->is_active ? 'Desactivar' : 'Activar' }}">
                                             <i class="fas fa-{{ $requester->is_active ? 'times' : 'check' }}"></i>
                                         </button>
@@ -244,7 +257,7 @@
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit"
-                                                    class="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                                    class="text-red-600 hover:text-red-900 p-1.5 rounded-md hover:bg-red-50 transition-colors duration-200"
                                                     onclick="return confirm('¿Está seguro de eliminar este solicitante?')"
                                                     title="Eliminar">
                                                 <i class="fas fa-trash"></i>
@@ -256,7 +269,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center">
+                            <td colspan="5" class="px-6 py-12 text-center">
                                 <div class="text-gray-500">
                                     <i class="fas fa-users text-4xl mb-4"></i>
                                     <p class="text-lg font-medium mb-4">No se encontraron solicitantes</p>
@@ -275,8 +288,21 @@
 
         <!-- Paginación -->
         @if($requesters->hasPages())
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                {{ $requesters->links() }}
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p class="text-sm text-slate-600">
+                        Mostrando
+                        <span class="font-medium text-slate-900">{{ $requesters->firstItem() }}</span>
+                        a
+                        <span class="font-medium text-slate-900">{{ $requesters->lastItem() }}</span>
+                        de
+                        <span class="font-medium text-slate-900">{{ $requesters->total() }}</span>
+                        solicitantes
+                    </p>
+                    <div>
+                        {{ $requesters->links() }}
+                    </div>
+                </div>
             </div>
         @endif
     </div>

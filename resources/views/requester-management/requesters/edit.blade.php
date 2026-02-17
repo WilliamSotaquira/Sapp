@@ -127,19 +127,23 @@
                             Departamento
                         </label>
                         @php
-                            $departmentOptions = \App\Models\Requester::getDepartmentOptions();
                             $selectedDepartment = old('department', $requester->department);
+                            $hasSelectedDepartment = $selectedDepartment && in_array($selectedDepartment, $departmentOptions, true);
                         @endphp
                         <select id="department"
                                 name="department"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent @error('department') border-red-500 @enderror">
                             <option value="">Seleccione un departamento</option>
+                            @if($selectedDepartment && !$hasSelectedDepartment)
+                                <option value="{{ $selectedDepartment }}" selected>{{ $selectedDepartment }} (actual)</option>
+                            @endif
                             @foreach ($departmentOptions as $department)
                                 <option value="{{ $department }}" {{ $selectedDepartment === $department ? 'selected' : '' }}>
                                     {{ $department }}
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-xs text-gray-500">Lista de departamentos de la organización activa.</p>
                         @error('department')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror

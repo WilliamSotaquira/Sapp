@@ -474,6 +474,12 @@
                         'match' => ['requester-management.*'],
                     ],
                     [
+                        'route' => 'requester-management.departments.index',
+                        'label' => 'Departamentos',
+                        'icon' => 'fas fa-sitemap',
+                        'match' => ['requester-management.departments.*'],
+                    ],
+                    [
                         'route' => 'companies.index',
                         'label' => 'Entidades',
                         'icon' => 'fas fa-building',

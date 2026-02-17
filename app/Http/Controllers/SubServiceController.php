@@ -5,24 +5,64 @@ namespace App\Http\Controllers;
 
 use App\Models\SubService;
 use App\Models\Service;
+use App\Models\ServiceFamily;
 use Illuminate\Http\Request;
 
 class SubServiceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $currentCompanyId = (int) session('current_company_id');
+        $search = trim((string) $request->get('search', ''));
+        $familyId = (int) $request->get('family_id', 0);
+        $status = (string) $request->get('status', '');
+
         $subServices = SubService::with(['service.family.contract'])
             ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
                 $query->whereHas('service.family.contract', function ($q) use ($currentCompanyId) {
                     $q->where('company_id', $currentCompanyId);
                 });
             })
-            ->active()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhereHas('service', function ($serviceQuery) use ($search) {
+                            $serviceQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%")
+                                ->orWhereHas('family', function ($familyQuery) use ($search) {
+                                    $familyQuery->where('name', 'like', "%{$search}%")
+                                        ->orWhere('code', 'like', "%{$search}%")
+                                        ->orWhereHas('contract', function ($contractQuery) use ($search) {
+                                            $contractQuery->where('number', 'like', "%{$search}%");
+                                        });
+                                });
+                        });
+                });
+            })
+            ->when($familyId > 0, function ($query) use ($familyId) {
+                $query->whereHas('service.family', function ($q) use ($familyId) {
+                    $q->where('id', $familyId);
+                });
+            })
+            ->when(in_array($status, ['active', 'inactive'], true), function ($query) use ($status) {
+                $query->where('is_active', $status === 'active');
+            })
             ->ordered()
-            ->paginate(10); // Cambia get() por paginate(10)
+            ->paginate(10)
+            ->withQueryString();
 
-        return view('sub-services.index', compact('subServices'));
+        $families = ServiceFamily::with('contract')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                    $q->where('company_id', $currentCompanyId);
+                });
+            })
+            ->whereHas('services.subServices')
+            ->ordered()
+            ->get();
+
+        return view('sub-services.index', compact('subServices', 'search', 'families', 'familyId', 'status'));
     }
 public function create()
 {
