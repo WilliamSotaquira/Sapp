@@ -89,8 +89,10 @@ class RequesterManagementController extends Controller
     public function create()
     {
         $companies = Company::orderBy('name')->get(['id', 'name']);
+        $currentCompanyId = (int) session('current_company_id');
+        $departmentOptions = Requester::getDepartmentOptions($currentCompanyId);
 
-        return view('requester-management.requesters.create', compact('companies'));
+        return view('requester-management.requesters.create', compact('companies', 'departmentOptions'));
     }
 
     /**
@@ -113,7 +115,7 @@ class RequesterManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:requesters,email',
             'phone' => 'nullable|string|max:20',
-            'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions())],
+            'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions((int) $currentCompanyId))],
             'position' => 'nullable|string|max:255',
             'is_active' => 'boolean',
         ]);
@@ -132,7 +134,7 @@ class RequesterManagementController extends Controller
         $this->ensureWorkspace($requester);
 
         $serviceRequests = $requester->serviceRequests()
-            ->with(['subService.service.family', 'status'])
+            ->with(['subService.service.family'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -147,8 +149,10 @@ class RequesterManagementController extends Controller
         $this->ensureWorkspace($requester);
 
         $companies = Company::orderBy('name')->get(['id', 'name']);
+        $currentCompanyId = (int) session('current_company_id');
+        $departmentOptions = Requester::getDepartmentOptions($currentCompanyId);
 
-        return view('requester-management.requesters.edit', compact('requester', 'companies'));
+        return view('requester-management.requesters.edit', compact('requester', 'companies', 'departmentOptions'));
     }
 
     /**
@@ -181,12 +185,13 @@ class RequesterManagementController extends Controller
                 'nullable',
                 'string',
                 'max:255',
-                function ($attribute, $value, $fail) use ($requester) {
+                function ($attribute, $value, $fail) use ($requester, $currentCompanyId) {
                     $value = is_string($value) ? trim($value) : $value;
                     if ($value === null || $value === '') {
                         return;
                     }
-                    $allowed = Requester::getDepartmentOptions();
+
+                    $allowed = Requester::getDepartmentOptions((int) $currentCompanyId);
                     if (!in_array($value, $allowed, true) && $value !== $requester->department) {
                         $fail('El departamento seleccionado no es válido.');
                     }

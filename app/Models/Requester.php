@@ -12,9 +12,46 @@ class Requester extends Model
 {
     use HasFactory, SoftDeletes;
 
-    public static function getDepartmentOptions(): array
+    public static function getDepartmentOptions(?int $companyId = null): array
     {
-        return DepartmentOptions::all();
+        $companyId = $companyId ?: (int) session('current_company_id');
+        $catalogOptions = Department::query()
+            ->when($companyId > 0, function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->where('is_active', true)
+            ->ordered()
+            ->pluck('name')
+            ->toArray();
+
+        $baseOptions = DepartmentOptions::all();
+
+        if ($companyId > 0) {
+            $company = Company::query()->select('id', 'name')->find($companyId);
+            $isMobilityWorkspace = $company && str_contains(mb_strtolower($company->name), 'movil');
+            if (!$isMobilityWorkspace) {
+                $baseOptions = [];
+            }
+        }
+
+        $companyOptions = static::withoutGlobalScopes()
+            ->when($companyId > 0, function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->whereNotNull('department')
+            ->where('department', '!=', '')
+            ->distinct()
+            ->orderBy('department')
+            ->pluck('department')
+            ->toArray();
+
+        $options = array_values(array_filter(array_unique(array_map(function ($value) {
+            return is_string($value) ? trim($value) : '';
+        }, array_merge($catalogOptions, $baseOptions, $companyOptions)))));
+
+        natcasesort($options);
+
+        return array_values($options);
     }
 
     protected $fillable = [

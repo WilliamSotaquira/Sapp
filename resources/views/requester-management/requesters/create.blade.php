@@ -126,19 +126,23 @@
                             Departamento
                         </label>
                         @php
-                            $departmentOptions = \App\Models\Requester::getDepartmentOptions();
                             $selectedDepartment = old('department');
+                            $hasSelectedDepartment = $selectedDepartment && in_array($selectedDepartment, $departmentOptions, true);
                         @endphp
                         <select id="department"
                                 name="department"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent @error('department') border-red-500 @enderror">
                             <option value="">Seleccione un departamento</option>
+                            @if($selectedDepartment && !$hasSelectedDepartment)
+                                <option value="{{ $selectedDepartment }}" selected>{{ $selectedDepartment }} (actual)</option>
+                            @endif
                             @foreach ($departmentOptions as $department)
                                 <option value="{{ $department }}" {{ $selectedDepartment === $department ? 'selected' : '' }}>
                                     {{ $department }}
                                 </option>
                             @endforeach
                         </select>
+                        <p class="mt-1 text-xs text-gray-500">Lista de departamentos de la organización activa.</p>
                         @error('department')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -230,41 +234,3 @@
     });
 </script>
 @endsection
-
-@push('styles')
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
-    <style>
-        /* Ajuste simple para que Select2 se vea consistente con el layout */
-        .select2-container--default .select2-selection--single {
-            height: 42px;
-            border-radius: 0.5rem;
-            border-color: #d1d5db;
-            padding: 0.35rem 0.6rem;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            line-height: 28px;
-            color: #111827;
-        }
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-            height: 40px;
-        }
-    </style>
-@endpush
-
-@push('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            if (!window.jQuery || !window.jQuery.fn?.select2) return;
-            const $dept = window.jQuery('#department');
-            if ($dept.length && !$dept.data('select2')) {
-                $dept.select2({
-                    width: '100%',
-                    placeholder: 'Seleccione un departamento',
-                    allowClear: true,
-                });
-            }
-        });
-    </script>
-@endpush

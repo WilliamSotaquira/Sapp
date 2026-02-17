@@ -38,7 +38,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email|unique:requesters,email',
                 'phone' => 'nullable|string|max:20',
-                'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions())],
+                'department' => ['nullable', 'string', 'max:255', Rule::in(Requester::getDepartmentOptions((int) $currentCompanyId))],
                 'position' => 'nullable|string|max:255',
             ]);
 
