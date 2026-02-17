@@ -31,7 +31,7 @@
                             <i class="fas fa-copy text-[11px]"></i>
                         </button>
                     </div>
-                    <p class="text-slate-600 mt-1 text-[11px] sm:text-xs line-clamp-2">{{ $serviceRequest->title }}</p>
+                    <p class="text-[#374151] mt-1 text-sm sm:text-base font-medium leading-snug line-clamp-2">{{ $serviceRequest->title }}</p>
                 </div>
             </div>
 
