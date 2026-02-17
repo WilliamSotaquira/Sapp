@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^php artisan test tests/Feature/Auth/AuthenticationTest\\.php --filter users_can_authenticate_using_the_login_screen -v$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
+}
