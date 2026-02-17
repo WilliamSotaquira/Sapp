@@ -13,6 +13,7 @@ use App\Models\SubService;
 use App\Models\User;
 use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceRequestEvidence;
+use App\Models\SavedFilter;
 use App\Services\ServiceRequestService;
 use App\Services\ServiceRequestWorkflowService;
 use App\Services\EvidenceService;
@@ -22,6 +23,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class ServiceRequestController extends Controller
 {
@@ -44,9 +46,17 @@ class ServiceRequestController extends Controller
      */
     public function index(Request $request)
     {
+        $globalSearch = trim((string) $request->get('q', $request->get('search', '')));
+
         // Preparar filtros
+        $sortBy = (string) $request->get('sort_by', 'recent');
+        $allowedSorts = ['recent', 'oldest', 'priority_high', 'priority_low', 'status_az', 'status_za'];
+        if (!in_array($sortBy, $allowedSorts, true)) {
+            $sortBy = 'recent';
+        }
+
         $filters = [
-            'search' => $request->get('search'),
+            'search' => $globalSearch,
             'status' => $request->get('status'),
             'criticality' => $request->get('criticality'),
             'requester' => $request->get('requester'), // nombre o email parcial
@@ -55,6 +65,7 @@ class ServiceRequestController extends Controller
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
             'open' => $request->boolean('open'),
+            'sort_by' => $sortBy,
         ];
 
         // Validación ligera de fechas (formato YYYY-MM-DD)
@@ -85,8 +96,34 @@ class ServiceRequestController extends Controller
             })
             ->get(['id', 'name', 'service_family_id']);
 
+        $savedFilters = SavedFilter::query()
+            ->where('user_id', Auth::id())
+            ->where('context', 'service-requests.index')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->where(function ($q) use ($currentCompanyId) {
+                    $q->whereNull('company_id')
+                      ->orWhere('company_id', $currentCompanyId);
+                });
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'filters']);
+
+        $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
+        $slaAlerts = [
+            'overdue' => ServiceRequest::query()
+                ->whereIn('status', $openStatuses)
+                ->whereNotNull('resolution_deadline')
+                ->where('resolution_deadline', '<', now())
+                ->count(),
+            'dueSoon' => ServiceRequest::query()
+                ->whereIn('status', $openStatuses)
+                ->whereNotNull('resolution_deadline')
+                ->whereBetween('resolution_deadline', [now(), now()->addHours(24)])
+                ->count(),
+        ];
+
         $data = array_merge(
-            compact('serviceRequests', 'services'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts'),
             $stats
         );
 
@@ -96,6 +133,98 @@ class ServiceRequestController extends Controller
         }
 
         return view('service-requests.index', $data);
+    }
+
+    public function savedFiltersIndex(Request $request)
+    {
+        $currentCompanyId = (int) $request->session()->get('current_company_id');
+
+        $presets = SavedFilter::query()
+            ->where('user_id', Auth::id())
+            ->where('context', 'service-requests.index')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->where(function ($q) use ($currentCompanyId) {
+                    $q->whereNull('company_id')
+                      ->orWhere('company_id', $currentCompanyId);
+                });
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'filters', 'updated_at']);
+
+        return response()->json($presets);
+    }
+
+    public function savedFiltersStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|min:2|max:120',
+            'filters' => 'required|array',
+            'filters.search' => 'nullable|string|max:255',
+            'filters.status' => 'nullable|string|max:40',
+            'filters.criticality' => 'nullable|string|max:40',
+            'filters.service_id' => 'nullable',
+            'filters.requester' => 'nullable|string|max:255',
+            'filters.start_date' => 'nullable|date',
+            'filters.end_date' => 'nullable|date',
+            'filters.open' => 'nullable',
+            'filters.sort_by' => 'nullable|string|max:40',
+        ]);
+
+        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'sort_by'];
+        $filters = collect($validated['filters'])
+            ->only($allowedKeys)
+            ->map(function ($value) {
+                if (is_string($value)) {
+                    return trim($value);
+                }
+                return $value;
+            })
+            ->filter(function ($value) {
+                return !($value === null || $value === '' || $value === false);
+            })
+            ->toArray();
+
+        if (empty($filters)) {
+            return response()->json([
+                'message' => 'No hay filtros válidos para guardar.',
+            ], 422);
+        }
+
+        $currentCompanyId = (int) $request->session()->get('current_company_id');
+
+        $savedFilter = SavedFilter::updateOrCreate(
+            [
+                'user_id' => Auth::id(),
+                'company_id' => $currentCompanyId ?: null,
+                'context' => 'service-requests.index',
+                'name' => $validated['name'],
+            ],
+            [
+                'filters' => $filters,
+            ],
+        );
+
+        return response()->json([
+            'message' => 'Filtro guardado correctamente.',
+            'preset' => $savedFilter->only(['id', 'name', 'filters', 'updated_at']),
+        ]);
+    }
+
+    public function savedFiltersDestroy(SavedFilter $savedFilter, Request $request)
+    {
+        $currentCompanyId = (int) $request->session()->get('current_company_id');
+
+        if ((int) $savedFilter->user_id !== (int) Auth::id() || $savedFilter->context !== 'service-requests.index') {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        if ($savedFilter->company_id !== null && (int) $savedFilter->company_id !== $currentCompanyId) {
+            return response()->json(['message' => 'No autorizado.'], 403);
+        }
+
+        $savedFilter->delete();
+
+        return response()->json(['message' => 'Filtro eliminado correctamente.']);
     }
 
     /**

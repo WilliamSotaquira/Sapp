@@ -340,36 +340,108 @@
 
     <!-- Solicitudes Recientes con filtros y búsqueda -->
     <div class="bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading">
-        <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between">
-            <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">Solicitudes Recientes</h2>
-            <div class="flex flex-wrap gap-2 items-center text-xs sm:text-sm" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
+        <div class="px-6 py-4 border-b border-gray-200 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900">Solicitudes Recientes</h2>
+                <span class="text-[11px] text-gray-500">Busca, filtra y ajusta la vista</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(280px,1.4fr)_auto_auto] gap-2 items-center text-xs sm:text-sm" role="toolbar" aria-label="Herramientas de filtrado de solicitudes">
                 <div class="relative">
                     <input
                         type="text"
                         id="search-requests"
-                        placeholder="Buscar solicitud..."
+                        value="{{ request('recent_search', '') }}"
+                        placeholder="Buscar ticket, título, solicitante, servicio, familia o contrato"
                         aria-label="Buscar solicitud por ticket o título"
-                        class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
+                        class="pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-xs sm:text-sm focus:ring-blue-500 focus:border-blue-500 w-full"
                     >
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
-                <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Todos los estados</option>
-                    @foreach(array_keys($statuses) as $status)
-                        <option value="{{ $status }}">{{ $status }}</option>
-                    @endforeach
-                </select>
-                <button id="clear-filters" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Limpiar filtros">Limpiar</button>
-                <button id="toggle-density" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Alternar densidad de filas">Densidad</button>
+
+                <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-2 py-1.5">
+                    <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 bg-white rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 min-w-[170px]">
+                        <option value="">Todos los estados</option>
+                        @foreach(array_keys($statuses) as $status)
+                            <option value="{{ $status }}" {{ request('recent_status') === $status ? 'selected' : '' }}>{{ ucfirst(strtolower(str_replace('_', ' ', $status))) }}</option>
+                        @endforeach
+                    </select>
+                    <select id="filter-per-page" aria-label="Cantidad por página" class="border border-gray-300 bg-white rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 min-w-[88px]">
+                        @foreach([5, 10, 20, 50, 100] as $opt)
+                            <option value="{{ $opt }}" {{ (int) request('recent_per_page', 5) === $opt ? 'selected' : '' }}>{{ $opt }}/pág</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2 justify-start lg:justify-end">
+                    <button id="clear-filters" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Limpiar filtros">Limpiar</button>
+                    <button id="toggle-density" type="button" class="border border-gray-300 rounded-lg text-xs sm:text-sm px-3 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500" aria-label="Alternar densidad de filas">Densidad</button>
+                    <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md whitespace-nowrap">
+                    <span id="visible-requests-count">{{ isset($recentRequests) ? $recentRequests->count() : 0 }}</span> visibles
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-3 border-b border-gray-100 bg-slate-50/50">
+            <div class="flex flex-wrap items-center gap-2" aria-label="Filtros rápidos por estado">
+                <span class="text-xs text-gray-500">Atajos:</span>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" data-status="">Todas</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100" data-status="PENDIENTE">Pendiente</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" data-status="ACEPTADA">Aceptada</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100" data-status="EN_PROCESO">En proceso</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-green-300 bg-green-50 text-green-700 hover:bg-green-100" data-status="RESUELTA">Resuelta</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200" data-status="CERRADA">Cerrada</button>
             </div>
         </div>
         @php
-            $recentLimit = 5;
+            $recentSearch = trim((string) request('recent_search', ''));
+            $recentStatus = (string) request('recent_status', '');
+            $recentPerPage = (int) request('recent_per_page', 5);
+            $allowedPerPage = [5, 10, 20, 50, 100];
+            if (!in_array($recentPerPage, $allowedPerPage, true)) {
+                $recentPerPage = 5;
+            }
+
             if(!isset($recentRequests)) {
-                $recentRequests = \App\Models\ServiceRequest::with(['subService.service.family', 'requester'])
-                    ->latest()
-                    ->take($recentLimit)
-                    ->get();
+                $recentQuery = \App\Models\ServiceRequest::query()
+                    ->with(['subService.service.family.contract', 'requester'])
+                    ->latest();
+
+                if ($recentSearch !== '') {
+                    $recentQuery->where(function ($q) use ($recentSearch) {
+                        $q->where('ticket_number', 'like', "%{$recentSearch}%")
+                            ->orWhere('title', 'like', "%{$recentSearch}%")
+                            ->orWhere('description', 'like', "%{$recentSearch}%")
+                            ->orWhereHas('requester', function ($rq) use ($recentSearch) {
+                                $rq->where('name', 'like', "%{$recentSearch}%")
+                                    ->orWhere('email', 'like', "%{$recentSearch}%")
+                                    ->orWhere('department', 'like', "%{$recentSearch}%");
+                            })
+                            ->orWhereHas('subService', function ($subQ) use ($recentSearch) {
+                                $subQ->where('name', 'like', "%{$recentSearch}%")
+                                    ->orWhere('code', 'like', "%{$recentSearch}%")
+                                    ->orWhereHas('service', function ($serviceQ) use ($recentSearch) {
+                                        $serviceQ->where('name', 'like', "%{$recentSearch}%")
+                                            ->orWhere('code', 'like', "%{$recentSearch}%")
+                                            ->orWhereHas('family', function ($familyQ) use ($recentSearch) {
+                                                $familyQ->where('name', 'like', "%{$recentSearch}%")
+                                                    ->orWhere('code', 'like', "%{$recentSearch}%")
+                                                    ->orWhereHas('contract', function ($contractQ) use ($recentSearch) {
+                                                        $contractQ->where('number', 'like', "%{$recentSearch}%")
+                                                            ->orWhere('name', 'like', "%{$recentSearch}%");
+                                                    });
+                                            });
+                                    });
+                            });
+                    });
+                }
+
+                if ($recentStatus !== '') {
+                    $recentQuery->where('status', $recentStatus);
+                }
+
+                $recentRequests = $recentQuery
+                    ->paginate($recentPerPage, ['*'], 'recent_page')
+                    ->withQueryString();
             }
         @endphp
 
@@ -388,9 +460,25 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($recentRequests as $request)
-                            <tr class="hover:bg-gray-50 request-row" data-status="{{ $request->status }}" data-ticket="{{ $request->ticket_number }}" data-title="{{ strtolower($request->title) }}" data-date="{{ $request->created_at->getTimestamp() }}" tabindex="0" role="row">
+                            @php
+                                $familyName = $request->subService?->service?->family?->name ?? '';
+                                $contractNumber = $request->subService?->service?->family?->contract?->number ?? '';
+                                $requesterName = $request->requester?->name ?? '';
+                            @endphp
+                            <tr class="hover:bg-gray-50 request-row {{ strtoupper((string) $request->status) === 'CERRADA' ? 'request-row-ghost' : '' }}"
+                                data-status="{{ $request->status }}"
+                                data-ticket="{{ $request->ticket_number }}"
+                                data-title="{{ strtolower($request->title) }}"
+                                data-description="{{ strtolower($request->description ?? '') }}"
+                                data-service="{{ strtolower($request->subService->name ?? '') }}"
+                                data-family="{{ strtolower($familyName) }}"
+                                data-contract="{{ strtolower($contractNumber) }}"
+                                data-requester="{{ strtolower($requesterName) }}"
+                                data-status-label="{{ strtolower(str_replace('_', ' ', $request->status)) }}"
+                                data-date="{{ $request->created_at->getTimestamp() }}"
+                                tabindex="0" role="row">
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="{{ route('service-requests.show', $request) }}" class="font-semibold text-blue-700 hover:text-blue-900 hover:underline underline-offset-2 flex items-center">
+                                    <a href="{{ route('service-requests.show', $request) }}" class="font-semibold {{ strtoupper((string) $request->status) === 'CERRADA' ? 'text-gray-700 hover:text-gray-800' : 'text-blue-700 hover:text-blue-900' }} hover:underline underline-offset-2 flex items-center">
                                         {{ $request->ticket_number }}
                                         @if($request->priority === 'ALTA')
                                             <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -429,7 +517,7 @@
                                         ];
                                     @endphp
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800' }} flex items-center w-fit">
-                                        {{ $request->status }}
+                                        {{ ucfirst(strtolower(str_replace('_', ' ', $request->status))) }}
                                         @if($request->is_paused && $request->status === 'PAUSADA')
                                             <i class="fas fa-pause ml-1"></i>
                                         @endif
@@ -446,23 +534,29 @@
                                 </td>
                             </tr>
                         @endforeach
+                        <tr id="no-recent-results-row" class="hidden">
+                            <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                                No hay solicitudes que coincidan con los filtros aplicados.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div class="text-sm text-gray-500" aria-live="polite">
-                    Mostrando <span class="font-medium">{{ $recentRequests->count() }}</span>
-                    @if(isset($recentLimit))
-                        (máx. {{ $recentLimit }})
-                    @endif
-                    de <span class="font-medium">{{ $totalRequests }}</span> solicitudes
+                    Página {{ $recentRequests->currentPage() }} de {{ $recentRequests->lastPage() }}
                 </div>
                 <a href="{{ route('service-requests.index') }}" class="text-blue-700 hover:text-blue-900 font-semibold hover:underline underline-offset-2 inline-flex items-center">
                     Ver todas las solicitudes
                     <i class="fas fa-arrow-right ml-1"></i>
                 </a>
             </div>
+            @if(method_exists($recentRequests, 'hasPages') && $recentRequests->hasPages())
+                <div class="px-6 py-3 border-t border-gray-100 bg-white">
+                    {{ $recentRequests->fragment('recent-requests-heading')->onEachSide(1)->links() }}
+                </div>
+            @endif
         @else
             <div class="px-6 py-12 text-center">
                 <i class="fas fa-inbox text-gray-300 text-4xl mb-4"></i>
@@ -481,45 +575,99 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search-requests');
     const statusFilter = document.getElementById('filter-status');
+    const perPageFilter = document.getElementById('filter-per-page');
     const table = document.getElementById('recent-requests-table');
+    if(!searchInput || !statusFilter || !perPageFilter || !table) return;
     const tbody = table.querySelector('tbody');
     let rows = Array.from(tbody.querySelectorAll('.request-row'));
     const clearBtn = document.getElementById('clear-filters');
     const densityBtn = document.getElementById('toggle-density');
-    const STORAGE_KEY = 'dashboard_filters_v1';
+    const quickStatusChips = Array.from(document.querySelectorAll('.quick-status-chip'));
+    const visibleCount = document.getElementById('visible-requests-count');
+    const visibleFooter = document.getElementById('visible-requests-footer');
+    const FILTER_DELAY_MS = 450;
+    const STORAGE_KEY = 'dashboard_density_v1';
     const densityClass = 'dense-rows';
+    let filterTimeout = null;
 
-    // Restaurar filtros
+    // Restaurar preferencia de densidad
     try {
         const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if(stored) {
-            if(stored.search) searchInput.value = stored.search;
-            if(stored.status) statusFilter.value = stored.status;
-            if(stored.density) document.getElementById('recent-requests-table').classList.add(densityClass);
+        if(stored && stored.density) {
+            table.classList.add(densityClass);
         }
     } catch(e) {}
 
-    function filterRequests() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const statusValue = statusFilter.value;
-        rows.forEach(row => {
-            const ticket = row.dataset.ticket.toLowerCase();
-            const title = row.dataset.title;
-            const status = row.dataset.status;
-            const matchesSearch = ticket.includes(searchTerm) || title.includes(searchTerm);
-            const matchesStatus = statusValue === '' || status === statusValue;
-            row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-        });
-        persistState();
+    function applyServerFilters(resetPage = true) {
+        const url = new URL(window.location.href);
+        const term = searchInput.value.trim();
+        const status = statusFilter.value;
+        const perPage = perPageFilter.value;
+
+        if (term) url.searchParams.set('recent_search', term);
+        else url.searchParams.delete('recent_search');
+
+        if (status) url.searchParams.set('recent_status', status);
+        else url.searchParams.delete('recent_status');
+
+        if (perPage) url.searchParams.set('recent_per_page', perPage);
+        else url.searchParams.delete('recent_per_page');
+
+        if (resetPage) {
+            url.searchParams.delete('recent_page');
+        }
+
+        url.hash = 'recent-requests-heading';
+        window.location.href = url.toString();
     }
 
-    searchInput.addEventListener('input', filterRequests);
-    statusFilter.addEventListener('change', filterRequests);
+    function scheduleServerFilter() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => applyServerFilters(true), FILTER_DELAY_MS);
+    }
+
+    function syncVisibleCounters() {
+        const visibleRows = rows.length;
+        if (visibleCount) visibleCount.textContent = visibleRows;
+        if (visibleFooter) visibleFooter.textContent = visibleRows;
+    }
+
+    function syncQuickStatusChips() {
+        const activeStatus = statusFilter.value || '';
+        quickStatusChips.forEach((chip) => {
+            const chipStatus = chip.dataset.status || '';
+            const isActive = chipStatus === activeStatus;
+            chip.classList.toggle('ring-2', isActive);
+            chip.classList.toggle('ring-blue-400', isActive);
+            chip.classList.toggle('font-semibold', isActive);
+        });
+    }
+
+    searchInput.addEventListener('input', scheduleServerFilter);
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(filterTimeout);
+            applyServerFilters(true);
+        }
+    });
+
+    statusFilter.addEventListener('change', () => applyServerFilters(true));
+    perPageFilter.addEventListener('change', () => applyServerFilters(true));
+
+    quickStatusChips.forEach((chip) => {
+        chip.addEventListener('click', () => {
+            statusFilter.value = chip.dataset.status || '';
+            syncQuickStatusChips();
+            applyServerFilters(true);
+        });
+    });
 
     clearBtn.addEventListener('click', () => {
         searchInput.value = '';
         statusFilter.value = '';
-        filterRequests();
+        perPageFilter.value = '5';
+        applyServerFilters(true);
     });
 
     densityBtn.addEventListener('click', () => {
@@ -607,14 +755,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function persistState() {
         const state = {
-            search: searchInput.value,
-            status: statusFilter.value,
             density: table.classList.contains(densityClass)
         };
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
     }
-    // Aplicar filtrado inicial (por si restauró valores)
-    filterRequests();
+    syncQuickStatusChips();
+    syncVisibleCounters();
 });
 </script>
 
@@ -626,6 +772,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .request-row {
     transition: background-color 0.2s ease;
+}
+
+.request-row-ghost {
+    filter: grayscale(85%);
+    opacity: 0.82;
+    background-color: #f8fafc;
 }
 
 /* Asegurar que los colores de Tailwind se muestren correctamente */
