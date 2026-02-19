@@ -116,11 +116,7 @@ class StoreServiceRequestRequest extends FormRequest
                 }
 
                 $slaId = $this->input('sla_id');
-                $availableSlaId = ServiceLevelAgreement::query()
-                    ->forSubService($subServiceId)
-                    ->where('is_active', true)
-                    ->orderByDesc('id')
-                    ->value('id');
+                $availableSlaId = $this->resolveAvailableSlaId($subServiceId, $family?->id);
 
                 if (!$availableSlaId) {
                     $validator->errors()->add('sub_service_id', 'El subservicio seleccionado no tiene un SLA activo configurado.');
@@ -132,7 +128,15 @@ class StoreServiceRequestRequest extends FormRequest
                         ->forSubService($subServiceId)
                         ->exists();
 
-                    if (!$slaMatchesSubservice) {
+                    $slaMatchesFamily = !$slaMatchesSubservice && $family
+                        ? ServiceLevelAgreement::query()
+                            ->where('id', $slaId)
+                            ->where('service_family_id', $family->id)
+                            ->where('is_active', true)
+                            ->exists()
+                        : false;
+
+                    if (!$slaMatchesSubservice && !$slaMatchesFamily) {
                         $validator->errors()->add('sla_id', 'El SLA no corresponde al subservicio seleccionado.');
                     }
                 }
@@ -233,11 +237,11 @@ class StoreServiceRequestRequest extends FormRequest
         }
 
         if (!$this->filled('sla_id') && $this->filled('sub_service_id')) {
-            $derivedSlaId = ServiceLevelAgreement::query()
-                ->forSubService($this->input('sub_service_id'))
-                ->where('is_active', true)
-                ->orderByDesc('id')
-                ->value('id');
+            $subService = \App\Models\SubService::with('service.family')->find($this->input('sub_service_id'));
+            $derivedSlaId = $this->resolveAvailableSlaId(
+                $this->input('sub_service_id'),
+                $subService?->service?->family?->id
+            );
 
             if ($derivedSlaId) {
                 $this->merge(['sla_id' => $derivedSlaId]);
@@ -274,5 +278,30 @@ class StoreServiceRequestRequest extends FormRequest
 
             $this->merge(['tasks' => $tasks]);
         }
+    }
+
+    private function resolveAvailableSlaId($subServiceId, $familyId = null): ?int
+    {
+        $bySubService = ServiceLevelAgreement::query()
+            ->forSubService($subServiceId)
+            ->where('is_active', true)
+            ->orderByDesc('id')
+            ->value('id');
+
+        if ($bySubService) {
+            return (int) $bySubService;
+        }
+
+        if (empty($familyId)) {
+            return null;
+        }
+
+        $byFamily = ServiceLevelAgreement::query()
+            ->where('service_family_id', $familyId)
+            ->where('is_active', true)
+            ->orderByDesc('id')
+            ->value('id');
+
+        return $byFamily ? (int) $byFamily : null;
     }
 }
