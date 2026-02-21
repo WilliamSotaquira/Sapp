@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Technician;
 use App\Models\User;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TechnicianController extends Controller
 {
@@ -14,7 +16,17 @@ class TechnicianController extends Controller
      */
     public function index()
     {
+        $currentCompanyId = (int) session('current_company_id');
+
         $technicians = Technician::with(['user', 'skills'])
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('user.companies', function ($q) use ($currentCompanyId) {
+                    $q->where('companies.id', $currentCompanyId);
+                });
+            })
+            ->join('users', 'users.id', '=', 'technicians.user_id')
+            ->orderBy('users.name')
+            ->select('technicians.*')
             ->paginate(20);
 
         return view('technicians.index', compact('technicians'));
@@ -25,9 +37,27 @@ class TechnicianController extends Controller
      */
     public function create()
     {
-        $users = User::whereDoesntHave('technician')->get();
+        $currentCompanyId = (int) session('current_company_id');
 
-        return view('technicians.create', compact('users'));
+        $users = User::whereDoesntHave('technician')
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('companies', function ($q) use ($currentCompanyId) {
+                    $q->where('companies.id', $currentCompanyId);
+                });
+            })
+            ->orderBy('name')
+            ->get();
+
+        if ($users->isEmpty()) {
+            $users = User::whereDoesntHave('technician')
+                ->orderBy('name')
+                ->get();
+        }
+
+        $companies = Company::query()->orderBy('name')->get(['id', 'name']);
+        $selectedCompanyIds = old('company_ids', $currentCompanyId ? [$currentCompanyId] : []);
+
+        return view('technicians.create', compact('users', 'companies', 'selectedCompanyIds'));
     }
 
     /**
@@ -36,7 +66,9 @@ class TechnicianController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'required|exists:users,id|unique:technicians',
+            'user_id' => 'required|exists:users,id',
+            'company_ids' => 'required|array|min:1',
+            'company_ids.*' => 'exists:companies,id',
             'specialization' => 'required|string|in:frontend,backend,fullstack,devops,support,qa',
             'years_experience' => 'required|numeric|min:0|max:50',
             'skill_level' => 'required|in:junior,mid,senior,lead',
@@ -50,7 +82,25 @@ class TechnicianController extends Controller
             'skills.*.years_experience_skill' => 'nullable|numeric|min:0|max:50',
         ]);
 
-        $technician = Technician::create($validated);
+        $selectedUser = User::findOrFail($validated['user_id']);
+        $selectedUser->companies()->sync($validated['company_ids']);
+
+        $existingTechnician = Technician::query()->where('user_id', $selectedUser->id)->first();
+        if ($existingTechnician) {
+            return redirect()
+                ->route('technicians.show', $existingTechnician)
+                ->with('success', 'El usuario ya tenía perfil técnico. Se vinculó a la entidad activa.');
+        }
+
+        $technician = Technician::create([
+            'user_id' => $selectedUser->id,
+            'specialization' => $validated['specialization'],
+            'years_experience' => $validated['years_experience'],
+            'skill_level' => $validated['skill_level'],
+            'max_daily_capacity_hours' => $validated['max_daily_capacity_hours'],
+            'status' => $validated['status'],
+            'availability_status' => $validated['availability_status'],
+        ]);
 
         // Asignar rol al usuario si el usuario actual es admin
         if (auth()->user()->isAdmin() && isset($validated['user_role'])) {
@@ -92,6 +142,10 @@ class TechnicianController extends Controller
      */
     public function show(Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $technician->load(['user', 'skills', 'capacityRules']);
 
         // Métricas del técnico
@@ -111,7 +165,14 @@ class TechnicianController extends Controller
      */
     public function edit(Technician $technician)
     {
-        return view('technicians.edit', compact('technician'));
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
+        $companies = Company::query()->orderBy('name')->get(['id', 'name']);
+        $selectedCompanyIds = old('company_ids', $technician->user->companies()->pluck('companies.id')->all());
+
+        return view('technicians.edit', compact('technician', 'companies', 'selectedCompanyIds'));
     }
 
     /**
@@ -119,7 +180,15 @@ class TechnicianController extends Controller
      */
     public function update(Request $request, Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($technician->user_id)],
+            'company_ids' => 'required|array|min:1',
+            'company_ids.*' => 'exists:companies,id',
             'specialization' => 'required|string|in:frontend,backend,fullstack,devops,support,qa',
             'years_experience' => 'required|numeric|min:0|max:50',
             'skill_level' => 'required|in:junior,mid,senior,lead',
@@ -134,7 +203,20 @@ class TechnicianController extends Controller
             'skills.*.years_experience_skill' => 'nullable|numeric|min:0|max:50',
         ]);
 
-        $technician->update($validated);
+        $technician->user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        $technician->user->companies()->sync($validated['company_ids']);
+        $technician->update([
+            'specialization' => $validated['specialization'],
+            'years_experience' => $validated['years_experience'],
+            'skill_level' => $validated['skill_level'],
+            'max_daily_capacity_hours' => $validated['max_daily_capacity_hours'],
+            'status' => $validated['status'],
+            'availability_status' => $validated['availability_status'],
+        ]);
 
         // Actualizar rol del usuario si el usuario actual es admin y no está cambiando su propio rol
         if (auth()->user()->isAdmin() && isset($validated['user_role']) && auth()->id() !== $technician->user_id) {
@@ -177,6 +259,10 @@ class TechnicianController extends Controller
      */
     public function destroy(Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $technician->delete();
 
         return redirect()->route('technicians.index')
@@ -188,6 +274,10 @@ class TechnicianController extends Controller
      */
     public function skills(Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $skills = $technician->skills()->get();
 
         return view('technicians.skills', compact('technician', 'skills'));
@@ -198,6 +288,10 @@ class TechnicianController extends Controller
      */
     public function addSkill(Request $request, Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $validated = $request->validate([
             'skill_name' => 'required|string|max:255',
             'proficiency_level' => 'required|in:beginner,intermediate,advanced,expert',
@@ -215,6 +309,10 @@ class TechnicianController extends Controller
      */
     public function capacity(Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $date = request('date', now()->format('Y-m-d'));
 
         $tasks = $technician->getTasksForDate($date);
@@ -229,6 +327,10 @@ class TechnicianController extends Controller
      */
     public function toggleAdmin(Technician $technician)
     {
+        if ($redirect = $this->ensureTechnicianInCurrentCompany($technician)) {
+            return $redirect;
+        }
+
         $user = $technician->user;
 
         // Verificar que el usuario actual sea admin
@@ -253,5 +355,27 @@ class TechnicianController extends Controller
         $user->save();
 
         return back()->with('success', $message);
+    }
+
+    private function ensureTechnicianInCurrentCompany(Technician $technician)
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        if (!$currentCompanyId) {
+            return null;
+        }
+
+        $belongsToCurrentCompany = $technician->user()
+            ->whereHas('companies', function ($q) use ($currentCompanyId) {
+                $q->where('companies.id', $currentCompanyId);
+            })
+            ->exists();
+
+        if ($belongsToCurrentCompany) {
+            return null;
+        }
+
+        return redirect()
+            ->route('technicians.index')
+            ->with('error', 'El técnico no pertenece a la entidad activa.');
     }
 }

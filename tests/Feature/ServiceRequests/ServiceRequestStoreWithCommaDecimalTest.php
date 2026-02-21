@@ -7,9 +7,11 @@ use App\Models\Company;
 use App\Models\Service;
 use App\Models\ServiceFamily;
 use App\Models\ServiceLevelAgreement;
+use App\Models\ServiceSubservice;
 use App\Models\SubService;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ServiceRequestStoreWithCommaDecimalTest extends TestCase
@@ -63,7 +65,17 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
             'order' => 0,
         ]);
 
+        $serviceSubservice = ServiceSubservice::create([
+            'service_family_id' => $family->id,
+            'service_id' => $service->id,
+            'sub_service_id' => $subService->id,
+            'name' => 'Relación servicio-subservicio test',
+            'description' => 'Test',
+            'is_active' => true,
+        ]);
+
         $sla = ServiceLevelAgreement::create([
+            'service_subservice_id' => $serviceSubservice->id,
             'service_family_id' => $family->id,
             'name' => 'SLA Test',
             'criticality_level' => 'MEDIA',
@@ -76,6 +88,9 @@ class ServiceRequestStoreWithCommaDecimalTest extends TestCase
             'conditions' => null,
             'is_active' => true,
         ]);
+        if (Schema::hasColumn('service_level_agreements', 'sub_service_id')) {
+            $sla->forceFill(['sub_service_id' => $subService->id])->save();
+        }
 
         $payload = [
             'company_id' => $company->id,

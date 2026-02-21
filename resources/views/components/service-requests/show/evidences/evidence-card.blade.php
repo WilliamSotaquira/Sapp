@@ -95,7 +95,8 @@
                 </a>
                 <button type="button"
                         class="flex items-center text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors"
-                        onclick="navigator.clipboard.writeText('{{ $linkUrl }}')">
+                        onclick="copyTextFromEvidenceLink(this)"
+                        data-copy-text="{{ $linkUrl }}">
                     <i class="fas fa-copy mr-2"></i> Copiar
                 </button>
             </div>
@@ -143,3 +144,55 @@
     overflow: hidden;
 }
 </style>
+
+<script>
+if (typeof window.copyTextFromEvidenceLink !== 'function') {
+window.copyTextFromEvidenceLink = function (button) {
+    const text = button?.dataset?.copyText || '';
+    if (!text) return;
+
+    const setCopiedState = () => {
+        const icon = button.querySelector('i');
+        const originalLabel = button.textContent.trim();
+
+        if (icon) {
+            icon.className = 'fas fa-check mr-2';
+        }
+        button.lastChild.textContent = ' Copiado';
+
+        setTimeout(() => {
+            if (icon) {
+                icon.className = 'fas fa-copy mr-2';
+            }
+            button.lastChild.textContent = ' ' + originalLabel.replace(/^Copiado$/, 'Copiar');
+        }, 1400);
+    };
+
+    const fallbackCopy = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (_) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        if (ok) setCopiedState();
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(setCopiedState).catch(fallbackCopy);
+        return;
+    }
+
+    fallbackCopy();
+};
+}
+</script>

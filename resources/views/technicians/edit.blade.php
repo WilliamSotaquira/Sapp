@@ -38,6 +38,74 @@
             @csrf
             @method('PUT')
 
+            <!-- Usuario Asociado -->
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-user mr-2 text-yellow-600"></i>
+                    Usuario Asociado
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Nombre <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text"
+                               name="name"
+                               id="name"
+                               value="{{ old('name', $technician->user->name) }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('name') border-red-500 @enderror"
+                               required>
+                        @error('name')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                            Correo Electronico <span class="text-red-500">*</span>
+                        </label>
+                        <input type="email"
+                               name="email"
+                               id="email"
+                               value="{{ old('email', $technician->user->email) }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent @error('email') border-red-500 @enderror"
+                               required>
+                        @error('email')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entidades Asociadas -->
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-building mr-2 text-yellow-600"></i>
+                    Entidades Asociadas
+                </h3>
+
+                <p class="text-xs text-gray-500 mb-3">Seleccione una o varias entidades para este tecnico.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    @foreach($companies as $company)
+                        <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                            <input type="checkbox"
+                                   name="company_ids[]"
+                                   value="{{ $company->id }}"
+                                   class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                                   {{ in_array((string) $company->id, array_map('strval', $selectedCompanyIds ?? []), true) ? 'checked' : '' }}>
+                            <span class="ml-2 text-sm text-gray-700">{{ $company->name }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('company_ids')
+                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                @enderror
+                @error('company_ids.*')
+                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                @enderror
+            </div>
+
             <!-- Información Profesional -->
             <div class="border-b pb-4">
                 <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">

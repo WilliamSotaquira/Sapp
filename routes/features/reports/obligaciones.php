@@ -9,4 +9,5 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('obligaciones')->name('obligaciones.')->group(function () {
     Route::get('/', [ObligacionesReportController::class, 'index'])->name('index');
     Route::get('/export', [ObligacionesReportController::class, 'export'])->name('export');
+    Route::get('/download-evidences', [ObligacionesReportController::class, 'downloadEvidences'])->name('download-evidences');
 });
