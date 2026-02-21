@@ -6,16 +6,19 @@ use App\Models\ServiceRequest;
 use App\Models\Task;
 use App\Models\Cut;
 use App\Models\Company;
+use App\Models\ServiceRequestEvidence;
 use App\Exports\ObligacionesExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
+use ZipArchive;
 
 class ObligacionesReportController extends Controller
 {
@@ -161,6 +164,98 @@ class ObligacionesReportController extends Controller
     }
 
     /**
+     * Descargar evidencias (archivos adjuntos) de las obligaciones filtradas.
+     */
+    public function downloadEvidences(Request $request)
+    {
+        try {
+            if (!class_exists('ZipArchive')) {
+                return back()->with('error', 'La extensión ZIP no está habilitada. Contacte al administrador para habilitar php-zip.');
+            }
+
+            $serviceRequests = $this->applyFilters(ServiceRequest::query(), $request)
+                ->get(['id', 'ticket_number']);
+
+            if ($serviceRequests->isEmpty()) {
+                return back()->with('warning', 'No hay solicitudes para el filtro seleccionado.');
+            }
+
+            $ticketByRequestId = $serviceRequests
+                ->pluck('ticket_number', 'id')
+                ->map(fn($ticket) => $this->sanitizeTicketFolder((string) $ticket));
+
+            $evidences = ServiceRequestEvidence::query()
+                ->whereIn('service_request_id', $ticketByRequestId->keys())
+                ->whereNotNull('file_path')
+                ->get(['id', 'service_request_id', 'file_path', 'file_original_name', 'title']);
+
+            if ($evidences->isEmpty()) {
+                return back()->with('warning', 'No se encontraron evidencias de archivo para el filtro seleccionado.');
+            }
+
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            $filename = $this->buildEvidencesZipFilename($request);
+            $zipPath = "{$tempDir}/{$filename}.zip";
+            $zip = new ZipArchive();
+
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                return back()->with('error', 'No se pudo crear el archivo ZIP de evidencias.');
+            }
+
+            $usedNames = [];
+            $addedCount = 0;
+
+            foreach ($evidences as $evidence) {
+                if (empty($evidence->file_path)) {
+                    continue;
+                }
+
+                $storagePath = $this->resolvePublicStoragePath((string) $evidence->file_path);
+                if ($storagePath === null) {
+                    continue;
+                }
+
+                $absolutePath = Storage::disk('public')->path($storagePath);
+                if (!is_file($absolutePath)) {
+                    continue;
+                }
+
+                $ticketFolder = $ticketByRequestId->get($evidence->service_request_id, 'sin-ticket');
+                $folderInZip = "evidencias/{$ticketFolder}";
+                $originalName = $evidence->file_original_name ?: basename($storagePath);
+                $safeName = $this->sanitizeFileNameForZip($originalName);
+                $entryName = $this->buildUniqueZipEntryName($folderInZip, $safeName, $usedNames);
+
+                if ($zip->addFile($absolutePath, $entryName)) {
+                    $addedCount++;
+                }
+            }
+
+            if ($addedCount === 0) {
+                $zip->close();
+                @unlink($zipPath);
+                return back()->with('warning', 'No se encontraron archivos físicos para descargar en las evidencias del filtro seleccionado.');
+            }
+
+            $zip->addFromString('RESUMEN_EVIDENCIAS.txt', "Archivos incluidos: {$addedCount}\nGenerado: " . now()->format('d/m/Y H:i:s') . "\n");
+            $zip->close();
+
+            return response()->download($zipPath, "{$filename}.zip")->deleteFileAfterSend();
+        } catch (\Throwable $e) {
+            Log::error('Error al descargar evidencias de obligaciones: ' . $e->getMessage(), [
+                'exception' => $e,
+                'filters' => $this->getFiltersFromRequest($request),
+            ]);
+
+            return back()->with('error', 'Ocurrió un error al generar el ZIP de evidencias.');
+        }
+    }
+
+    /**
      * Construir query con filtros y relaciones para obligaciones.
      */
     private function buildFilteredQuery(Request $request): Builder
@@ -276,6 +371,118 @@ class ObligacionesReportController extends Controller
         $clean = preg_replace('/[^A-Za-z0-9]+/', '', $ascii) ?? '';
 
         return $clean !== '' ? $clean : 'sinvalor';
+    }
+
+    private function buildEvidencesZipFilename(Request $request): string
+    {
+        $cutId = $request->get('cut_id');
+        $cutSegment = 'todosloscortes';
+
+        if ($cutId && $cutId !== 'all') {
+            $cut = Cut::query()
+                ->when((int) session('current_company_id'), function ($query) {
+                    $query->whereHas('contract', function ($q) {
+                        $q->where('company_id', (int) session('current_company_id'));
+                    });
+                })
+                ->find($cutId);
+
+            if ($cut) {
+                $cutSegment = $this->sanitizeFilenameSegmentCompact($cut->name ?: ('corte-' . $cut->id));
+            }
+        }
+
+        return 'evidencias_obligaciones_' . $cutSegment . '_' . now()->format('Ymd_His');
+    }
+
+    private function sanitizeTicketFolder(string $ticket): string
+    {
+        $clean = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticket) ?? '';
+        $clean = trim($clean, '-');
+
+        return $clean !== '' ? $clean : 'sin-ticket';
+    }
+
+    private function isExternalUrl(string $path): bool
+    {
+        return (bool) preg_match('#^https?://#i', $path);
+    }
+
+    private function normalizeStoragePath(string $path): string
+    {
+        $normalized = ltrim($path, '/');
+
+        if (strpos($normalized, 'public/') === 0) {
+            $normalized = substr($normalized, 7);
+        }
+
+        if (strpos($normalized, 'storage/') === 0) {
+            $normalized = substr($normalized, 8);
+        }
+
+        return $normalized;
+    }
+
+    private function resolvePublicStoragePath(string $filePath): ?string
+    {
+        if ($filePath === '' || $this->isExternalUrl($filePath)) {
+            return null;
+        }
+
+        $candidates = [];
+        $candidates[] = $filePath;
+        $candidates[] = $this->normalizeStoragePath($filePath);
+
+        $basename = basename($filePath);
+        if ($basename) {
+            $candidates[] = 'evidences/' . $basename;
+        }
+
+        $candidates = array_filter(array_unique($candidates));
+
+        foreach ($candidates as $candidate) {
+            if (Storage::disk('public')->exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function sanitizeFileNameForZip(string $filename): string
+    {
+        $pathInfo = pathinfo($filename);
+        $extension = isset($pathInfo['extension']) ? '.' . $pathInfo['extension'] : '';
+        $basename = $pathInfo['filename'] ?? 'archivo';
+
+        $sanitized = preg_replace('/[^A-Za-z0-9._-]+/', '_', $basename) ?? '';
+        $sanitized = trim($sanitized, '._-');
+        $sanitized = $sanitized !== '' ? $sanitized : 'archivo';
+
+        $maxLength = 140 - strlen($extension);
+        if (strlen($sanitized) > $maxLength) {
+            $sanitized = substr($sanitized, 0, $maxLength);
+        }
+
+        return $sanitized . $extension;
+    }
+
+    private function buildUniqueZipEntryName(string $folderInZip, string $safeName, array &$usedNames): string
+    {
+        $key = strtolower($folderInZip . '/' . $safeName);
+        $counter = $usedNames[$key] ?? 0;
+        $usedNames[$key] = $counter + 1;
+
+        if ($counter === 0) {
+            return $folderInZip . '/' . $safeName;
+        }
+
+        $pathInfo = pathinfo($safeName);
+        $extension = isset($pathInfo['extension']) ? '.' . $pathInfo['extension'] : '';
+        $basename = $pathInfo['filename'] ?? 'archivo';
+        $finalName = $basename . '_' . ($counter + 1) . $extension;
+
+        return $folderInZip . '/' . $finalName;
     }
 
     private function resolvePrimaryColor(): string

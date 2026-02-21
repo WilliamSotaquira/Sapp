@@ -30,9 +30,9 @@
                             id="user_id"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent @error('user_id') border-red-500 @enderror"
                             required>
-                        <option value="">Seleccione un usuario...</option>
+                        <option value="">Seleccione un usuario existente...</option>
                         @foreach($users as $user)
-                            <option value="{{ $user->id }}" {{ old('user_id') == $user->id ? 'selected' : '' }}>
+                            <option value="{{ $user->id }}" {{ (string) old('user_id') === (string) $user->id ? 'selected' : '' }}>
                                 {{ $user->name }} ({{ $user->email }})
                             </option>
                         @endforeach
@@ -40,8 +40,38 @@
                     @error('user_id')
                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                     @enderror
-                    <p class="mt-1 text-xs text-gray-500">Seleccione el usuario del sistema que será técnico</p>
+                    @if($users->isEmpty())
+                        <p class="mt-1 text-xs text-amber-700">No hay usuarios disponibles para la entidad activa.</p>
+                    @endif
                 </div>
+            </div>
+
+            <!-- Entidades Asociadas -->
+            <div class="border-b pb-4">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    <i class="fas fa-building mr-2 text-red-600"></i>
+                    Entidades Asociadas
+                </h3>
+
+                <p class="text-xs text-gray-500 mb-3">Seleccione una o varias entidades para este tecnico.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    @foreach($companies as $company)
+                        <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                            <input type="checkbox"
+                                   name="company_ids[]"
+                                   value="{{ $company->id }}"
+                                   class="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                   {{ in_array((string) $company->id, array_map('strval', $selectedCompanyIds ?? []), true) ? 'checked' : '' }}>
+                            <span class="ml-2 text-sm text-gray-700">{{ $company->name }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('company_ids')
+                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                @enderror
+                @error('company_ids.*')
+                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                @enderror
             </div>
 
             <!-- Información Profesional -->
