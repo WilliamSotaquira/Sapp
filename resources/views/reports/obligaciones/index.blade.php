@@ -49,6 +49,9 @@
                 <a href="{{ route('reports.obligaciones.export', array_merge($exportParams, ['format' => 'xlsx'])) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg">
                     Descargar Excel
                 </a>
+                <a href="{{ route('reports.obligaciones.download-evidences', $exportParams) }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg">
+                    Descargar Evidencias
+                </a>
             </div>
         </form>
     </div>
@@ -103,12 +106,20 @@
                                         @if($sr->tasks->count() > 0)
                                             <div class="space-y-2">
                                                 @foreach($sr->tasks as $task)
+                                                    @php
+                                                        $taskTitleDisplay = preg_replace('/\s*\(\d+\s*minutos?\)\.?\s*/iu', ' ', (string) $task->title);
+                                                        $taskTitleDisplay = trim(preg_replace('/\s{2,}/', ' ', $taskTitleDisplay));
+                                                    @endphp
                                                     <div>
-                                                        <p class="font-semibold text-gray-900 text-xs">{{ $task->title }}</p>
+                                                        <p class="font-semibold text-gray-900 text-xs">{{ $taskTitleDisplay }}</p>
                                                         @if($task->subtasks->count() > 0)
                                                             <ul class="mt-1 space-y-1">
                                                                 @foreach($task->subtasks as $subtask)
-                                                                    <li class="text-xs text-gray-700">- {{ $subtask->title }}
+                                                                    @php
+                                                                        $subtaskTitleDisplay = preg_replace('/\s*\(\d+\s*minutos?\)\.?\s*/iu', ' ', (string) $subtask->title);
+                                                                        $subtaskTitleDisplay = trim(preg_replace('/\s{2,}/', ' ', $subtaskTitleDisplay));
+                                                                    @endphp
+                                                                    <li class="text-xs text-gray-700">- {{ $subtaskTitleDisplay }}
                                                                         @if($subtask->evidence_completed)
                                                                             <span class="text-green-600 ml-1">✓</span>
                                                                         @endif
