@@ -45,8 +45,8 @@
         @endif
 
         <!-- Fila 1: Estadísticas y Acción Principal -->
-        <!-- En móvil: layout compacto, tablet: 2-3 cols, desktop: 5 cols -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 lg:gap-6">
+        <!-- En móvil: layout compacto, tablet: 2-3 cols, desktop: 6 cols -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4 lg:gap-6">
 
             <!-- Tarjeta 1: Críticas -->
             <x-service-requests.index.stats-cards.critical-stats :count="$criticalCount ?? 0" />
@@ -54,13 +54,16 @@
             <!-- Tarjeta 2: En curso -->
             <x-service-requests.index.stats-cards.create-action :count="$inCourseCount ?? 0" />
 
-            <!-- Tarjeta 3: Pendientes -->
+            <!-- Tarjeta 3: En proceso -->
+            <x-service-requests.index.stats-cards.in-process-stats :count="$inProcessCount ?? 0" />
+
+            <!-- Tarjeta 4: Pendientes -->
             <x-service-requests.index.stats-cards.pending-stats :count="$pendingCount ?? 0" />
 
-            <!-- Tarjeta 4: Abiertas -->
+            <!-- Tarjeta 5: Abiertas -->
             <x-service-requests.index.stats-cards.open-stats :count="$openCount ?? 0" />
 
-            <!-- Tarjeta 5: Total -->
+            <!-- Tarjeta 6: Total -->
             <x-service-requests.index.stats-cards.total-stats :count="$totalCount ?? $serviceRequests->total()" />
 
         </div>

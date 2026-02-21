@@ -79,9 +79,9 @@
                     <div class="h-full {{ str_contains($responseToneClasses, 'red') ? 'bg-red-500' : (str_contains($responseToneClasses, 'amber') ? 'bg-amber-500' : 'bg-emerald-500') }}"
                          style="width: {{ $responseProgress }}%"></div>
                 </div>
-                <div class="flex items-center justify-between text-[11px] mt-1">
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded {{ $responseToneClasses }}">{{ $responseLabel }}</span>
-                    <span class="text-gray-500">{{ $responseDetail }}</span>
+                <div class="text-[11px] mt-1 space-y-1">
+                    <span class="inline-flex max-w-full items-center px-1.5 py-0.5 rounded {{ $responseToneClasses }} break-words leading-tight">{{ $responseLabel }}</span>
+                    <span class="block text-gray-500 leading-tight">{{ $responseDetail }}</span>
                 </div>
             </div>
         @endif
