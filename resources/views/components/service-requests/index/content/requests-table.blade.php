@@ -9,6 +9,8 @@
     $startDate = request('start_date');
     $endDate = request('end_date');
     $open = request('open');
+    $excludeClosed = request('exclude_closed');
+    $inCourse = request('in_course');
     $serviceId = request('service_id');
     $sortBy = request('sort_by', 'recent');
     $baseParams = request()->except(['page']);
@@ -26,6 +28,8 @@
         $activeFilters[] = ['label' => 'Fechas: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
     }
     if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
+    if ($excludeClosed) $activeFilters[] = ['label' => 'Sin cerradas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['exclude_closed' => true]))];
+    if ($inCourse) $activeFilters[] = ['label' => 'En curso', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_course' => true]))];
     if ($sortBy && $sortBy !== 'recent') {
         $sortLabels = [
             'oldest' => 'Antiguedad (más antiguas)',

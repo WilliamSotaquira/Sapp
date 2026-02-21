@@ -48,11 +48,11 @@
         <!-- En móvil: layout compacto, tablet: 2-3 cols, desktop: 5 cols -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 lg:gap-6">
 
-            <!-- Tarjeta 1: Nueva Solicitud -->
-            <x-service-requests.index.stats-cards.create-action :count="$inCourseCount ?? 0" />
-
-            <!-- Tarjeta 2: Críticas -->
+            <!-- Tarjeta 1: Críticas -->
             <x-service-requests.index.stats-cards.critical-stats :count="$criticalCount ?? 0" />
+
+            <!-- Tarjeta 2: En curso -->
+            <x-service-requests.index.stats-cards.create-action :count="$inCourseCount ?? 0" />
 
             <!-- Tarjeta 3: Pendientes -->
             <x-service-requests.index.stats-cards.pending-stats :count="$pendingCount ?? 0" />
