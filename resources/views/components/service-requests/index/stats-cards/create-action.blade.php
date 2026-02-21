@@ -1,19 +1,18 @@
-<a href="{{ route('service-requests.create') }}" class="block bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow hover:shadow-md transition-shadow">
+@props(['count' => 0])
+
+<a href="{{ route('service-requests.index', ['open' => 1]) }}" class="block bg-white rounded-lg shadow border-l-4 border-blue-500 overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-300">
     <div class="p-2.5 md:p-4 lg:p-5">
-        <!-- Diseño horizontal ultra compacto en móvil, vertical centrado en desktop -->
         <div class="flex lg:flex-col items-center text-center gap-2.5 lg:gap-2">
-            <div class="flex-shrink-0 bg-white/10 rounded-lg p-2 lg:p-2">
-                <i class="fas fa-plus-circle text-lg md:text-xl lg:text-xl text-white"></i>
+            <div class="flex-shrink-0 bg-blue-100 rounded-lg p-1.5 lg:p-2">
+                <i class="fas fa-spinner text-sm md:text-base lg:text-xl text-blue-600"></i>
             </div>
-            <div class="flex-1 lg:flex-initial text-white text-left lg:text-center">
-                <h3 class="font-bold text-xs md:text-sm lg:text-lg leading-tight">Nueva Solicitud</h3>
-                <p class="text-blue-100 text-[10px] md:text-xs lg:hidden">Crear solicitud</p>
+            <div class="flex-1 lg:flex-initial min-w-0 text-left lg:text-center">
+                <h3 class="font-bold text-xs md:text-sm lg:text-lg leading-tight truncate text-gray-800">En curso</h3>
+                <p class="text-[10px] md:text-xs text-gray-600 lg:hidden">Aceptadas y activas</p>
             </div>
-            <div class="flex-shrink-0 lg:mt-1">
-                <span class="bg-white text-blue-600 px-2.5 py-1 md:px-3 md:py-1.5 lg:px-3 lg:py-1.5 rounded-md font-semibold inline-flex items-center justify-center text-[10px] md:text-xs lg:text-xs">
-                    <i class="fas fa-plus mr-1"></i>
-                    Crear
-                </span>
+            <div class="flex-shrink-0 text-right lg:text-center">
+                <div class="text-xl md:text-2xl lg:text-3xl font-bold text-blue-600 leading-tight">{{ $count }}</div>
+                <p class="text-[10px] md:text-xs text-gray-600 hidden lg:block mt-0.5">Aceptadas y activas</p>
             </div>
         </div>
     </div>
