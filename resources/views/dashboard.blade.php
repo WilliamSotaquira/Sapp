@@ -19,28 +19,51 @@
         $workspaceAccentBg = '#493D861F';
     }
 @endphp
-<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" role="main">
+<div class="dashboard-surface -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 px-3 sm:px-4 md:px-6 lg:px-8 py-6" role="main">
     <a href="#recent-requests-heading" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-blue-600 text-white px-3 py-1 rounded">Saltar a solicitudes recientes</a>
     <!-- Encabezado con breadcrumb y título -->
-    <div class="mb-8">
-        <nav class="flex mb-4" aria-label="Breadcrumb">
-            <ol class="flex items-center space-x-2 text-sm">
-                <li><a href="{{ url('/') }}" class="text-gray-500 hover:text-gray-700">Inicio</a></li>
-                <li class="flex items-center">
-                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                    <span class="ml-2 text-gray-700 font-medium">Panel principal</span>
-                </li>
-            </ol>
-        </nav>
-        <div class="flex flex-col gap-2">
-            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-900">Panel principal</h1>
-            <span class="text-xs sm:text-sm text-gray-500">Última actualización: {{ now()->format('d/m/Y H:i') }}</span>
+    <div class="mb-8 reveal" style="--delay: .02s">
+        <div class="dashboard-hero rounded-3xl border border-white/60 shadow-xl px-5 sm:px-7 py-6 sm:py-7">
+            <nav class="flex mb-4" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2 text-sm">
+                    <li><a href="{{ url('/') }}" class="text-slate-500 hover:text-slate-700">Inicio</a></li>
+                    <li class="flex items-center">
+                        <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span class="ml-2 text-slate-700 font-medium">Panel principal</span>
+                    </li>
+                </ol>
+            </nav>
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+                <div class="space-y-2">
+                    <p class="text-[11px] tracking-[0.18em] uppercase text-slate-500">Centro de control</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                        Gestión operativa en tiempo real
+                    </h1>
+                    <p class="text-sm text-slate-600 max-w-2xl">
+                        Supervisa solicitudes, agenda técnica y estados clave desde un panel único y más visual.
+                    </p>
+                    <span class="inline-flex items-center text-xs sm:text-sm text-slate-500 bg-white/70 border border-slate-200 px-3 py-1 rounded-full">
+                        <i class="fas fa-clock mr-2 text-slate-400"></i>
+                        Última actualización: {{ now()->format('d/m/Y H:i') }}
+                    </span>
+                </div>
+                <div class="flex flex-wrap gap-2.5">
+                    <a href="{{ route('service-requests.create') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm hover:shadow-md transition-all" style="background-color: {{ $workspaceAccent }};">
+                        <i class="fas fa-plus-circle mr-2"></i>
+                        Nueva solicitud
+                    </a>
+                    <a href="{{ route('service-requests.index') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-300 bg-white/85 text-slate-700 hover:bg-white transition-all">
+                        <i class="fas fa-list mr-2"></i>
+                        Ver tablero
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow p-6 border border-gray-100 mb-8">
+    <div class="dash-card reveal bg-white rounded-2xl shadow p-6 border border-gray-100 mb-8" style="--delay: .08s">
         <div class="flex items-center justify-between mb-6">
             <div>
                 <p class="text-[11px] uppercase tracking-wider text-gray-400">Productividad</p>
@@ -127,17 +150,17 @@
                 ];
             }
         @endphp
-        <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 overflow-x-auto pb-2 text-sm">
+        <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 overflow-x-auto px-1 py-3 text-sm">
             @foreach($quickLinks as $link)
-                <a href="{{ $link['href'] }}" class="flex items-center gap-3 rounded-xl border {{ $link['border'] }} {{ $link['bg'] }} px-4 py-3 hover:bg-opacity-80 transition">
-                    <div class="p-2 rounded-lg bg-white {{ $link['iconWrap'] }} shadow-inner">
+                <a href="{{ $link['href'] }}" class="quick-link-card flex items-center gap-3 rounded-xl border {{ $link['border'] }} {{ $link['bg'] }} px-4 py-3 hover:bg-opacity-80 transition">
+                    <div class="quick-link-icon p-2 rounded-lg bg-white {{ $link['iconWrap'] }} shadow-inner">
                         <i class="{{ $link['icon'] }}"></i>
                     </div>
                     <div class="min-w-0">
                         <p class="font-semibold text-gray-900 truncate">{{ $link['title'] }}</p>
                         <span class="text-xs text-gray-600">{{ $link['subtitle'] }}</span>
                     </div>
-                    <i class="fas fa-arrow-right {{ $link['arrow'] }} ml-auto"></i>
+                    <i class="quick-link-arrow fas fa-arrow-right {{ $link['arrow'] }} ml-auto"></i>
                 </a>
             @endforeach
         </div>
@@ -151,7 +174,7 @@
     <!-- Dos Columnas: Agenda y Resumen de Solicitudes -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Agenda -->
-        <div class="bg-white rounded-2xl shadow p-6 border border-gray-100">
+        <div class="dash-card reveal bg-white rounded-2xl shadow p-6 border border-gray-100" style="--delay: .14s">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <p class="text-[11px] uppercase tracking-wider text-gray-400">Hoy</p>
@@ -244,7 +267,7 @@
         </div>
 
         <!-- Resumen de Solicitudes por Estado (pasar $statuses y $totalRequests desde controlador para optimizar) -->
-        <div class="bg-white rounded-2xl shadow p-4 sm:p-5 border border-gray-100">
+        <div class="dash-card reveal bg-white rounded-2xl shadow p-4 sm:p-5 border border-gray-100" style="--delay: .18s">
             <div class="flex items-center justify-between mb-4">
                 <div>
                     <p class="text-[11px] uppercase tracking-widest text-gray-400">Visión general</p>
@@ -339,7 +362,7 @@
     </div>
 
     <!-- Solicitudes Recientes con filtros y búsqueda -->
-    <div class="bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading">
+    <div class="dash-card reveal bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading" style="--delay: .22s">
         <div class="px-6 py-4 border-b border-gray-200 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900">Solicitudes Recientes</h2>
@@ -765,6 +788,59 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+.dashboard-surface {
+    background-color: #f3f4f6;
+    min-height: calc(100vh - 4rem);
+    overflow: visible;
+}
+.dashboard-hero {
+    background:
+        linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.92)),
+        repeating-linear-gradient(45deg, rgba(148,163,184,0.06) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+}
+.dash-card {
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
+}
+.reveal {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+    animation: dash-reveal 540ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--delay, 0s);
+}
+@keyframes dash-reveal {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+.dash-card:hover {
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+    transition: box-shadow .22s ease;
+}
+.quick-link-card {
+    position: relative;
+    transition: border-color .2s ease, background-color .2s ease;
+}
+.quick-link-card:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    background-color: rgba(255, 255, 255, 0.92);
+}
+.quick-link-icon {
+    transition: transform .22s ease;
+}
+.quick-link-arrow {
+    transition: transform .22s ease;
+}
+.quick-link-card:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+.quick-link-card:hover .quick-link-icon {
+    transform: none;
+}
+.quick-link-card:hover .quick-link-arrow {
+    transform: translateX(2px);
+}
 /* Mejoras visuales adicionales */
 .sortable:hover {
     background-color: #f9fafb;
