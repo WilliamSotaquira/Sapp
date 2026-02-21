@@ -191,13 +191,14 @@ class ServiceRequestService
                 'subService.service:id,name,service_family_id',
                 'subService.service.family:id,name,contract_id',
                 'subService.service.family.contract:id,number,name,company_id',
+                'sla:id,name,response_time_minutes',
                 'requester:id,name,email',
                 'company:id,name'
             ])
             ->select([
                 'id', 'company_id', 'ticket_number', 'title', 'description', 'status',
-                'criticality_level', 'requester_id', 'sub_service_id',
-                'created_at', 'updated_at'
+                'criticality_level', 'requester_id', 'sub_service_id', 'sla_id',
+                'created_at', 'updated_at', 'accepted_at', 'response_deadline', 'responded_at'
             ]);
 
         $this->applySorting($query, $filters['sort_by'] ?? 'recent');
