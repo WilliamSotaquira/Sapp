@@ -28,8 +28,8 @@
             </div>
         </div>
 
-        <div class="mt-8 pt-6 border-t border-gray-200 sticky bottom-3 z-20">
-            <div class="flex flex-col sm:flex-row justify-end gap-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border border-gray-200 rounded-xl p-3 shadow-md">
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="flex flex-col sm:flex-row justify-end gap-3">
                 <a href="{{ route('service-requests.show', $serviceRequest) }}"
                    class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
                     <i class="fas fa-arrow-left mr-2"></i>

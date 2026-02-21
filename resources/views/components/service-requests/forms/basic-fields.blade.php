@@ -449,7 +449,7 @@
                     <input type="radio" name="criticality_level" value="{{ $level }}"
                         {{ $currentCriticality == $level ? 'checked' : '' }} class="sr-only peer" required tabindex="-1">
                     <div
-                        class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md">
+                        class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:shadow-md">
                         <div class="flex flex-col items-center space-y-2">
                             @switch($level)
                                 @case('BAJA')
