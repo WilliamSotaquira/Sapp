@@ -118,9 +118,11 @@ class ServiceRequestService
         }
 
         // Estado / abiertas
-        if (!empty($filters['in_course'])) {
+        if (!empty($filters['in_process'])) {
+            $query->where('status', 'EN_PROCESO');
+        } elseif (!empty($filters['in_course'])) {
             $query->whereNotNull('accepted_at')
-                ->whereIn('status', ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO']);
+                ->where('status', 'ACEPTADA');
         } elseif (!empty($filters['open'])) {
             $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA']);
         } elseif (!empty($filters['status'])) {

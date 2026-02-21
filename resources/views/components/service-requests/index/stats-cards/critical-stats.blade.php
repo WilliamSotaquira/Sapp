@@ -8,11 +8,15 @@
             </div>
             <div class="flex-1 lg:flex-initial min-w-0 text-left lg:text-center">
                 <h3 class="text-xs md:text-sm lg:text-lg font-bold text-gray-800 leading-tight truncate">Críticas</h3>
-                <p class="text-[10px] md:text-xs text-gray-600 lg:hidden">Alta prioridad</p>
+                <p class="text-[10px] md:text-xs text-gray-600 lg:hidden inline-flex items-center gap-1">
+                    <i class="fas fa-exclamation-circle text-[9px] text-red-600"></i>Alta prioridad
+                </p>
             </div>
             <div class="flex-shrink-0 text-right lg:text-center">
                 <div class="text-xl md:text-2xl lg:text-3xl font-bold text-red-600 leading-tight">{{ $count }}</div>
-                <p class="text-[10px] md:text-xs text-gray-600 hidden lg:block mt-0.5">Alta prioridad</p>
+                <p class="text-[10px] md:text-xs text-gray-600 hidden lg:inline-flex items-center gap-1 mt-0.5">
+                    <i class="fas fa-exclamation-circle text-[10px] text-red-600"></i>Alta prioridad
+                </p>
             </div>
         </div>
     </div>

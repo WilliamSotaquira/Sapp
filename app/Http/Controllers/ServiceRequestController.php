@@ -67,6 +67,7 @@ class ServiceRequestController extends Controller
             'open' => $request->boolean('open'),
             'exclude_closed' => $request->boolean('exclude_closed'),
             'in_course' => $request->boolean('in_course'),
+            'in_process' => $request->boolean('in_process'),
             'sort_by' => $sortBy,
         ];
 
@@ -124,15 +125,19 @@ class ServiceRequestController extends Controller
                 ->count(),
         ];
 
-        $inCourseStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
         $inCourseCount = ServiceRequest::query()
             ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->whereNotNull('accepted_at')
-            ->whereIn('status', $inCourseStatuses)
+            ->where('status', 'ACEPTADA')
+            ->count();
+
+        $inProcessCount = ServiceRequest::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->where('status', 'EN_PROCESO')
             ->count();
 
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'inCourseCount'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'inCourseCount', 'inProcessCount'),
             $stats
         );
 
@@ -178,10 +183,11 @@ class ServiceRequestController extends Controller
             'filters.open' => 'nullable',
             'filters.exclude_closed' => 'nullable',
             'filters.in_course' => 'nullable',
+            'filters.in_process' => 'nullable',
             'filters.sort_by' => 'nullable|string|max:40',
         ]);
 
-        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'sort_by'];
+        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'in_process', 'sort_by'];
         $filters = collect($validated['filters'])
             ->only($allowedKeys)
             ->map(function ($value) {

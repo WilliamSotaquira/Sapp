@@ -11,6 +11,7 @@
     $open = request('open');
     $excludeClosed = request('exclude_closed');
     $inCourse = request('in_course');
+    $inProcess = request('in_process');
     $serviceId = request('service_id');
     $sortBy = request('sort_by', 'recent');
     $baseParams = request()->except(['page']);
@@ -29,7 +30,8 @@
     }
     if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
     if ($excludeClosed) $activeFilters[] = ['label' => 'Sin cerradas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['exclude_closed' => true]))];
-    if ($inCourse) $activeFilters[] = ['label' => 'En curso', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_course' => true]))];
+    if ($inCourse) $activeFilters[] = ['label' => 'En espera', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_course' => true]))];
+    if ($inProcess) $activeFilters[] = ['label' => 'En proceso', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_process' => true]))];
     if ($sortBy && $sortBy !== 'recent') {
         $sortLabels = [
             'oldest' => 'Antiguedad (más antiguas)',
@@ -132,6 +134,10 @@
                     class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-red-300 text-red-700 hover:bg-red-50 transition-colors">
                 <i class="fas fa-exclamation-circle mr-1"></i>Críticas
             </button>
+            <button type="button" onclick="applyQuickFilter('in_course', '1')" 
+                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
+                <i class="fas fa-hourglass-half mr-1"></i>En espera
+            </button>
             <button type="button" onclick="applyQuickFilter('status', 'PENDIENTE')" 
                     class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-yellow-300 text-yellow-700 hover:bg-yellow-50 transition-colors">
                 <i class="fas fa-clock mr-1"></i>Pendientes
@@ -144,9 +150,25 @@
                     class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-green-300 text-green-700 hover:bg-green-50 transition-colors">
                 <i class="fas fa-folder-open mr-1"></i>Abiertas
             </button>
+            <button type="button" onclick="applyQuickFilter('status', 'PAUSADA')"
+                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors">
+                <i class="fas fa-pause-circle mr-1"></i>Pausadas
+            </button>
+            <button type="button" onclick="applyQuickFilter('status', 'RECHAZADA')"
+                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors">
+                <i class="fas fa-ban mr-1"></i>Rechazadas
+            </button>
+            <button type="button" onclick="applyQuickFilter('status', 'CERRADA')"
+                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
+                <i class="fas fa-lock mr-1"></i>Cerradas
+            </button>
             <button type="button" id="showPresetsBtn"
                     class="px-3 py-1.5 text-xs font-medium rounded-full border border-purple-300 text-purple-700 hover:bg-purple-50 transition-colors">
                 <i class="fas fa-star mr-1"></i>Presets
+            </button>
+            <button type="button" onclick="applyQuickFilter('all', '1')"
+                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
+                <i class="fas fa-layer-group mr-1"></i>Total
             </button>
         </div>
 
@@ -190,6 +212,12 @@
                 <form id="advancedFiltersForm" class="space-y-4">
                     @if(request('open'))
                         <input type="hidden" id="openFilter" name="open" value="1">
+                    @endif
+                    @if(request('in_course'))
+                        <input type="hidden" id="inCourseFilter" name="in_course" value="1">
+                    @endif
+                    @if(request('in_process'))
+                        <input type="hidden" id="inProcessFilter" name="in_process" value="1">
                     @endif
 
                     <!-- Estado -->
@@ -474,9 +502,9 @@
                                 </div>
                             </div>
                             @if(!$isClosedCard)
-                                <div class="flex items-center justify-between text-[11px] rounded-md px-2 py-1 {{ $responseToneClasses }}">
-                                    <span class="font-semibold">{{ $responseLabel }}</span>
-                                    <span class="font-medium">{{ $responseDetail }}</span>
+                                <div class="text-[11px] rounded-md px-2 py-1 {{ $responseToneClasses }}">
+                                    <div class="font-semibold leading-tight break-words">{{ $responseLabel }}</div>
+                                    <div class="font-medium leading-tight mt-0.5">{{ $responseDetail }}</div>
                                 </div>
                             @endif
                         </div>
@@ -638,6 +666,10 @@ function applySearchFromHistory(term) {
 
 // === Filtros Rápidos ===
 function applyQuickFilter(field, value) {
+    if (field === 'all') {
+        window.location.href = '{{ route("service-requests.index") }}';
+        return;
+    }
     const params = new URLSearchParams();
     params.set(field, value);
     window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
@@ -763,6 +795,8 @@ function gatherFilters() {
         start_date: document.getElementById('startDateFilterAdv')?.value || '',
         end_date: document.getElementById('endDateFilterAdv')?.value || '',
         open: document.getElementById('openFilter')?.value || '',
+        in_course: document.getElementById('inCourseFilter')?.value || '',
+        in_process: document.getElementById('inProcessFilter')?.value || '',
         sort_by: document.getElementById('sortByFilterAdv')?.value || 'recent'
     };
 }
