@@ -93,10 +93,53 @@ class CutController extends Controller
 
         $serviceRequests = $cut->serviceRequests()
             ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla'])
+            ->orderByRaw("
+                CASE service_requests.status
+                    WHEN 'EN_PROCESO' THEN 1
+                    WHEN 'ACEPTADA' THEN 2
+                    WHEN 'PENDIENTE' THEN 3
+                    WHEN 'PAUSADA' THEN 4
+                    WHEN 'RESUELTA' THEN 5
+                    WHEN 'CERRADA' THEN 6
+                    WHEN 'CANCELADA' THEN 7
+                    WHEN 'RECHAZADA' THEN 8
+                    ELSE 9
+                END
+            ")
             ->orderByDesc('created_at')
             ->paginate(20);
 
         return view('reports.cuts.show', compact('cut', 'serviceRequests'));
+    }
+
+    public function update(Cut $cut, Request $request): RedirectResponse
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+        ]);
+
+        $cut->update([
+            'start_date' => $validated['start_date'],
+            'end_date' => $validated['end_date'],
+        ]);
+
+        $this->syncCutServiceRequests($cut);
+
+        return redirect()
+            ->route('reports.cuts.show', $cut)
+            ->with('success', 'Fechas del corte actualizadas y solicitudes sincronizadas correctamente.');
     }
 
     public function requests(Cut $cut, Request $request): View
