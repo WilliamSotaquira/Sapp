@@ -2,6 +2,64 @@
 
 @php
     $isClosed = strtoupper((string) $request->status) === 'CERRADA';
+    $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
+    $isOpenRequest = in_array(strtoupper((string) $request->status), $openStatuses, true);
+
+    $fallbackResponseMinutes = (int) ($request->sla->response_time_minutes ?? 0);
+    $responseStartAt = $request->accepted_at;
+    $responseDeadline = ($responseStartAt && $fallbackResponseMinutes > 0)
+        ? $responseStartAt->copy()->addMinutes($fallbackResponseMinutes)
+        : null;
+    $respondedAt = $request->responded_at;
+    $remainingMinutes = $responseDeadline ? now()->diffInMinutes($responseDeadline, false) : null;
+
+    $responseToneClasses = 'text-gray-700 bg-gray-100';
+    $responseLabel = 'Sin objetivo';
+    $responseDetail = 'Sin plazo';
+    $responseProgress = 0;
+
+    $formatWindow = function (int $minutes): string {
+        $minutes = max(0, $minutes);
+        $hours = intdiv($minutes, 60);
+        $days = intdiv($hours, 24);
+        $remainingHours = $hours % 24;
+
+        if ($days > 0) {
+            return $days . 'd ' . $remainingHours . 'h';
+        }
+
+        return $hours . 'h';
+    };
+
+    if ($respondedAt) {
+        $responseToneClasses = 'text-emerald-700 bg-emerald-100';
+        $responseLabel = 'Respondida';
+        $responseDetail = $respondedAt->format('d/m H:i');
+        $responseProgress = 100;
+    } elseif ($isOpenRequest && !$responseStartAt) {
+        $responseToneClasses = 'text-slate-700 bg-slate-100';
+        $responseLabel = 'Pendiente de aceptación';
+        $responseDetail = 'Aún no inicia';
+        $responseProgress = 0;
+    } elseif ($isOpenRequest && $responseDeadline && $responseStartAt) {
+        $totalWindowMinutes = max(1, (int) $responseStartAt->diffInMinutes($responseDeadline));
+        $elapsedMinutes = max(0, (int) $responseStartAt->diffInMinutes(now()));
+        $remainingWindowMinutes = max(0, $totalWindowMinutes - $elapsedMinutes);
+        $responseProgress = min(100, (int) round(($elapsedMinutes / $totalWindowMinutes) * 100));
+
+        if ($responseProgress >= 90) {
+            $responseToneClasses = 'text-red-700 bg-red-100';
+            $responseLabel = 'Tiempo Crítico';
+        } elseif ($responseProgress >= 75) {
+            $responseToneClasses = 'text-amber-700 bg-amber-100';
+            $responseLabel = 'Tiempo en Riesgo';
+        } else {
+            $responseToneClasses = 'text-emerald-700 bg-emerald-100';
+            $responseLabel = 'En Tiempo';
+        }
+
+        $responseDetail = $formatWindow($remainingWindowMinutes);
+    }
 @endphp
 
 <tr class="{{ $isClosed ? 'bg-gray-50 text-gray-500 grayscale-[85%] opacity-80' : 'hover:bg-gray-50' }} text-xs sm:text-sm transition-colors"
@@ -15,6 +73,18 @@
            class="font-mono {{ $isClosed ? 'text-gray-600 hover:text-gray-700' : 'text-blue-600 hover:text-blue-800' }} hover:underline font-bold text-xs sm:text-sm transition-colors">
             {{ $request->ticket_number }}
         </a>
+        @if(!$isClosed)
+            <div class="mt-1 w-36">
+                <div class="w-full h-1.5 rounded-full bg-gray-200 overflow-hidden" aria-label="Progreso del tiempo de respuesta">
+                    <div class="h-full {{ str_contains($responseToneClasses, 'red') ? 'bg-red-500' : (str_contains($responseToneClasses, 'amber') ? 'bg-amber-500' : 'bg-emerald-500') }}"
+                         style="width: {{ $responseProgress }}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] mt-1">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded {{ $responseToneClasses }}">{{ $responseLabel }}</span>
+                    <span class="text-gray-500">{{ $responseDetail }}</span>
+                </div>
+            </div>
+        @endif
         <div class="mt-1 text-[11px] {{ $isClosed ? 'text-gray-500' : 'text-gray-600' }} sm:hidden">
             <div class="font-medium {{ $isClosed ? 'text-gray-600' : 'text-gray-800' }}">{{ Str::limit($request->title, 45) }}</div>
             <div class="text-gray-500">{{ $request->subService->name ?? 'Sin servicio' }}</div>

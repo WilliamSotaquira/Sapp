@@ -342,6 +342,60 @@
                             'MEDIA' => 'bg-yellow-500 text-white',
                             'BAJA' => 'bg-green-500 text-white'
                         ];
+
+                        $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
+                        $isOpenRequest = in_array(strtoupper((string) $request->status), $openStatuses, true);
+                        $fallbackResponseMinutes = (int) ($request->sla->response_time_minutes ?? 0);
+                        $responseStartAt = $request->accepted_at;
+                        $responseDeadline = ($responseStartAt && $fallbackResponseMinutes > 0)
+                            ? $responseStartAt->copy()->addMinutes($fallbackResponseMinutes)
+                            : null;
+                        $respondedAt = $request->responded_at;
+
+                        $responseToneClasses = 'text-gray-700 bg-gray-100';
+                        $responseLabel = 'Sin objetivo';
+                        $responseDetail = 'Sin plazo';
+
+                        $formatWindow = function (int $minutes): string {
+                            $minutes = max(0, $minutes);
+                            $hours = intdiv($minutes, 60);
+                            $days = intdiv($hours, 24);
+                            $remainingHours = $hours % 24;
+
+                            if ($days > 0) {
+                                return $days . 'd ' . $remainingHours . 'h';
+                            }
+
+                            return $hours . 'h';
+                        };
+
+                        if ($respondedAt) {
+                            $responseToneClasses = 'text-emerald-700 bg-emerald-100';
+                            $responseLabel = 'Respondida';
+                            $responseDetail = $respondedAt->format('d/m H:i');
+                        } elseif ($isOpenRequest && !$responseStartAt) {
+                            $responseToneClasses = 'text-slate-700 bg-slate-100';
+                            $responseLabel = 'Pendiente de aceptación';
+                            $responseDetail = 'Aún no inicia';
+                        } elseif ($isOpenRequest && $responseDeadline && $responseStartAt) {
+                            $totalWindowMinutes = max(1, (int) $responseStartAt->diffInMinutes($responseDeadline));
+                            $elapsedMinutes = max(0, (int) $responseStartAt->diffInMinutes(now()));
+                            $remainingWindowMinutes = max(0, $totalWindowMinutes - $elapsedMinutes);
+                            $responseProgress = min(100, (int) round(($elapsedMinutes / $totalWindowMinutes) * 100));
+
+                            if ($responseProgress >= 90) {
+                                $responseToneClasses = 'text-red-700 bg-red-100';
+                                $responseLabel = 'Tiempo Crítico';
+                            } elseif ($responseProgress >= 75) {
+                                $responseToneClasses = 'text-amber-700 bg-amber-100';
+                                $responseLabel = 'Tiempo en Riesgo';
+                            } else {
+                                $responseToneClasses = 'text-emerald-700 bg-emerald-100';
+                                $responseLabel = 'En Tiempo';
+                            }
+
+                            $responseDetail = $formatWindow($remainingWindowMinutes);
+                        }
                     @endphp
                     
                     <div class="{{ $isClosedCard ? 'bg-gray-50 rounded-lg shadow-sm border border-gray-300 hover:shadow-sm transition-shadow overflow-hidden' : 'bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden' }}">
@@ -415,6 +469,12 @@
                                     </a>
                                 </div>
                             </div>
+                            @if(!$isClosedCard)
+                                <div class="flex items-center justify-between text-[11px] rounded-md px-2 py-1 {{ $responseToneClasses }}">
+                                    <span class="font-semibold">{{ $responseLabel }}</span>
+                                    <span class="font-medium">{{ $responseDetail }}</span>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @endforeach

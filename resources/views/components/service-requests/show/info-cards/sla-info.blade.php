@@ -14,11 +14,26 @@
     <div class="p-6">
         <div class="flex items-center justify-between mb-4">
             @php
-                $slaHours = $serviceRequest->subService->sla_hours ?? 72;
-                $elapsedHours = $serviceRequest->created_at->diffInHours(now());
-                $remainingHours = max(0, $slaHours - $elapsedHours);
+                $fallbackResponseMinutes = (int) ($serviceRequest->sla->response_time_minutes ?? 0);
+                $responseStartAt = $serviceRequest->accepted_at;
+                $responseDeadline = ($responseStartAt && $fallbackResponseMinutes > 0)
+                    ? $responseStartAt->copy()->addMinutes($fallbackResponseMinutes)
+                    : null;
 
-                // Calcular días y horas para mostrar
+                $totalWindowMinutes = $responseDeadline
+                    ? max(1, (int) $responseStartAt->diffInMinutes($responseDeadline))
+                    : 0;
+                $elapsedMinutes = $responseDeadline
+                    ? max(0, (int) $responseStartAt->diffInMinutes(now()))
+                    : 0;
+                $remainingMinutes = $responseDeadline
+                    ? max(0, $totalWindowMinutes - $elapsedMinutes)
+                    : 0;
+
+                $elapsedHours = (int) floor($elapsedMinutes / 60);
+                $remainingHours = (int) floor($remainingMinutes / 60);
+                $slaHours = (int) floor($totalWindowMinutes / 60);
+
                 $elapsedDays = floor($elapsedHours / 24);
                 $elapsedRemainingHours = $elapsedHours % 24;
 
@@ -28,14 +43,19 @@
                 $slaDays = floor($slaHours / 24);
                 $slaRemainingHours = $slaHours % 24;
 
-                if($slaHours > 0) {
-                    $progress = min(100, ($elapsedHours / $slaHours) * 100);
-                } else {
-                    $progress = 0;
-                }
+                $progress = $totalWindowMinutes > 0
+                    ? min(100, ($elapsedMinutes / $totalWindowMinutes) * 100)
+                    : 0;
 
                 // Determinar estado y colores
-                if($progress >= 90) {
+                if (!$responseStartAt) {
+                    $status = 'Pendiente de aceptación';
+                    $statusColor = 'text-slate-600';
+                    $bgColor = 'bg-slate-50';
+                    $borderColor = 'border-slate-200';
+                    $progressColor = 'bg-slate-400';
+                    $icon = 'fa-hourglass-start';
+                } elseif($progress >= 90) {
                     $status = 'Tiempo Crítico';
                     $statusColor = 'text-red-600';
                     $bgColor = 'bg-red-50';
@@ -77,8 +97,8 @@
         </div>
 
         <div class="text-xs text-gray-500">
-            Inicio: {{ $serviceRequest->created_at->format('d/m/Y H:i') }} ·
-            Límite: {{ $serviceRequest->created_at->addHours($slaHours)->format('d/m/Y H:i') }}
+            Inicio: {{ $responseStartAt ? $responseStartAt->format('d/m/Y H:i') : 'Pendiente de aceptación' }} ·
+            Límite: {{ $responseDeadline ? $responseDeadline->format('d/m/Y H:i') : 'Sin definir' }}
         </div>
     </div>
 </div>
