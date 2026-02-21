@@ -65,6 +65,8 @@ class ServiceRequestController extends Controller
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
             'open' => $request->boolean('open'),
+            'exclude_closed' => $request->boolean('exclude_closed'),
+            'in_course' => $request->boolean('in_course'),
             'sort_by' => $sortBy,
         ];
 
@@ -122,10 +124,11 @@ class ServiceRequestController extends Controller
                 ->count(),
         ];
 
+        $inCourseStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
         $inCourseCount = ServiceRequest::query()
             ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->whereNotNull('accepted_at')
-            ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA'])
+            ->whereIn('status', $inCourseStatuses)
             ->count();
 
         $data = array_merge(
@@ -173,10 +176,12 @@ class ServiceRequestController extends Controller
             'filters.start_date' => 'nullable|date',
             'filters.end_date' => 'nullable|date',
             'filters.open' => 'nullable',
+            'filters.exclude_closed' => 'nullable',
+            'filters.in_course' => 'nullable',
             'filters.sort_by' => 'nullable|string|max:40',
         ]);
 
-        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'sort_by'];
+        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'sort_by'];
         $filters = collect($validated['filters'])
             ->only($allowedKeys)
             ->map(function ($value) {

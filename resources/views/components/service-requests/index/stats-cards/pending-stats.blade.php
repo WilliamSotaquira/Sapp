@@ -1,6 +1,6 @@
 @props(['count' => 0])
 
-<a href="{{ route('service-requests.index', ['status' => 'PENDIENTE']) }}" class="block bg-white rounded-lg shadow border-l-4 border-amber-500 overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-300">
+<a href="{{ route('service-requests.index', ['status' => 'PENDIENTE', 'exclude_closed' => 1]) }}" class="block bg-white rounded-lg shadow border-l-4 border-amber-500 overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-300">
     <div class="bg-amber-50/50 p-2.5 md:p-4 lg:p-5">
         <div class="flex lg:flex-col items-center text-center gap-2.5 lg:gap-2">
             <div class="flex-shrink-0 bg-amber-100 rounded-lg p-1.5 lg:p-2">

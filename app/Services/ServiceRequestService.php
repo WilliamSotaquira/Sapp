@@ -118,10 +118,17 @@ class ServiceRequestService
         }
 
         // Estado / abiertas
-        if (!empty($filters['open'])) {
+        if (!empty($filters['in_course'])) {
+            $query->whereNotNull('accepted_at')
+                ->whereIn('status', ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO']);
+        } elseif (!empty($filters['open'])) {
             $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA']);
         } elseif (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['exclude_closed'])) {
+            $query->where('status', '!=', 'CERRADA');
         }
 
         // Criticidad
