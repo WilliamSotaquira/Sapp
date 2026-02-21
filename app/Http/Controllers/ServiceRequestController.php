@@ -122,8 +122,14 @@ class ServiceRequestController extends Controller
                 ->count(),
         ];
 
+        $inCourseCount = ServiceRequest::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->whereNotNull('accepted_at')
+            ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA'])
+            ->count();
+
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'inCourseCount'),
             $stats
         );
 
