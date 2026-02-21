@@ -121,6 +121,13 @@
     <!-- Accesibilidad: anuncios y feedback sin recargar -->
     <div id="srLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div id="srToast" class="fixed bottom-4 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <button id="backToTopButton"
+        type="button"
+        class="fixed bottom-4 left-4 z-50 hidden h-11 w-11 rounded-full bg-red-600 text-white shadow-lg transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+        title="Volver arriba"
+        aria-label="Volver a la parte superior">
+        <i class="fas fa-arrow-up" aria-hidden="true"></i>
+    </button>
 
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
@@ -146,6 +153,25 @@
             ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
         toastEl.classList.remove('hidden');
         setTimeout(function(){ toastEl.classList.add('hidden'); }, 3000);
+    }
+
+    var backToTopButton = document.getElementById('backToTopButton');
+    function handleBackToTopVisibility() {
+        if (!backToTopButton) return;
+        if (window.scrollY > 300) {
+            backToTopButton.classList.remove('hidden');
+        } else {
+            backToTopButton.classList.add('hidden');
+        }
+    }
+
+    if (backToTopButton) {
+        window.addEventListener('scroll', handleBackToTopVisibility, { passive: true });
+        handleBackToTopVisibility();
+        backToTopButton.addEventListener('click', function() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            announce('Volviste al inicio de la página');
+        });
     }
 
     if (typeof window.showCopyNotification !== 'function') {

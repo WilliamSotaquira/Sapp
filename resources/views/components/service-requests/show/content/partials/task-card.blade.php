@@ -1,4 +1,4 @@
-@props(['task'])
+@props(['task', 'canConfirmProgress' => true])
 
 @php
     $statusConfig = [
@@ -41,7 +41,8 @@
                     class="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
                     {{ strtolower($task->status ?? '') === 'completed' ? 'checked' : '' }}
                     onchange="toggleTaskStatus({{ $task->id }}, this.checked)"
-                    {{ $task->status === 'cancelled' ? 'disabled' : '' }}>
+                    {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
+                    title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está EN PROCESO.' : '' }}">
             </div>
 
             <div class="flex-1">
@@ -144,7 +145,8 @@
                                 class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
                                 {{ $subtask->is_completed ? 'checked' : '' }}
                                 onchange="toggleSubtaskStatus({{ $task->id }}, {{ $subtask->id }}, this.checked)"
-                                {{ $task->status === 'cancelled' ? 'disabled' : '' }}>
+                                {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
+                                title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está EN PROCESO.' : '' }}">
                         </div>
 
                         <div class="flex-1">

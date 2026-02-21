@@ -6,6 +6,7 @@
         ->orderBy('created_at', 'desc')
         ->get();
     $canManageTasks = in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO']);
+    $canConfirmTaskProgress = $serviceRequest->status === 'EN_PROCESO';
     $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
@@ -60,7 +61,7 @@
     <div class="p-4 sm:p-6">
         <div id="tasksList" class="space-y-3 {{ $tasks->isEmpty() ? 'hidden' : '' }}">
             @foreach($tasks as $task)
-                @include('components.service-requests.show.content.partials.task-card', ['task' => $task])
+                @include('components.service-requests.show.content.partials.task-card', ['task' => $task, 'canConfirmProgress' => $canConfirmTaskProgress])
             @endforeach
         </div>
 

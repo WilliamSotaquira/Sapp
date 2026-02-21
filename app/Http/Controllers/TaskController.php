@@ -1591,6 +1591,17 @@ class TaskController extends Controller
             abort(403);
         }
 
+        if (!$this->canConfirmAssociatedTaskProgress($task)) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                ], 422);
+            }
+
+            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.');
+        }
+
         if ($subtask->status === 'completed') {
             $subtask->update(['status' => 'pending', 'completed_at' => null]);
         } else {
@@ -1679,6 +1690,13 @@ class TaskController extends Controller
     public function toggleStatus(Task $task, Request $request)
     {
         try {
+            if (!$this->canConfirmAssociatedTaskProgress($task)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                ], 422);
+            }
+
             $completed = $request->input('completed', false);
 
             if ($completed) {
@@ -1739,6 +1757,13 @@ class TaskController extends Controller
                 ], 403);
             }
 
+            if (!$this->canConfirmAssociatedTaskProgress($task)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                ], 422);
+            }
+
             $previousStatus = $task->status;
             $isCompleted = filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
 
@@ -1791,5 +1816,18 @@ class TaskController extends Controller
                 'message' => 'Error al actualizar la subtarea: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function canConfirmAssociatedTaskProgress(Task $task): bool
+    {
+        if (!$task->service_request_id) {
+            return true;
+        }
+
+        if (!$task->relationLoaded('serviceRequest')) {
+            $task->load('serviceRequest:id,status');
+        }
+
+        return optional($task->serviceRequest)->status === 'EN_PROCESO';
     }
 }
