@@ -67,13 +67,13 @@
 
             <!-- Tareas (opcional) -->
             <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                <button type="button" id="toggleTasksSection" class="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100">
+                <button type="button" id="toggleTasksSection" class="group w-full rounded-2xl px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100 focus:outline-none focus:bg-blue-100 focus:border-blue-600 focus:ring-4 focus:ring-inset focus:ring-blue-600/35 focus:shadow-md focus-visible:bg-blue-100 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-600/35">
                     <div class="text-left">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 2 de 2</p>
-                        <div class="text-lg font-bold text-gray-800">Tareas (opcional)</div>
-                        <div class="text-gray-600 text-sm">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Paso 2 de 2</p>
+                        <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas (opcional)</div>
+                        <div class="text-gray-600 text-sm group-focus:text-blue-800 group-focus-visible:text-blue-800">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
                     </div>
-                    <span id="tasksChevron" class="text-gray-500">▾</span>
+                    <span id="tasksChevron" class="text-gray-500 group-focus:text-blue-900 group-focus-visible:text-blue-900">▾</span>
                 </button>
 
                 <div id="tasksSectionBody" class="hidden p-6">
@@ -104,8 +104,8 @@
                 </div>
             </div>
 
-            <div class="mt-8 pt-6 border-t border-gray-200 sticky bottom-3 z-20">
-                <div class="flex flex-col sm:flex-row justify-end gap-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border border-gray-200 rounded-xl p-3 shadow-md">
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <div class="flex flex-col sm:flex-row justify-end gap-3">
                     <!-- Botón Cancelar - Simplificado -->
                     <a href="{{ route('service-requests.index') }}"
                         class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
