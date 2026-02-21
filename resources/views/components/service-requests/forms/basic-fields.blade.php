@@ -1068,6 +1068,26 @@
                         });
                     }
 
+                    const cutSelect = window.jQuery('#cut_id');
+                    if (cutSelect.length && !cutSelect.data('select2')) {
+                        cutSelect.select2({
+                            width: '100%',
+                            placeholder: 'Sin corte asignado'
+                        });
+
+                        cutSelect.on('select2:open', function () {
+                            const search = document.querySelector('.select2-container--open .select2-search__field');
+                            if (search instanceof HTMLInputElement) {
+                                search.focus();
+                                search.select();
+                            } else if (search) {
+                                search.focus();
+                            }
+                        });
+
+                        attachPasteSupport(cutSelect);
+                    }
+
                     const subServiceSelect = window.jQuery('#sub_service_id');
                     if (subServiceSelect.length && !subServiceSelect.data('select2')) {
                         function getFocusableElementsInDocument() {
@@ -1610,6 +1630,13 @@
 
             if (contractId && !hasSelection && cutSelect.value) {
                 cutSelect.value = '';
+            }
+
+            if (window.jQuery && window.jQuery.fn?.select2) {
+                const $cutSelect = window.jQuery(cutSelect);
+                if ($cutSelect.data('select2')) {
+                    $cutSelect.trigger('change.select2');
+                }
             }
         }
 
