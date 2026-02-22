@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\ServiceLevelAgreement;
 use App\Models\ServiceRequestEvidence;
 use App\Models\SavedFilter;
+use App\Models\Technician;
 use App\Services\ServiceRequestService;
 use App\Services\ServiceRequestWorkflowService;
 use App\Services\EvidenceService;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ServiceRequestController extends Controller
 {
@@ -314,8 +317,18 @@ class ServiceRequestController extends Controller
     {
         $serviceRequest = $this->serviceRequestService->loadServiceRequestForShow($serviceRequest);
 
-        // Obtener todos los usuarios como técnicos potenciales
-        $technicians = User::orderBy('name')->get();
+        $technicians = User::query()
+            ->with(['technician.companies' => function ($query) use ($serviceRequest) {
+                $query->where('companies.id', $serviceRequest->company_id)->select('companies.id', 'name');
+            }])
+            ->whereHas('technician', function ($query) {
+                $query->where('status', 'active');
+            })
+            ->whereHas('technician.companies', function ($query) use ($serviceRequest) {
+                $query->where('companies.id', $serviceRequest->company_id);
+            })
+            ->orderBy('name')
+            ->get();
 
         return view('service-requests.show', compact('serviceRequest', 'technicians'));
     }
@@ -482,7 +495,6 @@ class ServiceRequestController extends Controller
                 ->with('error', 'No se puede reasignar una solicitud en estado: ' . $service_request->status);
         }
 
-        // Todos los usuarios son técnicos - excluir solo el actual
         $technicians = User::with([
                 'technician' => function ($query) {
                     $query->withCount([
@@ -491,7 +503,16 @@ class ServiceRequestController extends Controller
                         },
                     ]);
                 },
+                'technician.companies' => function ($query) use ($service_request) {
+                    $query->where('companies.id', $service_request->company_id)->select('companies.id', 'name');
+                },
             ])
+            ->whereHas('technician', function ($query) {
+                $query->where('status', 'active');
+            })
+            ->whereHas('technician.companies', function ($query) use ($service_request) {
+                $query->where('companies.id', $service_request->company_id);
+            })
             ->where('id', '!=', $service_request->assigned_to)
             ->orderBy('name')
             ->get();
@@ -509,9 +530,20 @@ class ServiceRequestController extends Controller
         }
 
         $validated = $request->validate([
-            'assigned_to' => 'required|exists:users,id',
+            'assigned_to' => [
+                'required',
+                'exists:users,id',
+                Rule::exists('technicians', 'user_id')
+                    ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
+            ],
             'reassignment_reason' => 'required|string|min:10|max:500',
         ]);
+
+        if (!$this->isTechnicianAssignedToCompany((int) $validated['assigned_to'], (int) $service_request->company_id)) {
+            throw ValidationException::withMessages([
+                'assigned_to' => 'El técnico seleccionado no está habilitado para esta entidad.',
+            ]);
+        }
 
         try {
             DB::transaction(function () use ($validated, $service_request) {
@@ -952,8 +984,23 @@ class ServiceRequestController extends Controller
         }
 
         $request->validate([
-            'assigned_to' => 'required|exists:users,id',
+            'assigned_to' => [
+                'required',
+                'exists:users,id',
+                Rule::exists('technicians', 'user_id')
+                    ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
+            ],
         ]);
+
+        if (!$this->isTechnicianAssignedToCompany((int) $request->assigned_to, (int) $service_request->company_id)) {
+            return response()->json(
+                [
+                    'success' => false,
+                    'message' => 'El técnico seleccionado no está habilitado para esta entidad.',
+                ],
+                422,
+            );
+        }
 
         try {
             $service_request->update([
@@ -979,6 +1026,8 @@ class ServiceRequestController extends Controller
                 'success' => true,
                 'message' => 'Técnico asignado correctamente',
                 'assigned_to' => $service_request->assignee->name,
+                'assigned_to_email' => $service_request->assignee?->getEmailForCompany((int) $service_request->company_id),
+                'assigned_to_position' => $service_request->assignee?->getPositionForCompany((int) $service_request->company_id),
             ]);
         } catch (\Exception $e) {
             Log::error('Error en asignación rápida: ' . $e->getMessage());
@@ -1054,6 +1103,8 @@ class ServiceRequestController extends Controller
                 'success' => true,
                 'message' => 'Solicitante asignado correctamente',
                 'requester_name' => $service_request->requester->name ?? null,
+                'requester_email' => $service_request->requester->email ?? null,
+                'requester_position' => $service_request->requester->position ?? null,
             ]);
         } catch (\Exception $e) {
             Log::error('Error en asignación rápida de solicitante: ' . $e->getMessage());
@@ -1066,6 +1117,21 @@ class ServiceRequestController extends Controller
                 500,
             );
         }
+    }
+
+    private function isTechnicianAssignedToCompany(int $userId, int $companyId): bool
+    {
+        if ($userId <= 0 || $companyId <= 0) {
+            return false;
+        }
+
+        return Technician::query()
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('companies.id', $companyId);
+            })
+            ->exists();
     }
 
     /**

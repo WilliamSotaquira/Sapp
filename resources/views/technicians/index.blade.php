@@ -105,6 +105,11 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($technicians as $technician)
+                        @php
+                            $currentCompanyId = (int) session('current_company_id');
+                            $institutionalEmail = $technician->getInstitutionalEmailForCompany($currentCompanyId);
+                            $institutionalPosition = $technician->getPositionForCompany($currentCompanyId);
+                        @endphp
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                                 <div class="flex items-center">
@@ -115,7 +120,12 @@
                                     </div>
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">{{ $technician->user?->name ?? 'Usuario no asignado' }}</div>
-                                        <div class="text-xs text-gray-500">{{ $technician->user->email }}</div>
+                                        @if($institutionalEmail)
+                                            <div class="text-xs text-gray-500">{{ $institutionalEmail }}</div>
+                                        @endif
+                                        @if($institutionalPosition)
+                                            <div class="text-xs text-gray-400">{{ $institutionalPosition }}</div>
+                                        @endif
                                     </div>
                                 </div>
                             </td>

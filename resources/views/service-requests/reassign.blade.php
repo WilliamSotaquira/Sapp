@@ -57,10 +57,11 @@
                                     $specializationLabel = $specialization ? (' - ' . $specialization) : '';
                                     $openTasks = $technician->technician?->open_tasks_count;
                                     $openTasksLabel = is_null($openTasks) ? '' : (' · Carga: ' . $openTasks);
+                                    $companyEmail = $technician->getEmailForCompany((int) $service_request->company_id);
                                 @endphp
                                 <option value="{{ $technician->id }}"
                                     {{ old('assigned_to', $service_request->assigned_to) == $technician->id ? 'selected' : '' }}>
-                                    {{ $technician->name }} - {{ $technician->email }}{{ $specializationLabel }}{{ $openTasksLabel }}
+                                    {{ $technician->name }}{{ $companyEmail ? (' - ' . $companyEmail) : '' }}{{ $specializationLabel }}{{ $openTasksLabel }}
                                 </option>
                             @endforeach
                         </select>

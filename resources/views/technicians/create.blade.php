@@ -37,11 +37,22 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <a href="{{ route('users.index') }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            Ver usuarios
+                        </a>
+                        <span class="text-gray-300">|</span>
+                        <a href="{{ route('users.create') }}" class="text-blue-600 hover:text-blue-800 hover:underline">
+                            Crear usuario
+                        </a>
+                    </div>
                     @error('user_id')
                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                     @enderror
                     @if($users->isEmpty())
-                        <p class="mt-1 text-xs text-amber-700">No hay usuarios disponibles para la entidad activa.</p>
+                        <p class="mt-1 text-xs text-amber-700">
+                            No hay usuarios disponibles para la entidad activa. Primero crea usuarios en Catálogos > Usuarios.
+                        </p>
                     @endif
                 </div>
             </div>
@@ -53,17 +64,45 @@
                     Entidades Asociadas
                 </h3>
 
-                <p class="text-xs text-gray-500 mb-3">Seleccione una o varias entidades para este tecnico.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <p class="text-xs text-gray-500 mb-3">Seleccione las entidades del técnico y complete correo institucional y cargo por cada una.</p>
+                <div class="space-y-3">
                     @foreach($companies as $company)
-                        <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                            <input type="checkbox"
-                                   name="company_ids[]"
-                                   value="{{ $company->id }}"
-                                   class="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                   {{ in_array((string) $company->id, array_map('strval', $selectedCompanyIds ?? []), true) ? 'checked' : '' }}>
-                            <span class="ml-2 text-sm text-gray-700">{{ $company->name }}</span>
-                        </label>
+                        <div class="p-3 border border-gray-200 rounded-lg">
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="company_ids[]"
+                                       value="{{ $company->id }}"
+                                       class="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                       {{ in_array((string) $company->id, array_map('strval', $selectedCompanyIds ?? []), true) ? 'checked' : '' }}>
+                                <span class="ml-2 text-sm font-medium text-gray-700">{{ $company->name }}</span>
+                            </label>
+                            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label for="company_data_{{ $company->id }}_email" class="block text-xs font-medium text-gray-600 mb-1">
+                                        Correo institucional <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="email"
+                                           id="company_data_{{ $company->id }}_email"
+                                           name="company_data[{{ $company->id }}][email]"
+                                           value="{{ old("company_data.{$company->id}.email", $existingCompanyData[$company->id]['email'] ?? '') }}"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 @error("company_data.{$company->id}.email") border-red-500 @enderror"
+                                           placeholder="tecnico@entidad.gov.co">
+                                    @error("company_data.{$company->id}.email")<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label for="company_data_{{ $company->id }}_position" class="block text-xs font-medium text-gray-600 mb-1">
+                                        Cargo <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text"
+                                           id="company_data_{{ $company->id }}_position"
+                                           name="company_data[{{ $company->id }}][position]"
+                                           value="{{ old("company_data.{$company->id}.position", $existingCompanyData[$company->id]['position'] ?? '') }}"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 @error("company_data.{$company->id}.position") border-red-500 @enderror"
+                                           placeholder="Ej: Profesional universitario">
+                                    @error("company_data.{$company->id}.position")<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </div>
                     @endforeach
                 </div>
                 @error('company_ids')

@@ -19,6 +19,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'identification_number',
         'email',
         'password',
         'role',
@@ -90,7 +91,9 @@ class User extends Authenticatable
 
     public function companies()
     {
-        return $this->belongsToMany(\App\Models\Company::class)->withTimestamps();
+        return $this->belongsToMany(\App\Models\Company::class)
+            ->withPivot(['entity_email', 'entity_position'])
+            ->withTimestamps();
     }
 
     /**
@@ -99,5 +102,43 @@ class User extends Authenticatable
     public function isTechnician()
     {
         return $this->technician()->exists();
+    }
+
+    /**
+     * Retorna el correo del usuario para una entidad específica.
+     * Si no existe correo por entidad, usa el correo principal del usuario.
+     */
+    public function getEmailForCompany(?int $companyId): ?string
+    {
+        if (empty($companyId)) {
+            return null;
+        }
+
+        $technician = $this->relationLoaded('technician')
+            ? $this->technician
+            : $this->technician()->first();
+
+        if (!$technician) {
+            return null;
+        }
+
+        return $technician->getInstitutionalEmailForCompany((int) $companyId);
+    }
+
+    public function getPositionForCompany(?int $companyId): ?string
+    {
+        if (empty($companyId)) {
+            return null;
+        }
+
+        $technician = $this->relationLoaded('technician')
+            ? $this->technician
+            : $this->technician()->first();
+
+        if (!$technician) {
+            return null;
+        }
+
+        return $technician->getPositionForCompany((int) $companyId);
     }
 }

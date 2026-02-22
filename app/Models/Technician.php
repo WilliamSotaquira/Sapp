@@ -56,6 +56,13 @@ class Technician extends Model
         return $this->hasMany(EnvironmentAccess::class);
     }
 
+    public function companies()
+    {
+        return $this->belongsToMany(\App\Models\Company::class, 'company_technician')
+            ->withPivot(['institutional_email', 'position'])
+            ->withTimestamps();
+    }
+
     // Scopes
     public function scopeActive($query)
     {
@@ -124,5 +131,31 @@ class Technician extends Model
     public function getEmailAttribute()
     {
         return $this->user->email ?? 'N/A';
+    }
+
+    public function getInstitutionalEmailForCompany(?int $companyId): ?string
+    {
+        if (empty($companyId)) {
+            return null;
+        }
+
+        $company = $this->relationLoaded('companies')
+            ? $this->companies->firstWhere('id', (int) $companyId)
+            : $this->companies()->where('companies.id', (int) $companyId)->first(['companies.id']);
+
+        return $company?->pivot?->institutional_email ?: null;
+    }
+
+    public function getPositionForCompany(?int $companyId): ?string
+    {
+        if (empty($companyId)) {
+            return null;
+        }
+
+        $company = $this->relationLoaded('companies')
+            ? $this->companies->firstWhere('id', (int) $companyId)
+            : $this->companies()->where('companies.id', (int) $companyId)->first(['companies.id']);
+
+        return $company?->pivot?->position ?: null;
     }
 }

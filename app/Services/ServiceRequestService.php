@@ -565,7 +565,7 @@ class ServiceRequestService
             'subService.service.family:id,name,contract_id',
             'subService.service.family.contract:id,number,name,company_id',
             'sla:id,name,criticality_level,response_time_minutes,resolution_time_minutes',
-            'requester:id,name,email,phone',
+            'requester:id,name,email,phone,position',
             'company:id,name',
             'assignee:id,name,email',
             'breachLogs:id,service_request_id,breach_type,breach_minutes,created_at',
@@ -592,8 +592,18 @@ class ServiceRequestService
         // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
         $subServices = collect();
 
-        $users = User::select(['id', 'name', 'email'])->orderBy('name')->get();
         $currentCompanyId = session('current_company_id');
+        $users = User::select(['id', 'name', 'email'])
+            ->whereHas('technician', function ($query) {
+                $query->where('status', 'active');
+            })
+            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                $query->whereHas('technician.companies', function ($q) use ($currentCompanyId) {
+                    $q->where('companies.id', $currentCompanyId);
+                });
+            })
+            ->orderBy('name')
+            ->get();
         $requesters = \App\Models\Requester::active()
             ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->orderBy('name')

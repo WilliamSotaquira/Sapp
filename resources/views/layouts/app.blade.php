@@ -465,8 +465,14 @@
                 'label' => 'Catálogos',
                 'icon' => 'fas fa-list-alt',
                 'type' => 'dropdown',
-                'match' => ['requester-management.*', 'companies.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*'],
+                'match' => ['requester-management.*', 'companies.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*', 'users.*'],
                 'links' => [
+                    [
+                        'route' => 'users.index',
+                        'label' => 'Usuarios',
+                        'icon' => 'fas fa-user',
+                        'match' => ['users.*'],
+                    ],
                     [
                         'route' => 'requester-management.requesters.index',
                         'label' => 'Solicitantes',

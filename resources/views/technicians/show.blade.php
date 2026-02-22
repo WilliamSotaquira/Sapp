@@ -4,6 +4,11 @@
 
 @section('content')
 <div class="max-w-6xl mx-auto space-y-6">
+    @php
+        $currentCompanyId = (int) session('current_company_id');
+        $institutionalEmail = $technician->getInstitutionalEmailForCompany($currentCompanyId);
+        $institutionalPosition = $technician->getPositionForCompany($currentCompanyId);
+    @endphp
     <!-- Header con avatar y acciones -->
     <div class="bg-white shadow-md rounded-lg p-6">
         <div class="flex justify-between items-start">
@@ -15,7 +20,12 @@
                 </div>
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">{{ $technician->user->name }}</h2>
-                    <p class="text-gray-600">{{ $technician->user->email }}</p>
+                    @if($institutionalEmail)
+                        <p class="text-gray-600">{{ $institutionalEmail }}</p>
+                    @endif
+                    @if($institutionalPosition)
+                        <p class="text-sm text-gray-500">{{ $institutionalPosition }}</p>
+                    @endif
                     <div class="flex items-center space-x-3 mt-2">
                         <span class="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
                             {{ ucfirst($technician->specialization) }}
@@ -225,7 +235,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ $task->scheduled_date->format('d/m/Y') }}
+                                {{ optional($task->scheduled_date)->format('d/m/Y') ?? 'Sin fecha' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 <a href="{{ route('tasks.show', $task) }}" class="text-blue-600 hover:text-blue-900">

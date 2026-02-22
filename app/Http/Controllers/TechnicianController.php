@@ -6,8 +6,8 @@ use App\Models\Technician;
 use App\Models\User;
 use App\Models\Company;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class TechnicianController extends Controller
 {
@@ -18,9 +18,18 @@ class TechnicianController extends Controller
     {
         $currentCompanyId = (int) session('current_company_id');
 
-        $technicians = Technician::with(['user', 'skills'])
+        $technicians = Technician::with([
+                'user',
+                'skills',
+                'companies' => function ($query) use ($currentCompanyId) {
+                    if ($currentCompanyId) {
+                        $query->where('companies.id', $currentCompanyId);
+                    }
+                    $query->select('companies.id', 'name');
+                },
+            ])
             ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
-                $query->whereHas('user.companies', function ($q) use ($currentCompanyId) {
+                $query->whereHas('companies', function ($q) use ($currentCompanyId) {
                     $q->where('companies.id', $currentCompanyId);
                 });
             })
@@ -40,24 +49,14 @@ class TechnicianController extends Controller
         $currentCompanyId = (int) session('current_company_id');
 
         $users = User::whereDoesntHave('technician')
-            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
-                $query->whereHas('companies', function ($q) use ($currentCompanyId) {
-                    $q->where('companies.id', $currentCompanyId);
-                });
-            })
             ->orderBy('name')
             ->get();
 
-        if ($users->isEmpty()) {
-            $users = User::whereDoesntHave('technician')
-                ->orderBy('name')
-                ->get();
-        }
-
         $companies = Company::query()->orderBy('name')->get(['id', 'name']);
         $selectedCompanyIds = old('company_ids', $currentCompanyId ? [$currentCompanyId] : []);
+        $existingCompanyData = [];
 
-        return view('technicians.create', compact('users', 'companies', 'selectedCompanyIds'));
+        return view('technicians.create', compact('users', 'companies', 'selectedCompanyIds', 'existingCompanyData'));
     }
 
     /**
@@ -69,6 +68,7 @@ class TechnicianController extends Controller
             'user_id' => 'required|exists:users,id',
             'company_ids' => 'required|array|min:1',
             'company_ids.*' => 'exists:companies,id',
+            'company_data' => 'nullable|array',
             'specialization' => 'required|string|in:frontend,backend,fullstack,devops,support,qa',
             'years_experience' => 'required|numeric|min:0|max:50',
             'skill_level' => 'required|in:junior,mid,senior,lead',
@@ -83,10 +83,11 @@ class TechnicianController extends Controller
         ]);
 
         $selectedUser = User::findOrFail($validated['user_id']);
-        $selectedUser->companies()->sync($validated['company_ids']);
+        $companySyncData = $this->buildTechnicianCompanySyncData($request, $validated['company_ids']);
 
         $existingTechnician = Technician::query()->where('user_id', $selectedUser->id)->first();
         if ($existingTechnician) {
+            $existingTechnician->companies()->sync($companySyncData);
             return redirect()
                 ->route('technicians.show', $existingTechnician)
                 ->with('success', 'El usuario ya tenía perfil técnico. Se vinculó a la entidad activa.');
@@ -101,6 +102,7 @@ class TechnicianController extends Controller
             'status' => $validated['status'],
             'availability_status' => $validated['availability_status'],
         ]);
+        $technician->companies()->sync($companySyncData);
 
         // Asignar rol al usuario si el usuario actual es admin
         if (auth()->user()->isAdmin() && isset($validated['user_role'])) {
@@ -146,7 +148,18 @@ class TechnicianController extends Controller
             return $redirect;
         }
 
-        $technician->load(['user', 'skills', 'capacityRules']);
+        $currentCompanyId = (int) session('current_company_id');
+        $technician->load([
+            'user',
+            'skills',
+            'capacityRules',
+            'companies' => function ($query) use ($currentCompanyId) {
+                if ($currentCompanyId) {
+                    $query->where('companies.id', $currentCompanyId);
+                }
+                $query->select('companies.id', 'name');
+            },
+        ]);
 
         // Métricas del técnico
         $stats = [
@@ -170,9 +183,20 @@ class TechnicianController extends Controller
         }
 
         $companies = Company::query()->orderBy('name')->get(['id', 'name']);
-        $selectedCompanyIds = old('company_ids', $technician->user->companies()->pluck('companies.id')->all());
+        $technician->load('companies:id,name');
+        $selectedCompanyIds = old('company_ids', $technician->companies()->pluck('companies.id')->all());
+        $existingCompanyData = $technician->companies
+            ->mapWithKeys(function ($company) {
+                return [
+                    (string) $company->id => [
+                        'email' => $company->pivot->institutional_email,
+                        'position' => $company->pivot->position,
+                    ],
+                ];
+            })
+            ->toArray();
 
-        return view('technicians.edit', compact('technician', 'companies', 'selectedCompanyIds'));
+        return view('technicians.edit', compact('technician', 'companies', 'selectedCompanyIds', 'existingCompanyData'));
     }
 
     /**
@@ -189,6 +213,7 @@ class TechnicianController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($technician->user_id)],
             'company_ids' => 'required|array|min:1',
             'company_ids.*' => 'exists:companies,id',
+            'company_data' => 'nullable|array',
             'specialization' => 'required|string|in:frontend,backend,fullstack,devops,support,qa',
             'years_experience' => 'required|numeric|min:0|max:50',
             'skill_level' => 'required|in:junior,mid,senior,lead',
@@ -208,7 +233,8 @@ class TechnicianController extends Controller
             'email' => $validated['email'],
         ]);
 
-        $technician->user->companies()->sync($validated['company_ids']);
+        $companySyncData = $this->buildTechnicianCompanySyncData($request, $validated['company_ids']);
+        $technician->companies()->sync($companySyncData);
         $technician->update([
             'specialization' => $validated['specialization'],
             'years_experience' => $validated['years_experience'],
@@ -364,10 +390,8 @@ class TechnicianController extends Controller
             return null;
         }
 
-        $belongsToCurrentCompany = $technician->user()
-            ->whereHas('companies', function ($q) use ($currentCompanyId) {
-                $q->where('companies.id', $currentCompanyId);
-            })
+        $belongsToCurrentCompany = $technician->companies()
+            ->where('companies.id', $currentCompanyId)
             ->exists();
 
         if ($belongsToCurrentCompany) {
@@ -377,5 +401,44 @@ class TechnicianController extends Controller
         return redirect()
             ->route('technicians.index')
             ->with('error', 'El técnico no pertenece a la entidad activa.');
+    }
+
+    private function buildTechnicianCompanySyncData(Request $request, array $companyIds): array
+    {
+        $companyData = (array) $request->input('company_data', []);
+        $syncData = [];
+        $errors = [];
+
+        foreach ($companyIds as $companyIdRaw) {
+            $companyId = (int) $companyIdRaw;
+            $key = (string) $companyId;
+            $row = (array) ($companyData[$key] ?? $companyData[$companyId] ?? []);
+
+            $institutionalEmail = trim((string) ($row['email'] ?? ''));
+            $position = trim((string) ($row['position'] ?? ''));
+
+            if ($institutionalEmail === '') {
+                $errors["company_data.$key.email"] = "El correo institucional para la entidad #$companyId es obligatorio.";
+            } elseif (!filter_var($institutionalEmail, FILTER_VALIDATE_EMAIL)) {
+                $errors["company_data.$key.email"] = "El correo institucional para la entidad #$companyId no es válido.";
+            }
+
+            if ($position === '') {
+                $errors["company_data.$key.position"] = "El cargo para la entidad #$companyId es obligatorio.";
+            } elseif (mb_strlen($position) > 255) {
+                $errors["company_data.$key.position"] = "El cargo para la entidad #$companyId no puede superar 255 caracteres.";
+            }
+
+            $syncData[$companyId] = [
+                'institutional_email' => $institutionalEmail !== '' ? $institutionalEmail : null,
+                'position' => $position !== '' ? $position : null,
+            ];
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $syncData;
     }
 }
