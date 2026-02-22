@@ -841,6 +841,7 @@
 
             const title = (subtask.title ?? '').toString().replace(/\"/g, '&quot;');
             const notes = (subtask.notes ?? '').toString();
+            const hasNotes = notes.trim().length > 0;
             const priority = (subtask.priority ?? 'medium');
             const estimatedMinutes = (subtask.estimated_minutes ?? 25);
 
@@ -872,7 +873,11 @@
                     </div>
                 </div>
 
-                <div class="mt-2" data-subtask-notes-section>
+                <div class="mt-3 flex items-center justify-end">
+                    <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-subtask-toggle-notes>${hasNotes ? 'Ocultar notas' : 'Agregar notas'}</button>
+                </div>
+
+                <div class="mt-2 ${hasNotes ? '' : 'hidden'}" data-subtask-notes-section>
                     <textarea rows="2" data-subtask-notes data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][notes]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Detalles o pasos para completar esta subtarea...">${notes}</textarea>
                 </div>
             `;
@@ -885,6 +890,14 @@
             });
 
             bindSubtaskMinutes(el);
+
+            const toggleNotesBtn = el.querySelector('[data-subtask-toggle-notes]');
+            const notesSection = el.querySelector('[data-subtask-notes-section]');
+            toggleNotesBtn?.addEventListener('click', function() {
+                if (!notesSection) return;
+                const isHidden = notesSection.classList.toggle('hidden');
+                toggleNotesBtn.textContent = isHidden ? 'Agregar notas' : 'Ocultar notas';
+            });
 
             // Solo contar subtareas con título; si cambia, recalcular
             const subtaskTitleEl = el.querySelector('input[type="text"]');
