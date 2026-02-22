@@ -2,6 +2,12 @@
 
 @php
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $assigneeCompanyEmail = $serviceRequest->assignee
+        ? $serviceRequest->assignee->getEmailForCompany((int) $serviceRequest->company_id)
+        : '';
+    $assigneeCompanyPosition = $serviceRequest->assignee
+        ? $serviceRequest->assignee->getPositionForCompany((int) $serviceRequest->company_id)
+        : '';
 @endphp
 
 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
@@ -37,9 +43,18 @@
                         <span data-requester-initial>{{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}</span>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-xs font-medium uppercase tracking-normal text-gray-500">Solicitante</div>
-                        <div class="font-semibold text-gray-900 leading-snug mt-0.5 text-sm" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</div>
-                        <div class="text-sm text-gray-600 mt-0.5 leading-snug truncate" data-requester-email title="{{ $serviceRequest->requester->email ?? '' }}">{{ $serviceRequest->requester->email ?? '' }}</div>
+                        <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Solicitante</div>
+                        <div class="mt-1 space-y-0.5">
+                            <div class="text-sm text-gray-700 leading-snug">
+                                <span class="font-semibold text-gray-900" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</span>
+                            </div>
+                            <div class="text-sm text-gray-600 leading-snug truncate">
+                                <span data-requester-email title="{{ $serviceRequest->requester->email ?? '' }}">{{ $serviceRequest->requester->email ?? 'Sin correo' }}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <span data-requester-position title="{{ $serviceRequest->requester->position ?? '' }}">{{ $serviceRequest->requester->position ?? 'Sin cargo' }}</span>
+                            </div>
+                        </div>
                     </div>
                 @if($serviceRequest->status !== 'CERRADA')
                     <div class="self-start">
@@ -60,11 +75,18 @@
                         <span data-assignee-initial>{{ $serviceRequest->assigned_to ? substr($serviceRequest->assignee->name ?? 'T', 0, 1) : '?' }}</span>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-xs font-medium uppercase tracking-normal text-gray-500">Técnico asignado</div>
-                        <div class="font-semibold text-gray-900 leading-snug mt-0.5 text-sm" data-assignee-name>
-                            {{ $serviceRequest->assignee->name ?? 'Sin asignar' }}
+                        <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Técnico asignado</div>
+                        <div class="mt-1 space-y-0.5">
+                            <div class="text-sm text-gray-700 leading-snug">
+                                <span class="font-semibold text-gray-900" data-assignee-name>{{ $serviceRequest->assignee->name ?? 'Sin asignar' }}</span>
+                            </div>
+                            <div class="text-sm text-gray-600 leading-snug truncate">
+                                <span data-assignee-email title="{{ $assigneeCompanyEmail }}">{{ $assigneeCompanyEmail ?: 'Sin correo' }}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <span data-assignee-position title="{{ $assigneeCompanyPosition }}">{{ $assigneeCompanyPosition ?: 'Sin cargo' }}</span>
+                            </div>
                         </div>
-                        <div class="text-sm text-gray-600 mt-0.5 leading-snug truncate" data-assignee-email title="{{ $serviceRequest->assignee->email ?? '' }}">{{ $serviceRequest->assignee->email ?? '' }}</div>
                     </div>
                 @if($serviceRequest->status !== 'CERRADA')
                     <div class="self-start">
@@ -108,8 +130,23 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             required>
                             <option value="">Selecciona un técnico</option>
-                            @foreach (\App\Models\User::all() as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }} - {{ $user->email }}
+                            @php
+                                $quickAssignTechnicians = collect($technicians ?? [])->values();
+
+                                if ($quickAssignTechnicians->isEmpty()) {
+                                    $quickAssignTechnicians = \App\Models\User::query()
+                                        ->whereHas('technician', function ($query) {
+                                            $query->where('status', 'active');
+                                        })
+                                        ->whereHas('technician.companies', function ($query) use ($serviceRequest) {
+                                            $query->where('companies.id', $serviceRequest->company_id);
+                                        })
+                                        ->orderBy('name')
+                                        ->get();
+                                }
+                            @endphp
+                            @foreach ($quickAssignTechnicians as $user)
+                                <option value="{{ $user->id }}">{{ $user->name }}
                                 </option>
                             @endforeach
                         </select>
@@ -327,11 +364,13 @@
         if (type === 'requester') {
             var requesterNameEl = card.querySelector('[data-requester-name]');
             var requesterEmailEl = card.querySelector('[data-requester-email]');
+            var requesterPositionEl = card.querySelector('[data-requester-position]');
             var requesterInitialEl = card.querySelector('[data-requester-initial]');
             var requesterLabel = card.querySelector('[data-requester-action-label]');
 
             if (requesterNameEl) requesterNameEl.textContent = name || 'Solicitante';
-            if (requesterEmailEl) requesterEmailEl.textContent = email || '';
+            if (requesterEmailEl) requesterEmailEl.textContent = email || 'Sin correo';
+            if (requesterPositionEl) requesterPositionEl.textContent = payload.position || 'Sin cargo';
             if (requesterInitialEl && name) requesterInitialEl.textContent = name.charAt(0).toUpperCase();
             if (requesterLabel) requesterLabel.textContent = 'Reasignar';
             return;
@@ -339,12 +378,14 @@
 
         var nameEl = card.querySelector('[data-assignee-name]');
         var emailEl = card.querySelector('[data-assignee-email]');
+        var positionEl = card.querySelector('[data-assignee-position]');
         var initialEl = card.querySelector('[data-assignee-initial]');
         var avatarEl = card.querySelector('[data-assignee-avatar]');
         var actionLabel = card.querySelector('[data-assignee-action-label]');
 
         if (nameEl) nameEl.textContent = name || 'Sin asignar';
-        if (emailEl) emailEl.textContent = email || '';
+        if (emailEl) emailEl.textContent = email || 'Sin correo';
+        if (positionEl) positionEl.textContent = payload.position || 'Sin cargo';
         if (initialEl) initialEl.textContent = (name && name.length) ? name.charAt(0).toUpperCase() : '?';
         if (actionLabel) actionLabel.textContent = (name && name.length) ? 'Reasignar' : 'Asignar';
 
@@ -789,6 +830,7 @@
                         if (modalId === 'quickRequesterModal') {
                             const requesterName = (result && (result.requester_name || result.name)) || parsed.name || 'Solicitante';
                             const requesterEmail = (result && (result.requester_email || result.email)) || parsed.email || '';
+                            const requesterPosition = (result && result.requester_position) || '';
                             if (typeof window.updateServiceRequestAssignment === 'function') {
                                 window.updateServiceRequestAssignment({
                                 requestId,
@@ -796,17 +838,21 @@
                                 type: 'requester',
                                 name: requesterName,
                                 email: requesterEmail,
+                                position: requesterPosition,
                                 });
                             }
                         } else {
                             const assigneeName = (result && result.assigned_to) || parsed.name || 'Técnico asignado';
+                            const assigneeEmail = (result && result.assigned_to_email) || parsed.email || '';
+                            const assigneePosition = (result && result.assigned_to_position) || '';
                             if (typeof window.updateServiceRequestAssignment === 'function') {
                                 window.updateServiceRequestAssignment({
                                 requestId,
                                 cardEl: targetCard,
                                 type: 'technician',
                                 name: assigneeName,
-                                email: parsed.email,
+                                email: assigneeEmail,
+                                position: assigneePosition,
                                 });
                             }
                         }

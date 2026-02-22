@@ -64,9 +64,6 @@
                         @foreach($technicians as $technician)
                             <option value="{{ $technician->id }}">
                                 {{ $technician->name }}
-                                @if($technician->email)
-                                    ({{ $technician->email }})
-                                @endif
                             </option>
                         @endforeach
                     </select>
@@ -136,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const selectedText = selectedOption ? selectedOption.textContent.trim() : '';
                         const parts = selectedText.split('(');
                         const assigneeName = (parts[0] || '').trim() || 'Técnico asignado';
-                        const assigneeEmail = parts.length > 1 ? parts[1].replace(')', '').trim() : '';
+                        const assigneeEmail = (data && data.assigned_to_email) ? data.assigned_to_email : (parts.length > 1 ? parts[1].replace(')', '').trim() : '');
 
                         if (typeof window.updateServiceRequestAssignment === 'function') {
                             window.updateServiceRequestAssignment({

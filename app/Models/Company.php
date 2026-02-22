@@ -47,6 +47,13 @@ class Company extends Model
         return $this->belongsToMany(User::class)->withTimestamps();
     }
 
+    public function technicians()
+    {
+        return $this->belongsToMany(\App\Models\Technician::class, 'company_technician')
+            ->withPivot(['institutional_email', 'position'])
+            ->withTimestamps();
+    }
+
     public function contracts()
     {
         return $this->hasMany(Contract::class);

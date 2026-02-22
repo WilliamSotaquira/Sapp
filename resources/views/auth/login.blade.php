@@ -62,28 +62,28 @@
                     <form method="POST" action="{{ route('login') }}" class="space-y-6">
                         @csrf
 
-                        <!-- Email -->
+                        <!-- Identificación o correo -->
                         <div>
-                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-envelope mr-2" style="color: #D00B1D;"></i>
-                                Correo Electrónico
+                            <label for="login" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-id-card mr-2" style="color: #D00B1D;"></i>
+                                Identificación o correo
                             </label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-at text-gray-400"></i>
+                                    <i class="fas fa-user text-gray-400"></i>
                                 </div>
-                                <input type="email"
-                                       id="email"
-                                       name="email"
-                                       value="{{ old('email') }}"
-                                       class="w-full pl-10 pr-4 py-2.5 border @error('email') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
-                                       style="@error('email') @else focus:ring-color: #D00B1D; @enderror"
-                                       placeholder="tu@ejemplo.com"
+                                <input type="text"
+                                       id="login"
+                                       name="login"
+                                       value="{{ old('login') }}"
+                                       class="w-full pl-10 pr-4 py-2.5 border @error('login') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:border-transparent transition-all"
+                                       style="@error('login') @else focus:ring-color: #D00B1D; @enderror"
+                                       placeholder="Ej: 12345678 o tu@correo.com"
                                        required
                                        autofocus
                                        autocomplete="username">
                             </div>
-                            @error('email')
+                            @error('login')
                                 <p class="mt-2 text-sm text-red-600 flex items-center">
                                     <i class="fas fa-exclamation-circle mr-1"></i>
                                     {{ $message }}
@@ -182,4 +182,3 @@
     </div>
 </body>
 </html>
-
