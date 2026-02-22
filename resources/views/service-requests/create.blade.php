@@ -17,6 +17,24 @@
     .animate-scale-in {
         animation: scale-in 0.2s ease-out;
     }
+    @keyframes fade-slide-in {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .task-row-enter {
+        animation: fade-slide-in 0.18s ease-out;
+    }
+    .task-row-leave {
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.16s ease, transform 0.16s ease;
+    }
 </style>
 
     @if ($errors->any())
@@ -70,31 +88,51 @@
                 <button type="button" id="toggleTasksSection" class="group w-full rounded-2xl px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100 focus:outline-none focus:bg-blue-100 focus:border-blue-600 focus:ring-4 focus:ring-inset focus:ring-blue-600/35 focus:shadow-md focus-visible:bg-blue-100 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-600/35">
                     <div class="text-left">
                         <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Paso 2 de 2</p>
-                        <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas (opcional)</div>
+                        <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas</div>
                         <div class="text-gray-600 text-sm group-focus:text-blue-800 group-focus-visible:text-blue-800">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
                     </div>
                     <span id="tasksChevron" class="text-gray-500 group-focus:text-blue-900 group-focus-visible:text-blue-900">▾</span>
                 </button>
 
                 <div id="tasksSectionBody" class="hidden p-6">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                        <div>
-                            <label for="tasks_template" class="block text-sm font-medium text-gray-700 mb-2">Plantilla</label>
-                            <select id="tasks_template" name="tasks_template" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                    <div class="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
+                        <div class="flex items-center gap-2 min-w-max">
+                            <label for="tasks_template" class="text-sm font-medium text-gray-700 whitespace-nowrap">Plantilla</label>
+                            <div class="relative group">
+                                <button type="button"
+                                        tabindex="-1"
+                                        class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 text-xs text-gray-500 hover:text-blue-700 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        aria-label="Ayuda sobre plantillas"
+                                        title="Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.">
+                                    <i class="fas fa-question"></i>
+                                </button>
+                                <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 rounded-lg bg-gray-900 text-white text-xs px-3 py-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shadow-lg z-20">
+                                    Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.
+                                </div>
+                            </div>
+                            <select id="tasks_template" name="tasks_template" tabindex="-1" class="w-[280px] px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
                                 <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
                                 <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
                             </select>
-                            <p class="mt-1 text-sm text-gray-500">Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.</p>
-
                         </div>
 
-                        <div class="flex gap-3 justify-start sm:justify-end">
-                            <button type="button" id="addTaskRow" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold">
+                        <div class="flex items-center gap-2 min-w-max ml-auto">
+                            <button type="button" id="addTaskRow" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold whitespace-nowrap">
                                 + Agregar tarea
                             </button>
-                            <button type="button" id="clearTasks" class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">
+                            <button type="button" id="clearTasks" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold whitespace-nowrap">
                                 Limpiar
                             </button>
+                        </div>
+                    </div>
+
+                    <div id="tasksDraftNotice" class="hidden mt-3 p-3 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-900 text-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span>Se encontró un borrador guardado automáticamente.</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="restoreTasksDraft" class="px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">Recuperar</button>
+                                <button type="button" id="discardTasksDraft" class="px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-800 hover:bg-indigo-100 font-semibold">Descartar</button>
+                            </div>
                         </div>
                     </div>
 
@@ -183,7 +221,14 @@
         const clearBtn = document.getElementById('clearTasks');
         const templateSelect = document.getElementById('tasks_template');
         const notice = document.getElementById('tasksNotice');
+        const tasksDraftNotice = document.getElementById('tasksDraftNotice');
+        const restoreTasksDraftBtn = document.getElementById('restoreTasksDraft');
+        const discardTasksDraftBtn = document.getElementById('discardTasksDraft');
+        const tasksSummaryCount = document.querySelector('[data-summary-count]');
+        const tasksSummaryTime = document.querySelector('[data-summary-time]');
         const subServiceIdInput = document.getElementById('sub_service_id');
+        const DRAFT_KEY = 'sr_create_tasks_draft_v1';
+        let autosaveTimer = null;
 
         const initialTasks = @json(old('tasks', []));
         const initialTemplate = @json(old('tasks_template', 'none'));
@@ -250,6 +295,74 @@
             notice.classList.remove('hidden');
         }
 
+        function updateTaskSummary() {
+            const rows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
+            let totalMinutes = 0;
+
+            rows.forEach((row) => {
+                const rawMinutes = String(row.querySelector('[data-field="estimated_minutes"]')?.value ?? '').trim();
+                const rawHours = String(row.querySelector('[data-field="estimated_hours"]')?.value ?? '').trim();
+                const parsedMinutes = rawMinutes !== ''
+                    ? Number(rawMinutes)
+                    : parseDurationToMinutes(rawHours);
+
+                if (Number.isFinite(parsedMinutes) && parsedMinutes > 0) {
+                    totalMinutes += parsedMinutes;
+                }
+            });
+
+            if (tasksSummaryCount) tasksSummaryCount.textContent = String(rows.length);
+            if (tasksSummaryTime) tasksSummaryTime.textContent = formatHumanDuration(totalMinutes) || '0m';
+        }
+
+        function collectDraftState() {
+            const rows = Array.from(tasksList.querySelectorAll('[data-task-row]')).map((row) => getRowData(row));
+            return {
+                title: document.getElementById('title')?.value ?? '',
+                description: document.getElementById('description')?.value ?? '',
+                requester_id: document.getElementById('requester_id')?.value ?? '',
+                sub_service_id: document.getElementById('sub_service_id')?.value ?? '',
+                entry_channel: document.getElementById('entry_channel')?.value ?? '',
+                cut_id: document.getElementById('cut_id')?.value ?? '',
+                tasks_template: templateSelect?.value ?? 'none',
+                tasks: rows,
+                saved_at: new Date().toISOString(),
+            };
+        }
+
+        function saveDraftNow() {
+            try {
+                const payload = collectDraftState();
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+            } catch (e) {
+                // no-op
+            }
+        }
+
+        function scheduleDraftSave() {
+            if (autosaveTimer) clearTimeout(autosaveTimer);
+            autosaveTimer = setTimeout(saveDraftNow, 2200);
+        }
+
+        function clearDraft() {
+            try {
+                localStorage.removeItem(DRAFT_KEY);
+            } catch (e) {
+                // no-op
+            }
+        }
+
+        function readDraft() {
+            try {
+                const raw = localStorage.getItem(DRAFT_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
         function isOpen() {
             return !body.classList.contains('hidden');
         }
@@ -301,6 +414,29 @@
             return isValid;
         }
 
+        function normalizeTaskDurationsBeforeSubmit() {
+            const rows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
+            rows.forEach((row) => {
+                const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
+                const hoursEl = row.querySelector('[data-field="estimated_hours"]');
+                if (!minutesEl || !hoursEl) return;
+
+                let minutes = Number(String(minutesEl.value ?? '').trim());
+                if (!Number.isFinite(minutes) || minutes < 0) {
+                    minutes = parseDurationToMinutes(hoursEl.value);
+                }
+
+                if (Number.isFinite(minutes) && minutes > 0) {
+                    const rounded = Math.round(minutes / 5) * 5;
+                    minutesEl.value = String(rounded);
+                    hoursEl.value = formatHoursFromMinutes(rounded);
+                } else {
+                    minutesEl.value = '';
+                    hoursEl.value = '';
+                }
+            });
+        }
+
         toggleBtn?.addEventListener('click', function() {
             isOpen() ? closeSection() : openSection();
         });
@@ -310,9 +446,19 @@
             if (!field) return;
             field.addEventListener('input', validateMainFields);
             field.addEventListener('change', validateMainFields);
+            field.addEventListener('input', scheduleDraftSave);
+            field.addEventListener('change', scheduleDraftSave);
         });
+        document.getElementById('cut_id')?.addEventListener('change', scheduleDraftSave);
 
         function getRowData(rowEl) {
+            const subtasks = Array.from(rowEl.querySelectorAll('[data-subtask-row]')).map((stRow) => ({
+                title: stRow.querySelector('input[type="text"]')?.value ?? '',
+                estimated_minutes: stRow.querySelector('[data-subtask-field="estimated_minutes"]')?.value ?? '',
+                priority: stRow.querySelector('select')?.value ?? 'medium',
+                notes: stRow.querySelector('[data-subtask-notes]')?.value ?? '',
+            }));
+
             return {
                 title: rowEl.querySelector('[data-field="title"]')?.value ?? '',
                 description: rowEl.querySelector('[data-field="description"]')?.value ?? '',
@@ -321,6 +467,7 @@
                 estimated_minutes: rowEl.querySelector('[data-field="estimated_minutes"]')?.value ?? '',
                 estimated_hours: rowEl.querySelector('[data-field="estimated_hours"]')?.value ?? '',
                 standard_task_id: rowEl.querySelector('[data-field="standard_task_id"]')?.value ?? '',
+                subtasks,
             };
         }
 
@@ -357,69 +504,62 @@
             if (!taskRow) return;
             const minutesEl = taskRow.querySelector('[data-field="estimated_minutes"]');
             const hoursEl = taskRow.querySelector('[data-field="estimated_hours"]');
-            const hintEl = taskRow.querySelector('[data-estimate-hint]');
             if (!minutesEl || !hoursEl) return;
 
-            const chipButtons = Array.from(taskRow.querySelectorAll('[data-estimate-chip]'));
-
-            const lockedClasses = ['bg-gray-50', 'text-gray-500', 'cursor-not-allowed'];
-
-            if (locked) {
-                minutesEl.readOnly = true;
-                hoursEl.readOnly = true;
-
-                // No tabular hacia campos calculados (pero se siguen enviando en el POST)
-                minutesEl.setAttribute('tabindex', '-1');
-                hoursEl.setAttribute('tabindex', '-1');
-
-                minutesEl.classList.add(...lockedClasses);
-                hoursEl.classList.add(...lockedClasses);
-
-                chipButtons.forEach((btn) => {
-                    btn.disabled = true;
-                    btn.setAttribute('tabindex', '-1');
-                    btn.classList.add('opacity-60', 'cursor-not-allowed');
-                });
-
-                const human = formatHumanDuration(totalMinutes);
-                if (hintEl) {
-                    hintEl.textContent = `Calculado por subtareas: ${totalMinutes} min${human ? ` (${human})` : ''}. Edita subtareas para cambiar.`;
-                }
-            } else {
-                minutesEl.readOnly = false;
-                hoursEl.readOnly = false;
-
-                minutesEl.removeAttribute('tabindex');
-                hoursEl.removeAttribute('tabindex');
-
-                minutesEl.classList.remove(...lockedClasses);
-                hoursEl.classList.remove(...lockedClasses);
-
-                chipButtons.forEach((btn) => {
-                    btn.disabled = false;
-                    btn.removeAttribute('tabindex');
-                    btn.classList.remove('opacity-60', 'cursor-not-allowed');
-                });
-
-                const rawMinutes = String(minutesEl.value || '').trim();
-                const m = rawMinutes !== '' ? Number(rawMinutes) : null;
-                const human = m !== null && Number.isFinite(m) ? formatHumanDuration(m) : '';
-                if (hintEl) {
-                    hintEl.textContent = human
-                        ? `Equivale a ${human}. Puedes escribir horas con coma (ej: 1,5).`
-                        : 'Puedes escribir horas con coma (ej: 1,5).';
-                }
+            // Sin bloquear inputs: solo mantener sincronía entre minutos y horas.
+            if (locked && Number.isFinite(Number(totalMinutes)) && Number(totalMinutes) > 0) {
+                minutesEl.value = String(Math.round(Number(totalMinutes) / 5) * 5);
+                hoursEl.value = formatHoursFromMinutes(minutesEl.value);
             }
         }
 
-        function parseHoursToMinutes(rawHours) {
-            const raw = String(rawHours ?? '').trim();
+        function parseDurationToMinutes(rawValue) {
+            const raw = String(rawValue ?? '').trim().toLowerCase();
             if (!raw) return null;
-            const normalized = raw.replace(',', '.');
-            const hours = Number(normalized);
-            if (!Number.isFinite(hours) || hours < 0) return null;
-            const minutes = Math.round(hours * 60);
-            return Math.round(minutes / 5) * 5;
+
+            const normalized = raw.replace(',', '.').replace(/\s+/g, ' ');
+
+            // 1:30
+            const hmMatch = normalized.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+            if (hmMatch) {
+                const hh = Number(hmMatch[1]);
+                const mm = Number(hmMatch[2]);
+                if (Number.isFinite(hh) && Number.isFinite(mm) && hh >= 0 && mm >= 0) {
+                    return Math.round((hh * 60 + mm) / 5) * 5;
+                }
+            }
+
+            // 90m | 1.5h | 1h 30m
+            let total = 0;
+            let hasToken = false;
+            const hourToken = normalized.match(/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hora|horas)\b/);
+            if (hourToken) {
+                const h = Number(hourToken[1]);
+                if (Number.isFinite(h) && h >= 0) {
+                    total += h * 60;
+                    hasToken = true;
+                }
+            }
+            const minuteToken = normalized.match(/(\d+(?:\.\d+)?)\s*(m|min|mins|minuto|minutos)\b/);
+            if (minuteToken) {
+                const m = Number(minuteToken[1]);
+                if (Number.isFinite(m) && m >= 0) {
+                    total += m;
+                    hasToken = true;
+                }
+            }
+            if (hasToken) {
+                return total > 0 ? (Math.round(total / 5) * 5) : null;
+            }
+
+            // Valor decimal sin sufijo = horas.
+            const asNumber = Number(normalized);
+            if (Number.isFinite(asNumber) && asNumber >= 0) {
+                const minutes = Math.round(asNumber * 60);
+                return Math.round(minutes / 5) * 5;
+            }
+
+            return null;
         }
 
         function parseMinutesFromSubtaskTitle(title) {
@@ -477,11 +617,13 @@
         }
 
         function bindTaskEstimateSync(row) {
+            const displayEl = row.querySelector('[data-field="estimated_display"]');
             const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
             const hoursEl = row.querySelector('[data-field="estimated_hours"]');
-            if (!minutesEl || !hoursEl) return;
+            const unitEl = row.querySelector('[data-estimate-unit]');
+            if (!displayEl || !minutesEl || !hoursEl || !unitEl) return;
 
-            function setFromMinutes(minutes) {
+            function setHoursFromMinutes(minutes) {
                 const raw = String(minutes ?? '').trim();
                 if (raw === '') {
                     hoursEl.value = '';
@@ -492,39 +634,71 @@
                 hoursEl.value = formatHoursFromMinutes(m);
             }
 
-            // Inicializar: si hay horas y no hay minutos, derivar minutos
+            function renderDisplayFromMinutes() {
+                const unit = unitEl.value;
+                const rawMinutes = String(minutesEl.value || '').trim();
+                const minutes = rawMinutes === '' ? null : Number(rawMinutes);
+
+                if (unit === 'hours') {
+                    displayEl.step = '0.25';
+                    displayEl.placeholder = 'Horas (Ej: 1.5)';
+                    displayEl.value = (minutes !== null && Number.isFinite(minutes))
+                        ? formatHoursFromMinutes(minutes)
+                        : '';
+                } else {
+                    displayEl.step = '5';
+                    displayEl.placeholder = 'Minutos (Ej: 75)';
+                    displayEl.value = (minutes !== null && Number.isFinite(minutes))
+                        ? String(Math.round(minutes))
+                        : '';
+                }
+            }
+
+            function parseDisplayToMinutes() {
+                const raw = String(displayEl.value || '').trim();
+                if (!raw) return null;
+
+                if (unitEl.value === 'hours') {
+                    return parseDurationToMinutes(raw);
+                }
+
+                const parsed = Number(raw);
+                if (!Number.isFinite(parsed) || parsed < 0) return null;
+                return Math.round(parsed / 5) * 5;
+            }
+
             if (!String(minutesEl.value || '').trim() && String(hoursEl.value || '').trim()) {
-                const m = parseHoursToMinutes(hoursEl.value);
+                const m = parseDurationToMinutes(hoursEl.value);
                 if (m !== null) {
                     minutesEl.value = String(m);
                 }
             }
 
-            if (String(minutesEl.value || '').trim()) {
-                setFromMinutes(minutesEl.value);
-            }
-
-            // Evitar cambios accidentales por rueda del mouse
-            minutesEl.addEventListener('wheel', function(e) {
-                if (document.activeElement === minutesEl) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-
-            minutesEl.addEventListener('input', function() {
-                setFromMinutes(minutesEl.value);
-                setEstimateUiState(row, { locked: false });
-            });
-
-            hoursEl.addEventListener('input', function() {
-                const m = parseHoursToMinutes(hoursEl.value);
-                if (m === null) return;
-                minutesEl.value = String(m);
-                setEstimateUiState(row, { locked: false });
-            });
-
             // Estado inicial (manual)
             setEstimateUiState(row, { locked: false });
+            setHoursFromMinutes(minutesEl.value);
+            renderDisplayFromMinutes();
+
+            displayEl.addEventListener('input', function() {
+                const m = parseDisplayToMinutes();
+                minutesEl.value = m === null ? '' : String(m);
+                setHoursFromMinutes(minutesEl.value);
+                setEstimateUiState(row, { locked: false });
+                updateTaskSummary();
+                scheduleDraftSave();
+            });
+
+            unitEl.addEventListener('change', function() {
+                const m = parseDisplayToMinutes();
+                minutesEl.value = m === null ? (String(minutesEl.value || '').trim() || '') : String(m);
+                setHoursFromMinutes(minutesEl.value);
+                renderDisplayFromMinutes();
+                updateTaskSummary();
+                scheduleDraftSave();
+            });
+
+            // Permite refrescar visual desde otras funciones (ej. subtareas)
+            row.__renderEstimateDisplay = renderDisplayFromMinutes;
         }
 
         function bindEstimateChips(row) {
@@ -562,7 +736,9 @@
                         minutesEl.value = '';
                         hoursEl.value = '';
                         setEstimateUiState(row, { locked: false });
-                        minutesEl.focus();
+                        updateTaskSummary();
+                        scheduleDraftSave();
+                        hoursEl.focus();
                         return;
                     }
 
@@ -573,7 +749,7 @@
                     // redondear a 5 por consistencia
                     const rounded = Math.round(next / 5) * 5;
                     setMinutesValue(rounded);
-                    minutesEl.focus();
+                    hoursEl.focus();
                 });
             });
         }
@@ -618,6 +794,12 @@
             } else {
                 setEstimateUiState(taskRow, { locked: false });
             }
+            if (typeof taskRow.__renderEstimateDisplay === 'function') {
+                taskRow.__renderEstimateDisplay();
+            }
+
+            updateTaskSummary();
+            scheduleDraftSave();
         }
 
         function bindSubtaskMinutes(subtaskRow) {
@@ -655,7 +837,7 @@
         function createSubtaskRow(subtask = {}) {
             const el = document.createElement('div');
             el.setAttribute('data-subtask-row', '1');
-            el.className = 'rounded-lg border border-gray-200 bg-gray-50 p-4';
+            el.className = 'rounded-lg border border-gray-200 bg-[#f5f5f5] p-3.5';
 
             const title = (subtask.title ?? '').toString().replace(/\"/g, '&quot;');
             const notes = (subtask.notes ?? '').toString();
@@ -670,6 +852,8 @@
                     </div>
                     <button type="button" tabindex="-1" class="px-4 py-2.5 rounded-lg border border-gray-300 text-red-600 hover:bg-red-50 font-semibold" data-remove-subtask>Eliminar</button>
                 </div>
+
+                <div class="mt-2.5 border-t border-gray-100"></div>
 
                 <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -688,14 +872,8 @@
                     </div>
                 </div>
 
-                <div class="mt-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <label class="block text-sm font-medium text-gray-700">Notas (opcional)</label>
-                        <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-subtask-toggle-notes>Agregar notas</button>
-                    </div>
-                    <div class="mt-2 hidden" data-subtask-notes-section>
-                        <textarea rows="2" data-subtask-notes data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][notes]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Detalles o pasos para completar esta subtarea...">${notes}</textarea>
-                    </div>
+                <div class="mt-2" data-subtask-notes-section>
+                    <textarea rows="2" data-subtask-notes data-subtask-name-template="tasks[__INDEX__][subtasks][__SINDEX__][notes]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Detalles o pasos para completar esta subtarea...">${notes}</textarea>
                 </div>
             `;
 
@@ -738,35 +916,6 @@
                 recalcTaskEstimateFromSubtasks(taskRow);
             });
 
-            // Notas opcionales (sutilmente ocultas)
-            const notesSection = el.querySelector('[data-subtask-notes-section]');
-            const notesToggle = el.querySelector('[data-subtask-toggle-notes]');
-            const notesEl = el.querySelector('[data-subtask-notes]');
-
-            function openNotes() {
-                notesSection?.classList.remove('hidden');
-                if (notesToggle) notesToggle.textContent = 'Ocultar notas';
-            }
-
-            function closeNotes() {
-                notesSection?.classList.add('hidden');
-                if (notesToggle) notesToggle.textContent = 'Agregar notas';
-            }
-
-            notesToggle?.addEventListener('click', function() {
-                const isHidden = notesSection?.classList.contains('hidden');
-                if (isHidden) {
-                    openNotes();
-                    setTimeout(() => notesEl?.focus(), 0);
-                } else {
-                    closeNotes();
-                }
-            });
-
-            if (String(notes ?? '').trim()) {
-                openNotes();
-            }
-
             return el;
         }
 
@@ -791,18 +940,20 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Título</label>
                         <input type="text" data-field="title" data-name-template="tasks[__INDEX__][title]" value="${(task.title ?? '').replace(/\"/g, '&quot;')}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Ej: Revisar acceso, Configurar usuario, Validar evidencia" />
                     </div>
-                    <button type="button" tabindex="-1" class="px-4 py-3 rounded-lg border border-gray-300 text-red-600 hover:bg-red-50 font-semibold" data-remove-row>Eliminar</button>
+                    <div class="flex flex-wrap gap-2 sm:justify-end">
+                        <button type="button" tabindex="-1" class="px-4 py-3 rounded-lg border border-gray-300 text-red-600 hover:bg-red-50 font-semibold" data-remove-row>Eliminar</button>
+                    </div>
                 </div>
 
                 <div class="mt-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <label class="block text-sm font-medium text-gray-700">Descripción (opcional)</label>
+                    <div class="flex items-center justify-end">
                         <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-description>Agregar descripción</button>
                     </div>
                     <div class="mt-2 hidden" data-description-section>
-                        <textarea data-field="description" data-name-template="tasks[__INDEX__][description]" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Opcional (mín. 10 caracteres si se llena)">${(task.description ?? '')}</textarea>
+                        <textarea data-field="description" data-name-template="tasks[__INDEX__][description]" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Descripción de la tarea (opcional)">${(task.description ?? '')}</textarea>
                     </div>
                 </div>
+                <div class="mt-4 border-t border-gray-200"></div>
 
                 <div class="mt-3">
                     <div class="flex items-center justify-between gap-3">
@@ -828,9 +979,11 @@
                         </div>
                     </div>
                     <div class="mt-2 hidden" data-subtasks-section>
-                        <div class="space-y-3" data-subtasks-list></div>
+                        <div class="space-y-2.5 rounded-xl border border-gray-100 bg-[#f5f5f5] p-2.5" data-subtasks-list></div>
                     </div>
                 </div>
+
+                <div class="mt-4 border-t border-gray-200"></div>
 
                 <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
@@ -851,30 +1004,18 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Estimado</label>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div>
-                                <input type="number" min="0" step="5" data-field="estimated_minutes" data-name-template="tasks[__INDEX__][estimated_minutes]" value="${task.estimated_minutes ?? ''}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Minutos (Ej: 75)" />
-                                <p class="mt-1 text-xs text-gray-500">Minutos (base)</p>
+                        <div>
+                            <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_7rem] gap-2 min-w-0">
+                                <input type="number" min="0" step="5" inputmode="decimal" data-field="estimated_display" value="${task.estimated_minutes ?? ''}" class="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="75" />
+                                <select data-estimate-unit class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="minutes" selected>Min</option>
+                                    <option value="hours">Horas</option>
+                                </select>
                             </div>
-                            <div>
-                                <input type="text" inputmode="decimal" data-field="estimated_hours" data-name-template="tasks[__INDEX__][estimated_hours]" value="${task.estimated_hours ?? ''}" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Horas (Ej: 1.25 o 1,25)" />
-                                <p class="mt-1 text-xs text-gray-500">Horas (opcional)</p>
-                            </div>
+                            <input type="hidden" data-field="estimated_minutes" data-name-template="tasks[__INDEX__][estimated_minutes]" value="${task.estimated_minutes ?? ''}" />
+                            <input type="hidden" data-field="estimated_hours" data-name-template="tasks[__INDEX__][estimated_hours]" value="${task.estimated_hours ?? ''}" />
                         </div>
 
-                        <div class="mt-2 flex flex-wrap items-center gap-2" aria-label="Atajos de estimación">
-                            <span class="text-[11px] text-gray-500">Atajos:</span>
-                            <div class="flex flex-wrap gap-1.5">
-                                <button type="button" data-estimate-chip="15" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 15 minutos">+15</button>
-                                <button type="button" data-estimate-chip="30" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 30 minutos">+30</button>
-                                <button type="button" data-estimate-chip="60" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 60 minutos">+60</button>
-                                <button type="button" data-estimate-chip="120" class="px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Sumar 120 minutos">+120</button>
-                                <button type="button" data-estimate-chip="clear" class="ml-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-gray-300 text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Limpiar estimación">Limpiar</button>
-                            </div>
-                        </div>
-
-                        <p class="mt-1 text-xs text-gray-500">Si hay subtareas con título, se calcula como suma (25 min por defecto si está vacío).</p>
-                        <p class="mt-1 text-xs text-gray-600" data-estimate-hint></p>
                     </div>
                 </div>
 
@@ -882,14 +1023,19 @@
             `;
 
             row.querySelector('[data-remove-row]')?.addEventListener('click', function() {
-                row.remove();
-                reindexRows();
+                row.classList.add('task-row-leave');
+                setTimeout(() => {
+                    row.remove();
+                    reindexRows();
+                    updateTaskSummary();
+                    scheduleDraftSave();
+                }, 160);
             });
 
             bindTaskEstimateSync(row);
             bindEstimateChips(row);
 
-            // Descripción opcional (toggle)
+            // Descripción opcional (sin título visible)
             const descSection = row.querySelector('[data-description-section]');
             const descToggle = row.querySelector('[data-toggle-description]');
             const descEl = row.querySelector('[data-field="description"]');
@@ -914,7 +1060,6 @@
                 }
             });
 
-            // Si viene con descripción (old() o plantilla), mostrarla
             if (String(task.description ?? '').trim()) {
                 openDescription();
             }
@@ -959,18 +1104,43 @@
                 setTimeout(() => firstRow?.querySelector('input')?.focus(), 0);
             });
 
-            // UX: después de escribir título, llevar foco a la cantidad de subtareas.
-            // Luego, con Enter en "Cantidad" se agregan las subtareas.
             titleEl?.addEventListener('keydown', function (e) {
-                if (e.key !== 'Enter') return;
-                e.preventDefault();
-                setTimeout(() => subtaskCountEl?.focus(), 0);
+                if (e.key === 'Enter' && !e.ctrlKey) {
+                    e.preventDefault();
+                    setTimeout(() => row.querySelector('[data-field="type"]')?.focus(), 0);
+                    return;
+                }
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    addRow({}, { focusTitle: true });
+                }
             });
 
             subtaskCountEl?.addEventListener('keydown', function (e) {
                 if (e.key !== 'Enter') return;
                 e.preventDefault();
                 addSubtaskBtn?.click();
+            });
+
+            row.querySelector('[data-field="type"]')?.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setTimeout(() => row.querySelector('[data-field="priority"]')?.focus(), 0);
+                }
+            });
+
+            row.querySelector('[data-field="priority"]')?.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setTimeout(() => row.querySelector('[data-field="estimated_display"]')?.focus(), 0);
+                }
+            });
+
+            row.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    addRow({}, { focusTitle: true });
+                }
             });
 
             if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
@@ -981,6 +1151,11 @@
                 });
             }
 
+            row.querySelectorAll('input, textarea, select').forEach((inputEl) => {
+                inputEl.addEventListener('input', scheduleDraftSave);
+                inputEl.addEventListener('change', scheduleDraftSave);
+            });
+
             // Autocalcular estimado si hay subtareas con minutos
             recalcTaskEstimateFromSubtasks(row);
 
@@ -989,8 +1164,11 @@
 
         function addRow(task = {}, { focusTitle = false } = {}) {
             const row = createRow(task);
+            row.classList.add('task-row-enter');
             tasksList.appendChild(row);
             reindexRows();
+            updateTaskSummary();
+            scheduleDraftSave();
             if (focusTitle) {
                 setTimeout(() => row.querySelector('[data-field="title"]')?.focus(), 0);
             }
@@ -999,6 +1177,8 @@
         function clearAllRows() {
             tasksList.innerHTML = '';
             reindexRows();
+            updateTaskSummary();
+            scheduleDraftSave();
         }
 
         addRowBtn?.addEventListener('click', function() {
@@ -1095,6 +1275,59 @@
                 setNotice('');
                 // no borra automáticamente en manual; solo cambia plantilla
             }
+            scheduleDraftSave();
+        });
+
+        function applyDraftState(draft) {
+            if (!draft || typeof draft !== 'object') return;
+
+            const setValue = (id, value) => {
+                const el = document.getElementById(id);
+                if (!el || value === undefined || value === null) return;
+                el.value = String(value);
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+
+            setValue('title', draft.title);
+            setValue('description', draft.description);
+            setValue('requester_id', draft.requester_id);
+            setValue('sub_service_id', draft.sub_service_id);
+            setValue('entry_channel', draft.entry_channel);
+            setValue('cut_id', draft.cut_id);
+            setValue('tasks_template', draft.tasks_template || 'none');
+
+            clearAllRows();
+            if (Array.isArray(draft.tasks)) {
+                draft.tasks.forEach((t) => addRow(t));
+            }
+            if (Array.isArray(draft.tasks) && draft.tasks.length > 0) {
+                openSection();
+            }
+
+            updateTaskSummary();
+            setNotice('Borrador recuperado correctamente.');
+        }
+
+        restoreTasksDraftBtn?.addEventListener('click', function() {
+            const draft = readDraft();
+            if (!draft) return;
+            applyDraftState(draft);
+            tasksDraftNotice?.classList.add('hidden');
+        });
+
+        discardTasksDraftBtn?.addEventListener('click', function() {
+            clearDraft();
+            tasksDraftNotice?.classList.add('hidden');
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (!(e.ctrlKey && e.key === 'Enter')) return;
+            const target = e.target;
+            const insideForm = target instanceof Element && formEl?.contains(target);
+            if (!insideForm) return;
+            e.preventDefault();
+            openSection();
+            addRow({}, { focusTitle: true });
         });
 
         // Si viene old() con tareas, renderizarlas y abrir sección
@@ -1115,6 +1348,7 @@
         if (formEl) {
             formEl.addEventListener('submit', function(e) {
                 if (createConfirmed) return;
+                normalizeTaskDurationsBeforeSubmit();
 
                 const validation = validateMainFields();
                 if (!validation.valid) {
@@ -1140,9 +1374,19 @@
                 if (!confirmed) return;
 
                 createConfirmed = true;
+                clearDraft();
                 formEl.submit();
             });
         }
+
+        const hasServerOldData = Array.isArray(initialTasks) && initialTasks.length > 0;
+        const existingDraft = readDraft();
+        if (!hasServerOldData && existingDraft && Array.isArray(existingDraft.tasks) && existingDraft.tasks.length > 0) {
+            tasksDraftNotice?.classList.remove('hidden');
+        }
+
+        window.addEventListener('beforeunload', saveDraftNow);
+        updateTaskSummary();
 
     });
     </script>

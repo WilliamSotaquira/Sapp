@@ -18,12 +18,25 @@
         $workspaceAccent = '#493D86';
         $workspaceAccentBg = '#493D861F';
     }
+
+    $heroKpis = \App\Models\ServiceRequest::query()
+        ->when($currentWorkspace?->id, function ($query) use ($currentWorkspace) {
+            $query->where('company_id', $currentWorkspace->id);
+        })
+        ->selectRaw("
+            COUNT(*) as total_count,
+            COUNT(CASE WHEN status != 'CERRADA' THEN 1 END) as open_count,
+            COUNT(CASE WHEN status = 'EN_PROCESO' THEN 1 END) as in_process_count,
+            COUNT(CASE WHEN criticality_level = 'CRITICA' AND status != 'CERRADA' THEN 1 END) as critical_count
+        ")
+        ->first();
 @endphp
 <div class="dashboard-surface -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-8 px-3 sm:px-4 md:px-6 lg:px-8 py-6" role="main">
     <a href="#recent-requests-heading" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-blue-600 text-white px-3 py-1 rounded">Saltar a solicitudes recientes</a>
     <!-- Encabezado con breadcrumb y título -->
     <div class="mb-8 reveal" style="--delay: .02s">
-        <div class="dashboard-hero rounded-3xl border border-white/60 shadow-xl px-5 sm:px-7 py-6 sm:py-7">
+        <div class="dashboard-hero rounded-3xl border shadow-xl px-5 sm:px-7 py-6 sm:py-7"
+             style="--hero-bg-start: {{ $workspaceAccentBg }}; --hero-bg-end: #ffffff; --hero-border: {{ $workspaceAccent }}38; --hero-glow: {{ $workspaceAccent }}24;">
             <nav class="flex mb-4" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2 text-sm">
                     <li><a href="{{ url('/') }}" class="text-slate-500 hover:text-slate-700">Inicio</a></li>
@@ -37,26 +50,36 @@
             </nav>
             <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
                 <div class="space-y-2">
-                    <p class="text-[11px] tracking-[0.18em] uppercase text-slate-500">Centro de control</p>
+                    <p class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] tracking-[0.14em] uppercase font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+                        Centro de control
+                    </p>
                     <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
                         Gestión operativa en tiempo real
                     </h1>
                     <p class="text-sm text-slate-600 max-w-2xl">
                         Supervisa solicitudes, agenda técnica y estados clave desde un panel único y más visual.
                     </p>
-                    <span class="inline-flex items-center text-xs sm:text-sm text-slate-500 bg-white/70 border border-slate-200 px-3 py-1 rounded-full">
-                        <i class="fas fa-clock mr-2 text-slate-400"></i>
+                    <span class="inline-flex items-center text-xs sm:text-sm text-slate-600 bg-white/80 border px-3 py-1 rounded-full"
+                          style="border-color: {{ $workspaceAccent }}40;">
+                        <i class="fas fa-clock mr-2" style="color: {{ $workspaceAccent }};"></i>
                         Última actualización: {{ now()->format('d/m/Y H:i') }}
                     </span>
                 </div>
-                <div class="flex flex-wrap gap-2.5">
-                    <a href="{{ route('service-requests.create') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm hover:shadow-md transition-all" style="background-color: {{ $workspaceAccent }};">
-                        <i class="fas fa-plus-circle mr-2"></i>
-                        Nueva solicitud
+                <div class="grid grid-cols-3 gap-2.5 min-w-[280px] sm:min-w-[340px]">
+                    <a href="{{ route('service-requests.index', ['open' => 1, 'exclude_closed' => 1]) }}"
+                       class="hero-kpi text-center bg-white/90 border border-slate-200 rounded-2xl px-3 py-2.5 hover:bg-white transition">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-600">Abiertas</div>
+                        <div class="text-xl font-bold leading-tight text-slate-900">{{ (int) ($heroKpis->open_count ?? 0) }}</div>
                     </a>
-                    <a href="{{ route('service-requests.index') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-300 bg-white/85 text-slate-700 hover:bg-white transition-all">
-                        <i class="fas fa-list mr-2"></i>
-                        Ver tablero
+                    <a href="{{ route('service-requests.index', ['status' => 'EN_PROCESO']) }}"
+                       class="hero-kpi text-center bg-blue-50/80 border border-blue-200 rounded-2xl px-3 py-2.5 hover:bg-blue-50 transition">
+                        <div class="text-[10px] uppercase tracking-wide text-blue-700">En proceso</div>
+                        <div class="text-xl font-bold text-blue-900 leading-tight">{{ (int) ($heroKpis->in_process_count ?? 0) }}</div>
+                    </a>
+                    <a href="{{ route('service-requests.index', ['criticality' => 'CRITICA', 'exclude_closed' => 1]) }}"
+                       class="hero-kpi text-center bg-rose-50/80 border border-rose-200 rounded-2xl px-3 py-2.5 hover:bg-rose-50 transition">
+                        <div class="text-[10px] uppercase tracking-wide text-rose-700">Críticas</div>
+                        <div class="text-xl font-bold text-rose-900 leading-tight">{{ (int) ($heroKpis->critical_count ?? 0) }}</div>
                     </a>
                 </div>
             </div>
@@ -794,9 +817,27 @@ document.addEventListener('DOMContentLoaded', function() {
     overflow: visible;
 }
 .dashboard-hero {
-    background:
-        linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.92)),
-        repeating-linear-gradient(45deg, rgba(148,163,184,0.06) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--hero-bg-start), #f8fafc 38%, var(--hero-bg-end));
+    border-color: var(--hero-border);
+}
+.dashboard-hero::after {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 9999px;
+    right: -120px;
+    top: -150px;
+    background: radial-gradient(circle, var(--hero-glow), transparent 68%);
+    pointer-events: none;
+}
+.hero-kpi {
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+.hero-kpi:hover {
+    transform: translateY(-1px);
 }
 .dash-card {
     box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
