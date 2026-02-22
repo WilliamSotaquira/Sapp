@@ -497,41 +497,31 @@
         <label for="web_routes" class="block text-sm font-medium text-gray-700 mb-2">
             Rutas Web Relacionadas (Opcional)
         </label>
-        <div id="web-routes-container">
-            @php
-                $existingRoutes = old('web_routes', $serviceRequest->web_routes ?? []);
-                if (is_string($existingRoutes)) {
-                    $existingRoutes = json_decode($existingRoutes, true) ?? [];
-                }
-                // Asegurar que siempre haya al menos un input vacío
-                if (empty($existingRoutes)) {
-                    $existingRoutes = [''];
-                }
-            @endphp
+        @php
+            $existingRoutesRaw = old('web_routes', $serviceRequest->web_routes ?? []);
 
-            @foreach ($existingRoutes as $index => $route)
-                <div class="flex space-x-2 mb-2 route-input-group">
-                    <input type="text" name="web_routes_temp[]" value="{{ $route }}"
-                        placeholder="https://ejemplo.com/ruta o /ruta-interna"
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input"
-                        tabindex="-1">
-                    @if ($index > 0 || !empty($route))
-                        <button type="button" onclick="removeRoute(this)"
-                            class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 remove-route-btn"
-                            tabindex="-1">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    @endif
-                </div>
-            @endforeach
-        </div>
-        <button type="button" onclick="addRoute()"
-            class="mt-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200 text-sm"
-            tabindex="-1">
-            <i class="fas fa-plus mr-2"></i>Agregar otra ruta
-        </button>
+            if (is_string($existingRoutesRaw)) {
+                $decoded = json_decode($existingRoutesRaw, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $existingRoutes = $decoded;
+                } else {
+                    $existingRoutes = array_filter(array_map('trim', explode(',', $existingRoutesRaw)));
+                }
+            } elseif (is_array($existingRoutesRaw)) {
+                $existingRoutes = $existingRoutesRaw;
+            } else {
+                $existingRoutes = [];
+            }
+
+            $existingRoutesText = implode(', ', array_values(array_filter(array_map(function ($route) {
+                return trim((string) $route);
+            }, $existingRoutes))));
+        @endphp
+        <input type="text" name="web_routes_temp[]" value="{{ $existingRoutesText }}"
+            placeholder="https://ejemplo.com/ruta, /ruta-interna, https://otro-enlace.com"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input">
         <p class="mt-1 text-sm text-gray-500">
-            Agregue URLs completas (https://...) o rutas internas (/admin, /dashboard). Máximo 5 rutas.
+            Ingresa URLs completas o rutas internas separadas por comas. Máximo 8 rutas.
         </p>
         <div id="web-routes-error" class="mt-1 hidden">
             <p class="text-sm text-red-600"></p>
@@ -1549,57 +1539,30 @@
         }
     }
 
-    // Funciones para rutas web
-    function addRoute() {
-        const container = document.getElementById('web-routes-container');
-        const inputGroups = container.getElementsByClassName('route-input-group');
-
-        if (inputGroups.length >= 5) {
-            alert('Máximo 5 rutas permitidas');
-            return;
-        }
-
-        const newInput = document.createElement('div');
-        newInput.className = 'flex space-x-2 mb-2 route-input-group';
-        newInput.innerHTML = `
-            <input
-                type="text"
-                name="web_routes_temp[]"
-                placeholder="https://ejemplo.com/ruta o /ruta-interna"
-                class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input"
-            >
-            <button type="button" onclick="removeRoute(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        container.appendChild(newInput);
-    }
-
-    function removeRoute(button) {
-        const inputGroup = button.closest('.route-input-group');
-        if (inputGroup) {
-            inputGroup.remove();
-        }
-    }
-
     // Preparar rutas web como JSON antes de enviar
     function prepareWebRoutes() {
         console.log('🌐 Preparando web_routes...');
-        const tempInputs = document.querySelectorAll('input[name="web_routes_temp[]"]');
-        const routes = [];
+        const input = document.querySelector('input[name="web_routes_temp[]"]');
+        const raw = String(input?.value ?? '');
+        const routes = raw
+            .split(',')
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
 
-        tempInputs.forEach(input => {
-            const value = input.value.trim();
-            if (value) routes.push(value);
-        });
+        const maxRoutes = 8;
+        const normalizedRoutes = routes.slice(0, maxRoutes);
+
+        if (routes.length > maxRoutes) {
+            console.warn(`⚠️ Se recibieron más de ${maxRoutes} rutas. Se tomarán las primeras ${maxRoutes}.`);
+        }
 
         const webRoutesInput = document.getElementById('web_routes_json');
         if (webRoutesInput) {
-            webRoutesInput.value = JSON.stringify(routes);
+            webRoutesInput.value = JSON.stringify(normalizedRoutes);
             console.log('✅ web_routes establecido:', webRoutesInput.value);
         }
 
-        return routes;
+        return normalizedRoutes;
     }
 
     // INICIALIZACIÓN
