@@ -126,6 +126,13 @@ class CutController extends Controller
             ->map(fn($family) => $this->formatFamilyLabel($family))
             ->values();
 
+        $familyRequestCounts = $cut->serviceRequests()
+            ->selectRaw('services.service_family_id as family_id, COUNT(DISTINCT service_requests.id) as total')
+            ->join('sub_services', 'service_requests.sub_service_id', '=', 'sub_services.id')
+            ->join('services', 'sub_services.service_id', '=', 'services.id')
+            ->groupBy('services.service_family_id')
+            ->pluck('total', 'family_id');
+
         $serviceRequests = $cut->serviceRequests()
             ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla'])
             ->when(empty($selectedFamilyIds), function ($query) {
@@ -175,7 +182,14 @@ class CutController extends Controller
             ]);
         }
 
-        return view('reports.cuts.show', compact('cut', 'serviceRequests', 'families', 'selectedFamilyIds', 'selectedFamilyLabels'));
+        return view('reports.cuts.show', compact(
+            'cut',
+            'serviceRequests',
+            'families',
+            'selectedFamilyIds',
+            'selectedFamilyLabels',
+            'familyRequestCounts'
+        ));
     }
 
     public function update(Cut $cut, Request $request): RedirectResponse

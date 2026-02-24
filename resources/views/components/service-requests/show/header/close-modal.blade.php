@@ -47,7 +47,7 @@
                         <div>
                             <p class="text-sm font-semibold text-purple-800">Acción Final</p>
                             <p class="text-xs text-purple-700 mt-1">
-                                Al cerrar, la solicitud cambiará a estado <strong>CERRADA</strong> y no podrá ser modificada.
+                                Al cerrar, la solicitud cambiará a estado <strong>CERRADA</strong>.
                             </p>
                         </div>
                     </div>
@@ -149,70 +149,22 @@
                         </div>
 
                         <div class="space-y-3">
-                            <div class="bg-white border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-700">
-                                <span class="font-medium">Título de la Evidencia:</span>
-                                <span class="text-gray-500">Se genera automáticamente al cerrar.</span>
+                            <div id="close-evidence-list-{{ $serviceRequest->id }}" class="space-y-3"></div>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button"
+                                        id="add-close-link-evidence-{{ $serviceRequest->id }}"
+                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    Agregar enlace
+                                </button>
+                                <button type="button"
+                                        id="add-close-file-evidence-{{ $serviceRequest->id }}"
+                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    Agregar adjunto
+                                </button>
                             </div>
-
-                            <div id="close-evidence-list-{{ $serviceRequest->id }}" class="space-y-3">
-                                <div class="space-y-3 border border-gray-200 rounded-md p-3 bg-white" data-evidence-block data-index="0">
-                                    <div class="flex items-center justify-between">
-                                        <p class="text-sm font-medium text-gray-700">Evidencia #1</p>
-                                        <button type="button"
-                                                class="text-xs text-red-600 hover:text-red-700 font-semibold hidden"
-                                                data-remove-evidence>
-                                            Quitar
-                                        </button>
-                                    </div>
-                                    <div>
-                                        <label for="evidence_type_{{ $serviceRequest->id }}_0" class="block text-sm font-medium text-gray-700 mb-1">
-                                            Tipo de evidencia
-                                        </label>
-                                        <select
-                                            name="evidence_type[]"
-                                            id="evidence_type_{{ $serviceRequest->id }}_0"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
-                                            data-evidence-type>
-                                            <option value="">Selecciona un tipo</option>
-                                            <option value="ARCHIVO">Archivo</option>
-                                            <option value="ENLACE">Enlace</option>
-                                        </select>
-                                        <p class="mt-1 text-xs text-gray-500">Puedes adjuntar archivos o agregar enlaces.</p>
-                                    </div>
-
-                                    <div class="hidden" data-evidence-file>
-                                        <label for="evidence_file_{{ $serviceRequest->id }}_0" class="block text-sm font-medium text-gray-700 mb-1">
-                                            Archivo
-                                        </label>
-                                        <input
-                                            type="file"
-                                            name="files[]"
-                                            id="evidence_file_{{ $serviceRequest->id }}_0"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
-                                            accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" />
-                                        <p class="mt-1 text-xs text-gray-500">Formatos permitidos: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP</p>
-                                    </div>
-
-                                    <div class="hidden" data-evidence-link>
-                                        <label for="evidence_link_{{ $serviceRequest->id }}_0" class="block text-sm font-medium text-gray-700 mb-1">
-                                            Enlace
-                                        </label>
-                                        <input
-                                            type="url"
-                                            name="link_url[]"
-                                            id="evidence_link_{{ $serviceRequest->id }}_0"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
-                                            placeholder="https://..." />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button type="button"
-                                    id="add-close-evidence-{{ $serviceRequest->id }}"
-                                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                <i class="fas fa-plus mr-2"></i>
-                                Agregar evidencia
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -236,33 +188,13 @@
             (function () {
                 const id = @json($serviceRequest->id);
                 const list = document.getElementById(`close-evidence-list-${id}`);
-                const addBtn = document.getElementById(`add-close-evidence-${id}`);
+                const addLinkBtn = document.getElementById(`add-close-link-evidence-${id}`);
+                const addFileBtn = document.getElementById(`add-close-file-evidence-${id}`);
 
-                if (!list || !addBtn) return;
+                if (!list || !addLinkBtn || !addFileBtn) return;
 
                 function bindEvidenceBlock(block) {
-                    const typeSelect = block.querySelector('[data-evidence-type]');
-                    const fileSection = block.querySelector('[data-evidence-file]');
-                    const linkSection = block.querySelector('[data-evidence-link]');
                     const removeBtn = block.querySelector('[data-remove-evidence]');
-
-                    function toggleEvidenceSections() {
-                        const value = typeSelect ? typeSelect.value : '';
-                        if (fileSection) fileSection.classList.add('hidden');
-                        if (linkSection) linkSection.classList.add('hidden');
-
-                        if (value === 'ARCHIVO' && fileSection) {
-                            fileSection.classList.remove('hidden');
-                        }
-                        if (value === 'ENLACE' && linkSection) {
-                            linkSection.classList.remove('hidden');
-                        }
-                    }
-
-                    if (typeSelect) {
-                        typeSelect.addEventListener('change', toggleEvidenceSections);
-                        toggleEvidenceSections();
-                    }
 
                     if (removeBtn) {
                         removeBtn.addEventListener('click', () => {
@@ -278,20 +210,17 @@
                         block.dataset.index = String(idx);
                         const title = block.querySelector('p.text-sm.font-medium');
                         if (title) title.textContent = `Evidencia #${idx + 1}`;
-
-                        const removeBtn = block.querySelector('[data-remove-evidence]');
-                        if (removeBtn) {
-                            removeBtn.classList.toggle('hidden', idx === 0);
-                        }
                     });
                 }
 
-                addBtn.addEventListener('click', () => {
+                function createEvidenceBlock(type) {
                     const index = list.querySelectorAll('[data-evidence-block]').length;
                     const block = document.createElement('div');
                     block.className = 'space-y-3 border border-gray-200 rounded-md p-3 bg-white';
                     block.setAttribute('data-evidence-block', '');
                     block.setAttribute('data-index', String(index));
+                    const isFile = type === 'ARCHIVO';
+
                     block.innerHTML = `
                         <div class="flex items-center justify-between">
                             <p class="text-sm font-medium text-gray-700">Evidencia #${index + 1}</p>
@@ -301,23 +230,9 @@
                                 Quitar
                             </button>
                         </div>
+                        <input type="hidden" name="evidence_type[]" value="${type}" />
                         <div>
-                            <label for="evidence_type_${id}_${index}" class="block text-sm font-medium text-gray-700 mb-1">
-                                Tipo de evidencia
-                            </label>
-                            <select
-                                name="evidence_type[]"
-                                id="evidence_type_${id}_${index}"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
-                                data-evidence-type>
-                                <option value="">Selecciona un tipo</option>
-                                <option value="ARCHIVO">Archivo</option>
-                                <option value="ENLACE">Enlace</option>
-                            </select>
-                            <p class="mt-1 text-xs text-gray-500">Puedes adjuntar archivos o agregar enlaces.</p>
-                        </div>
-                        <div class="hidden" data-evidence-file>
-                            <label for="evidence_file_${id}_${index}" class="block text-sm font-medium text-gray-700 mb-1">
+                            <label for="evidence_file_${id}_${index}" class="block text-sm font-medium text-gray-700 mb-1 ${isFile ? '' : 'hidden'}" data-file-label>
                                 Archivo
                             </label>
                             <input
@@ -325,11 +240,12 @@
                                 name="files[]"
                                 id="evidence_file_${id}_${index}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
+                                ${isFile ? '' : 'style="display:none;"'}
                                 accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" />
-                            <p class="mt-1 text-xs text-gray-500">Formatos permitidos: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP</p>
+                            <p class="mt-1 text-xs text-gray-500 ${isFile ? '' : 'hidden'}" data-file-hint>Formatos permitidos: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP</p>
                         </div>
-                        <div class="hidden" data-evidence-link>
-                            <label for="evidence_link_${id}_${index}" class="block text-sm font-medium text-gray-700 mb-1">
+                        <div>
+                            <label for="evidence_link_${id}_${index}" class="block text-sm font-medium text-gray-700 mb-1 ${isFile ? 'hidden' : ''}" data-link-label>
                                 Enlace
                             </label>
                             <input
@@ -337,16 +253,18 @@
                                 name="link_url[]"
                                 id="evidence_link_${id}_${index}"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-purple-500 focus:border-purple-500"
+                                ${isFile ? 'style="display:none;"' : ''}
                                 placeholder="https://..." />
                         </div>
                     `;
                     list.appendChild(block);
                     bindEvidenceBlock(block);
                     renumberEvidenceBlocks();
-                });
+                }
 
-                list.querySelectorAll('[data-evidence-block]').forEach(bindEvidenceBlock);
-                renumberEvidenceBlocks();
+                addLinkBtn.addEventListener('click', () => createEvidenceBlock('ENLACE'));
+                addFileBtn.addEventListener('click', () => createEvidenceBlock('ARCHIVO'));
+
             })();
         </script>
     </div>

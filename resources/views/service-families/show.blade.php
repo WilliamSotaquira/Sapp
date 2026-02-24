@@ -117,7 +117,10 @@
                     <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-800 flex items-center">
                             <i class="fas fa-cogs text-green-500 mr-2"></i>
-                            Servicios ({{ $serviceFamily->services->count() }})
+                            Servicios ({{ $serviceFamily->services_count }})
+                            <span class="ml-2 text-sm font-normal text-gray-600">
+                                | Activos: {{ $serviceFamily->active_services_count }}
+                            </span>
                         </h2>
                         <a href="{{ route('services.create') }}?family={{ $serviceFamily->id }}"
                            class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition duration-150 flex items-center">
@@ -149,7 +152,7 @@
                                         <div class="flex justify-between items-center text-sm">
                                             <span class="text-gray-500 flex items-center">
                                                 <i class="fas fa-list-alt mr-1"></i>
-                                                {{ $service->subServices->count() }} sub-servicios
+                                                {{ $service->sub_services_count ?? 0 }} sub-servicios
                                             </span>
                                             <div class="flex space-x-2">
                                                 <a href="{{ route('services.show', $service) }}"
@@ -267,23 +270,23 @@
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-gray-500">Total Servicios</div>
-                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services->count() }}</div>
+                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services_count }}</div>
                             </div>
                             <div class="bg-green-50 rounded-lg p-3">
                                 <div class="text-green-700">Servicios Activos</div>
-                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->activeServices()->count() }}</div>
+                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->active_services_count }}</div>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-3">
                                 <div class="text-gray-500">Sub-Servicios</div>
-                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services->sum(function($service) { return $service->subServices->count(); }) }}</div>
+                                <div class="text-lg font-semibold text-gray-900">{{ $serviceFamily->services->sum('sub_services_count') }}</div>
                             </div>
                             <div class="bg-blue-50 rounded-lg p-3">
                                 <div class="text-blue-700">SLAs</div>
-                                <div class="text-lg font-semibold text-blue-700">{{ $serviceFamily->serviceLevelAgreements->count() }}</div>
+                                <div class="text-lg font-semibold text-blue-700">{{ $serviceFamily->service_level_agreements_count }}</div>
                             </div>
                             <div class="bg-green-50 rounded-lg p-3 col-span-2">
                                 <div class="text-green-700">SLAs Activos</div>
-                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->activeSlas()->count() }}</div>
+                                <div class="text-lg font-semibold text-green-700">{{ $serviceFamily->active_slas_count }}</div>
                             </div>
                         </div>
                     </div>
@@ -311,7 +314,7 @@
                                class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-lg transition duration-150 flex items-center justify-center">
                                 <i class="fas fa-edit mr-2"></i>Editar Familia
                             </a>
-                            @if($serviceFamily->services->count() === 0)
+                            @if($serviceFamily->services_count === 0)
                                 <form action="{{ route('service-families.destroy', $serviceFamily) }}" method="POST"
                                       onsubmit="return confirm('¿Está seguro de que desea eliminar esta familia de servicio?')">
                                     @csrf

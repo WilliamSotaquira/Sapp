@@ -1392,11 +1392,8 @@
             });
         }
 
-        const hasServerOldData = Array.isArray(initialTasks) && initialTasks.length > 0;
-        const existingDraft = readDraft();
-        if (!hasServerOldData && existingDraft && Array.isArray(existingDraft.tasks) && existingDraft.tasks.length > 0) {
-            tasksDraftNotice?.classList.remove('hidden');
-        }
+        // No mostrar aviso de borrador en solicitudes nuevas.
+        tasksDraftNotice?.classList.add('hidden');
 
         window.addEventListener('beforeunload', saveDraftNow);
         updateTaskSummary();

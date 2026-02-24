@@ -580,12 +580,11 @@ class ServiceRequestService
     /**
      * Obtener datos para el formulario de edición
      */
-    public function getEditFormData(?int $selectedSubServiceId = null): array
+    public function getEditFormData(?int $selectedSubServiceId = null, ?int $selectedCutId = null): array
     {
         $selectedSubService = null;
         if ($selectedSubServiceId) {
             $selectedSubService = SubService::with(['service.family.contract', 'slas'])
-                ->where('is_active', true)
                 ->find($selectedSubServiceId);
         }
 
@@ -623,6 +622,14 @@ class ServiceRequestService
             })
             ->orderBy('start_date', 'desc')
             ->get(['id', 'contract_id', 'name', 'start_date', 'end_date']);
+
+        if ($selectedCutId && !$cuts->contains('id', $selectedCutId)) {
+            $selectedCut = Cut::with('contract:id,number,company_id')
+                ->find($selectedCutId, ['id', 'contract_id', 'name', 'start_date', 'end_date']);
+            if ($selectedCut) {
+                $cuts->prepend($selectedCut);
+            }
+        }
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
         return compact('subServices', 'selectedSubService', 'users', 'requesters', 'companies', 'cuts', 'criticalityLevels', 'currentCompany');
     }
@@ -638,8 +645,21 @@ class ServiceRequestService
         ]);
 
         try {
+            $hasCutInPayload = array_key_exists('cut_id', $data);
+            $cutIdRaw = $hasCutInPayload ? $data['cut_id'] : null;
+            $cutId = ($cutIdRaw === '' || $cutIdRaw === null) ? null : (int) $cutIdRaw;
+            unset($data['cut_id']);
+
             $previousAssignedTo = $serviceRequest->assigned_to;
-            $serviceRequest->update($data);
+
+            DB::transaction(function () use ($serviceRequest, $data, $hasCutInPayload, $cutId) {
+                $serviceRequest->update($data);
+
+                if ($hasCutInPayload) {
+                    // Un solo corte asociado por solicitud desde este formulario.
+                    $serviceRequest->cuts()->sync($cutId ? [$cutId] : []);
+                }
+            });
 
             Log::info('✅ Solicitud actualizada exitosamente', [
                 'id' => $serviceRequest->id,

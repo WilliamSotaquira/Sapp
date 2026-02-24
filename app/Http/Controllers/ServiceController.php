@@ -24,7 +24,6 @@ class ServiceController extends Controller
                 $q->where('company_id', $currentCompanyId);
             });
         })
-        ->active()
         ->ordered()
         ->get();
 

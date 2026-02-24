@@ -3,6 +3,7 @@
     'serviceRequest' => null,
     'subServices' => [], // Lista de subservicios (opcional; puede ser vacía si usamos Select2 AJAX)
     'selectedSubService' => null, // Subservicio precargado para mostrar selección inicial
+    'selectedCutId' => null, // Corte precargado para edición
     'requesters' => [], // Lista de solicitantes para seleccionar solicitante
     'companies' => [], // Lista de empresas para seleccionar
     'cuts' => [], // Lista de cortes disponibles
@@ -286,7 +287,7 @@
         if (($mode ?? 'create') === 'create' && !empty($cuts)) {
             $defaultCutId = optional($cuts->sortByDesc('end_date')->first())->id;
         }
-        $selectedCutId = old('cut_id', $serviceRequest->cut_id ?? $defaultCutId);
+        $selectedCutValue = old('cut_id', $selectedCutId ?? $serviceRequest->cut_id ?? $defaultCutId);
     @endphp
     <div>
         <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -296,13 +297,14 @@
         $activeContractId = $currentCompany?->active_contract_id;
     @endphp
     <select name="cut_id" id="cut_id" data-active-contract-id="{{ $activeContractId }}"
+            data-preserve-selected="{{ ($mode ?? 'create') === 'edit' ? '1' : '0' }}"
             class="w-full px-4 py-3 border {{ $cutBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
             @if(($mode ?? 'create') === 'create') tabindex="-1" @endif>
             <option value="">Sin corte asignado</option>
         @foreach ($cuts as $cut)
             <option value="{{ $cut->id }}"
                     data-contract-id="{{ $cut->contract_id ?? '' }}"
-                    {{ $selectedCutId == $cut->id ? 'selected' : '' }}>
+                    {{ (string)$selectedCutValue === (string)$cut->id ? 'selected' : '' }}>
                 {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }})
             </option>
         @endforeach
@@ -334,7 +336,7 @@
                 $selectedId = old('sub_service_id', $serviceRequest->sub_service_id ?? null);
             @endphp
 
-            @if (!empty($subServices))
+            @if (collect($subServices)->isNotEmpty())
                 @php
                     // Agrupar los subservicios
                     $groupedSubServices = [];
@@ -1579,11 +1581,12 @@
         function filterCutsByContract() {
             if (!cutSelect) return;
             const contractId = cutSelect.dataset.activeContractId || '';
+            const preserveSelected = cutSelect.dataset.preserveSelected === '1';
             let hasSelection = false;
             Array.from(cutSelect.options).forEach(option => {
                 if (!option.value) return;
                 const optionContractId = option.dataset.contractId || '';
-                const shouldShow = !contractId || optionContractId === contractId;
+                const shouldShow = !contractId || optionContractId === contractId || (preserveSelected && option.selected);
                 option.hidden = !shouldShow;
                 option.disabled = !shouldShow;
                 if (shouldShow && option.selected) {

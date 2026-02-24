@@ -63,14 +63,22 @@ class ServiceFamilyController extends Controller
 
     public function show(ServiceFamily $serviceFamily)
     {
-        // Cargar relaciones existentes
+        // Cargar servicios sin filtrar por activos para que "listado" y "totales" sean consistentes.
         $serviceFamily->load([
             'contract',
-            'services' => function($query) {
-                $query->with(['subServices' => function($q) {
-                    $q->active()->ordered();
-                }])->active()->ordered();
-            }
+            'services' => function ($query) {
+                $query->withCount(['subServices', 'activeSubServices'])->ordered();
+            },
+            'serviceLevelAgreements',
+        ])->loadCount([
+            'services',
+            'services as active_services_count' => function ($query) {
+                $query->where('is_active', true);
+            },
+            'serviceLevelAgreements',
+            'serviceLevelAgreements as active_slas_count' => function ($query) {
+                $query->where('is_active', true);
+            },
         ]);
 
         return view('service-families.show', compact('serviceFamily'));

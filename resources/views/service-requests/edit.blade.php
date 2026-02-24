@@ -4,7 +4,7 @@
 @section('title', "Editar Solicitud {$serviceRequest->ticket_number}")
 
 @section('content')
-<form action="{{ route('service-requests.update', $serviceRequest) }}" method="POST">
+<form id="serviceRequestEditForm" action="{{ route('service-requests.update', $serviceRequest) }}" method="POST">
     @csrf
     @method('PUT')
     <div class="max-w-4xl mx-auto">
@@ -19,6 +19,7 @@
                     'serviceRequest' => $serviceRequest,
                     'subServices' => $subServices,
                     'selectedSubService' => $selectedSubService ?? null,
+                    'selectedCutId' => $selectedCutId ?? null,
                     'requesters' => $requesters,
                     'companies' => $companies ?? [],
                     'cuts' => $cuts ?? [],
@@ -48,7 +49,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const formEl = document.querySelector('form[action="{{ route('service-requests.update', $serviceRequest) }}"]');
+    const formEl = document.getElementById('serviceRequestEditForm');
     const inlineErrorEl = document.getElementById('editFormInlineError');
     let updateConfirmed = false;
 
