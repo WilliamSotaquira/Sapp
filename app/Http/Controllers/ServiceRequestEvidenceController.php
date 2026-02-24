@@ -164,8 +164,10 @@ class ServiceRequestEvidenceController extends Controller
             abort(404);
         }
 
-        // Solo permitir eliminar si no está cerrada/cancelada
-        if (in_array($serviceRequest->status, ['CERRADA', 'CANCELADA'])) {
+        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+
+        // Permitir eliminar solo en proceso y cerrada
+        if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             $message = 'No se pueden eliminar evidencias en el estado actual de la solicitud.';
 
             if (request()->expectsJson()) {
