@@ -1,7 +1,7 @@
 @props(['request'])
 
 @php
-    $isClosed = strtoupper((string) $request->status) === 'CERRADA';
+    $isClosed = in_array(strtoupper((string) $request->status), ['CERRADA', 'RECHAZADA'], true);
     $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
     $isOpenRequest = in_array(strtoupper((string) $request->status), $openStatuses, true);
 

@@ -338,7 +338,7 @@ class ServiceRequestController extends Controller
      */
     public function edit(Request $request, ServiceRequest $serviceRequest)
     {
-        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'CERRADA'];
 
         if (!in_array($serviceRequest->status, $editableStatuses)) {
             return redirect()
@@ -348,10 +348,14 @@ class ServiceRequestController extends Controller
 
         $selectedSubServiceId = $request->old('sub_service_id');
         $selectedSubServiceId = $selectedSubServiceId ? (int) $selectedSubServiceId : (int) $serviceRequest->sub_service_id;
+        $selectedCutId = $request->old('cut_id');
+        $selectedCutId = $selectedCutId !== null && $selectedCutId !== ''
+            ? (int) $selectedCutId
+            : (int) ($serviceRequest->cuts()->latest('cut_service_request.created_at')->value('cuts.id') ?? 0);
 
-        $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId);
+        $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId, $selectedCutId ?: null);
 
-        return view('service-requests.edit', compact('serviceRequest') + $data);
+        return view('service-requests.edit', compact('serviceRequest', 'selectedCutId') + $data);
     }
 
     /**
@@ -359,7 +363,7 @@ class ServiceRequestController extends Controller
      */
     public function update(UpdateServiceRequestRequest $request, ServiceRequest $serviceRequest)
     {
-        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+        $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'CERRADA'];
 
         if (!in_array($serviceRequest->status, $editableStatuses)) {
             return redirect()
@@ -368,11 +372,20 @@ class ServiceRequestController extends Controller
         }
 
         try {
-            $this->serviceRequestService->updateServiceRequest($serviceRequest, $request->validated());
+            $updatedRequest = $this->serviceRequestService->updateServiceRequest($serviceRequest, $request->validated())
+                ->fresh(['subService']);
+            $subServiceName = $updatedRequest?->subService?->name;
+            $successMessage = 'Solicitud de servicio actualizada exitosamente.';
+            if ($subServiceName) {
+                $successMessage .= ' Subservicio: ' . $subServiceName . '.';
+            }
 
             return redirect()
-                ->route('service-requests.show', $serviceRequest)
-                ->with('success', 'Solicitud de servicio actualizada exitosamente.');
+                ->route('service-requests.show', [
+                    'service_request' => $serviceRequest,
+                    'updated' => 1,
+                ])
+                ->with('success', $successMessage);
         } catch (\Exception $e) {
             return back()
                 ->withInput()

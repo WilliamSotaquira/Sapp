@@ -96,6 +96,9 @@
                                         <span class="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
                                             {{ $family->services_count ?? 0 }} servicio{{ ($family->services_count ?? 0) !== 1 ? 's' : '' }}
                                         </span>
+                                        <span class="inline-block mt-1 ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                                            {{ (int) ($familyRequestCounts[$family->id] ?? 0) }} solicitud{{ ((int) ($familyRequestCounts[$family->id] ?? 0)) !== 1 ? 'es' : '' }} en este corte
+                                        </span>
                                     </div>
                                 </label>
                             @endforeach

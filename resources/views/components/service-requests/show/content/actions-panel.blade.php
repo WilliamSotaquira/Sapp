@@ -16,7 +16,7 @@
 
 
             <!-- Editar -->
-            @if (in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA']))
+            @if (in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'CERRADA']))
                 <a href="{{ route('service-requests.edit', $serviceRequest) }}"
                     class="flex flex-col items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
                     <i class="fas fa-edit text-green-600 text-lg mb-1"></i>
