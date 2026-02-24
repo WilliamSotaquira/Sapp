@@ -114,6 +114,7 @@
             @method('PATCH')
 
             <input type="hidden" name="use_standard_tasks" id="use-standard-tasks-{{ $serviceRequest->id }}" value="0">
+            <input type="hidden" name="focus_tasks" value="1">
 
             @if($standardTasks->count() > 0)
                 <!-- Pregunta sobre tareas predefinidas -->
