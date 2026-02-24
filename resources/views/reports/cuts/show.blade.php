@@ -42,10 +42,6 @@
                         Actualizar
                     </button>
                 </form>
-                <a href="{{ route('reports.cuts.export-pdf', $cut) }}" class="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                    <i class="fa-solid fa-file-pdf"></i>
-                    PDF
-                </a>
             </div>
         </div>
 
@@ -58,135 +54,288 @@
 
         <div class="p-6">
             <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <h3 class="text-sm font-semibold text-gray-900 mb-3">Editar fechas del corte</h3>
-                <form method="POST" action="{{ route('reports.cuts.update', $cut) }}" class="flex flex-col md:flex-row md:items-end gap-3">
-                    @csrf
-                    @method('PUT')
-                    <div>
-                        <label for="start_date" class="block text-xs font-medium text-gray-700 mb-1">Fecha inicio</label>
-                        <input
-                            type="date"
-                            id="start_date"
-                            name="start_date"
-                            value="{{ old('start_date', optional($cut->start_date)->format('Y-m-d')) }}"
-                            class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                        @error('start_date')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-gray-900">Familias de servicios para el reporte</h3>
+                    <button
+                        type="button"
+                        id="selectAllFamilies"
+                        class="text-sm text-blue-600 hover:text-blue-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
+                        aria-label="Seleccionar todas las familias"
+                    >
+                        <i class="fa-solid fa-check-double mr-1" aria-hidden="true"></i>
+                        Seleccionar Todas
+                    </button>
+                </div>
+
+                @if($families->count() > 0)
+                    <form id="familyFilterForm" method="GET" action="{{ route('reports.cuts.show', $cut) }}">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @foreach($families as $family)
+                                @php
+                                    $familyLabel = $family->contract?->number
+                                        ? ($family->contract->number . ' - ' . $family->name)
+                                        : $family->name;
+                                @endphp
+                                <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all group">
+                                    <input
+                                        type="checkbox"
+                                        name="families[]"
+                                        value="{{ $family->id }}"
+                                        class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        {{ in_array($family->id, $selectedFamilyIds ?? []) ? 'checked' : '' }}
+                                    >
+                                    <div class="ml-3 flex-1">
+                                        <span class="block text-sm font-medium text-gray-900 group-hover:text-blue-700">
+                                            {{ $familyLabel }}
+                                        </span>
+                                        @if($family->description)
+                                            <span class="block text-xs text-gray-500 mt-1">
+                                                {{ \Illuminate\Support\Str::limit($family->description, 60) }}
+                                            </span>
+                                        @endif
+                                        <span class="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                                            {{ $family->services_count ?? 0 }} servicio{{ ($family->services_count ?? 0) !== 1 ? 's' : '' }}
+                                        </span>
+                                    </div>
+                                </label>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-4 flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="submit"
+                                formaction="{{ route('reports.cuts.export', $cut) }}"
+                                id="downloadReportBtn"
+                                class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                            >
+                                <i class="fa-solid fa-download mr-2" aria-hidden="true"></i>
+                                Descargar reporte
+                            </button>
+                            <button
+                                type="button"
+                                id="downloadIndividualBtn"
+                                class="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                            >
+                                <i class="fa-solid fa-file-zipper mr-2" aria-hidden="true"></i>
+                                Descargar individual
+                            </button>
+                        </div>
+
+                        <p class="mt-2 text-xs text-gray-500">
+                            Puedes seleccionar una o varias familias. El mismo filtro aplica a la tabla, al PDF y al ZIP.
+                        </p>
+                        @error('families')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
-                    </div>
-                    <div>
-                        <label for="end_date" class="block text-xs font-medium text-gray-700 mb-1">Fecha fin</label>
-                        <input
-                            type="date"
-                            id="end_date"
-                            name="end_date"
-                            value="{{ old('end_date', optional($cut->end_date)->format('Y-m-d')) }}"
-                            class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        >
-                        @error('end_date')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
-                            Guardar fechas
-                        </button>
-                    </div>
-                </form>
-                <p class="mt-2 text-xs text-gray-500">Al guardar, se recalculan automáticamente las solicitudes asociadas al corte según el nuevo rango.</p>
+                    </form>
+                @else
+                    <p class="text-sm text-gray-500">No hay familias disponibles para este contrato.</p>
+                @endif
             </div>
 
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold text-gray-900">Solicitudes asociadas</h3>
-                <span class="text-sm text-gray-600">Total: <span class="font-semibold">{{ $serviceRequests->total() }}</span></span>
+            <div id="serviceRequestsContainer" aria-live="polite">
+                @include('reports.cuts.partials.service-requests-table', [
+                    'cut' => $cut,
+                    'serviceRequests' => $serviceRequests,
+                    'selectedFamilyIds' => $selectedFamilyIds,
+                    'selectedFamilyLabels' => $selectedFamilyLabels,
+                ])
             </div>
-
-            <div class="overflow-hidden rounded-lg border border-gray-200" role="region" aria-label="Tabla de solicitudes asociadas del corte">
-                <table class="w-full table-fixed divide-y divide-gray-200">
-                    <caption class="sr-only">
-                        Listado de solicitudes asociadas, ordenado por estado activo primero y luego por fecha de creación más reciente.
-                    </caption>
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="w-[14%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Ticket</th>
-                            <th scope="col" class="w-[36%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Título</th>
-                            <th scope="col" class="w-[24%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Familia</th>
-                            <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Estado</th>
-                            <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Creada</th>
-                            <th scope="col" class="w-[8%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 bg-white">
-                        @forelse($serviceRequests as $sr)
-                            @php
-                                $family = $sr->subService?->service?->family;
-                                $familyName = $family?->name ?? 'Sin Familia';
-                                $contractNumber = $family?->contract?->number;
-                                $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
-
-                                $statusMap = [
-                                    'PENDIENTE' => ['label' => 'Pendiente', 'classes' => 'bg-amber-100 text-amber-800 border-amber-200'],
-                                    'ACEPTADA' => ['label' => 'Aceptada', 'classes' => 'bg-blue-100 text-blue-800 border-blue-200'],
-                                    'EN_PROCESO' => ['label' => 'En proceso', 'classes' => 'bg-indigo-100 text-indigo-800 border-indigo-200'],
-                                    'PAUSADA' => ['label' => 'Pausada', 'classes' => 'bg-orange-100 text-orange-800 border-orange-200'],
-                                    'RESUELTA' => ['label' => 'Resuelta', 'classes' => 'bg-emerald-100 text-emerald-800 border-emerald-200'],
-                                    'CERRADA' => ['label' => 'Cerrada', 'classes' => 'bg-gray-100 text-gray-800 border-gray-200'],
-                                    'CANCELADA' => ['label' => 'Cancelada', 'classes' => 'bg-rose-100 text-rose-800 border-rose-200'],
-                                    'RECHAZADA' => ['label' => 'Rechazada', 'classes' => 'bg-red-100 text-red-800 border-red-200'],
-                                ];
-                                $statusData = $statusMap[$sr->status] ?? ['label' => $sr->status, 'classes' => 'bg-slate-100 text-slate-700 border-slate-200'];
-                            @endphp
-                            <tr class="align-top hover:bg-gray-50">
-                                <th scope="row" class="w-[14%] px-4 py-3 text-sm font-semibold text-gray-900 whitespace-nowrap">
-                                    <a href="{{ route('service-requests.show', $sr) }}" class="inline-block whitespace-nowrap hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded" aria-label="Ver solicitud {{ $sr->ticket_number }}">
-                                        {{ $sr->ticket_number }}
-                                    </a>
-                                </th>
-                                <td class="w-[36%] px-4 py-3 text-sm text-gray-700">
-                                    <span class="block truncate" title="{{ $sr->title }}">{{ $sr->title }}</span>
-                                </td>
-                                <td class="w-[24%] px-4 py-3 text-sm text-gray-700">
-                                    <span class="block truncate" title="{{ $familyLabel }}">{{ $familyLabel }}</span>
-                                </td>
-                                <td class="w-[10%] px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                    <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {{ $statusData['classes'] }}">
-                                        {{ $statusData['label'] }}
-                                    </span>
-                                </td>
-                                <td class="w-[10%] px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                                    @if($sr->created_at)
-                                        <time datetime="{{ $sr->created_at->toIso8601String() }}">{{ $sr->created_at->format('Y-m-d H:i') }}</time>
-                                    @else
-                                        <span class="text-gray-400">Sin fecha</span>
-                                    @endif
-                                </td>
-                                <td class="w-[8%] px-4 py-3 text-sm whitespace-nowrap">
-                                    <form method="POST" action="{{ route('reports.cuts.requests.remove', [$cut, $sr]) }}" onsubmit="return confirm('¿Remover esta solicitud del corte?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1" aria-label="Quitar solicitud {{ $sr->ticket_number }} del corte">
-                                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                                            <span class="sr-only">Quitar</span>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-4 py-10 text-center text-sm text-gray-500">
-                                    No hay solicitudes asociadas a este corte.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="mt-4">{{ $serviceRequests->links() }}</div>
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllBtn = document.getElementById('selectAllFamilies');
+    const familyCheckboxes = document.querySelectorAll('#familyFilterForm input[name="families[]"]');
+    const downloadBtn = document.getElementById('downloadReportBtn');
+    const downloadIndividualBtn = document.getElementById('downloadIndividualBtn');
+    const familyFilterForm = document.getElementById('familyFilterForm');
+    const serviceRequestsContainer = document.getElementById('serviceRequestsContainer');
+    const exportUrl = @json(route('reports.cuts.export', $cut));
+
+    if (!selectAllBtn || familyCheckboxes.length === 0 || !familyFilterForm || !serviceRequestsContainer) {
+        return;
+    }
+
+    function updateSelectAllButton() {
+        const allChecked = Array.from(familyCheckboxes).every(cb => cb.checked);
+        if (allChecked) {
+            selectAllBtn.innerHTML = '<i class="fa-solid fa-times mr-1" aria-hidden="true"></i>Deseleccionar Todas';
+            selectAllBtn.setAttribute('aria-label', 'Deseleccionar todas las familias');
+        } else {
+            selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double mr-1" aria-hidden="true"></i>Seleccionar Todas';
+            selectAllBtn.setAttribute('aria-label', 'Seleccionar todas las familias');
+        }
+    }
+
+    selectAllBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const allChecked = Array.from(familyCheckboxes).every(cb => cb.checked);
+        familyCheckboxes.forEach(checkbox => {
+            checkbox.checked = !allChecked;
+        });
+        updateSelectAllButton();
+    });
+
+    familyCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectAllButton);
+    });
+
+    if (downloadBtn) {
+        downloadBtn.innerHTML = '<i class="fa-solid fa-download mr-2" aria-hidden="true"></i>Descargar carpeta PDF por familia';
+    }
+
+    function getSelectedFamilyIds() {
+        return Array.from(familyCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+    }
+
+    if (downloadIndividualBtn) {
+        downloadIndividualBtn.addEventListener('click', async function() {
+            const selectedIds = getSelectedFamilyIds();
+            if (selectedIds.length === 0) {
+                alert('Selecciona al menos una familia para descargar.');
+                return;
+            }
+
+            downloadIndividualBtn.disabled = true;
+
+            let startedDownloads = 0;
+            for (const familyId of selectedIds) {
+                const checkParams = new URLSearchParams();
+                checkParams.append('families[]', familyId);
+                checkParams.append('format', 'pdf');
+                checkParams.append('check_only', '1');
+
+                try {
+                    const checkResponse = await fetch(`${exportUrl}?${checkParams.toString()}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                        },
+                    });
+                    if (!checkResponse.ok) {
+                        continue;
+                    }
+
+                    const checkData = await checkResponse.json();
+                    if (!checkData?.has_requests) {
+                        continue;
+                    }
+
+                    const downloadParams = new URLSearchParams();
+                    downloadParams.append('families[]', familyId);
+                    downloadParams.append('format', 'pdf');
+
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = `${exportUrl}?${downloadParams.toString()}`;
+                    document.body.appendChild(iframe);
+                    setTimeout(() => iframe.remove(), 12000);
+                    startedDownloads++;
+
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (error) {
+                    // Ignore family-level errors and continue with others.
+                }
+            }
+
+            if (startedDownloads === 0) {
+                alert('Ninguna de las familias seleccionadas tiene solicitudes para descargar.');
+            }
+
+            downloadIndividualBtn.disabled = false;
+        });
+    }
+
+    let autoFilterTimeout = null;
+    let currentRequest = null;
+
+    const fetchFilteredResults = async (url = null) => {
+        const params = new URLSearchParams(new FormData(familyFilterForm));
+        const fetchUrl = url || `${familyFilterForm.action}?${params.toString()}`;
+
+        if (currentRequest) {
+            currentRequest.abort();
+        }
+        currentRequest = new AbortController();
+
+        serviceRequestsContainer.classList.add('opacity-60', 'pointer-events-none', 'transition-opacity');
+
+        try {
+            const response = await fetch(fetchUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                signal: currentRequest.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data?.html) {
+                serviceRequestsContainer.innerHTML = data.html;
+            }
+
+            const nextUrl = data?.url || fetchUrl;
+            window.history.replaceState({}, '', nextUrl);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('No se pudo actualizar la tabla sin recargar.', error);
+            }
+        } finally {
+            serviceRequestsContainer.classList.remove('opacity-60', 'pointer-events-none');
+        }
+    };
+
+    const submitFilterForm = () => {
+        if (autoFilterTimeout) {
+            clearTimeout(autoFilterTimeout);
+        }
+        autoFilterTimeout = setTimeout(() => {
+            fetchFilteredResults();
+        }, 250);
+    };
+
+    familyCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', submitFilterForm);
+    });
+
+    // Select all should also trigger auto-filter
+    selectAllBtn.addEventListener('click', function() {
+        submitFilterForm();
+    });
+
+    familyFilterForm.addEventListener('submit', function(e) {
+        const submitter = e.submitter;
+        const isDownload = submitter && submitter.id === 'downloadReportBtn';
+        if (isDownload) {
+            return;
+        }
+
+        e.preventDefault();
+        fetchFilteredResults();
+    });
+
+    document.addEventListener('click', function(e) {
+        const paginationLink = e.target.closest('#serviceRequestsContainer a[href*="page="]');
+        if (!paginationLink) {
+            return;
+        }
+
+        e.preventDefault();
+        fetchFilteredResults(paginationLink.href);
+    });
+
+    updateSelectAllButton();
+});
+</script>
 @endsection

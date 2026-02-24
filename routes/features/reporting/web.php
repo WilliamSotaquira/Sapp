@@ -39,6 +39,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::delete('/{cut}/requests/{service_request}', [CutController::class, 'removeRequest'])->name('requests.remove');
 
         Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
+        Route::get('/{cut}/export', [CutController::class, 'export'])->name('export');
         Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');
     });
 
