@@ -1560,12 +1560,31 @@ class TaskController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'priority' => 'required|in:high,medium,low',
-            'status' => 'required|in:pending,in_progress,completed',
+            'title' => 'sometimes|required|string|max:255',
+            'priority' => 'sometimes|required|in:high,medium,low',
+            'status' => 'sometimes|required|in:pending,in_progress,completed',
+            'estimated_minutes' => 'sometimes|nullable|integer|min:5|max:480',
         ]);
 
-        $subtask->update($validated);
+        $payload = [
+            'title' => $validated['title'] ?? $subtask->title,
+            'priority' => $validated['priority'] ?? $subtask->priority,
+            'status' => $validated['status'] ?? $subtask->status,
+        ];
+
+        if (array_key_exists('estimated_minutes', $validated)) {
+            $payload['estimated_minutes'] = $validated['estimated_minutes'];
+        }
+
+        $subtask->update($payload);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Subtarea actualizada',
+                'subtask' => $subtask->fresh(),
+            ]);
+        }
 
         return back()->with('success', 'Subtarea actualizada');
     }

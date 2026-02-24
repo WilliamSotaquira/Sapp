@@ -95,6 +95,7 @@
         <form action="{{ route('service-requests.accept', $serviceRequest) }}" method="POST" class="mt-4">
             @csrf
             @method('PATCH')
+            <input type="hidden" name="focus_tasks" value="1">
 
             <div class="flex justify-end space-x-3">
                 <button type="button"

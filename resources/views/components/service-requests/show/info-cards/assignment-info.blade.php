@@ -157,8 +157,14 @@
                             Cancelar
                         </button>
                         <button type="submit"
+                            data-submit-mode="assign"
                             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
-                            Asignar
+                            Asignar y Continuar
+                        </button>
+                        <button type="submit"
+                            data-submit-mode="accept-start"
+                            class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                            Aceptar e Iniciar
                         </button>
                     </div>
                 </form>
@@ -785,6 +791,10 @@
 
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
+            const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
+            const submitter = e.submitter;
+            const submitMode = submitter && submitter.dataset ? submitter.dataset.submitMode : 'assign';
+            const buttonSnapshots = submitButtons.map(btn => ({ btn, html: btn.innerHTML }));
             const selectedValue = selectField.value;
 
             if (!selectedValue) {
@@ -795,6 +805,16 @@
 
             try {
                 form.setAttribute('aria-busy','true');
+                submitButtons.forEach(btn => btn.disabled = true);
+                if (submitter) {
+                    submitter.innerHTML = submitMode === 'accept-start'
+                        ? '<i class="fas fa-spinner fa-spin mr-2"></i>Aceptando e iniciando...'
+                        : '<i class="fas fa-spinner fa-spin mr-2"></i>Asignando...';
+                }
+                const formData = new FormData(this);
+                if (modalId !== 'quickRequesterModal') {
+                    formData.set('accept_and_start', submitMode === 'accept-start' ? '1' : '0');
+                }
                 const response = await fetch(this.action, {
                     method: 'POST',
                     headers: {
@@ -803,7 +823,7 @@
                             .getAttribute('content'),
                         'Accept': 'application/json',
                     },
-                    body: new FormData(this)
+                    body: formData
                 });
 
                 let result = null;
@@ -823,6 +843,14 @@
                     const selectedText = selectedOption && selectedOption.textContent ? selectedOption.textContent.trim() : '';
                     const parsed = parseAssignee(selectedText);
                     closeQuickModal();
+
+                    if (result && result.accepted_and_started) {
+                        setTimeout(() => {
+                            const targetUrl = `${window.location.pathname}${window.location.search}#tasks-panel-${requestId}`;
+                            window.location.assign(targetUrl);
+                        }, 150);
+                        return;
+                    }
 
                     var targetCard = lastTrigger ? lastTrigger.closest('[data-service-request-id]') : null;
 
@@ -925,6 +953,10 @@
                 if (typeof window.srNotify === 'function') window.srNotify(false, 'Error de conexión.');
             } finally {
                 form.removeAttribute('aria-busy');
+                buttonSnapshots.forEach(({ btn, html }) => {
+                    btn.disabled = false;
+                    btn.innerHTML = html;
+                });
             }
         });
     }

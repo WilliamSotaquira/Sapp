@@ -12,7 +12,7 @@
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
 @endphp
 
-<div class="bg-white shadow rounded-lg overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
+<div id="tasks-panel-{{ $serviceRequest->id }}" tabindex="-1" class="bg-white shadow rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
     <div class="px-4 sm:px-6 py-4 border-b {{ $isDead ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50' }}">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center">
@@ -138,6 +138,17 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#tasks-panel-')) return;
+
+    const target = document.querySelector(hash);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => target.focus({ preventScroll: true }), 250);
+});
+
 function toggleTaskStatus(taskId, isChecked) {
     console.log('Toggle task:', taskId, 'checked:', isChecked);
 

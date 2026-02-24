@@ -78,9 +78,16 @@
                     Cancelar
                 </button>
                 <button type="submit"
+                        data-submit-mode="assign"
                         class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                     <i class="fas fa-save mr-2"></i>
                     Asignar y Continuar
+                </button>
+                <button type="submit"
+                        data-submit-mode="accept-start"
+                        class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200">
+                    <i class="fas fa-play mr-2"></i>
+                    Aceptar e Iniciar
                 </button>
             </div>
         </form>
@@ -96,8 +103,10 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
 
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn ? submitBtn.innerHTML : '';
+            const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
+            const submitter = e.submitter;
+            const submitMode = submitter && submitter.dataset ? submitter.dataset.submitMode : 'assign';
+            const buttonSnapshots = submitButtons.map(btn => ({ btn, html: btn.innerHTML }));
             const technicianSelect = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
 
             // Validar que se seleccionó un técnico
@@ -107,16 +116,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Mostrar loading
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Asignando...';
+            submitButtons.forEach(btn => btn.disabled = true);
+            if (submitter) {
+                submitter.innerHTML = submitMode === 'accept-start'
+                    ? '<i class="fas fa-spinner fa-spin mr-2"></i>Aceptando e iniciando...'
+                    : '<i class="fas fa-spinner fa-spin mr-2"></i>Asignando...';
             }
             form.setAttribute('aria-busy', 'true');
+
+            const formData = new FormData(form);
+            formData.set('accept_and_start', submitMode === 'accept-start' ? '1' : '0');
 
             // Enviar formulario
             fetch(form.action, {
                 method: 'POST',
-                body: new FormData(form),
+                body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -128,6 +142,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json().then(data => {
                         if (typeof window.srNotify === 'function') window.srNotify(true, data.message || 'Técnico asignado.');
                         closeModal('assign-technician-modal-{{ $serviceRequest->id }}');
+
+                        if (data && data.accepted_and_started) {
+                            setTimeout(() => {
+                                const targetUrl = `${window.location.pathname}${window.location.search}#tasks-panel-{{ $serviceRequest->id }}`;
+                                window.location.assign(targetUrl);
+                            }, 150);
+                            return;
+                        }
 
                         const selectedOption = technicianSelect.options[technicianSelect.selectedIndex];
                         const selectedText = selectedOption ? selectedOption.textContent.trim() : '';
@@ -211,10 +233,10 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .finally(() => {
                 form.removeAttribute('aria-busy');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                }
+                buttonSnapshots.forEach(({ btn, html }) => {
+                    btn.disabled = false;
+                    btn.innerHTML = html;
+                });
             });
         });
     }

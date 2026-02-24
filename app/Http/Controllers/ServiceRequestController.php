@@ -427,9 +427,16 @@ class ServiceRequestController extends Controller
     public function accept(Request $request, ServiceRequest $serviceRequest)
     {
         $result = $this->workflowService->acceptRequest($serviceRequest);
+        $focusTasks = $request->boolean('focus_tasks');
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json($result);
+        }
+
+        if ($focusTasks) {
+            return redirect()
+                ->to(route('service-requests.show', $serviceRequest) . '#tasks-panel-' . $serviceRequest->id)
+                ->with($result['success'] ? 'success' : 'error', $result['message']);
         }
 
         return redirect()->back()->with(
@@ -457,9 +464,16 @@ class ServiceRequestController extends Controller
     {
         $useStandardTasks = $request->input('use_standard_tasks', '0') === '1';
         $result = $this->workflowService->startProcessing($serviceRequest, $useStandardTasks);
+        $focusTasks = $request->boolean('focus_tasks');
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json($result);
+        }
+
+        if ($focusTasks) {
+            return redirect()
+                ->to(route('service-requests.show', $serviceRequest) . '#tasks-panel-' . $serviceRequest->id)
+                ->with($result['success'] ? 'success' : 'error', $result['message']);
         }
 
         return redirect()->back()->with(
@@ -996,16 +1010,17 @@ class ServiceRequestController extends Controller
             );
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'assigned_to' => [
                 'required',
                 'exists:users,id',
                 Rule::exists('technicians', 'user_id')
                     ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
             ],
+            'accept_and_start' => ['nullable', 'boolean'],
         ]);
 
-        if (!$this->isTechnicianAssignedToCompany((int) $request->assigned_to, (int) $service_request->company_id)) {
+        if (!$this->isTechnicianAssignedToCompany((int) $validated['assigned_to'], (int) $service_request->company_id)) {
             return response()->json(
                 [
                     'success' => false,
@@ -1016,11 +1031,13 @@ class ServiceRequestController extends Controller
         }
 
         try {
+            $acceptAndStart = (bool) ($validated['accept_and_start'] ?? false);
+
             $service_request->update([
-                'assigned_to' => $request->assigned_to,
+                'assigned_to' => $validated['assigned_to'],
             ]);
 
-            $this->serviceRequestService->syncTasksTechnician($service_request, (int) $request->assigned_to);
+            $this->serviceRequestService->syncTasksTechnician($service_request, (int) $validated['assigned_to']);
 
             if (class_exists('App\Models\ServiceRequestHistory')) {
                 \App\Models\ServiceRequestHistory::create([
@@ -1029,18 +1046,57 @@ class ServiceRequestController extends Controller
                     'action' => 'ASIGNACIÓN_RÁPIDA',
                     'description' => 'Solicitud asignada a técnico mediante asignación rápida',
                     'details' => [
-                        'assigned_to' => $request->assigned_to,
+                        'assigned_to' => $validated['assigned_to'],
                         'assigned_by' => auth()->id(),
+                        'accept_and_start' => $acceptAndStart,
                     ],
                 ]);
             }
 
+            if ($acceptAndStart) {
+                $service_request->refresh();
+
+                if ($service_request->status === 'PENDIENTE') {
+                    $acceptResult = $this->workflowService->acceptRequest($service_request);
+                    if (!($acceptResult['success'] ?? false)) {
+                        return response()->json(
+                            [
+                                'success' => false,
+                                'message' => 'Técnico asignado, pero no se pudo aceptar la solicitud: ' . ($acceptResult['message'] ?? 'Error desconocido.'),
+                            ],
+                            422,
+                        );
+                    }
+                }
+
+                $service_request->refresh();
+                if ($service_request->status === 'ACEPTADA') {
+                    $startResult = $this->workflowService->startProcessing($service_request, false);
+                    if (!($startResult['success'] ?? false)) {
+                        return response()->json(
+                            [
+                                'success' => false,
+                                'message' => 'Técnico asignado y solicitud aceptada, pero no se pudo iniciar: ' . ($startResult['message'] ?? 'Error desconocido.'),
+                            ],
+                            422,
+                        );
+                    }
+                }
+            }
+
+            $service_request->refresh()->load('assignee');
+            $acceptedAndStarted = $acceptAndStart && $service_request->status === 'EN_PROCESO';
+
             return response()->json([
                 'success' => true,
-                'message' => 'Técnico asignado correctamente',
+                'message' => $acceptedAndStarted
+                    ? 'Técnico asignado, solicitud aceptada e iniciada correctamente.'
+                    : 'Técnico asignado correctamente',
                 'assigned_to' => $service_request->assignee->name,
                 'assigned_to_email' => $service_request->assignee?->getEmailForCompany((int) $service_request->company_id),
                 'assigned_to_position' => $service_request->assignee?->getPositionForCompany((int) $service_request->company_id),
+                'status' => $service_request->status,
+                'accepted_and_started' => $acceptedAndStarted,
             ]);
         } catch (\Exception $e) {
             Log::error('Error en asignación rápida: ' . $e->getMessage());

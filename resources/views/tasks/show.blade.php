@@ -285,6 +285,17 @@
                             <span class="text-xs px-2 py-0.5 rounded border {{ $subtask->priority === 'high' ? 'border-orange-200 bg-orange-50 text-orange-700' : ($subtask->priority === 'low' ? 'border-gray-200 bg-gray-50 text-gray-600' : 'border-amber-200 bg-amber-50 text-amber-700') }}">
                                 {{ $subtaskPriorityLabels[$subtask->priority] ?? 'Media' }}
                             </span>
+
+                            <button type="button"
+                                    class="subtask-edit opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-all p-1"
+                                    data-task-id="{{ $task->id }}"
+                                    data-subtask-id="{{ $subtask->id }}"
+                                    data-subtask-title="{{ $subtask->title }}"
+                                    data-subtask-status="{{ $subtask->status ?? ($subtask->isCompleted() ? 'completed' : 'pending') }}"
+                                    data-subtask-priority="{{ $subtask->priority ?? 'medium' }}"
+                                    data-url="{{ route('tasks.subtasks.update', [$task, $subtask]) }}">
+                                <i class="fas fa-pen text-xs"></i>
+                            </button>
                             
                             <button type="button"
                                     class="subtask-delete opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1"
@@ -693,6 +704,59 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error:', error);
                 showToast('Error al eliminar', 'error');
+            });
+        });
+    });
+
+    // Editar texto de subtareas
+    document.querySelectorAll('.subtask-edit').forEach(button => {
+        button.addEventListener('click', function() {
+            const url = this.dataset.url;
+            const subtaskId = this.dataset.subtaskId;
+            const item = document.getElementById(`subtask-item-${subtaskId}`);
+            const titleEl = item ? item.querySelector('.subtask-title') : null;
+            const currentTitle = (titleEl ? titleEl.textContent : this.dataset.subtaskTitle || '').trim();
+            const nextTitle = prompt('Editar texto de la subtarea:', currentTitle);
+
+            if (nextTitle === null) return;
+            const cleanTitle = nextTitle.trim();
+            if (!cleanTitle) {
+                showToast('El texto de la subtarea no puede estar vacío', 'error');
+                return;
+            }
+            if (cleanTitle === currentTitle) return;
+
+            this.disabled = true;
+
+            fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: cleanTitle
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.success) {
+                    if (titleEl) {
+                        titleEl.textContent = (data.subtask && data.subtask.title) ? data.subtask.title : cleanTitle;
+                    }
+                    this.dataset.subtaskTitle = cleanTitle;
+                    showToast((data && data.message) || 'Subtarea actualizada', 'success');
+                } else {
+                    showToast((data && data.message) || 'No se pudo actualizar la subtarea', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Error al actualizar la subtarea', 'error');
+            })
+            .finally(() => {
+                this.disabled = false;
             });
         });
     });
