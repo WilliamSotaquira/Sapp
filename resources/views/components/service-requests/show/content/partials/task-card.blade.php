@@ -42,7 +42,7 @@
                     {{ strtolower($task->status ?? '') === 'completed' ? 'checked' : '' }}
                     onchange="toggleTaskStatus({{ $task->id }}, this.checked)"
                     {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
-                    title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está EN PROCESO.' : '' }}">
+                    title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está ACEPTADA o EN PROCESO.' : '' }}">
             </div>
 
             <div class="flex-1">
@@ -146,7 +146,7 @@
                                 {{ $subtask->is_completed ? 'checked' : '' }}
                                 onchange="toggleSubtaskStatus({{ $task->id }}, {{ $subtask->id }}, this.checked)"
                                 {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
-                                title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está EN PROCESO.' : '' }}">
+                                title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está ACEPTADA o EN PROCESO.' : '' }}">
                         </div>
 
                         <div class="flex-1">

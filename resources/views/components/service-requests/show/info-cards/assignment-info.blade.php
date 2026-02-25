@@ -10,7 +10,7 @@
         : '';
 @endphp
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
+<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-assignment-card="1" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
     <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100' }} px-6 py-3 border-b">
         <h3 class="sr-card-title text-gray-800 flex items-center">
             <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-green-600' }} mr-3"></i>
@@ -158,11 +158,15 @@
                         </button>
                         <button type="submit"
                             data-submit-mode="assign"
+                            name="accept_and_start"
+                            value="0"
                             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
                             Asignar y Continuar
                         </button>
                         <button type="submit"
                             data-submit-mode="accept-start"
+                            name="accept_and_start"
+                            value="1"
                             class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
                             Aceptar e Iniciar
                         </button>
@@ -248,7 +252,10 @@
                     <ul class="text-sm text-red-700 list-disc list-inside" data-errors-list></ul>
                 </div>
 
-                <form id="requesterQuickCreateFromAssignForm" data-url="{{ route('api.requesters.quick-create') }}" class="space-y-4">
+                <form id="requesterQuickCreateFromAssignForm"
+                    data-url="{{ route('api.requesters.quick-create') }}"
+                    data-department-url="{{ route('api.departments.quick-create') }}"
+                    class="space-y-4">
                     <div>
                         <label for="quickAssignRequesterName" class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
                         <input type="text" id="quickAssignRequesterName" name="name" maxlength="255" data-quick-requester-assign-field disabled
@@ -281,6 +288,13 @@
                                     <option value="{{ $department }}">{{ $department }}</option>
                                 @endforeach
                             </select>
+                            <div class="mt-2 flex justify-end">
+                                <button type="button" id="quickAssignCreateDepartmentBtn"
+                                    class="inline-flex items-center gap-2 text-xs font-medium text-purple-700 hover:text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Nuevo departamento</span>
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label for="quickAssignRequesterPosition" class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
@@ -363,6 +377,9 @@
         var email = payload.email || '';
         var card = payload.cardEl || null;
         if (!card && requestId) {
+            card = document.querySelector('[data-assignment-card="1"][data-service-request-id="' + requestId + '"]');
+        }
+        if (!card && requestId) {
             card = document.querySelector('[data-service-request-id="' + requestId + '"]');
         }
         if (!card) return;
@@ -438,6 +455,7 @@
             const errorsBox = document.getElementById('requesterQuickCreateFromAssignErrors');
             const assignSelect = document.getElementById('quick_assign_requester');
             const submitBtn = document.getElementById('submitRequesterQuickCreateFromAssign');
+            const createDepartmentBtn = document.getElementById('quickAssignCreateDepartmentBtn');
 
             if (!openBtn || !modal || !closeBtn || !cancelBtn || !form || !assignSelect) {
                 return;
@@ -522,6 +540,73 @@
             openBtn.addEventListener('click', openCreateModal);
             closeBtn.addEventListener('click', closeCreateModal);
             cancelBtn.addEventListener('click', closeCreateModal);
+
+            async function createDepartmentQuick() {
+                const departmentUrl = form.dataset.departmentUrl;
+                const deptInput = document.getElementById('quickAssignRequesterDepartment');
+                if (!departmentUrl || !deptInput) return;
+
+                const typedName = window.prompt('Nombre del nuevo departamento:');
+                const departmentName = (typedName || '').trim();
+                if (!departmentName) return;
+
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+                const companyId = (document.querySelector('[data-service-request-id]')?.getAttribute('data-company-id') || '').trim() || null;
+
+                if (createDepartmentBtn) {
+                    createDepartmentBtn.disabled = true;
+                    createDepartmentBtn.classList.add('opacity-70');
+                }
+
+                try {
+                    const response = await fetch(departmentUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                        },
+                        body: JSON.stringify({
+                            name: departmentName,
+                            company_id: companyId,
+                        }),
+                    });
+
+                    const data = await response.json().catch(() => null);
+                    if (!response.ok) {
+                        const firstError = data?.errors ? Object.values(data.errors)?.[0]?.[0] : null;
+                        const message = firstError || data?.message || 'No se pudo crear el departamento.';
+                        if (typeof window.srNotify === 'function') window.srNotify(false, String(message));
+                        return;
+                    }
+
+                    const optionValue = String(data?.name || departmentName);
+                    const exists = Array.from(deptInput.options).some(opt => opt.value === optionValue);
+                    if (!exists) {
+                        deptInput.add(new Option(optionValue, optionValue, true, true));
+                    }
+                    deptInput.value = optionValue;
+
+                    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2 && window.jQuery(deptInput).data('select2')) {
+                        window.jQuery(deptInput).val(optionValue).trigger('change');
+                    } else {
+                        deptInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (typeof window.srNotify === 'function') window.srNotify(true, 'Departamento creado.');
+                } finally {
+                    if (createDepartmentBtn) {
+                        createDepartmentBtn.disabled = false;
+                        createDepartmentBtn.classList.remove('opacity-70');
+                    }
+                }
+            }
+
+            createDepartmentBtn?.addEventListener('click', function(e) {
+                e.preventDefault();
+                createDepartmentQuick();
+            });
 
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) closeCreateModal();
@@ -792,7 +877,7 @@
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
-            const submitter = e.submitter;
+            const submitter = e.submitter || document.activeElement;
             const submitMode = submitter && submitter.dataset ? submitter.dataset.submitMode : 'assign';
             const buttonSnapshots = submitButtons.map(btn => ({ btn, html: btn.innerHTML }));
             const selectedValue = selectField.value;

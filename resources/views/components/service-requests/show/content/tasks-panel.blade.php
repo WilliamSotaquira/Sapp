@@ -6,7 +6,7 @@
         ->orderBy('created_at', 'desc')
         ->get();
     $canManageTasks = in_array($serviceRequest->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO']);
-    $canConfirmTaskProgress = $serviceRequest->status === 'EN_PROCESO';
+    $canConfirmTaskProgress = in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO']);
     $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
