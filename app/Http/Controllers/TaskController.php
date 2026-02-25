@@ -231,7 +231,7 @@ class TaskController extends Controller
             'technical_notes' => 'nullable|string',
             'task_organization' => 'nullable|in:none,subtasks,checklist',
             'subtasks' => 'nullable|array',
-            'subtasks.*.title' => 'required|string|max:255',
+            'subtasks.*.title' => 'required|string|max:400',
             'subtasks.*.notes' => 'nullable|string',
             'subtasks.*.estimated_minutes' => 'nullable|integer|min:5|max:480',
             'subtasks.*.priority' => 'nullable|in:urgent,high,medium,low',
@@ -991,7 +991,7 @@ class TaskController extends Controller
     {
         $validated = $request->validate([
             'type' => 'nullable|in:impact,regular',
-            'title' => 'required|string|max:255',
+            'title' => 'required|string|max:400',
             'description' => 'nullable|string',
             'technician_id' => 'nullable|exists:technicians,id',
             'service_request_id' => 'nullable|exists:service_requests,id',
@@ -1560,7 +1560,7 @@ class TaskController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
+            'title' => 'sometimes|required|string|max:400',
             'priority' => 'sometimes|required|in:high,medium,low',
             'status' => 'sometimes|required|in:pending,in_progress,completed',
             'estimated_minutes' => 'sometimes|nullable|integer|min:5|max:480',
@@ -1614,11 +1614,11 @@ class TaskController extends Controller
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
-            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.');
+            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.');
         }
 
         if ($subtask->status === 'completed') {
@@ -1712,7 +1712,7 @@ class TaskController extends Controller
             if (!$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
@@ -1779,7 +1779,7 @@ class TaskController extends Controller
             if (!$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
@@ -1847,6 +1847,6 @@ class TaskController extends Controller
             $task->load('serviceRequest:id,status');
         }
 
-        return optional($task->serviceRequest)->status === 'EN_PROCESO';
+        return in_array(optional($task->serviceRequest)->status, ['ACEPTADA', 'EN_PROCESO'], true);
     }
 }

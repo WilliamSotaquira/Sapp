@@ -79,12 +79,16 @@
                 </button>
                 <button type="submit"
                         data-submit-mode="assign"
+                        name="accept_and_start"
+                        value="0"
                         class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                     <i class="fas fa-save mr-2"></i>
                     Asignar y Continuar
                 </button>
                 <button type="submit"
                         data-submit-mode="accept-start"
+                        name="accept_and_start"
+                        value="1"
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200">
                     <i class="fas fa-play mr-2"></i>
                     Aceptar e Iniciar
@@ -104,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
 
             const submitButtons = Array.from(form.querySelectorAll('button[type="submit"]'));
-            const submitter = e.submitter;
+            const submitter = e.submitter || document.activeElement;
             const submitMode = submitter && submitter.dataset ? submitter.dataset.submitMode : 'assign';
             const buttonSnapshots = submitButtons.map(btn => ({ btn, html: btn.innerHTML }));
             const technicianSelect = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
@@ -154,8 +158,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         const selectedOption = technicianSelect.options[technicianSelect.selectedIndex];
                         const selectedText = selectedOption ? selectedOption.textContent.trim() : '';
                         const parts = selectedText.split('(');
-                        const assigneeName = (parts[0] || '').trim() || 'Técnico asignado';
+                        const assigneeName = (data && data.assigned_to) || (parts[0] || '').trim() || 'Técnico asignado';
                         const assigneeEmail = (data && data.assigned_to_email) ? data.assigned_to_email : (parts.length > 1 ? parts[1].replace(')', '').trim() : '');
+                        const assigneePosition = (data && data.assigned_to_position) ? data.assigned_to_position : '';
 
                         if (typeof window.updateServiceRequestAssignment === 'function') {
                             window.updateServiceRequestAssignment({
@@ -163,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 type: 'technician',
                                 name: assigneeName,
                                 email: assigneeEmail,
+                                position: assigneePosition,
                             });
                         }
 
