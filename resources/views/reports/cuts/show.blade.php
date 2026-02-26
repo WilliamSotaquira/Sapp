@@ -31,6 +31,10 @@
                 @endif
             </div>
             <div class="flex items-center gap-2">
+                <a href="{{ route('reports.cuts.edit', $cut) }}" class="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    Editar corte
+                </a>
                 <a href="{{ route('reports.cuts.requests', $cut) }}" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
                     <i class="fa-solid fa-list-check"></i>
                     Gestionar solicitudes

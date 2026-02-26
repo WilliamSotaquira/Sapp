@@ -97,6 +97,73 @@
         </div>
     </div>
 
+    <!-- Filtros de tareas -->
+    <div class="bg-white rounded-lg shadow-md p-4 sm:p-5 mb-4 sm:mb-6">
+        <form method="GET" action="{{ route('technician-schedule.my-agenda') }}" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+            <input type="hidden" name="date" value="{{ $date }}">
+            @if(request('technician_id'))
+                <input type="hidden" name="technician_id" value="{{ request('technician_id') }}">
+            @endif
+
+            <div class="xl:col-span-2">
+                <label for="filter_q" class="block text-xs font-semibold text-gray-600 mb-1">Buscar</label>
+                <input type="text" id="filter_q" name="q"
+                    value="{{ $filters['q'] ?? request('q') }}"
+                    placeholder="Código, título o descripción"
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div>
+                <label for="filter_status" class="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
+                <select id="filter_status" name="status"
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todos</option>
+                    <option value="pending" {{ ($filters['status'] ?? '') === 'pending' ? 'selected' : '' }}>Pendiente</option>
+                    <option value="confirmed" {{ ($filters['status'] ?? '') === 'confirmed' ? 'selected' : '' }}>Confirmada</option>
+                    <option value="in_progress" {{ ($filters['status'] ?? '') === 'in_progress' ? 'selected' : '' }}>En progreso</option>
+                    <option value="blocked" {{ ($filters['status'] ?? '') === 'blocked' ? 'selected' : '' }}>Bloqueada</option>
+                    <option value="in_review" {{ ($filters['status'] ?? '') === 'in_review' ? 'selected' : '' }}>En revisión</option>
+                    <option value="completed" {{ ($filters['status'] ?? '') === 'completed' ? 'selected' : '' }}>Completada</option>
+                    <option value="rescheduled" {{ ($filters['status'] ?? '') === 'rescheduled' ? 'selected' : '' }}>Reprogramada</option>
+                    <option value="cancelled" {{ ($filters['status'] ?? '') === 'cancelled' ? 'selected' : '' }}>Cancelada</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="filter_type" class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                <select id="filter_type" name="type"
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todos</option>
+                    <option value="impact" {{ ($filters['type'] ?? '') === 'impact' ? 'selected' : '' }}>Impacto</option>
+                    <option value="regular" {{ ($filters['type'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="filter_priority" class="block text-xs font-semibold text-gray-600 mb-1">Prioridad</label>
+                <select id="filter_priority" name="priority"
+                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Todas</option>
+                    <option value="critical" {{ ($filters['priority'] ?? '') === 'critical' ? 'selected' : '' }}>Crítica</option>
+                    <option value="high" {{ ($filters['priority'] ?? '') === 'high' ? 'selected' : '' }}>Alta</option>
+                    <option value="medium" {{ ($filters['priority'] ?? '') === 'medium' ? 'selected' : '' }}>Media</option>
+                    <option value="low" {{ ($filters['priority'] ?? '') === 'low' ? 'selected' : '' }}>Baja</option>
+                </select>
+            </div>
+
+            <div class="flex items-end gap-2">
+                <button type="submit"
+                    class="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors">
+                    Filtrar
+                </button>
+                <a href="{{ route('technician-schedule.my-agenda', array_filter(['date' => $date, 'technician_id' => request('technician_id')])) }}"
+                    class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors">
+                    Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+
     @php
         $totalTasks = $stats['pending'] + $stats['in_progress'] + $stats['completed'];
     @endphp
@@ -413,23 +480,27 @@
     function changeTechnician() {
         const technicianId = document.getElementById('technicianSelector').value;
         const date = document.getElementById('dateSelector').value;
-
-        let url = '{{ route('technician-schedule.my-agenda') }}?date=' + date;
+        const params = new URLSearchParams(window.location.search);
+        params.set('date', date);
         if (technicianId) {
-            url += '&technician_id=' + technicianId;
+            params.set('technician_id', technicianId);
+        } else {
+            params.delete('technician_id');
         }
-        window.location.href = url;
+        window.location.href = `{{ route('technician-schedule.my-agenda') }}?${params.toString()}`;
     }
 
     function changeDate() {
         const date = document.getElementById('dateSelector').value;
         const technicianId = document.getElementById('technicianSelector')?.value;
-
-        let url = '{{ route('technician-schedule.my-agenda') }}?date=' + date;
+        const params = new URLSearchParams(window.location.search);
+        params.set('date', date);
         if (technicianId) {
-            url += '&technician_id=' + technicianId;
+            params.set('technician_id', technicianId);
+        } else {
+            params.delete('technician_id');
         }
-        window.location.href = url;
+        window.location.href = `{{ route('technician-schedule.my-agenda') }}?${params.toString()}`;
     }
 
     function navigateDate(direction) {
@@ -669,7 +740,7 @@
 
                     showToast(`Tarea agendada (${data.scheduled_at}).`, 'success');
                     if (data.scheduled_date) {
-                        const params = new URLSearchParams();
+                        const params = new URLSearchParams(window.location.search);
                         params.set('date', data.scheduled_date);
                         const technicianId = document.getElementById('technicianSelector')?.value;
                         if (technicianId) {

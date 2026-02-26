@@ -68,7 +68,10 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-right">
-                                        <a href="{{ route('reports.cuts.show', $cut) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Ver</a>
+                                        <div class="inline-flex items-center gap-3">
+                                            <a href="{{ route('reports.cuts.edit', $cut) }}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Editar</a>
+                                            <a href="{{ route('reports.cuts.show', $cut) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Ver</a>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

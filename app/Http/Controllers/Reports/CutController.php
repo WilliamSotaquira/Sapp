@@ -53,6 +53,22 @@ class CutController extends Controller
         return view('reports.cuts.create', compact('activeContract', 'currentCompany'));
     }
 
+    public function edit(Cut $cut): View
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
+        return view('reports.cuts.edit', compact('cut', 'currentCompany'));
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -206,13 +222,17 @@ class CutController extends Controller
         }
 
         $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'notes' => ['nullable', 'string'],
         ]);
 
         $cut->update([
+            'name' => $validated['name'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         $this->syncCutServiceRequests($cut);
