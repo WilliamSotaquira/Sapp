@@ -1,10 +1,6 @@
-@props(['serviceRequest'])
+@props(['serviceRequest', 'technicians' => collect()])
 
-{{-- SOLUCIÓN DEFINITIVA - Obtener técnicos directamente --}}
 @php
-    use App\Models\User;
-    $technicians = User::orderBy('name')->get();
-
     $headerGradient = match($serviceRequest->status) {
         'CERRADA', 'CANCELADA', 'RECHAZADA' => 'from-gray-50 to-gray-100',
         default => 'from-white to-slate-50',
@@ -30,6 +26,15 @@
                             onclick="copyTicketNumber('{{ $serviceRequest->ticket_number }}', this)">
                             <i class="fas fa-copy text-[11px]"></i>
                         </button>
+                        @if ($serviceRequest->is_reportable === false)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                Excluida de reportes
+                            </span>
+                        @else
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Incluida en reportes
+                            </span>
+                        @endif
                     </div>
                     <p class="text-[#374151] mt-1 text-sm sm:text-base font-medium leading-snug line-clamp-2">{{ $serviceRequest->title }}</p>
                 </div>

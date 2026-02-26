@@ -101,7 +101,7 @@ class ServiceRequestWorkflowService
 
                 $serviceRequest->update([
                     'status' => 'EN_PROCESO',
-                    'started_at' => now(),
+                    'responded_at' => now(),
                 ]);
 
                 $this->createSystemEvidence($serviceRequest, [

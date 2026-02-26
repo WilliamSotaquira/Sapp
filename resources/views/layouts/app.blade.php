@@ -734,7 +734,7 @@
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
         <!-- Flash Messages (toast flotante para evitar salto de layout) -->
-        @if (session('success') || session('error'))
+        @if (!($__env->hasSection('disableGlobalFlash')) && (session('success') || session('error')))
             <div class="fixed top-20 right-4 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md space-y-2">
                 @if (session('success'))
                     <div class="alert-flash flex items-start gap-3 bg-green-100 border border-green-400 text-green-800 px-3 sm:px-4 py-2 sm:py-3 rounded shadow-lg text-sm sm:text-base"

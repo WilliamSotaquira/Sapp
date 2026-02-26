@@ -931,8 +931,11 @@
 
                     if (result && result.accepted_and_started) {
                         setTimeout(() => {
-                            const targetUrl = `${window.location.pathname}${window.location.search}#tasks-panel-${requestId}`;
-                            window.location.assign(targetUrl);
+                            const targetHash = `#tasks-panel-${requestId}`;
+                            if (window.location.hash !== targetHash) {
+                                window.location.hash = targetHash;
+                            }
+                            window.location.reload();
                         }, 150);
                         return;
                     }
