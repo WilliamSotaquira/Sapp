@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('title', "Solicitud {$serviceRequest->ticket_number}")
+@section('disableGlobalFlash', '1')
 
 @section('breadcrumb')
     <nav class="flex" aria-label="Breadcrumb">
@@ -27,7 +28,6 @@
 
     @php
         $isDeadState = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
-        $showUpdatedMessage = request()->query('updated') == 1 || session('success');
         if (!isset($previousRequestNav)) {
             $previousRequestNav = \App\Models\ServiceRequest::where('id', '<', $serviceRequest->id)
                 ->orderBy('id', 'desc')
@@ -39,13 +39,6 @@
     @endphp
 
     <div class="sr-view space-y-4 sm:space-y-6 {{ $isDeadState ? 'sr-dead-state' : '' }}">
-        @if ($showUpdatedMessage)
-            <div class="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800" role="status" aria-live="polite">
-                <i class="fas fa-check-circle mr-2"></i>
-                {{ session('success') ?: 'Solicitud de servicio actualizada exitosamente.' }}
-            </div>
-        @endif
-
         <div class="flex items-center justify-between gap-2 rounded-lg border {{ $isDeadState ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-200 bg-slate-50 text-slate-600' }} px-3 py-2 text-xs sm:text-sm"
             id="requestNavigation"
             data-prev-url="{{ $previousRequestNav ? route('service-requests.show', $previousRequestNav) : '' }}"
@@ -87,7 +80,7 @@
         </div>
 
         <!-- Header Principal con botón de edición -->
-        <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" />
+        <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
 
         <!-- Descripción del Problema (Lo más importante primero) -->
         <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
@@ -128,7 +121,7 @@
 
     <!-- Accesibilidad: anuncios y feedback sin recargar -->
     <div id="srLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <div id="srToast" class="fixed bottom-4 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="srToast" class="fixed top-20 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
     <button id="backToTopButton"
         type="button"
         class="fixed bottom-4 left-4 z-50 hidden h-11 w-11 rounded-full bg-red-600 text-white shadow-lg transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
@@ -157,7 +150,7 @@
     function toast(message, type) {
         if (!toastEl) return;
         toastEl.textContent = message || '';
-        toastEl.className = 'fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ' +
+        toastEl.className = 'fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ' +
             ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
         toastEl.classList.remove('hidden');
         setTimeout(function(){ toastEl.classList.add('hidden'); }, 3000);
@@ -195,9 +188,15 @@
     }
 
     var currentUrl = new URL(window.location.href);
-    if (currentUrl.searchParams.get('updated') === '1') {
+    var initialSuccessMessage = @json(session('success'));
+    if (initialSuccessMessage) {
+        announce(initialSuccessMessage);
+        toast(initialSuccessMessage, 'success');
+    } else if (currentUrl.searchParams.get('updated') === '1') {
         announce('Solicitud de servicio actualizada exitosamente.');
         toast('Solicitud de servicio actualizada exitosamente.', 'success');
+    }
+    if (currentUrl.searchParams.get('updated') === '1') {
         currentUrl.searchParams.delete('updated');
         var cleanQuery = currentUrl.searchParams.toString();
         var cleanUrl = currentUrl.pathname + (cleanQuery ? ('?' + cleanQuery) : '') + currentUrl.hash;

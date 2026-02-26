@@ -70,7 +70,8 @@
                 'icon' => 'check-circle',
                 'method' => 'MODAL',
                 'label' => 'Resolver Solicitud',
-                'condition' => $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() > 0,
+                'condition' => ($serviceRequest->is_reportable === false)
+                    || ($serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() > 0),
                 'modal_id' => 'resolve-modal-' . $serviceRequest->id,
             ],
             [

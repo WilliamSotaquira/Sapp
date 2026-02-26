@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ServiceRequest;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -85,8 +87,37 @@ class UserManagementController extends Controller
             return back()->with('error', 'No se puede eliminar: el usuario tiene perfil técnico asociado.');
         }
 
-        $user->companies()->detach();
-        $user->delete();
+        $assignedRequestsCount = ServiceRequest::withTrashed()
+            ->where('assigned_to', $user->id)
+            ->count();
+
+        if ($assignedRequestsCount > 0) {
+            return back()->with(
+                'error',
+                "No se puede eliminar: el usuario está asignado como técnico en {$assignedRequestsCount} solicitud(es). Reasigna esas solicitudes primero."
+            );
+        }
+
+        $requestedRequestsCount = ServiceRequest::withTrashed()
+            ->where('requested_by', $user->id)
+            ->count();
+
+        if ($requestedRequestsCount > 0) {
+            return back()->with(
+                'error',
+                "No se puede eliminar: el usuario figura como creador en {$requestedRequestsCount} solicitud(es)."
+            );
+        }
+
+        try {
+            $user->companies()->detach();
+            $user->delete();
+        } catch (QueryException $e) {
+            return back()->with(
+                'error',
+                'No se puede eliminar el usuario porque tiene información relacionada en el sistema. Elimina o reasigna esas relaciones primero.'
+            );
+        }
 
         return redirect()->route('users.index')
             ->with('success', 'Usuario eliminado exitosamente.');

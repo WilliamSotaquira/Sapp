@@ -655,15 +655,19 @@ class ServiceRequestController extends Controller
             return redirect()->route('service-requests.show', $serviceRequest->id)->with('error', 'Solo se pueden cerrar solicitudes RESUELTAS o PAUSADAS por vencimiento.');
         }
 
-        // No permitir cierre si hay tareas pendientes/en progreso/bloqueadas
-        $pendingTasksCount = $serviceRequest->tasks()
-            ->whereNotIn('status', ['completed', 'cancelled'])
-            ->count();
+        // Si la solicitud está excluida de reportes, exigir cierre con tareas completas.
+        // Si NO está excluida de reportes, no aplicar esta restricción.
+        $isExcludedFromReports = $serviceRequest->is_reportable === false;
+        if ($isExcludedFromReports) {
+            $pendingTasksCount = $serviceRequest->tasks()
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->count();
 
-        if ($pendingTasksCount > 0) {
-            return redirect()
-                ->route('service-requests.show', $serviceRequest->id)
-                ->with('error', 'No se puede cerrar la solicitud mientras existan tareas sin completar.');
+            if ($pendingTasksCount > 0) {
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest->id)
+                    ->with('error', 'No se puede cerrar la solicitud excluida de reportes mientras existan tareas sin completar.');
+            }
         }
 
         // Validaciones diferentes según el tipo de cierre + evidencias opcionales
@@ -1018,6 +1022,10 @@ class ServiceRequestController extends Controller
                     ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
             ],
             'accept_and_start' => ['nullable', 'boolean'],
+        ], [
+            'assigned_to.required' => 'Debes seleccionar un técnico.',
+            'assigned_to.exists' => 'El técnico seleccionado no es válido.',
+            'accept_and_start.boolean' => 'El valor de aceptar e iniciar no es válido.',
         ]);
 
         if (!$this->isTechnicianAssignedToCompany((int) $validated['assigned_to'], (int) $service_request->company_id)) {
