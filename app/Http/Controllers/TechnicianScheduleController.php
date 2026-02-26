@@ -47,7 +47,13 @@ class TechnicianScheduleController extends Controller
      */
     protected function getDayView($date, $technicianId = null)
     {
-        $query = Task::with(['technician.user', 'serviceRequest', 'sla'])
+        $query = Task::with([
+            'technician.user',
+            'serviceRequest' => function ($query) {
+                $query->withoutGlobalScope('workspace')->with(['subService.service']);
+            },
+            'sla',
+        ])
             ->forDate($date);
 
         if ($technicianId) {
@@ -80,7 +86,13 @@ class TechnicianScheduleController extends Controller
         $startOfWeek = Carbon::parse($date)->startOfWeek();
         $endOfWeek = Carbon::parse($date)->endOfWeek();
 
-        $query = Task::with(['technician.user', 'serviceRequest', 'sla'])
+        $query = Task::with([
+            'technician.user',
+            'serviceRequest' => function ($query) {
+                $query->withoutGlobalScope('workspace')->with(['subService.service']);
+            },
+            'sla',
+        ])
             ->whereBetween('scheduled_date', [$startOfWeek, $endOfWeek]);
 
         if ($technicianId) {
@@ -162,7 +174,12 @@ class TechnicianScheduleController extends Controller
         $end = $request->get('end');
         $technicianId = $request->get('technician_id');
 
-        $query = Task::with(['technician.user', 'serviceRequest'])
+        $query = Task::with([
+            'technician.user',
+            'serviceRequest' => function ($query) {
+                $query->withoutGlobalScope('workspace');
+            },
+        ])
             ->whereBetween('scheduled_date', [$start, $end]);
 
         if ($technicianId) {
@@ -360,8 +377,61 @@ class TechnicianScheduleController extends Controller
 
         $date = $request->get('date', now()->format('Y-m-d'));
 
-        $tasks = $technician->getTasksForDate($date);
-        $tasks->load(['serviceRequest.subService.service']);
+        $filters = [
+            'q' => trim((string) $request->get('q', '')),
+            'status' => trim((string) $request->get('status', '')),
+            'type' => trim((string) $request->get('type', '')),
+            'priority' => trim((string) $request->get('priority', '')),
+        ];
+
+        $tasksQuery = Task::query()
+            ->where('technician_id', $technician->id)
+            ->whereDate('scheduled_date', $date);
+
+        $openTasksQuery = Task::query()
+            ->where('technician_id', $technician->id)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNull('scheduled_date');
+
+        $applyTaskFilters = function ($query) use ($filters) {
+            if ($filters['q'] !== '') {
+                $search = $filters['q'];
+                $query->where(function ($inner) use ($search) {
+                    $inner->where('task_code', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+
+            if ($filters['status'] !== '') {
+                $query->where('status', $filters['status']);
+            }
+
+            if ($filters['type'] !== '') {
+                $query->where('type', $filters['type']);
+            }
+
+            if ($filters['priority'] !== '') {
+                $priority = $filters['priority'] === 'urgent' ? 'critical' : $filters['priority'];
+                $query->where('priority', $priority);
+            }
+        };
+
+        $applyTaskFilters($tasksQuery);
+        $applyTaskFilters($openTasksQuery);
+
+        $tasks = $tasksQuery
+            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
+            ->orderBy('scheduled_start_time')
+            ->with([
+                'serviceRequest' => function ($query) {
+                    $query->withoutGlobalScope('workspace')->with(['subService.service']);
+                },
+                'slaCompliance',
+            ])
+            ->get();
+
         $scheduleBlocks = $technician->scheduleBlocks()->forDate($date)->orderBy('start_time')->get();
 
         $stats = [
@@ -379,15 +449,26 @@ class TechnicianScheduleController extends Controller
             $technicians = Technician::with('user')->active()->get();
         }
 
-        $openTasks = Task::query()
-            ->with('serviceRequest.subService.service')
-            ->where('technician_id', $technician->id)
-            ->whereNotIn('status', ['completed', 'cancelled'])
-            ->whereNull('scheduled_date')
+        $openTasks = $openTasksQuery
+            ->with([
+                'serviceRequest' => function ($query) {
+                    $query->withoutGlobalScope('workspace')->with(['subService.service']);
+                },
+            ])
             ->orderByDesc('updated_at')
             ->get();
 
-        return view('technician-schedule.my-agenda', compact('technician', 'tasks', 'scheduleBlocks', 'date', 'stats', 'isViewingOther', 'technicians', 'openTasks'));
+        return view('technician-schedule.my-agenda', compact(
+            'technician',
+            'tasks',
+            'scheduleBlocks',
+            'date',
+            'stats',
+            'isViewingOther',
+            'technicians',
+            'openTasks',
+            'filters'
+        ));
     }
 
     /**
@@ -506,7 +587,12 @@ class TechnicianScheduleController extends Controller
         $date = $request->get('date', now()->format('Y-m-d'));
         $technicians = Technician::with('user')->active()->get();
 
-        $tasks = Task::with(['technician.user', 'serviceRequest'])
+        $tasks = Task::with([
+            'technician.user',
+            'serviceRequest' => function ($query) {
+                $query->withoutGlobalScope('workspace');
+            },
+        ])
             ->forDate($date)
             ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
             ->orderBy('scheduled_order')

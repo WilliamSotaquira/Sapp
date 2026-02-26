@@ -385,7 +385,20 @@
     </div>
 
     <!-- Solicitudes Recientes con filtros y búsqueda -->
-    <div class="dash-card reveal bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading" style="--delay: .22s">
+    @php
+        $recentSearch = trim((string) request('recent_search', ''));
+        $allowedRecentStatuses = array_merge(['__OPEN__', '__ALL__'], array_keys($statuses ?? []));
+        $recentStatus = (string) request('recent_status', '__OPEN__');
+        if (!in_array($recentStatus, $allowedRecentStatuses, true)) {
+            $recentStatus = '__OPEN__';
+        }
+        $recentPerPage = (int) request('recent_per_page', 5);
+        $allowedPerPage = [5, 10, 20, 50, 100];
+        if (!in_array($recentPerPage, $allowedPerPage, true)) {
+            $recentPerPage = 5;
+        }
+    @endphp
+    <div id="recent-requests-card" class="dash-card reveal bg-white rounded-2xl shadow" aria-labelledby="recent-requests-heading" style="--delay: .22s">
         <div class="px-6 py-4 border-b border-gray-200 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h2 id="recent-requests-heading" class="text-lg font-semibold text-gray-900">Solicitudes Recientes</h2>
@@ -406,9 +419,10 @@
 
                 <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-2 py-1.5">
                     <select id="filter-status" aria-label="Filtrar por estado" class="border border-gray-300 bg-white rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 min-w-[170px]">
-                        <option value="">Todos los estados</option>
+                        <option value="__OPEN__" {{ $recentStatus === '__OPEN__' ? 'selected' : '' }}>Abiertas</option>
+                        <option value="__ALL__" {{ $recentStatus === '__ALL__' ? 'selected' : '' }}>Todos los estados</option>
                         @foreach(array_keys($statuses) as $status)
-                            <option value="{{ $status }}" {{ request('recent_status') === $status ? 'selected' : '' }}>{{ ucfirst(strtolower(str_replace('_', ' ', $status))) }}</option>
+                            <option value="{{ $status }}" {{ $recentStatus === $status ? 'selected' : '' }}>{{ ucfirst(strtolower(str_replace('_', ' ', $status))) }}</option>
                         @endforeach
                     </select>
                     <select id="filter-per-page" aria-label="Cantidad por página" class="border border-gray-300 bg-white rounded-lg text-xs sm:text-sm px-3 py-2 focus:ring-blue-500 focus:border-blue-500 min-w-[88px]">
@@ -430,23 +444,19 @@
         <div class="px-6 py-3 border-b border-gray-100 bg-slate-50/50">
             <div class="flex flex-wrap items-center gap-2" aria-label="Filtros rápidos por estado">
                 <span class="text-xs text-gray-500">Atajos:</span>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-slate-300 bg-white text-slate-700 hover:bg-slate-50" data-status="">Todas</button>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100" data-status="PENDIENTE">Pendiente</button>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" data-status="ACEPTADA">Aceptada</button>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100" data-status="EN_PROCESO">En proceso</button>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-green-300 bg-green-50 text-green-700 hover:bg-green-100" data-status="RESUELTA">Resuelta</button>
-                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200" data-status="CERRADA">Cerrada</button>
+                @php
+                    $chipActive = ' ring-2 ring-blue-400 font-semibold';
+                @endphp
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100{{ $recentStatus === '__OPEN__' ? $chipActive : '' }}" data-status="__OPEN__">Abiertas</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-slate-300 bg-white text-slate-700 hover:bg-slate-50{{ $recentStatus === '__ALL__' ? $chipActive : '' }}" data-status="__ALL__">Todas</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100{{ $recentStatus === 'PENDIENTE' ? $chipActive : '' }}" data-status="PENDIENTE">Pendiente</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100{{ $recentStatus === 'ACEPTADA' ? $chipActive : '' }}" data-status="ACEPTADA">Aceptada</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100{{ $recentStatus === 'EN_PROCESO' ? $chipActive : '' }}" data-status="EN_PROCESO">En proceso</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-green-300 bg-green-50 text-green-700 hover:bg-green-100{{ $recentStatus === 'RESUELTA' ? $chipActive : '' }}" data-status="RESUELTA">Resuelta</button>
+                <button type="button" class="quick-status-chip px-2.5 py-1 rounded-full text-xs border border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200{{ $recentStatus === 'CERRADA' ? $chipActive : '' }}" data-status="CERRADA">Cerrada</button>
             </div>
         </div>
         @php
-            $recentSearch = trim((string) request('recent_search', ''));
-            $recentStatus = (string) request('recent_status', '');
-            $recentPerPage = (int) request('recent_per_page', 5);
-            $allowedPerPage = [5, 10, 20, 50, 100];
-            if (!in_array($recentPerPage, $allowedPerPage, true)) {
-                $recentPerPage = 5;
-            }
-
             if(!isset($recentRequests)) {
                 $recentQuery = \App\Models\ServiceRequest::query()
                     ->with(['subService.service.family.contract', 'requester'])
@@ -481,7 +491,11 @@
                     });
                 }
 
-                if ($recentStatus !== '') {
+                if ($recentStatus === '__OPEN__') {
+                    $recentQuery->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+                } elseif ($recentStatus === '__ALL__') {
+                    // Sin filtro de estado
+                } elseif ($recentStatus !== '') {
                     $recentQuery->where('status', $recentStatus);
                 }
 
@@ -619,36 +633,29 @@
 <!-- Script para funcionalidades de UX mejoradas (filtrado + ordenamiento accesible + animaciones + persistencia) -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-requests');
-    const statusFilter = document.getElementById('filter-status');
-    const perPageFilter = document.getElementById('filter-per-page');
-    const table = document.getElementById('recent-requests-table');
-    if(!searchInput || !statusFilter || !perPageFilter || !table) return;
-    const tbody = table.querySelector('tbody');
-    let rows = Array.from(tbody.querySelectorAll('.request-row'));
-    const clearBtn = document.getElementById('clear-filters');
-    const densityBtn = document.getElementById('toggle-density');
-    const quickStatusChips = Array.from(document.querySelectorAll('.quick-status-chip'));
-    const visibleCount = document.getElementById('visible-requests-count');
-    const visibleFooter = document.getElementById('visible-requests-footer');
-    const FILTER_DELAY_MS = 450;
     const STORAGE_KEY = 'dashboard_density_v1';
     const densityClass = 'dense-rows';
+    const FILTER_DELAY_MS = 350;
     let filterTimeout = null;
+    let requestSeq = 0;
 
-    // Restaurar preferencia de densidad
-    try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if(stored && stored.density) {
-            table.classList.add(densityClass);
+    function readDensityPreference() {
+        try {
+            const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            return !!(stored && stored.density);
+        } catch (e) {
+            return false;
         }
-    } catch(e) {}
+    }
 
-    function applyServerFilters(resetPage = true) {
-        const url = new URL(window.location.href);
-        const term = searchInput.value.trim();
-        const status = statusFilter.value;
-        const perPage = perPageFilter.value;
+    function persistDensityPreference(enabled) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ density: !!enabled }));
+        } catch (e) {}
+    }
+
+    function buildRecentUrl({ term, status, perPage, resetPage, pageUrl }) {
+        const url = new URL(pageUrl || window.location.href);
 
         if (term) url.searchParams.set('recent_search', term);
         else url.searchParams.delete('recent_search');
@@ -659,120 +666,167 @@ document.addEventListener('DOMContentLoaded', function() {
         if (perPage) url.searchParams.set('recent_per_page', perPage);
         else url.searchParams.delete('recent_per_page');
 
-        if (resetPage) {
-            url.searchParams.delete('recent_page');
-        }
+        if (resetPage) url.searchParams.delete('recent_page');
 
         url.hash = 'recent-requests-heading';
-        window.location.href = url.toString();
+        return url;
     }
 
-    function scheduleServerFilter() {
-        clearTimeout(filterTimeout);
-        filterTimeout = setTimeout(() => applyServerFilters(true), FILTER_DELAY_MS);
-    }
+    function applyRecentCardBindings() {
+        const card = document.getElementById('recent-requests-card');
+        if (!card) return;
 
-    function syncVisibleCounters() {
-        const visibleRows = rows.length;
-        if (visibleCount) visibleCount.textContent = visibleRows;
-        if (visibleFooter) visibleFooter.textContent = visibleRows;
-    }
+        const searchInput = card.querySelector('#search-requests');
+        const statusFilter = card.querySelector('#filter-status');
+        const perPageFilter = card.querySelector('#filter-per-page');
+        const table = card.querySelector('#recent-requests-table');
+        const clearBtn = card.querySelector('#clear-filters');
+        const densityBtn = card.querySelector('#toggle-density');
+        const quickStatusChips = Array.from(card.querySelectorAll('.quick-status-chip'));
 
-    function syncQuickStatusChips() {
-        const activeStatus = statusFilter.value || '';
-        quickStatusChips.forEach((chip) => {
-            const chipStatus = chip.dataset.status || '';
-            const isActive = chipStatus === activeStatus;
-            chip.classList.toggle('ring-2', isActive);
-            chip.classList.toggle('ring-blue-400', isActive);
-            chip.classList.toggle('font-semibold', isActive);
-        });
-    }
+        if (!searchInput || !statusFilter || !perPageFilter) return;
 
-    searchInput.addEventListener('input', scheduleServerFilter);
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            clearTimeout(filterTimeout);
-            applyServerFilters(true);
+        if (table && readDensityPreference()) {
+            table.classList.add(densityClass);
         }
-    });
 
-    statusFilter.addEventListener('change', () => applyServerFilters(true));
-    perPageFilter.addEventListener('change', () => applyServerFilters(true));
+        function scheduleApply() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => applyServerFilters({ resetPage: true }), FILTER_DELAY_MS);
+        }
 
-    quickStatusChips.forEach((chip) => {
-        chip.addEventListener('click', () => {
-            statusFilter.value = chip.dataset.status || '';
-            syncQuickStatusChips();
-            applyServerFilters(true);
-        });
-    });
+        async function applyServerFilters({ resetPage = true, pageUrl = null } = {}) {
+            const seq = ++requestSeq;
+            const url = buildRecentUrl({
+                term: searchInput.value.trim(),
+                status: statusFilter.value,
+                perPage: perPageFilter.value,
+                resetPage,
+                pageUrl,
+            });
 
-    clearBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        statusFilter.value = '';
-        perPageFilter.value = '5';
-        applyServerFilters(true);
-    });
+            try {
+                const response = await fetch(url.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!response.ok) return;
 
-    densityBtn.addEventListener('click', () => {
-        table.classList.toggle(densityClass);
-        persistState();
-    });
+                const html = await response.text();
+                if (seq !== requestSeq) return;
 
-    const headers = table.querySelectorAll('.sortable');
-    let currentSort = { key: null, direction: 'asc' };
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const incoming = doc.getElementById('recent-requests-card');
+                const current = document.getElementById('recent-requests-card');
+                if (!incoming || !current) return;
 
-    function sortRows(key) {
-        const direction = (currentSort.key === key && currentSort.direction === 'asc') ? 'desc' : 'asc';
-        currentSort = { key, direction };
-
-        headers.forEach(h => h.setAttribute('aria-sort', h.dataset.sort === key ? direction === 'asc' ? 'ascending' : 'descending' : 'none'));
-
-        const multiplier = direction === 'asc' ? 1 : -1;
-        rows.sort((a, b) => {
-            let aVal, bVal;
-            switch(key) {
-                case 'ticket':
-                    aVal = a.dataset.ticket.toLowerCase();
-                    bVal = b.dataset.ticket.toLowerCase();
-                    break;
-                case 'title':
-                    aVal = a.dataset.title;
-                    bVal = b.dataset.title;
-                    break;
-                case 'status':
-                    aVal = a.dataset.status;
-                    bVal = b.dataset.status;
-                    break;
-                case 'date':
-                    aVal = parseInt(a.dataset.date, 10);
-                    bVal = parseInt(b.dataset.date, 10);
-                    break;
-                default:
-                    aVal = '';
-                    bVal = '';
+                current.replaceWith(incoming);
+                window.history.replaceState({}, '', url.toString());
+                applyRecentCardBindings();
+            } catch (e) {
+                // Mantener UX estable sin romper interacción.
             }
-            if (aVal < bVal) return -1 * multiplier;
-            if (aVal > bVal) return 1 * multiplier;
-            return 0;
+        }
+
+        searchInput.addEventListener('input', scheduleApply);
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(filterTimeout);
+                applyServerFilters({ resetPage: true });
+            }
         });
-        // Reinsertar manteniendo sólo filas visibles (para no romper filtro)
-        const fragment = document.createDocumentFragment();
-        rows.forEach(r => fragment.appendChild(r));
-        tbody.appendChild(fragment);
+
+        statusFilter.addEventListener('change', () => applyServerFilters({ resetPage: true }));
+        perPageFilter.addEventListener('change', () => applyServerFilters({ resetPage: true }));
+
+        quickStatusChips.forEach((chip) => {
+            chip.addEventListener('click', () => {
+                statusFilter.value = chip.dataset.status || '__ALL__';
+                applyServerFilters({ resetPage: true });
+            });
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                statusFilter.value = '__OPEN__';
+                perPageFilter.value = '5';
+                applyServerFilters({ resetPage: true });
+            });
+        }
+
+        if (densityBtn && table) {
+            densityBtn.addEventListener('click', () => {
+                table.classList.toggle(densityClass);
+                persistDensityPreference(table.classList.contains(densityClass));
+            });
+        }
+
+        card.querySelectorAll('a[href*="recent_page="]').forEach((link) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                applyServerFilters({ resetPage: false, pageUrl: link.href });
+            });
+        });
+
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        let rows = Array.from(tbody.querySelectorAll('.request-row'));
+        const headers = table.querySelectorAll('.sortable');
+        let currentSort = { key: null, direction: 'asc' };
+
+        function sortRows(key) {
+            const direction = (currentSort.key === key && currentSort.direction === 'asc') ? 'desc' : 'asc';
+            currentSort = { key, direction };
+
+            headers.forEach(h => h.setAttribute('aria-sort', h.dataset.sort === key ? direction === 'asc' ? 'ascending' : 'descending' : 'none'));
+
+            const multiplier = direction === 'asc' ? 1 : -1;
+            rows.sort((a, b) => {
+                let aVal, bVal;
+                switch(key) {
+                    case 'ticket':
+                        aVal = a.dataset.ticket.toLowerCase();
+                        bVal = b.dataset.ticket.toLowerCase();
+                        break;
+                    case 'title':
+                        aVal = a.dataset.title;
+                        bVal = b.dataset.title;
+                        break;
+                    case 'status':
+                        aVal = a.dataset.status;
+                        bVal = b.dataset.status;
+                        break;
+                    case 'date':
+                        aVal = parseInt(a.dataset.date, 10);
+                        bVal = parseInt(b.dataset.date, 10);
+                        break;
+                    default:
+                        aVal = '';
+                        bVal = '';
+                }
+                if (aVal < bVal) return -1 * multiplier;
+                if (aVal > bVal) return 1 * multiplier;
+                return 0;
+            });
+            const fragment = document.createDocumentFragment();
+            rows.forEach(r => fragment.appendChild(r));
+            tbody.appendChild(fragment);
+        }
+
+        headers.forEach(header => {
+            header.addEventListener('click', () => sortRows(header.dataset.sort));
+            header.addEventListener('keydown', (e) => {
+                if(e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    sortRows(header.dataset.sort);
+                }
+            });
+        });
     }
 
-    headers.forEach(header => {
-        header.addEventListener('click', () => sortRows(header.dataset.sort));
-        header.addEventListener('keydown', (e) => {
-            if(e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                sortRows(header.dataset.sort);
-            }
-        });
-    });
+    applyRecentCardBindings();
 
     // Animación de contadores (IntersectionObserver)
     const counters = document.querySelectorAll('.count-up');
@@ -799,14 +853,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }, { threshold: 0.4 });
     counters.forEach(c => observer.observe(c));
 
-    function persistState() {
-        const state = {
-            density: table.classList.contains(densityClass)
-        };
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-    }
-    syncQuickStatusChips();
-    syncVisibleCounters();
 });
 </script>
 

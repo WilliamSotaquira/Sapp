@@ -3,6 +3,7 @@
 use App\Models\Service;
 use App\Models\SubService;
 use App\Models\Requester;
+use App\Models\Department;
 use App\Models\ServiceFamily;
 use App\Models\ServiceSubservice;
 use App\Models\StandardTask;
@@ -19,6 +20,54 @@ Route::prefix('api')->name('api.')->group(function () {
     // =========================================================================
     // SOLICITANTES (REQUESTERS)
     // =========================================================================
+
+    // Crear departamento rápido (para formularios) sin recargar la página
+    Route::post('/departments/quick-create', function (Request $request) {
+        try {
+            $currentCompanyId = (int) $request->session()->get('current_company_id');
+            if (!$currentCompanyId) {
+                return response()->json([
+                    'message' => 'Debes seleccionar una entidad para crear departamentos.',
+                ], 422);
+            }
+
+            $validated = $request->validate([
+                'name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('departments', 'name')->where(fn ($query) => $query->where('company_id', $currentCompanyId)),
+                ],
+                'company_id' => ['nullable', 'integer', Rule::in([$currentCompanyId])],
+            ]);
+
+            $nextOrder = ((int) Department::query()
+                ->where('company_id', $currentCompanyId)
+                ->max('sort_order')) + 1;
+
+            $department = Department::create([
+                'company_id' => $currentCompanyId,
+                'name' => trim($validated['name']),
+                'is_active' => true,
+                'sort_order' => max(0, $nextOrder),
+            ]);
+
+            return response()->json([
+                'id' => $department->id,
+                'name' => $department->name,
+                'display' => $department->name,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            \Log::error('Error creando departamento rápido: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'message' => 'Error al crear el departamento.',
+            ], 500);
+        }
+    })->name('departments.quick-create');
 
     // Crear solicitante rápido (para formularios) sin recargar la página
     Route::post('/requesters/quick-create', function (Request $request) {

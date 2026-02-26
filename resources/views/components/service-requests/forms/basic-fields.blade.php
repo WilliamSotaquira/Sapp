@@ -150,7 +150,10 @@
                             <ul class="text-sm text-red-700 list-disc list-inside" data-errors-list></ul>
                         </div>
 
-                        <div id="requesterQuickCreateForm" data-url="{{ route('api.requesters.quick-create') }}" class="space-y-4">
+                        <div id="requesterQuickCreateForm"
+                            data-url="{{ route('api.requesters.quick-create') }}"
+                            data-department-url="{{ route('api.departments.quick-create') }}"
+                            class="space-y-4">
                             <div>
                                 <label for="quickRequesterName" class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
                                 <input type="text" id="quickRequesterName" data-quick-requester-field disabled maxlength="255"
@@ -183,6 +186,13 @@
                                             <option value="{{ $department }}">{{ $department }}</option>
                                         @endforeach
                                     </select>
+                                    <div class="mt-2 flex justify-end">
+                                        <button type="button" id="quickCreateDepartmentBtn"
+                                            class="inline-flex items-center gap-2 text-xs font-medium text-blue-700 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded">
+                                            <i class="fas fa-plus"></i>
+                                            <span>Nuevo departamento</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label for="quickRequesterPosition" class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
@@ -781,6 +791,7 @@
                                 const errorsList = errorsBox?.querySelector('[data-errors-list]');
                                 const nameInput = document.getElementById('quickRequesterName');
                                 const submitBtn = document.getElementById('submitRequesterQuickCreate');
+                                const createDepartmentBtn = document.getElementById('quickCreateDepartmentBtn');
 
                                 let lastFocusEl = null;
 
@@ -888,6 +899,72 @@
                                 closeBtn.addEventListener('click', hideModal);
                                 cancelBtn.addEventListener('click', hideModal);
                                 overlay?.addEventListener('click', hideModal);
+
+                                async function createDepartmentQuick() {
+                                    const departmentUrl = form.dataset.departmentUrl;
+                                    const deptInput = document.getElementById('quickRequesterDepartment');
+                                    if (!departmentUrl || !deptInput) return;
+
+                                    const typedName = window.prompt('Nombre del nuevo departamento:');
+                                    const departmentName = (typedName || '').trim();
+                                    if (!departmentName) return;
+
+                                    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                                    const companyId = (document.getElementById('company_id')?.value || '').trim() || null;
+
+                                    if (createDepartmentBtn) {
+                                        createDepartmentBtn.disabled = true;
+                                        createDepartmentBtn.classList.add('opacity-70');
+                                    }
+
+                                    try {
+                                        const res = await fetch(departmentUrl, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                                            },
+                                            body: JSON.stringify({
+                                                name: departmentName,
+                                                company_id: companyId,
+                                            }),
+                                        });
+
+                                        const data = await res.json().catch(() => null);
+                                        if (!res.ok) {
+                                            const firstError = data?.errors ? Object.values(data.errors)?.[0]?.[0] : null;
+                                            const message = firstError || data?.message || 'No se pudo crear el departamento.';
+                                            if (typeof window.srNotify === 'function') window.srNotify(false, String(message));
+                                            return;
+                                        }
+
+                                        const optionValue = String(data?.name || departmentName);
+                                        const exists = Array.from(deptInput.options).some(opt => opt.value === optionValue);
+                                        if (!exists) {
+                                            deptInput.add(new Option(optionValue, optionValue, true, true));
+                                        }
+                                        deptInput.value = optionValue;
+
+                                        if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(deptInput).data('select2')) {
+                                            window.jQuery(deptInput).val(optionValue).trigger('change');
+                                        } else {
+                                            deptInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                        }
+
+                                        if (typeof window.srNotify === 'function') window.srNotify(true, 'Departamento creado.');
+                                    } finally {
+                                        if (createDepartmentBtn) {
+                                            createDepartmentBtn.disabled = false;
+                                            createDepartmentBtn.classList.remove('opacity-70');
+                                        }
+                                    }
+                                }
+
+                                createDepartmentBtn?.addEventListener('click', function (e) {
+                                    e.preventDefault();
+                                    createDepartmentQuick();
+                                });
 
                                 modal.addEventListener('keydown', function (e) {
                                     if (e.key === 'Escape') {

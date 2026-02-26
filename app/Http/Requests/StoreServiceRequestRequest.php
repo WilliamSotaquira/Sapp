@@ -54,7 +54,7 @@ class StoreServiceRequestRequest extends FormRequest
 
             // Subtareas (opcional dentro de cada tarea)
             'tasks.*.subtasks' => 'nullable|array',
-            'tasks.*.subtasks.*.title' => 'nullable|string|max:255',
+            'tasks.*.subtasks.*.title' => 'nullable|string|max:400',
             'tasks.*.subtasks.*.notes' => 'nullable|string',
             'tasks.*.subtasks.*.priority' => 'nullable|in:high,medium,low',
             'tasks.*.subtasks.*.estimated_minutes' => 'nullable|integer|min:0|max:9999',
