@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\ServiceRequest;
 use App\Models\Service;
+use App\Models\Requester;
 use App\Models\ServiceLevelAgreement;
 use App\Exports\SlaComplianceExport;
 use App\Exports\RequestsByStatusExport;
@@ -200,14 +201,21 @@ class ReportController extends Controller
      */
     public function servicePerformance(Request $request)
     {
-        $dateFrom = $request->get('date_from', now()->subDays(30)->format('Y-m-d'));
-        $dateTo = $request->get('date_to', now()->format('Y-m-d'));
+        $dateFrom = $request->input('date_from', $request->input('start_date', now()->subDays(30)->format('Y-m-d')));
+        $dateTo = $request->input('date_to', $request->input('end_date', now()->format('Y-m-d')));
+        $requesterId = $request->filled('requester_id') ? (int) $request->input('requester_id') : null;
+        $department = $request->filled('department') ? trim((string) $request->input('department')) : null;
+        $currentCompanyId = (int) session('current_company_id');
 
         // Crear objeto dateRange para la vista
         $dateRange = [
-            'start' => Carbon::parse($dateFrom),
-            'end' => Carbon::parse($dateTo)
+            'start' => Carbon::parse($dateFrom)->startOfDay(),
+            'end' => Carbon::parse($dateTo)->endOfDay()
         ];
+
+        if ($dateRange['start']->gt($dateRange['end'])) {
+            [$dateRange['start'], $dateRange['end']] = [$dateRange['end'], $dateRange['start']];
+        }
 
         $servicePerformance = ServiceRequest::selectRaw("
             services.name as service_name,
@@ -224,18 +232,45 @@ class ReportController extends Controller
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
         ->leftJoin('contracts', 'service_families.contract_id', '=', 'contracts.id')
-        ->whereBetween('service_requests.created_at', [$dateFrom, $dateTo])
-        ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')))
+        ->leftJoin('requesters', 'service_requests.requester_id', '=', 'requesters.id')
+        ->whereBetween('service_requests.created_at', [$dateRange['start'], $dateRange['end']])
+        ->when($currentCompanyId, fn($q) => $q->where('service_requests.company_id', $currentCompanyId))
+        ->when($requesterId, fn($q) => $q->where('service_requests.requester_id', $requesterId))
+        ->when($department, fn($q) => $q->where('requesters.department', $department))
         ->whereNull('service_requests.deleted_at')
         ->groupBy('services.id', 'services.name', 'service_families.name', 'contracts.number')
         ->get();
+
+        $requesters = Requester::query()
+            ->select('id', 'name', 'email')
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderBy('name')
+            ->get();
+
+        $departments = Requester::query()
+            ->select('department')
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->whereNotNull('department')
+            ->where('department', '!=', '')
+            ->distinct()
+            ->orderBy('department')
+            ->pluck('department');
 
         if ($request->has('export')) {
             return Excel::download(new ServicePerformanceExport($dateFrom, $dateTo, (int) session('current_company_id')),
                 'service-performance-' . date('Y-m-d') . '.xlsx');
         }
 
-        return view('reports.service-performance', compact('servicePerformance', 'dateRange', 'dateFrom', 'dateTo'));
+        return view('reports.service-performance', compact(
+            'servicePerformance',
+            'dateRange',
+            'dateFrom',
+            'dateTo',
+            'requesters',
+            'departments',
+            'requesterId',
+            'department'
+        ));
     }
 
     /**
@@ -243,12 +278,16 @@ class ReportController extends Controller
      */
     public function monthlyTrends(Request $request)
     {
-        $months = $request->get('months', 12);
+        $months = (int) $request->get('months', 12);
+        $allowedMonths = [3, 6, 12, 24];
+        if (!in_array($months, $allowedMonths, true)) {
+            $months = 12;
+        }
 
         $trendsData = ServiceRequest::selectRaw("
             DATE_FORMAT(created_at, '%Y-%m') as month,
             COUNT(*) as total_requests,
-            COUNT(CASE WHEN status = 'RESUELTA' THEN 1 END) as resolved_requests,
+            COUNT(CASE WHEN status IN ('RESUELTA', 'CERRADA') THEN 1 END) as resolved_requests,
             AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
@@ -279,7 +318,7 @@ class ReportController extends Controller
             ];
         });
 
-        return view('reports.monthly-trends', compact('trends', 'months'));
+        return view('reports.monthly-trends', compact('trends', 'months', 'allowedMonths'));
     }
 
     /**
@@ -337,11 +376,20 @@ class ReportController extends Controller
                     );
 
                 case 'service-performance':
-                    $servicePerformance = $this->getServicePerformanceData($dateRange);
+                    $servicePerformance = $this->getServicePerformanceData($dateRange, $request->only(['requester_id', 'department']));
                     return $this->downloadPdf(
                         'reports.exports.service-performance-pdf',
                         compact('servicePerformance', 'dateRange'),
                         "reporte-rendimiento-servicios-{$timestamp}.pdf"
+                    );
+
+                case 'monthly-trends':
+                    $months = (int) $request->get('months', 12);
+                    $monthlyTrends = $this->getMonthlyTrendsData($months);
+                    return $this->downloadPdf(
+                        'reports.exports.monthly-trends-pdf',
+                        compact('monthlyTrends', 'months'),
+                        "reporte-tendencias-mensuales-{$timestamp}.pdf"
                     );
 
                 case 'request-timeline':
@@ -381,9 +429,15 @@ class ReportController extends Controller
                     return $this->downloadCsv($csv, "reporte-criticidad-{$timestamp}.csv");
 
                 case 'service-performance':
-                    $data = $this->getServicePerformanceData($dateRange);
+                    $data = $this->getServicePerformanceData($dateRange, $request->only(['requester_id', 'department']));
                     $csv = $this->formatServicePerformanceForCsv($data);
                     return $this->downloadCsv($csv, "reporte-rendimiento-servicios-{$timestamp}.csv");
+
+                case 'monthly-trends':
+                    $months = (int) $request->get('months', 12);
+                    $data = $this->getMonthlyTrendsData($months);
+                    $csv = $this->formatMonthlyTrendsForCsv($data);
+                    return $this->downloadCsv($csv, "reporte-tendencias-mensuales-{$timestamp}.csv");
 
                 case 'request-timeline':
                     return back()->with('info', 'Use la opción de exportación desde el detalle del timeline');
@@ -464,13 +518,20 @@ class ReportController extends Controller
      */
     private function getDateRange(Request $request): array
     {
-        $startDate = $request->input('start_date')
-            ? Carbon::parse($request->input('start_date'))->startOfDay()
+        $startInput = $request->input('start_date', $request->input('date_from'));
+        $endInput = $request->input('end_date', $request->input('date_to'));
+
+        $startDate = $startInput
+            ? Carbon::parse($startInput)->startOfDay()
             : Carbon::now()->subDays(30)->startOfDay();
 
-        $endDate = $request->input('end_date')
-            ? Carbon::parse($request->input('end_date'))->endOfDay()
+        $endDate = $endInput
+            ? Carbon::parse($endInput)->endOfDay()
             : Carbon::now()->endOfDay();
+
+        if ($startDate->gt($endDate)) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
 
         return [
             'start' => $startDate,
@@ -579,11 +640,17 @@ class ReportController extends Controller
     /**
      * Obtener datos de rendimiento por servicio
      */
-    private function getServicePerformanceData($dateRange)
+    private function getServicePerformanceData($dateRange, array $filters = [])
     {
+        $requesterId = !empty($filters['requester_id']) ? (int) $filters['requester_id'] : null;
+        $department = isset($filters['department']) ? trim((string) $filters['department']) : null;
+
         return ServiceRequest::selectRaw("
             services.name as service_name,
-            service_families.name as family_name,
+            CASE
+                WHEN contracts.number IS NULL THEN service_families.name
+                ELSE CONCAT(contracts.number, ' - ', service_families.name)
+            END as family_name,
             COUNT(service_requests.id) as total_requests,
             AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
@@ -592,10 +659,14 @@ class ReportController extends Controller
         ->join('sub_services', 'service_requests.sub_service_id', '=', 'sub_services.id')
         ->join('services', 'sub_services.service_id', '=', 'services.id')
         ->join('service_families', 'services.service_family_id', '=', 'service_families.id')
+        ->leftJoin('contracts', 'service_families.contract_id', '=', 'contracts.id')
+        ->leftJoin('requesters', 'service_requests.requester_id', '=', 'requesters.id')
         ->whereBetween('service_requests.created_at', [$dateRange['start'], $dateRange['end']])
         ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')))
+        ->when($requesterId, fn($q) => $q->where('service_requests.requester_id', $requesterId))
+        ->when($department !== null && $department !== '', fn($q) => $q->where('requesters.department', $department))
         ->whereNull('service_requests.deleted_at')
-        ->groupBy('services.id', 'services.name', 'service_families.name')
+        ->groupBy('services.id', 'services.name', 'service_families.name', 'contracts.number')
         ->get();
     }
 
@@ -670,6 +741,60 @@ class ReportController extends Controller
                 $item->resolved_count
             );
         }
+        return $csv;
+    }
+
+    private function getMonthlyTrendsData(int $months)
+    {
+        $allowedMonths = [3, 6, 12, 24];
+        if (!in_array($months, $allowedMonths, true)) {
+            $months = 12;
+        }
+
+        return ServiceRequest::selectRaw("
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            COUNT(*) as total_requests,
+            COUNT(CASE WHEN status IN ('RESUELTA', 'CERRADA') THEN 1 END) as resolved_requests,
+            AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
+        ")
+        ->reportable()
+        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
+        ->where('created_at', '>=', now()->subMonths($months))
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get()
+        ->map(function ($item) {
+            $completionRate = $item->total_requests > 0
+                ? round(($item->resolved_requests / $item->total_requests) * 100, 2)
+                : 0;
+
+            $monthName = Carbon::createFromFormat('Y-m', $item->month)->locale('es')->format('M Y');
+
+            return [
+                'month' => $item->month,
+                'month_name' => $monthName,
+                'total_requests' => (int) $item->total_requests,
+                'resolved_requests' => (int) $item->resolved_requests,
+                'completion_rate' => $completionRate,
+                'avg_resolution_hours' => round($item->avg_resolution_hours ?? 0, 1),
+            ];
+        });
+    }
+
+    private function formatMonthlyTrendsForCsv($data): string
+    {
+        $csv = "Mes,Total Solicitudes,Solicitudes Completadas,Tasa de Finalización (%),Horas Promedio de Resolución\n";
+        foreach ($data as $item) {
+            $csv .= sprintf(
+                "\"%s\",%d,%d,%.2f,%.1f\n",
+                $item['month_name'],
+                $item['total_requests'],
+                $item['resolved_requests'],
+                $item['completion_rate'],
+                $item['avg_resolution_hours']
+            );
+        }
+
         return $csv;
     }
 

@@ -107,7 +107,8 @@ class TimelineReportController extends ReportController
             ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view('reports.request-timeline', compact('requests', 'dateRange'));
     }

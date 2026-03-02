@@ -93,8 +93,14 @@
 
     <!-- Título y Descripción -->
     <td class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 hidden md:table-cell">
-        <div class="font-medium {{ $isClosed ? 'text-gray-600' : 'text-gray-900' }} text-xs">{{ Str::limit($request->title, 65) }}</div>
-        <div class="text-xs text-gray-500 mt-0.5">{{ Str::limit($request->description, 60) }}</div>
+        <div class="font-medium {{ $isClosed ? 'text-gray-600' : 'text-gray-900' }} text-xs"
+             title="{{ $request->title }}">
+            {{ Str::limit($request->title, 65) }}
+        </div>
+        <div class="text-xs text-gray-500 mt-0.5"
+             title="{{ $request->description }}">
+            {{ Str::limit($request->description, 60) }}
+        </div>
     </td>
 
     <!-- Servicio -->

@@ -131,7 +131,7 @@ class ServiceRequest extends Model
         static::addGlobalScope('workspace', function ($query) {
             $companyId = session('current_company_id');
             if ($companyId) {
-                $query->where('company_id', $companyId);
+                $query->where($query->getModel()->qualifyColumn('company_id'), $companyId);
             }
         });
 
