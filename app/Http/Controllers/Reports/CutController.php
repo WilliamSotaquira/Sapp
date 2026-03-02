@@ -289,6 +289,72 @@ class CutController extends Controller
         return view('reports.cuts.requests', compact('cut', 'serviceRequests', 'selectedIds'));
     }
 
+    public function associatedRequests(Cut $cut, Request $request): View
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
+        $search = trim((string) $request->query('q', ''));
+        $familyId = (int) $request->query('family_id', 0);
+
+        $family = null;
+        if ($familyId > 0) {
+            $family = ServiceFamily::query()
+                ->with('contract:id,number')
+                ->when($cut->contract_id, fn($q) => $q->where('contract_id', $cut->contract_id))
+                ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
+                    $query->whereHas('contract', function ($q) use ($currentCompanyId) {
+                        $q->where('company_id', $currentCompanyId);
+                    });
+                })
+                ->find($familyId);
+
+            if (!$family) {
+                abort(404);
+            }
+        }
+
+        $serviceRequestsQuery = $cut->serviceRequests()
+            ->with(['subService.service.family.contract', 'requester', 'assignee'])
+            ->when($familyId > 0, function ($query) use ($familyId) {
+                $query->whereHas('subService.service.family', function ($q) use ($familyId) {
+                    $q->where('service_families.id', $familyId);
+                });
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('ticket_number', 'like', '%' . $search . '%')
+                        ->orWhere('title', 'like', '%' . $search . '%')
+                        ->orWhereHas('requester', function ($rq) use ($search) {
+                            $rq->where('email', 'like', '%' . $search . '%');
+                        });
+                });
+            })
+            ->orderByDesc('created_at');
+
+        $totalAssociated = (clone $serviceRequestsQuery)->count();
+        $serviceRequests = $serviceRequestsQuery
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('reports.cuts.associated-requests', compact(
+            'cut',
+            'serviceRequests',
+            'family',
+            'familyId',
+            'totalAssociated',
+            'search'
+        ));
+    }
+
     public function updateRequests(Cut $cut, Request $request): RedirectResponse
     {
         $validated = $request->validate([

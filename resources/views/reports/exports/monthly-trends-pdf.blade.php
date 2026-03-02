@@ -1,53 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporte de Tendencias Mensuales</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .table th { background-color: #f2f2f2; font-weight: bold; }
-        .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1f2937; }
+        h1 { font-size: 20px; margin: 0 0 6px 0; }
+        .meta { color: #4b5563; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+        th { background: #f3f4f6; font-weight: 700; }
+        .right { text-align: right; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Reporte de Tendencias Mensuales</h1>
-        <p><strong>Período:</strong> Últimos 6 meses</p>
-        <p><strong>Generado:</strong> {{ now()->format('d/m/Y H:i') }}</p>
-    </div>
+    <h1>Reporte de Tendencias Mensuales</h1>
+    <div class="meta">Rango analizado: últimos {{ $months }} meses</div>
 
-    @if(count($trends) > 0)
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Total Solicitudes</th>
-                    <th>Cerradas</th>
-                    <th>Tasa Finalización</th>
-                    <th>Satisfacción</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($trends as $item)
+    <table>
+        <thead>
+            <tr>
+                <th>Mes</th>
+                <th class="right">Total Solicitudes</th>
+                <th class="right">Solicitudes Completadas</th>
+                <th class="right">Tasa de Finalización (%)</th>
+                <th class="right">Horas Promedio Resolución</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($monthlyTrends as $item)
                 <tr>
                     <td>{{ $item['month_name'] }}</td>
-                    <td>{{ $item['total_requests'] }}</td>
-                    <td>{{ $item['closed_requests'] }}</td>
-                    <td>{{ $item['completion_rate'] }}%</td>
-                    <td>{{ $item['avg_satisfaction'] }}/5</td>
+                    <td class="right">{{ $item['total_requests'] }}</td>
+                    <td class="right">{{ $item['resolved_requests'] }}</td>
+                    <td class="right">{{ $item['completion_rate'] }}</td>
+                    <td class="right">{{ $item['avg_resolution_hours'] }}</td>
                 </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @else
-        <p>No hay datos disponibles para mostrar tendencias.</p>
-    @endif
-
-    <div class="footer">
-        <p>Sistema SAP - Módulo de Servicios</p>
-    </div>
+            @empty
+                <tr>
+                    <td colspan="5">No hay datos disponibles.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
 </body>
 </html>

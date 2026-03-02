@@ -35,6 +35,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
 
         // Gestión manual de solicitudes asociadas
         Route::get('/{cut}/requests', [CutController::class, 'requests'])->name('requests');
+        Route::get('/{cut}/associated-requests', [CutController::class, 'associatedRequests'])->name('associated-requests');
         Route::post('/{cut}/requests', [CutController::class, 'updateRequests'])->name('requests.update');
         Route::post('/{cut}/requests/add-ticket', [CutController::class, 'addRequestByTicket'])->name('requests.add-ticket');
         Route::delete('/{cut}/requests/{service_request}', [CutController::class, 'removeRequest'])->name('requests.remove');

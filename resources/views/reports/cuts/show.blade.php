@@ -100,9 +100,14 @@
                                         <span class="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
                                             {{ $family->services_count ?? 0 }} servicio{{ ($family->services_count ?? 0) !== 1 ? 's' : '' }}
                                         </span>
-                                        <span class="inline-block mt-1 ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                                        <a
+                                            href="{{ route('reports.cuts.associated-requests', ['cut' => $cut, 'family_id' => $family->id]) }}"
+                                            class="inline-block mt-1 ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                            title="Ver solicitudes asociadas de esta familia en este corte"
+                                            onclick="event.stopPropagation();"
+                                        >
                                             {{ (int) ($familyRequestCounts[$family->id] ?? 0) }} solicitud{{ ((int) ($familyRequestCounts[$family->id] ?? 0)) !== 1 ? 'es' : '' }} en este corte
-                                        </span>
+                                        </a>
                                     </div>
                                 </label>
                             @endforeach

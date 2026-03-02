@@ -29,6 +29,11 @@
 
     <!-- Campo Título -->
     <div>
+        <a href="https://chat.deepseek.com/a/chat/s/11c45da7-bd72-41b9-8c85-46853dc9fe20"
+           target="_blank" rel="noopener noreferrer"
+           class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline mb-2">
+            <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
+        </a>
         <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
             Título de la Solicitud <span class="text-red-500">*</span>
         </label>

@@ -24,13 +24,18 @@
             </button>
         </div>
 
-        <!-- Información de evidencias -->
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <div class="flex items-center text-sm text-blue-800">
-                <i class="fas fa-check-circle mr-2 text-blue-500"></i>
-                <span>Evidencias adjuntas: <strong>{{ $serviceRequest->evidences->count() }}</strong></span>
-            </div>
-        </div>
+        <a href="https://chat.deepseek.com/a/chat/s/b7462bd2-f93f-4913-bca4-5c249eee8ec8"
+           target="_blank" rel="noopener noreferrer"
+           class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline mb-3">
+            <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
+        </a>
+
+        <p class="mb-4 text-sm text-gray-700">
+            Evidencias adjuntas:
+            <span class="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
+                {{ $serviceRequest->evidences->count() }}
+            </span>
+        </p>
 
         @if($errors->any())
             <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
