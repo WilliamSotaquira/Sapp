@@ -19,12 +19,12 @@
                     <div class="flex items-center gap-2 flex-wrap">
                         <h1 class="text-base sm:text-lg font-semibold text-slate-900">Solicitud {{ $serviceRequest->ticket_number }}</h1>
                         <button type="button"
-                            class="copy-ticket-btn inline-flex items-center justify-center w-6 h-6 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
                             data-default-icon="fa-copy"
                             data-success-icon="fa-check"
                             aria-label="Copiar número de ticket"
                             onclick="copyTicketNumber('{{ $serviceRequest->ticket_number }}', this)">
-                            <i class="fas fa-copy text-[11px]"></i>
+                            <i class="fas fa-copy text-[13px]"></i>
                         </button>
                         @if ($serviceRequest->is_reportable === false)
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
