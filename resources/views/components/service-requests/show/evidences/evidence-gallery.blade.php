@@ -66,9 +66,19 @@
                             {{ $fileEvidences->count() > 0 ? 'Agregar más evidencias' : 'Subir primera evidencia' }}
                         </h4>
                     </div>
-                    <span class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-                        Máx. 10MB por archivo
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                            Máx. 10MB por archivo
+                        </span>
+                        <button type="button"
+                            class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            data-default-icon="fa-copy"
+                            data-success-icon="fa-check"
+                            aria-label="Copiar número de ticket"
+                            onclick="copyTicketNumber('{{ $serviceRequest->ticket_number }}', this)">
+                            <i class="fas fa-copy text-[13px]"></i>
+                        </button>
+                    </div>
                 </div>
                 <x-service-requests.show.evidences.evidence-uploader :serviceRequest="$serviceRequest" />
             </div>
