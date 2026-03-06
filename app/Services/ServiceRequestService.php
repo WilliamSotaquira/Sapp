@@ -10,12 +10,138 @@ use App\Models\Task;
 use App\Models\Technician;
 use App\Models\User;
 use App\Models\Cut;
+use App\Models\Requester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class ServiceRequestService
 {
+    /**
+     * Busca o crea solicitante para una entidad.
+     * Prioriza email cuando viene informado; si no, usa nombre + entidad.
+     */
+    public function findOrCreateRequesterForCompany(
+        int $companyId,
+        string $name,
+        ?string $email = null,
+        ?string $department = null,
+        ?string $position = null
+    ): int {
+        $cleanName = trim($name);
+        $cleanEmail = $email !== null ? trim($email) : null;
+        $cleanEmail = $cleanEmail !== '' ? mb_strtolower($cleanEmail) : null;
+
+        if ($cleanName === '') {
+            throw new \InvalidArgumentException('El nombre del solicitante es obligatorio.');
+        }
+
+        $query = Requester::withoutGlobalScopes()->where('company_id', $companyId);
+        if ($cleanEmail) {
+            $query->where('email', $cleanEmail);
+        } else {
+            $query->where('name', $cleanName);
+        }
+
+        $requester = $query->first();
+        if ($requester) {
+            $requester->is_active = true;
+
+            if ($cleanEmail && empty($requester->email)) {
+                $requester->email = $cleanEmail;
+            }
+            if (!empty($department) && empty($requester->department)) {
+                $requester->department = trim($department);
+            }
+            if (!empty($position) && empty($requester->position)) {
+                $requester->position = trim($position);
+            }
+
+            $requester->save();
+            return (int) $requester->id;
+        }
+
+        $created = Requester::withoutGlobalScopes()->create([
+            'company_id' => $companyId,
+            'name' => $cleanName,
+            'email' => $cleanEmail,
+            'department' => $department ? trim($department) : null,
+            'position' => $position ? trim($position) : null,
+            'is_active' => true,
+        ]);
+
+        return (int) $created->id;
+    }
+
+    /**
+     * Resuelve en una sola consulta los IDs técnicos para crear una solicitud.
+     * Retorna: family_id, service_id, sub_service_id, sla_id y cut_id (más reciente).
+     */
+    public function resolveCreationContext(int $companyId, int $subServiceId, string $criticality): array
+    {
+        $criticality = mb_strtoupper(trim($criticality));
+
+        $row = DB::table('sub_services as ss')
+            ->join('services as s', 's.id', '=', 'ss.service_id')
+            ->join('service_families as sf', 'sf.id', '=', 's.service_family_id')
+            ->join('companies as c', function ($join) use ($companyId) {
+                $join->on('c.active_contract_id', '=', 'sf.contract_id')
+                    ->where('c.id', '=', $companyId);
+            })
+            ->leftJoin('service_subservices as sss', function ($join) {
+                $join->on('sss.sub_service_id', '=', 'ss.id')
+                    ->on('sss.service_family_id', '=', 'sf.id')
+                    ->where('sss.is_active', '=', 1);
+            })
+            ->leftJoin('service_level_agreements as sla_ss', function ($join) use ($criticality) {
+                $join->on('sla_ss.service_subservice_id', '=', 'sss.id')
+                    ->where('sla_ss.is_active', '=', 1)
+                    ->where('sla_ss.criticality_level', '=', $criticality);
+            })
+            ->leftJoin('service_level_agreements as sla_sf', function ($join) use ($criticality) {
+                $join->on('sla_sf.service_family_id', '=', 'sf.id')
+                    ->where('sla_sf.is_active', '=', 1)
+                    ->where('sla_sf.criticality_level', '=', $criticality);
+            })
+            ->where('ss.id', $subServiceId)
+            ->where('ss.is_active', 1)
+            ->where('s.is_active', 1)
+            ->where('sf.is_active', 1)
+            ->select([
+                'sf.id as family_id',
+                's.id as service_id',
+                'ss.id as sub_service_id',
+                DB::raw('COALESCE(MIN(sla_ss.id), MIN(sla_sf.id)) as sla_id'),
+            ])
+            ->selectSub(function ($query) use ($companyId) {
+                $query->from('cuts as cu')
+                    ->join('contracts as ct', 'ct.id', '=', 'cu.contract_id')
+                    ->where('ct.company_id', '=', $companyId)
+                    ->orderByDesc('cu.start_date')
+                    ->orderByDesc('cu.id')
+                    ->limit(1)
+                    ->select('cu.id');
+            }, 'cut_id')
+            ->groupBy('sf.id', 's.id', 'ss.id')
+            ->first();
+
+        if (!$row) {
+            throw new \RuntimeException('No se pudo resolver familia/servicio para el subservicio indicado en la entidad activa.');
+        }
+
+        if (empty($row->sla_id)) {
+            throw new \RuntimeException('No se encontró SLA activo para la criticidad indicada.');
+        }
+
+        return [
+            'family_id' => (int) $row->family_id,
+            'service_id' => (int) $row->service_id,
+            'sub_service_id' => (int) $row->sub_service_id,
+            'sla_id' => (int) $row->sla_id,
+            'cut_id' => !empty($row->cut_id) ? (int) $row->cut_id : null,
+        ];
+    }
+
     private function applySorting($query, ?string $sortBy): void
     {
         switch ($sortBy) {
