@@ -84,8 +84,7 @@
                 <div>
                     <p class="text-sm font-medium text-emerald-800">Confirmar Aceptación</p>
                     <p class="text-xs text-emerald-700 mt-1">
-                        Al aceptar, la solicitud cambiará a estado <strong>ACEPTADA</strong> y se iniciará el proceso de
-                        servicio.
+                        Puedes solo aceptar la solicitud o aceptarla e iniciar el servicio de inmediato.
                     </p>
                 </div>
             </div>
@@ -107,6 +106,11 @@
                     class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200">
                     <i class="fas fa-handshake mr-2"></i>
                     Confirmar Aceptación
+                </button>
+                <button type="submit" name="accept_and_start" value="1"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                    <i class="fas fa-play mr-2"></i>
+                    Aceptar e Iniciar Servicio
                 </button>
             </div>
         </form>
