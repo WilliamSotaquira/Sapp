@@ -427,7 +427,30 @@ class ServiceRequestController extends Controller
     public function accept(Request $request, ServiceRequest $serviceRequest)
     {
         $result = $this->workflowService->acceptRequest($serviceRequest);
+        $acceptAndStart = $request->boolean('accept_and_start');
         $focusTasks = $request->boolean('focus_tasks');
+
+        if (($result['success'] ?? false) && $acceptAndStart) {
+            $startResult = $this->workflowService->startProcessing($serviceRequest, false);
+
+            if (!($startResult['success'] ?? false)) {
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Solicitud aceptada, pero no se pudo iniciar el servicio: ' . ($startResult['message'] ?? 'Error desconocido.'),
+                    ], 422);
+                }
+
+                return redirect()
+                    ->to(route('service-requests.show', $serviceRequest) . ($focusTasks ? '#tasks-panel-' . $serviceRequest->id : ''))
+                    ->with('error', 'Solicitud aceptada, pero no se pudo iniciar el servicio: ' . ($startResult['message'] ?? 'Error desconocido.'));
+            }
+
+            $result = [
+                'success' => true,
+                'message' => 'Solicitud aceptada e iniciada correctamente.',
+            ];
+        }
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json($result);
