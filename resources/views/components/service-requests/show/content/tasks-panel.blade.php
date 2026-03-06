@@ -10,6 +10,11 @@
     $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isInProgress = $serviceRequest->status === 'EN_PROCESO';
+    $canResolveByEvidence = ($serviceRequest->is_reportable === false)
+        || $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->exists();
+    $completedTasksCount = $tasks->filter(fn($task) => strtolower((string) $task->status) === 'completed')->count();
+    $allTasksCompleted = $tasks->isNotEmpty() && $completedTasksCount === $tasks->count();
 @endphp
 
 <div id="tasks-panel-{{ $serviceRequest->id }}" tabindex="-1" class="bg-white shadow rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
@@ -29,11 +34,6 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
-                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
-                    <i class="fas fa-external-link-alt mr-2"></i>
-                    Abrir Gestor
-                </a>
                 <button type="button"
                         class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
                         data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}"
@@ -48,6 +48,28 @@
                     <i class="fas fa-copy mr-2"></i>
                     Copiar Completas
                 </button>
+                @if($isInProgress && $canResolveByEvidence)
+                    <div id="tasks-resolve-action-{{ $serviceRequest->id }}"
+                         data-tasks-resolve-action
+                         class="{{ $allTasksCompleted ? '' : 'hidden' }}">
+                        <button type="button"
+                                data-service-request-id="{{ $serviceRequest->id }}"
+                                data-workflow-action="resolve"
+                                data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
+                                data-tasks-resolve-button
+                                onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
+                                class="inline-flex items-center px-3 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition whitespace-nowrap"
+                                aria-label="Resolver Solicitud">
+                            <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
+                            <span>Resolver Solicitud</span>
+                        </button>
+                    </div>
+                @endif
+                <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
+                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
+                    <i class="fas fa-external-link-alt mr-2"></i>
+                    Abrir Gestor
+                </a>
             </div>
         </div>
         @if(!$hasTechnicianAssigned)
@@ -149,6 +171,43 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => target.focus({ preventScroll: true }), 250);
 });
 
+function areAllTasksCompleted(tasksPanel) {
+    if (!tasksPanel) return false;
+
+    const taskCards = Array.from(tasksPanel.querySelectorAll('[data-task-card]'));
+    if (!taskCards.length) return false;
+
+    return taskCards.every(card => {
+        const checkbox = card.querySelector('input[id^="task-"]');
+        if (checkbox) return checkbox.checked;
+
+        const badge = card.querySelector('[id^="task-status-badge-"]');
+        const badgeText = badge ? badge.textContent.toLowerCase() : '';
+        return badgeText.includes('completada');
+    });
+}
+
+function updateResolveActionVisibility(serviceRequestId) {
+    const tasksPanel = document.querySelector(`div[data-service-request-id="${serviceRequestId}"][data-tasks-panel="1"]`);
+    if (!tasksPanel) return;
+
+    const resolveActionWrapper = tasksPanel.querySelector('[data-tasks-resolve-action]');
+    if (!resolveActionWrapper) return;
+
+    const shouldShow = areAllTasksCompleted(tasksPanel);
+    resolveActionWrapper.classList.toggle('hidden', !shouldShow);
+    resolveActionWrapper.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+}
+
+function refreshCurrentPanelResolveAction(taskId) {
+    const taskCheckbox = document.getElementById('task-' + taskId);
+    const tasksPanel = taskCheckbox ? taskCheckbox.closest('[data-tasks-panel]') : null;
+    const serviceRequestId = tasksPanel ? tasksPanel.dataset.serviceRequestId : null;
+    if (!serviceRequestId) return;
+
+    updateResolveActionVisibility(serviceRequestId);
+}
+
 function toggleTaskStatus(taskId, isChecked) {
     console.log('Toggle task:', taskId, 'checked:', isChecked);
 
@@ -220,6 +279,7 @@ function toggleTaskStatus(taskId, isChecked) {
 
             // Mostrar mensaje de éxito
             showNotification(data.message, 'success');
+            refreshCurrentPanelResolveAction(taskId);
             checkbox.disabled = false;
         } else {
             // Revertir checkbox
@@ -387,6 +447,7 @@ function toggleSubtaskStatus(taskId, subtaskId, isChecked) {
 
             // Si todas las subtareas están marcadas, marcar la tarea padre automáticamente
             checkAndMarkParentTask(taskId);
+            refreshCurrentPanelResolveAction(taskId);
 
             showNotification(data.message, 'success');
             checkbox.disabled = false;
@@ -625,6 +686,7 @@ function setupQuickTaskModal() {
             }
 
             showNotification(data.message, 'success');
+            updateResolveActionVisibility('{{ $serviceRequest->id }}');
             toggleModal(false);
         } catch (error) {
             console.error(error);
@@ -789,4 +851,5 @@ function setupCopyCompletedTasks() {
 }
 
 document.addEventListener('DOMContentLoaded', setupCopyCompletedTasks);
+document.addEventListener('DOMContentLoaded', () => updateResolveActionVisibility('{{ $serviceRequest->id }}'));
 </script>

@@ -25,7 +25,7 @@
         </div>
 
         <a href="https://chat.deepseek.com/a/chat/s/b7462bd2-f93f-4913-bca4-5c249eee8ec8"
-           target="_blank" rel="noopener noreferrer"
+           target="deepseek_window"
            class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline mb-3">
             <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
         </a>
