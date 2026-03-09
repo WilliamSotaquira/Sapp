@@ -260,8 +260,7 @@
                                     class="subtask-toggle w-5 h-5 rounded border-2 flex items-center justify-center transition-all {{ $subtask->isCompleted() ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 hover:border-blue-500' }}"
                                     data-task-id="{{ $task->id }}"
                                     data-subtask-id="{{ $subtask->id }}"
-                                    data-url="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}"
-                                    {{ $task->status === 'completed' ? 'disabled' : '' }}>
+                                    data-url="{{ route('tasks.subtasks.toggle', [$task, $subtask]) }}">
                                 @if($subtask->isCompleted())
                                     <i class="fas fa-check text-xs"></i>
                                 @endif
@@ -476,6 +475,19 @@
                         </span>
                     </div>
                     @endif
+                    @if($task->status === 'completed' && !empty($task->actual_duration_minutes))
+                    @php
+                        $minutes = (int) $task->actual_duration_minutes;
+                        $hours = intdiv($minutes, 60);
+                        $mins = $minutes % 60;
+                    @endphp
+                    <div class="px-5 py-3 flex items-center justify-between bg-emerald-50">
+                        <span class="text-sm text-emerald-700">Tiempo empleado</span>
+                        <span class="text-sm font-semibold text-emerald-800">
+                            {{ $hours > 0 ? $hours . 'h ' : '' }}{{ $mins }}min
+                        </span>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -634,8 +646,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ is_completed: !isCompleted })
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(async response => {
+                const data = await response.json();
+                return { ok: response.ok, data };
+            })
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    showToast(data?.message || 'No se pudo actualizar la subtarea', 'error');
+                    this.disabled = false;
+                    return;
+                }
+
                 if (data.success) {
                     const title = item.querySelector('.subtask-title');
                     

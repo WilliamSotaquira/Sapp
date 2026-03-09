@@ -674,7 +674,8 @@
                     <td>
                         @if($request->resolved_at && $request->sla)
                         @php
-                        $resolutionTime = $request->created_at->diffInMinutes($request->resolved_at);
+                        $workStartAt = $request->responded_at ?? $request->created_at;
+                        $resolutionTime = $workStartAt ? $workStartAt->diffInMinutes($request->resolved_at) : 0;
                         $slaTime = $request->sla->resolution_time_minutes;
                         $isSlaMet = $resolutionTime <= $slaTime;
                             @endphp

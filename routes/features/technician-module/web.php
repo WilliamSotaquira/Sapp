@@ -70,6 +70,8 @@ Route::prefix('tasks')->name('tasks.')->group(function () {
     Route::post('/{task}/unschedule', [TaskController::class, 'unschedule'])->name('unschedule');
     Route::post('/{task}/schedule-quick', [TaskController::class, 'scheduleQuick'])->name('schedule-quick');
     Route::post('/{task}/clear-schedule', [TaskController::class, 'clearSchedule'])->name('clear-schedule');
+    Route::post('/{task}/enqueue-day', [TaskController::class, 'enqueueDay'])->name('enqueue-day');
+    Route::post('/apply-auto-queue', [TaskController::class, 'applyAutoQueue'])->name('apply-auto-queue');
 
     // Subtareas
     Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');

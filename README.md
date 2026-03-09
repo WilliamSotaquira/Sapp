@@ -33,8 +33,10 @@ composer run test
 La guia oficial interna y unificada esta en:
 
 - [INSTRUCCIONES_PROYECTO.md](./INSTRUCCIONES_PROYECTO.md)
+- [DOCUMENTACION_INDEX.md](./DOCUMENTACION_INDEX.md)
 
 ## Referencias tecnicas
 
 - Laravel Docs: https://laravel.com/docs/12.x
 - Vite Docs: https://vite.dev/guide/
+

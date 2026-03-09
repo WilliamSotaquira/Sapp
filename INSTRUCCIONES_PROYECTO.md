@@ -98,6 +98,9 @@ php artisan up
 
 ## 8. Mapa de documentacion
 
+Indice central:
+- `DOCUMENTACION_INDEX.md`
+
 Mantener estos documentos especializados:
 - `REQUEST.md`: flujo operativo y reglas para solicitudes.
 - `DEPLOY_CHECKLIST.md`: checklist operativo de despliegue.
@@ -109,6 +112,7 @@ Mantener estos documentos especializados:
 
 Regla:
 - Este archivo define el proceso general.
+- `DOCUMENTACION_INDEX.md` centraliza el inventario y la clasificacion.
 - Los demas archivos guardan detalle tecnico por modulo.
 
 Alias operativo:
@@ -128,3 +132,4 @@ Cuando se cambie comportamiento funcional:
 - Comandos en bloques de codigo.
 - Evitar texto promocional o redundante.
 - Mantener lenguaje tecnico simple.
+

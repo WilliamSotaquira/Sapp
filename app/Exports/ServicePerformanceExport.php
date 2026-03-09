@@ -40,9 +40,12 @@ class ServicePerformanceExport implements FromCollection, WithHeadings, WithMapp
             ->map(function ($requests, $familyName) {
                 $totalRequests = $requests->count();
                 $avgResolutionTime = $requests->whereNotNull('resolved_at')
-                    ->whereNotNull('accepted_at')
+                    ->filter(function ($request) {
+                        return $request->responded_at || $request->accepted_at || $request->created_at;
+                    })
                     ->avg(function ($request) {
-                        return $request->accepted_at->diffInMinutes($request->resolved_at);
+                        $workStartAt = $request->responded_at ?? $request->accepted_at ?? $request->created_at;
+                        return $workStartAt ? $workStartAt->diffInMinutes($request->resolved_at) : 0;
                     });
 
                 $satisfactionRate = $requests->whereNotNull('satisfaction_score')

@@ -14,6 +14,7 @@ use App\Models\Requester;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 
 class ServiceRequestService
 {
@@ -400,6 +401,8 @@ class ServiceRequestService
         Log::info('=== CREANDO NUEVA SOLICITUD ===', ['data' => $data]);
 
         try {
+            $this->assertEntityConsistency($data);
+
             $tasks = $data['tasks'] ?? null;
             $tasksTemplate = $data['tasks_template'] ?? null;
             $cutId = $data['cut_id'] ?? null;
@@ -439,6 +442,53 @@ class ServiceRequestService
                 'exception' => $e,
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Blindaje de consistencia multi-entidad para creaciones por servicio/API/scripts.
+     * Evita crear solicitudes con requester, subservicio o SLA de otra entidad.
+     */
+    private function assertEntityConsistency(array $data): void
+    {
+        $companyId = (int) ($data['company_id'] ?? 0);
+        $requesterId = (int) ($data['requester_id'] ?? 0);
+        $subServiceId = (int) ($data['sub_service_id'] ?? 0);
+        $criticality = (string) ($data['criticality_level'] ?? 'MEDIA');
+        $slaId = (int) ($data['sla_id'] ?? 0);
+
+        if ($companyId <= 0 || $requesterId <= 0 || $subServiceId <= 0) {
+            return;
+        }
+
+        $requesterCompanyId = (int) (Requester::withoutGlobalScopes()
+            ->where('id', $requesterId)
+            ->value('company_id') ?? 0);
+
+        if ($requesterCompanyId > 0 && $requesterCompanyId !== $companyId) {
+            throw ValidationException::withMessages([
+                'requester_id' => 'El solicitante no pertenece a la entidad seleccionada.',
+            ]);
+        }
+
+        try {
+            $context = $this->resolveCreationContext($companyId, $subServiceId, $criticality);
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'sub_service_id' => 'El subservicio no pertenece al contrato activo de la entidad seleccionada.',
+            ]);
+        }
+
+        if ((int) ($context['sub_service_id'] ?? 0) !== $subServiceId) {
+            throw ValidationException::withMessages([
+                'sub_service_id' => 'El subservicio no corresponde a la entidad seleccionada.',
+            ]);
+        }
+
+        if ($slaId > 0 && (int) ($context['sla_id'] ?? 0) !== $slaId) {
+            throw ValidationException::withMessages([
+                'sla_id' => 'El SLA no corresponde al subservicio/entidad seleccionada.',
+            ]);
         }
     }
 

@@ -177,7 +177,7 @@ class ReportController extends Controller
         $rawData = ServiceRequest::selectRaw("
             criticality_level,
             COUNT(*) as count,
-            AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
         ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
@@ -224,7 +224,7 @@ class ReportController extends Controller
                 ELSE CONCAT(contracts.number, ' - ', service_families.name)
             END as family_name,
             COUNT(service_requests.id) as total_requests,
-            AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(service_requests.responded_at, service_requests.created_at), COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
         ")
         ->reportable()
@@ -288,7 +288,7 @@ class ReportController extends Controller
             DATE_FORMAT(created_at, '%Y-%m') as month,
             COUNT(*) as total_requests,
             COUNT(CASE WHEN status IN ('RESUELTA', 'CERRADA') THEN 1 END) as resolved_requests,
-            AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
         ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
@@ -627,7 +627,7 @@ class ReportController extends Controller
         return ServiceRequest::selectRaw("
             criticality_level,
             COUNT(*) as count,
-            AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
         ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
@@ -652,7 +652,7 @@ class ReportController extends Controller
                 ELSE CONCAT(contracts.number, ' - ', service_families.name)
             END as family_name,
             COUNT(service_requests.id) as total_requests,
-            AVG(TIMESTAMPDIFF(HOUR, service_requests.created_at, COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(service_requests.responded_at, service_requests.created_at), COALESCE(service_requests.resolved_at, NOW()))) as avg_resolution_hours,
             COUNT(CASE WHEN service_requests.status = 'RESUELTA' THEN 1 END) as resolved_count
         ")
         ->reportable()
@@ -755,7 +755,7 @@ class ReportController extends Controller
             DATE_FORMAT(created_at, '%Y-%m') as month,
             COUNT(*) as total_requests,
             COUNT(CASE WHEN status IN ('RESUELTA', 'CERRADA') THEN 1 END) as resolved_requests,
-            AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(resolved_at, NOW()))) as avg_resolution_hours
+            AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
         ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))

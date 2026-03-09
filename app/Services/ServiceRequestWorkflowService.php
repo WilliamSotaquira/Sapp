@@ -101,7 +101,6 @@ class ServiceRequestWorkflowService
 
                 $serviceRequest->update([
                     'status' => 'EN_PROCESO',
-                    'responded_at' => now(),
                 ]);
 
                 $this->createSystemEvidence($serviceRequest, [
@@ -143,12 +142,18 @@ class ServiceRequestWorkflowService
         }
 
         try {
-            ServiceRequest::withoutEvents(function () use ($serviceRequest, $data) {
+            $resolvedAt = now();
+            $calculatedResolutionMinutes = $this->calculateActualResolutionMinutes($serviceRequest, $resolvedAt);
+            $actualResolutionTime = isset($data['actual_resolution_time']) && (int) $data['actual_resolution_time'] > 0
+                ? (int) $data['actual_resolution_time']
+                : $calculatedResolutionMinutes;
+
+            ServiceRequest::withoutEvents(function () use ($serviceRequest, $data, $resolvedAt, $actualResolutionTime) {
                 $serviceRequest->update([
                     'status' => 'RESUELTA',
                     'resolution_notes' => $data['resolution_notes'] ?? 'Resolución completada',
-                    'actual_resolution_time' => $data['actual_resolution_time'] ?? 60,
-                    'resolved_at' => now(),
+                    'actual_resolution_time' => $actualResolutionTime,
+                    'resolved_at' => $resolvedAt,
                 ]);
             });
 
@@ -417,8 +422,38 @@ class ServiceRequestWorkflowService
                     'priority' => $standardSubtask->priority,
                     'status' => 'pending',
                     'is_completed' => false,
+                    'order' => $standardSubtask->order ?? 0,
                 ]);
             }
         }
+    }
+
+    /**
+     * Calcula el tiempo real de resolución basado en trabajo ejecutado.
+     */
+    private function calculateActualResolutionMinutes(ServiceRequest $serviceRequest, \Carbon\Carbon $resolvedAt): int
+    {
+        $serviceRequest->loadMissing('tasks.subtasks');
+
+        $taskMinutes = (int) $serviceRequest->tasks
+            ->sum(fn ($task) => (int) ($task->actual_duration_minutes ?? 0));
+
+        if ($taskMinutes > 0) {
+            return $taskMinutes;
+        }
+
+        $subtaskMinutes = (int) $serviceRequest->tasks
+            ->flatMap(fn ($task) => $task->subtasks ?? collect())
+            ->sum(fn ($subtask) => (int) ($subtask->actual_minutes ?? 0));
+
+        if ($subtaskMinutes > 0) {
+            return $subtaskMinutes;
+        }
+
+        if ($serviceRequest->responded_at) {
+            return max(1, (int) $serviceRequest->responded_at->diffInMinutes($resolvedAt));
+        }
+
+        return 1;
     }
 }

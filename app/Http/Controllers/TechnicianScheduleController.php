@@ -376,6 +376,11 @@ class TechnicianScheduleController extends Controller
         }
 
         $date = $request->get('date', now()->format('Y-m-d'));
+        // Mi Agenda se opera siempre en modo manual (drag & drop).
+        // La priorización automática se usa para clasificar tareas abiertas en la barra lateral.
+        $queueStrategy = 'manual';
+        $manualQueueMode = true;
+        $autoQueueMode = false;
 
         $filters = [
             'q' => trim((string) $request->get('q', '')),
@@ -399,7 +404,15 @@ class TechnicianScheduleController extends Controller
                 $query->where(function ($inner) use ($search) {
                     $inner->where('task_code', 'like', "%{$search}%")
                         ->orWhere('title', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhereHas('serviceRequest', function ($serviceRequestQuery) use ($search) {
+                            $serviceRequestQuery->withoutGlobalScope('workspace')
+                                ->where(function ($srInner) use ($search) {
+                                    $srInner->where('ticket_number', 'like', "%{$search}%")
+                                        ->orWhere('title', 'like', "%{$search}%")
+                                        ->orWhere('description', 'like', "%{$search}%");
+                                });
+                        });
                 });
             }
 
@@ -420,10 +433,16 @@ class TechnicianScheduleController extends Controller
         $applyTaskFilters($tasksQuery);
         $applyTaskFilters($openTasksQuery);
 
+        if ($manualQueueMode) {
+            $tasksQuery
+                ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+                ->orderBy('scheduled_order')
+                ->orderBy('scheduled_start_time');
+        } else {
+            $tasksQuery->orderBy('scheduled_start_time');
+        }
+
         $tasks = $tasksQuery
-            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
-            ->orderBy('scheduled_order')
-            ->orderBy('scheduled_start_time')
             ->with([
                 'serviceRequest' => function ($query) {
                     $query->withoutGlobalScope('workspace')->with(['subService.service']);
@@ -431,6 +450,21 @@ class TechnicianScheduleController extends Controller
                 'slaCompliance',
             ])
             ->get();
+
+        $tasks = $tasks->map(function (Task $task) {
+            $scores = $this->calculateAgendaPriorityScore($task);
+            $task->queue_priority_score = $scores['priority'];
+            $task->queue_criticality_score = $scores['criticality'];
+            $task->queue_service_score = $scores['service'];
+            $task->queue_type_score = $scores['type'];
+            $task->queue_age_score = $scores['age'];
+            $task->queue_score = $scores['total'];
+            return $task;
+        });
+
+        if ($autoQueueMode) {
+            $tasks = $tasks->sortByDesc('queue_score')->values();
+        }
 
         $scheduleBlocks = $technician->scheduleBlocks()->forDate($date)->orderBy('start_time')->get();
 
@@ -458,6 +492,19 @@ class TechnicianScheduleController extends Controller
             ->orderByDesc('updated_at')
             ->get();
 
+        $openTasks = $openTasks->map(function (Task $task) {
+            $scores = $this->calculateAgendaPriorityScore($task);
+            $task->queue_priority_score = $scores['priority'];
+            $task->queue_criticality_score = $scores['criticality'];
+            $task->queue_service_score = $scores['service'];
+            $task->queue_type_score = $scores['type'];
+            $task->queue_age_score = $scores['age'];
+            $task->queue_score = $scores['total'];
+            return $task;
+        });
+
+        $openTasks = $openTasks->sortByDesc('queue_score')->values();
+
         return view('technician-schedule.my-agenda', compact(
             'technician',
             'tasks',
@@ -467,8 +514,59 @@ class TechnicianScheduleController extends Controller
             'isViewingOther',
             'technicians',
             'openTasks',
-            'filters'
+            'filters',
+            'queueStrategy',
+            'manualQueueMode',
+            'autoQueueMode'
         ));
+    }
+
+    protected function calculateAgendaPriorityScore(Task $task): array
+    {
+        $priorityScore = match ($task->priority) {
+            'critical' => 350,
+            'high' => 260,
+            'medium' => 160,
+            'low' => 80,
+            default => 50,
+        };
+
+        $criticality = strtoupper((string) optional($task->serviceRequest)->criticality_level);
+        $criticalityScore = match ($criticality) {
+            'URGENTE', 'CRITICA', 'CRÍTICA' => 220,
+            'ALTA', 'HIGH' => 150,
+            'MEDIA', 'MEDIUM' => 80,
+            'BAJA', 'LOW' => 30,
+            default => 40,
+        };
+
+        $serviceLabel = strtolower(trim(
+            (string) optional(optional(optional($task->serviceRequest)->subService)->service)->name . ' ' .
+            (string) optional(optional($task->serviceRequest)->subService)->name
+        ));
+
+        $serviceScore = 40;
+        if ($serviceLabel !== '') {
+            if (preg_match('/incidente|seguridad|ca[ií]da|autentic|pago|producci[oó]n/u', $serviceLabel)) {
+                $serviceScore = 120;
+            } elseif (preg_match('/soporte|mantenimiento|actualiz|contenido|web/u', $serviceLabel)) {
+                $serviceScore = 80;
+            } else {
+                $serviceScore = 60;
+            }
+        }
+
+        $typeScore = $task->type === 'impact' ? 110 : 50;
+        $ageScore = min(240, (int) ($task->created_at?->diffInHours(now()) ?? 0));
+
+        return [
+            'priority' => $priorityScore,
+            'criticality' => $criticalityScore,
+            'service' => $serviceScore,
+            'type' => $typeScore,
+            'age' => $ageScore,
+            'total' => $priorityScore + $criticalityScore + $serviceScore + $typeScore + $ageScore,
+        ];
     }
 
     /**

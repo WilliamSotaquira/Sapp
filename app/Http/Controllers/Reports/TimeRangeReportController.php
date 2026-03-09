@@ -206,7 +206,7 @@ class TimeRangeReportController extends Controller
     private function calculateAverageResolutionTime($requests)
     {
         $resolvedRequests = $requests->filter(function ($request) {
-            return $request->resolved_at && $request->created_at;
+            return $request->resolved_at && ($request->responded_at || $request->created_at);
         });
 
         if ($resolvedRequests->isEmpty()) {
@@ -214,7 +214,8 @@ class TimeRangeReportController extends Controller
         }
 
         $totalDays = $resolvedRequests->sum(function ($request) {
-            return $request->created_at->diffInDays($request->resolved_at);
+            $workStartAt = $request->responded_at ?? $request->created_at;
+            return $workStartAt ? $workStartAt->diffInDays($request->resolved_at) : 0;
         });
 
         return round($totalDays / $resolvedRequests->count(), 1);

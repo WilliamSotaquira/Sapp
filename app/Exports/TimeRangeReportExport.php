@@ -70,7 +70,7 @@ class RequestsSheet implements FromCollection, WithHeadings, WithTitle, ShouldAu
                     ? $request->resolved_at->format('d/m/Y H:i')
                     : 'N/A',
                 'Tiempo Resolución (min)' => $request->resolved_at
-                    ? $request->created_at->diffInMinutes($request->resolved_at)
+                    ? (($request->responded_at ?? $request->created_at)?->diffInMinutes($request->resolved_at) ?? 'N/A')
                     : 'N/A',
                 'Satisfacción' => $request->satisfaction_score ?: 'N/A',
                 'Evidencias' => $request->evidences->count(),
@@ -196,9 +196,10 @@ class FamilySheet implements FromCollection, WithHeadings, WithTitle, ShouldAuto
             })->count();
 
             $avgResolution = $requests->filter(function ($request) {
-                return $request->resolved_at && $request->created_at;
+                return $request->resolved_at && ($request->responded_at || $request->created_at);
             })->avg(function ($request) {
-                return $request->created_at->diffInMinutes($request->resolved_at);
+                $workStartAt = $request->responded_at ?? $request->created_at;
+                return $workStartAt ? $workStartAt->diffInMinutes($request->resolved_at) : 0;
             });
 
             return [

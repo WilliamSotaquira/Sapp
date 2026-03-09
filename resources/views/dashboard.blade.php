@@ -206,17 +206,86 @@
                 <span class="text-xs font-semibold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">Próximos</span>
             </div>
             @php
+                $agendaSource = 'scheduled';
+                $taskStatusLabels = [
+                    'pending' => 'Pendiente',
+                    'confirmed' => 'Confirmada',
+                    'in_progress' => 'En progreso',
+                    'blocked' => 'Bloqueada',
+                    'in_review' => 'En revisión',
+                    'completed' => 'Completada',
+                    'cancelled' => 'Cancelada',
+                    'rescheduled' => 'Reprogramada',
+                ];
                 if(!isset($agenda)) {
                     $technicianId = auth()->user()?->technician?->id ?? null;
                     if($technicianId) {
-                        $agenda = \App\Models\Task::with('serviceRequest.subService.service')
+                        $scheduledAgenda = \App\Models\Task::with('serviceRequest.subService.service')
                             ->where('technician_id', $technicianId)
                             ->whereDate('scheduled_date', '>=', now()->toDateString())
                             ->orderBy('scheduled_date')
                             ->orderByRaw("COALESCE(scheduled_start_time, scheduled_time, '23:59')")
-                            ->take(6)
-                            ->get()
-                            ->map(function($task) {
+                            ->take(3)
+                            ->get();
+
+                        if ($scheduledAgenda->isEmpty()) {
+                            $agendaSource = 'priority';
+                            $priorityAgenda = \App\Models\Task::with('serviceRequest.subService.service')
+                                ->where('technician_id', $technicianId)
+                                ->whereNull('scheduled_date')
+                                ->whereNotIn('status', ['completed', 'cancelled'])
+                                ->get()
+                                ->map(function($task) {
+                                    $priorityScore = match ($task->priority) {
+                                        'critical' => 350,
+                                        'high' => 260,
+                                        'medium' => 160,
+                                        'low' => 80,
+                                        default => 50,
+                                    };
+
+                                    $criticality = strtoupper((string) optional($task->serviceRequest)->criticality_level);
+                                    $criticalityScore = match ($criticality) {
+                                        'URGENTE', 'CRITICA', 'CRÍTICA' => 220,
+                                        'ALTA', 'HIGH' => 150,
+                                        'MEDIA', 'MEDIUM' => 80,
+                                        'BAJA', 'LOW' => 30,
+                                        default => 40,
+                                    };
+
+                                    $serviceLabelForScore = strtolower(trim(
+                                        (string) optional(optional(optional($task->serviceRequest)->subService)->service)->name . ' ' .
+                                        (string) optional(optional($task->serviceRequest)->subService)->name
+                                    ));
+
+                                    $serviceScore = 40;
+                                    if ($serviceLabelForScore !== '') {
+                                        if (preg_match('/incidente|seguridad|ca[ií]da|autentic|pago|producci[oó]n/u', $serviceLabelForScore)) {
+                                            $serviceScore = 120;
+                                        } elseif (preg_match('/soporte|mantenimiento|actualiz|contenido|web/u', $serviceLabelForScore)) {
+                                            $serviceScore = 80;
+                                        } else {
+                                            $serviceScore = 60;
+                                        }
+                                    }
+
+                                    $typeScore = $task->type === 'impact' ? 110 : 50;
+                                    $ageScore = min(240, (int) ($task->created_at?->diffInHours(now()) ?? 0));
+                                    $task->dashboard_score = $priorityScore + $criticalityScore + $serviceScore + $typeScore + $ageScore;
+
+                                    return $task;
+                                })
+                                ->sortByDesc('dashboard_score')
+                                ->take(3)
+                                ->values();
+
+                            $agendaCollection = $priorityAgenda;
+                        } else {
+                            $agendaCollection = $scheduledAgenda;
+                        }
+
+                        $agenda = $agendaCollection
+                            ->map(function($task) use ($agendaSource) {
                                 $serviceRequest = $task->serviceRequest;
                                 $serviceName = $serviceRequest?->subService?->service?->name;
                                 $subServiceName = $serviceRequest?->subService?->name;
@@ -228,18 +297,20 @@
                                     : route('tasks.show', $task);
 
                                 return [
-                                    'time' => $task->scheduled_start_time ?? $task->scheduled_time ?? '—',
-                                    'date' => optional($task->scheduled_date)->format('d/m') ?? '',
+                                    'time' => $task->scheduled_start_time ?? $task->scheduled_time ?? ($agendaSource === 'priority' ? 'Sin hora' : '—'),
+                                    'date' => optional($task->scheduled_date)->format('d/m') ?? ($agendaSource === 'priority' ? 'Prioridad' : ''),
                                     'title' => $task->title ?? 'Tarea sin título',
                                     'location' => $serviceRequest?->ticket_number ? 'Ticket '.$serviceRequest->ticket_number : 'Sin ticket',
-                                    'status' => $task->status ? ucfirst(str_replace('_', ' ', $task->status)) : 'Pendiente',
+                                    'status' => $taskStatusLabels[$task->status] ?? 'Pendiente',
                                     'url' => $taskUrl,
                                     'service' => $serviceLabel ?: 'Sin servicio',
+                                    'score' => $agendaSource === 'priority' ? (int) ($task->dashboard_score ?? 0) : null,
                                 ];
                             })
                             ->toArray();
                     } else {
                         $agenda = [];
+                        $agendaSource = 'none';
                     }
                 }
                 $statusColors = [
@@ -249,6 +320,11 @@
                 ];
             @endphp
             @if(count($agenda) > 0)
+                @if($agendaSource === 'priority')
+                    <div class="mb-3 text-xs px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                        No tienes tareas agendadas. Mostrando tareas abiertas priorizadas por score.
+                    </div>
+                @endif
                 <ul class="space-y-3">
                     @foreach($agenda as $item)
                         <li>
@@ -265,6 +341,10 @@
                                 </div>
                                 <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full {{ $statusColors[$item['status']] ?? 'bg-gray-100 text-gray-700' }}">
                                     {{ $item['status'] }}
+                                    @if(isset($item['score']) && $item['score'] !== null)
+                                        <span class="opacity-60 mx-1">•</span>
+                                        Puntaje {{ $item['score'] }}
+                                    @endif
                                 </span>
                             </a>
                         </li>

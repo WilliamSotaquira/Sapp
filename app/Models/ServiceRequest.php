@@ -363,6 +363,7 @@ class ServiceRequest extends Model
     protected function ensureInProgressState($tasks = null)
     {
         $tasks = $tasks ?: $this->tasks;
+        $now = now();
 
         if ($this->status === self::STATUS_PENDING) {
             $assignedUserId = $this->assigned_to;
@@ -376,15 +377,23 @@ class ServiceRequest extends Model
             }
 
             $this->status = self::STATUS_ACCEPTED;
-            $this->accepted_at = $this->accepted_at ?? now();
+            $this->accepted_at = $this->accepted_at ?? $now;
             $this->save();
         }
 
         if ($this->status === self::STATUS_ACCEPTED || $this->status === self::STATUS_REOPENED) {
             $this->status = self::STATUS_IN_PROGRESS;
+            // El reloj operativo inicia cuando hay ejecución real de tareas.
+            $this->responded_at = $this->responded_at ?? $now;
             $this->save();
         } elseif ($this->status !== self::STATUS_IN_PROGRESS) {
-            $this->update(['status' => self::STATUS_IN_PROGRESS]);
+            $this->update([
+                'status' => self::STATUS_IN_PROGRESS,
+                'responded_at' => $this->responded_at ?? $now,
+            ]);
+        } elseif (!$this->responded_at) {
+            // Si ya está en proceso por migraciones/flujo anterior, inicializar marca operativa.
+            $this->update(['responded_at' => $now]);
         }
     }
 

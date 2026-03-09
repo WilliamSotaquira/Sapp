@@ -142,17 +142,17 @@
                 <!-- Tiempo Real de Resolución -->
                 <div class="mb-6">
                     <label for="actual_resolution_time" class="block text-sm font-medium text-gray-700 mb-2">
-                        Tiempo Real de Resolución (minutos) *
+                        Tiempo Real de Resolución (minutos)
                     </label>
                     <input type="number" name="actual_resolution_time" id="actual_resolution_time"
                         min="1" max="1440"
                         class="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        value="{{ old('actual_resolution_time') }}" required>
+                        value="{{ old('actual_resolution_time') }}">
                     @error('actual_resolution_time')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                     <p class="mt-1 text-sm text-gray-500">
-                        Tiempo estimado por SLA: {{ $serviceRequest->sla->resolution_time_minutes }} minutos
+                        Si lo dejas vacío, el sistema lo calcula automáticamente desde tareas/subtareas. Estimado SLA: {{ $serviceRequest->sla->resolution_time_minutes }} minutos.
                     </p>
                 </div>
 
@@ -222,6 +222,7 @@
     document.getElementById('actual_resolution_time').addEventListener('change', function() {
         const slaTime = {{ $serviceRequest->sla->resolution_time_minutes }};
         const actualTime = parseInt(this.value);
+        if (!Number.isFinite(actualTime)) return;
 
         if (actualTime > slaTime * 2) {
             if (!confirm(`El tiempo ingresado (${actualTime} min) es significativamente mayor al tiempo estimado por SLA (${slaTime} min). ¿Desea continuar?`)) {

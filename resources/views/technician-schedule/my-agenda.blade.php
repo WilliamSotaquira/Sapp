@@ -97,88 +97,131 @@
         </div>
     </div>
 
-    <!-- Filtros de tareas -->
+    <!-- Filtros Sidebar -->
+    @php
+        $activeFilterCount = collect([
+            $filters['q'] ?? '',
+            $filters['status'] ?? '',
+            $filters['type'] ?? '',
+            $filters['priority'] ?? '',
+        ])->filter(fn($v) => filled($v))->count();
+    @endphp
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-5 mb-4 sm:mb-6">
-        <form method="GET" action="{{ route('technician-schedule.my-agenda') }}" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
-            <input type="hidden" name="date" value="{{ $date }}">
-            @if(request('technician_id'))
-                <input type="hidden" name="technician_id" value="{{ request('technician_id') }}">
-            @endif
-
-            <div class="xl:col-span-2">
-                <label for="filter_q" class="block text-xs font-semibold text-gray-600 mb-1">Buscar</label>
-                <input type="text" id="filter_q" name="q"
-                    value="{{ $filters['q'] ?? request('q') }}"
-                    placeholder="Código, título o descripción"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="text-sm text-gray-600">
+                <span class="font-semibold text-gray-800">Filtros de agenda</span>
+                <span class="ml-2">Activos: {{ $activeFilterCount }}</span>
             </div>
-
-            <div>
-                <label for="filter_status" class="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
-                <select id="filter_status" name="status"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Todos</option>
-                    <option value="pending" {{ ($filters['status'] ?? '') === 'pending' ? 'selected' : '' }}>Pendiente</option>
-                    <option value="confirmed" {{ ($filters['status'] ?? '') === 'confirmed' ? 'selected' : '' }}>Confirmada</option>
-                    <option value="in_progress" {{ ($filters['status'] ?? '') === 'in_progress' ? 'selected' : '' }}>En progreso</option>
-                    <option value="blocked" {{ ($filters['status'] ?? '') === 'blocked' ? 'selected' : '' }}>Bloqueada</option>
-                    <option value="in_review" {{ ($filters['status'] ?? '') === 'in_review' ? 'selected' : '' }}>En revisión</option>
-                    <option value="completed" {{ ($filters['status'] ?? '') === 'completed' ? 'selected' : '' }}>Completada</option>
-                    <option value="rescheduled" {{ ($filters['status'] ?? '') === 'rescheduled' ? 'selected' : '' }}>Reprogramada</option>
-                    <option value="cancelled" {{ ($filters['status'] ?? '') === 'cancelled' ? 'selected' : '' }}>Cancelada</option>
-                </select>
-            </div>
-
-            <div>
-                <label for="filter_type" class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
-                <select id="filter_type" name="type"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Todos</option>
-                    <option value="impact" {{ ($filters['type'] ?? '') === 'impact' ? 'selected' : '' }}>Impacto</option>
-                    <option value="regular" {{ ($filters['type'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
-                </select>
-            </div>
-
-            <div>
-                <label for="filter_priority" class="block text-xs font-semibold text-gray-600 mb-1">Prioridad</label>
-                <select id="filter_priority" name="priority"
-                    class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Todas</option>
-                    <option value="critical" {{ ($filters['priority'] ?? '') === 'critical' ? 'selected' : '' }}>Crítica</option>
-                    <option value="high" {{ ($filters['priority'] ?? '') === 'high' ? 'selected' : '' }}>Alta</option>
-                    <option value="medium" {{ ($filters['priority'] ?? '') === 'medium' ? 'selected' : '' }}>Media</option>
-                    <option value="low" {{ ($filters['priority'] ?? '') === 'low' ? 'selected' : '' }}>Baja</option>
-                </select>
-            </div>
-
-            <div class="flex items-end gap-2">
-                <button type="submit"
-                    class="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors">
-                    Filtrar
-                </button>
+            <div class="flex items-center gap-2">
                 <a href="{{ route('technician-schedule.my-agenda', array_filter(['date' => $date, 'technician_id' => request('technician_id')])) }}"
                     class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors">
                     Limpiar
                 </a>
+                <button type="button" id="openAgendaFiltersSidebar"
+                    class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-sliders-h mr-1"></i>Abrir filtros
+                </button>
             </div>
-        </form>
+        </div>
     </div>
 
+    <div id="agendaFiltersOverlay" class="hidden fixed inset-0 bg-black/40 z-40"></div>
+    <aside id="agendaFiltersSidebar" class="fixed top-0 right-0 h-full w-full sm:w-[430px] bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-out">
+        <div class="h-full flex flex-col">
+            <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Filtrar Mi Agenda</h3>
+                <button type="button" id="closeAgendaFiltersSidebar" class="text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <form method="GET" action="{{ route('technician-schedule.my-agenda') }}" class="flex-1 overflow-y-auto p-5 space-y-4">
+                <input type="hidden" name="date" value="{{ $date }}">
+                @if(request('technician_id'))
+                    <input type="hidden" name="technician_id" value="{{ request('technician_id') }}">
+                @endif
+
+                <div>
+                    <label for="filter_q" class="block text-xs font-semibold text-gray-600 mb-1">Buscar</label>
+                    <input type="text" id="filter_q" name="q"
+                        value="{{ $filters['q'] ?? request('q') }}"
+                        placeholder="Código, título o descripción"
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label for="filter_status" class="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
+                    <select id="filter_status" name="status"
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <option value="pending" {{ ($filters['status'] ?? '') === 'pending' ? 'selected' : '' }}>Pendiente</option>
+                        <option value="confirmed" {{ ($filters['status'] ?? '') === 'confirmed' ? 'selected' : '' }}>Confirmada</option>
+                        <option value="in_progress" {{ ($filters['status'] ?? '') === 'in_progress' ? 'selected' : '' }}>En progreso</option>
+                        <option value="blocked" {{ ($filters['status'] ?? '') === 'blocked' ? 'selected' : '' }}>Bloqueada</option>
+                        <option value="in_review" {{ ($filters['status'] ?? '') === 'in_review' ? 'selected' : '' }}>En revisión</option>
+                        <option value="completed" {{ ($filters['status'] ?? '') === 'completed' ? 'selected' : '' }}>Completada</option>
+                        <option value="rescheduled" {{ ($filters['status'] ?? '') === 'rescheduled' ? 'selected' : '' }}>Reprogramada</option>
+                        <option value="cancelled" {{ ($filters['status'] ?? '') === 'cancelled' ? 'selected' : '' }}>Cancelada</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="filter_type" class="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                    <select id="filter_type" name="type"
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos</option>
+                        <option value="impact" {{ ($filters['type'] ?? '') === 'impact' ? 'selected' : '' }}>Impacto</option>
+                        <option value="regular" {{ ($filters['type'] ?? '') === 'regular' ? 'selected' : '' }}>Regular</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="filter_priority" class="block text-xs font-semibold text-gray-600 mb-1">Prioridad</label>
+                    <select id="filter_priority" name="priority"
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todas</option>
+                        <option value="critical" {{ ($filters['priority'] ?? '') === 'critical' ? 'selected' : '' }}>Crítica</option>
+                        <option value="high" {{ ($filters['priority'] ?? '') === 'high' ? 'selected' : '' }}>Alta</option>
+                        <option value="medium" {{ ($filters['priority'] ?? '') === 'medium' ? 'selected' : '' }}>Media</option>
+                        <option value="low" {{ ($filters['priority'] ?? '') === 'low' ? 'selected' : '' }}>Baja</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 border-t border-gray-200 flex items-center gap-2">
+                    <button type="submit"
+                        class="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors">
+                        Aplicar filtros
+                    </button>
+                    <a href="{{ route('technician-schedule.my-agenda', array_filter(['date' => $date, 'technician_id' => request('technician_id')])) }}"
+                        class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors">
+                        Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </aside>
+
     @php
-        $totalTasks = $stats['pending'] + $stats['in_progress'] + $stats['completed'];
+        $totalTasks = $tasks->count();
+        $activeTaskCount = $tasks->whereNotIn('status', ['completed', 'cancelled'])->count();
     @endphp
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Timeline de tareas -->
-        <div class="lg:col-span-7 xl:col-span-8 space-y-6">
+        <div class="lg:col-span-6 xl:col-span-7 space-y-6">
             <div class="bg-white rounded-lg shadow-md p-6 relative" id="tasksDropZone" data-dropzone>
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Tareas del Día</h2>
                         <p class="text-sm text-gray-500">Arrastra las tareas para ordenarlas</p>
                     </div>
-                    <div class="text-sm text-gray-500">
-                        <i class="fas fa-list-ul mr-1"></i><span id="tasksTotalCount">{{ $totalTasks }}</span> tareas en total
+                    <div class="text-xs sm:text-sm text-gray-500 flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                            <i class="fas fa-list-ul"></i><span id="tasksTotalCount">{{ $totalTasks }}</span> en agenda
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                            <i class="fas fa-layer-group"></i>{{ $activeTaskCount }} activas
+                        </span>
                     </div>
                 </div>
                 <div id="dropHint" class="hidden absolute inset-3 border-2 border-dashed border-blue-400 rounded-lg bg-blue-50/60 flex items-center justify-center text-blue-700 font-semibold text-sm">
@@ -190,30 +233,128 @@
             <div id="tasksEmptyState" class="text-center py-12">
                 <i class="fas fa-calendar-check text-6xl text-gray-300 mb-4"></i>
                 <p class="text-gray-500 text-lg">No tienes tareas programadas para este día</p>
-                <p class="text-gray-400 text-sm mt-2">¡Disfruta tu día libre de tareas! 🎉</p>
+                <p class="text-gray-400 text-sm mt-2">Arrastra tareas desde "Tareas Abiertas" para construir tu agenda de hoy.</p>
             </div>
         @else
+                    @php
+                        $activeTasks = $tasks->where('status', '!=', 'completed')->values();
+                    @endphp
+
+                    @if($autoQueueMode)
+                        @php
+                            $ordered = $activeTasks->sortByDesc(fn($task) => (int) ($task->queue_score ?? 0))->values();
+                            $nowTask = $ordered->first();
+                            $nextTasks = $ordered->slice(1, 3)->values();
+                            $backlogTasks = $ordered->slice(4)->values();
+                        @endphp
+
+                        @if($ordered->isEmpty())
+                            <div class="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                                <p class="text-sm text-gray-500">No hay tareas activas para priorizar.</p>
+                            </div>
+                        @else
+                            <div class="space-y-4">
+                                @if($nowTask)
+                                    <section class="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <h3 class="text-sm font-bold text-emerald-800"><i class="fas fa-play-circle mr-1"></i>Ahora</h3>
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold cursor-help"
+                                                  title="Urgencia: {{ (int) ($nowTask->queue_priority_score ?? 0) }} | Criticidad: {{ (int) ($nowTask->queue_criticality_score ?? 0) }} | Servicio: {{ (int) ($nowTask->queue_service_score ?? 0) }} | Tipo: {{ (int) ($nowTask->queue_type_score ?? 0) }} | Antigüedad: {{ (int) ($nowTask->queue_age_score ?? 0) }}">
+                                                {{ (int) ($nowTask->queue_score ?? 0) }}
+                                            </span>
+                                        </div>
+                                        <p class="font-mono text-[11px] text-gray-500">{{ $nowTask->task_code }}</p>
+                                        <p class="text-base font-semibold text-gray-900">{{ $nowTask->title }}</p>
+                                        <div class="mt-2 flex items-center justify-between">
+                                            <span class="text-xs text-gray-600">{{ substr($nowTask->scheduled_start_time, 0, 5) }} · {{ $nowTask->formatted_duration }}</span>
+                                            <div class="flex items-center gap-2">
+                                                @if($nowTask->status === 'pending')
+                                                    <form action="{{ route('tasks.start', $nowTask) }}" method="POST">
+                                                        @csrf
+                                                        <button type="submit" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold">Iniciar</button>
+                                                    </form>
+                                                @elseif($nowTask->status === 'in_progress')
+                                                    <button onclick="openCompleteModal({{ $nowTask->id }})" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold">Completar</button>
+                                                @endif
+                                                <a href="{{ route('tasks.show', $nowTask) }}" class="text-xs text-emerald-700 hover:text-emerald-900 font-semibold">Ver</a>
+                                            </div>
+                                        </div>
+                                    </section>
+                                @endif
+
+                                <section class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h3 class="text-sm font-bold text-blue-800"><i class="fas fa-forward mr-1"></i>Siguiente</h3>
+                                        <span class="text-xs font-semibold text-blue-800">{{ $nextTasks->count() }}</span>
+                                    </div>
+                                    @if($nextTasks->isEmpty())
+                                        <p class="text-xs text-gray-500">No hay tareas siguientes.</p>
+                                    @else
+                                        <div class="space-y-2">
+                                            @foreach($nextTasks as $task)
+                                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <p class="text-sm font-semibold text-gray-800">{{ Str::limit($task->title, 72) }}</p>
+                                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold">{{ (int) ($task->queue_score ?? 0) }}</span>
+                                                    </div>
+                                                    <div class="mt-1 flex items-center justify-between">
+                                                        <span class="text-xs text-gray-500">{{ substr($task->scheduled_start_time, 0, 5) }}</span>
+                                                        <a href="{{ route('tasks.show', $task) }}" class="text-xs text-blue-700 hover:text-blue-900 font-semibold">Ver</a>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </section>
+
+                                <section class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-list mr-1"></i>Backlog de hoy</h3>
+                                        <span class="text-xs font-semibold text-gray-700">{{ $backlogTasks->count() }}</span>
+                                    </div>
+                                    @if($backlogTasks->isEmpty())
+                                        <p class="text-xs text-gray-500">No hay backlog pendiente.</p>
+                                    @else
+                                        <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                            @foreach($backlogTasks as $task)
+                                                <div class="bg-white border border-gray-200 rounded-lg p-2.5 flex items-center justify-between gap-2">
+                                                    <p class="text-sm text-gray-800">{{ Str::limit($task->title, 70) }}</p>
+                                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-semibold">{{ (int) ($task->queue_score ?? 0) }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </section>
+                            </div>
+                        @endif
+                    @else
                     <div class="space-y-4" id="tasksList">
-                        @foreach($tasks->where('status', '!=', 'completed') as $task)
+                        @foreach($activeTasks as $task)
                             <div class="border border-{{ $task->type === 'impact' ? 'red' : 'blue' }}-200 bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-50/50 rounded-lg p-4"
-                                 draggable="true" data-day-task data-task-id="{{ $task->id }}">
+                                 draggable="{{ $manualQueueMode ? 'true' : 'false' }}"
+                                 data-day-task
+                                 data-task-id="{{ $task->id }}"
+                                 data-task-status="{{ $task->status }}"
+                                 data-task-show-url="{{ route('tasks.show', $task) }}">
                         <div class="flex flex-col lg:flex-row lg:items-start gap-4">
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="text-gray-400 mt-1 cursor-grab active:cursor-grabbing select-none"
-                                     draggable="true" data-drag-handle data-task-id="{{ $task->id }}"
-                                     title="Arrastra para ordenar">
-                                    <i class="fas fa-grip-vertical"></i>
-                                </div>
-                                <div class="lg:w-28">
-                                <div class="text-lg font-bold text-gray-800">{{ substr($task->scheduled_start_time, 0, 5) }}</div>
-                                <div class="text-xs uppercase tracking-wide text-gray-400">Inicio</div>
-                                <div class="mt-2 text-xs text-gray-600">
+                            <div class="flex items-start gap-2 lg:gap-3">
+                                @if($manualQueueMode)
+                                    <div class="text-gray-400 mt-1 cursor-grab active:cursor-grabbing select-none"
+                                         draggable="true" data-drag-handle data-task-id="{{ $task->id }}"
+                                         title="Arrastra para ordenar">
+                                        <i class="fas fa-grip-vertical"></i>
+                                    </div>
+                                @endif
+                                <div class="lg:w-24 px-1 py-0.5">
+                                <div class="text-lg font-bold text-gray-800 leading-none">{{ substr($task->scheduled_start_time, 0, 5) }}</div>
+                                <div class="text-[10px] uppercase tracking-wide text-gray-400 mt-1">Inicio</div>
+                                <div class="mt-1.5 text-xs text-gray-600 leading-none">
                                     <i class="fas fa-hourglass-half text-gray-400 mr-1"></i>{{ $task->formatted_duration }}
                                 </div>
                                 </div>
                             </div>
 
-                            <div class="flex-1">
+                            <div class="flex-1 min-w-0">
                                 @php
                                     $statusLabels = [
                                         'pending' => 'PENDIENTE',
@@ -238,59 +379,47 @@
                                         'breached' => 'Incumplida',
                                     ];
                                 @endphp
-                                <!-- Código y estado -->
-                                <div class="flex flex-wrap items-center gap-2 mb-1">
-                                    <span class="font-mono text-[11px] bg-gray-800 text-white px-2 py-0.5 rounded">
+                                <h3 class="text-[17px] font-semibold text-gray-800 mb-1.5 leading-snug overflow-hidden"
+                                    style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+                                    {{ $task->title }}
+                                </h3>
+
+                                <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                                    <span class="font-mono text-[11px] text-gray-600">
                                         {{ $task->task_code }}
                                     </span>
                                     <span class="px-2 py-0.5 text-[11px] rounded-full bg-{{ $task->status_color }}-100 text-{{ $task->status_color }}-800 font-semibold">
                                         {{ $statusLabels[$task->status] ?? strtoupper($task->status) }}
-                                    </span>
-                                    <span class="px-2 py-0.5 text-[11px] rounded-full bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-100 text-{{ $task->type === 'impact' ? 'red' : 'blue' }}-800 font-semibold">
-                                        {{ $task->type === 'impact' ? 'IMPACTO' : 'REGULAR' }}
                                     </span>
                                     @if($task->priority)
                                         <span class="px-2 py-0.5 text-[11px] rounded-full bg-{{ $task->priority_color }}-100 text-{{ $task->priority_color }}-800 font-semibold">
                                             <i class="fas fa-flag mr-1"></i>{{ $priorityLabels[$task->priority] ?? ucfirst($task->priority) }}
                                         </span>
                                     @endif
+                                    <span class="px-2 py-0.5 text-[11px] rounded-full {{ $autoQueueMode ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700' }} font-semibold cursor-help"
+                                          title="Urgencia: {{ (int) ($task->queue_priority_score ?? 0) }} | Criticidad: {{ (int) ($task->queue_criticality_score ?? 0) }} | Servicio: {{ (int) ($task->queue_service_score ?? 0) }} | Tipo: {{ (int) ($task->queue_type_score ?? 0) }} | Antigüedad: {{ (int) ($task->queue_age_score ?? 0) }}">
+                                        <i class="fas fa-calculator mr-1"></i>Score {{ (int) ($task->queue_score ?? 0) }}
+                                    </span>
                                 </div>
 
-                                <!-- Título y descripción -->
-                                <h3 class="text-base font-semibold text-gray-800 mb-0.5">{{ $task->title }}</h3>
-                                @if($task->description)
-                                    <p class="text-xs text-gray-600 mb-2">{{ Str::limit($task->description, 110) }}</p>
-                                @endif
-
-                                <!-- Metadatos -->
-                                <div class="flex flex-wrap gap-3 text-xs text-gray-600">
+                                @php
+                                    $serviceName = $task->serviceRequest?->subService?->service?->name;
+                                    $subServiceName = $task->serviceRequest?->subService?->name;
+                                    $serviceLabel = $serviceName && $subServiceName
+                                        ? "{$serviceName} · {$subServiceName}"
+                                        : ($subServiceName ?? $serviceName);
+                                @endphp
+                                <div class="flex items-center gap-2 text-xs text-gray-600 min-w-0" title="{{ $serviceLabel ?: 'Sin servicio' }}">
                                     @if($task->serviceRequest)
-                                        <a href="{{ route('service-requests.show', $task->serviceRequest) }}" class="inline-flex items-center gap-1 text-green-700 hover:text-green-900">
-                                            <i class="fas fa-ticket-alt text-green-500"></i> {{ $task->serviceRequest->ticket_number }}
-                                        </a>
+                                        <span class="text-green-700 font-medium shrink-0">{{ $task->serviceRequest->ticket_number }}</span>
+                                        <span class="text-gray-300 shrink-0">|</span>
                                     @endif
-                                    @php
-                                        $serviceName = $task->serviceRequest?->subService?->service?->name;
-                                        $subServiceName = $task->serviceRequest?->subService?->name;
-                                        $serviceLabel = $serviceName && $subServiceName
-                                            ? "{$serviceName} · {$subServiceName}"
-                                            : ($subServiceName ?? $serviceName);
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1">
-                                        <i class="fas fa-concierge-bell text-indigo-500"></i>
-                                        {{ $serviceLabel ?: 'Sin servicio' }}
-                                    </span>
-                                    @if($task->technologies)
-                                        <span>
-                                            <i class="fas fa-code text-purple-500"></i>
-                                            {{ implode(', ', array_slice($task->technologies, 0, 3)) }}
-                                        </span>
-                                    @endif
+                                    <span class="truncate">{{ $serviceLabel ?: 'Sin servicio' }}</span>
                                 </div>
 
                                 <!-- SLA si aplica -->
                                 @if($task->slaCompliance)
-                                    <div class="mt-2 inline-flex items-center gap-2 px-2.5 py-0.5 rounded bg-{{ $task->slaCompliance->compliance_status === 'within_sla' ? 'green' : ($task->slaCompliance->compliance_status === 'at_risk' ? 'yellow' : 'red') }}-100">
+                                    <div class="mt-1 inline-flex items-center gap-2 px-2 py-0.5 rounded bg-{{ $task->slaCompliance->compliance_status === 'within_sla' ? 'green' : ($task->slaCompliance->compliance_status === 'at_risk' ? 'yellow' : 'red') }}-100">
                                         <i class="fas fa-clock"></i>
                                         <span class="text-[11px] font-semibold">
                                             SLA: {{ $slaLabels[$task->slaCompliance->compliance_status] ?? $task->slaCompliance->compliance_status }}
@@ -300,7 +429,7 @@
                             </div>
 
                             <!-- Acciones -->
-                            <div class="flex flex-row lg:flex-col gap-2 lg:items-stretch">
+                            <div class="flex flex-row lg:flex-col gap-2 lg:items-stretch shrink-0">
                                 @if($task->status === 'pending')
                                     <form action="{{ route('tasks.start', $task) }}" method="POST">
                                         @csrf
@@ -313,7 +442,7 @@
                                         <i class="fas fa-check"></i> Completar
                                     </button>
                                 @endif
-                                <a href="{{ route('tasks.show', $task) }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-center">
+                                <a href="{{ route('tasks.show', $task) }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-lg text-center whitespace-nowrap">
                                     <i class="fas fa-eye"></i> Ver
                                 </a>
                             </div>
@@ -321,11 +450,12 @@
                     </div>
                 @endforeach
             </div>
-            <div id="tasksEmptyState" class="hidden text-center py-12">
-                <i class="fas fa-calendar-check text-6xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg">No tienes tareas programadas para este día</p>
-                <p class="text-gray-400 text-sm mt-2">¡Disfruta tu día libre de tareas! 🎉</p>
-            </div>
+                    <div id="tasksEmptyState" class="hidden text-center py-12">
+                        <i class="fas fa-calendar-check text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg">No tienes tareas programadas para este día</p>
+                        <p class="text-gray-400 text-sm mt-2">Arrastra tareas desde "Tareas Abiertas" para construir tu agenda de hoy.</p>
+                    </div>
+                    @endif
         @endif
             </div>
 
@@ -383,8 +513,8 @@
         </div>
 
         <!-- Barra lateral: Tareas abiertas -->
-        <aside class="lg:col-span-5 xl:col-span-4">
-            <div class="bg-white rounded-lg shadow-md p-5">
+        <aside class="lg:col-span-6 xl:col-span-5 lg:sticky lg:top-4 h-fit">
+            <div class="bg-white rounded-lg shadow-md p-5" id="openTasksPanel">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-bold text-gray-800">
                         <i class="fas fa-tasks text-blue-600 mr-1"></i>
@@ -393,59 +523,132 @@
                     <span class="text-xs text-gray-500">{{ $openTasks->count() }}</span>
                 </div>
                 <p class="text-xs text-gray-500 mb-3">Tareas abiertas sin agenda asignada.</p>
+                @php
+                    $openUrgentTasks = $openTasks->filter(fn($task) => (int) ($task->queue_score ?? 0) >= 700)->values();
+                    $openHighTasks = $openTasks->filter(fn($task) => (int) ($task->queue_score ?? 0) >= 520 && (int) ($task->queue_score ?? 0) < 700)->values();
+                    $openNormalTasks = $openTasks->filter(fn($task) => (int) ($task->queue_score ?? 0) < 520)->values();
+                    $openSections = [
+                        ['title' => 'Urgentes', 'icon' => 'fa-bolt', 'header' => 'text-red-700', 'count' => $openUrgentTasks->count(), 'tasks' => $openUrgentTasks],
+                        ['title' => 'Alta prioridad', 'icon' => 'fa-arrow-up', 'header' => 'text-amber-700', 'count' => $openHighTasks->count(), 'tasks' => $openHighTasks],
+                        ['title' => 'Resto', 'icon' => 'fa-list', 'header' => 'text-slate-700', 'count' => $openNormalTasks->count(), 'tasks' => $openNormalTasks],
+                    ];
+                @endphp
 
-                <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1" data-open-list>
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" data-open-list>
                     @if($openTasks->isEmpty())
                         <div class="text-center py-8">
                             <i class="fas fa-check-circle text-4xl text-gray-300 mb-3"></i>
                             <p class="text-sm text-gray-500">No hay tareas abiertas</p>
                         </div>
                     @else
-                        @foreach($openTasks as $task)
-                            <a href="{{ route('tasks.show', $task) }}"
-                               draggable="true"
-                               data-open-task
-                               data-task-id="{{ $task->id }}"
-                               class="block border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 transition-colors">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div>
-                                        <p class="text-xs font-semibold text-gray-500">{{ $task->task_code }}</p>
-                                        <p class="text-sm font-medium text-gray-800 leading-snug">{{ Str::limit($task->title, 70) }}</p>
-                                    </div>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-{{ $task->status_color }}-100 text-{{ $task->status_color }}-800 font-semibold">
-                                        {{ strtoupper($task->status) }}
-                                    </span>
-                                </div>
+                        <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-2">
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" data-open-jump="urgent" class="text-left px-2 py-1.5 rounded-md bg-red-50 hover:bg-red-100 transition-colors">
+                                    <p class="text-[10px] uppercase tracking-wide text-red-700 font-bold">Urgentes</p>
+                                    <p class="text-sm font-semibold text-red-900">{{ $openUrgentTasks->count() }}</p>
+                                </button>
+                                <button type="button" data-open-jump="high" class="text-left px-2 py-1.5 rounded-md bg-amber-50 hover:bg-amber-100 transition-colors">
+                                    <p class="text-[10px] uppercase tracking-wide text-amber-700 font-bold">Alta</p>
+                                    <p class="text-sm font-semibold text-amber-900">{{ $openHighTasks->count() }}</p>
+                                </button>
+                                <button type="button" data-open-jump="normal" class="text-left px-2 py-1.5 rounded-md bg-slate-50 hover:bg-slate-100 transition-colors">
+                                    <p class="text-[10px] uppercase tracking-wide text-slate-700 font-bold">Resto</p>
+                                    <p class="text-sm font-semibold text-slate-900">{{ $openNormalTasks->count() }}</p>
+                                </button>
+                            </div>
+                        </div>
 
-                                <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
-                                    @php
-                                        $openServiceName = $task->serviceRequest?->subService?->service?->name;
-                                        $openSubServiceName = $task->serviceRequest?->subService?->name;
-                                        $openServiceLabel = $openServiceName && $openSubServiceName
-                                            ? "{$openServiceName} · {$openSubServiceName}"
-                                            : ($openSubServiceName ?? $openServiceName);
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1">
-                                        <i class="fas fa-concierge-bell text-indigo-500"></i>
-                                        {{ $openServiceLabel ?: 'Sin servicio' }}
-                                    </span>
-                                    @if($task->priority)
-                                        <span class="inline-flex items-center gap-1">
-                                            <i class="fas fa-flag text-{{ $task->priority_color }}-500"></i>{{ ucfirst($task->priority) }}
+                        @foreach($openSections as $section)
+                            @if($section['count'] > 0)
+                                @php
+                                    $sectionKey = $loop->index === 0 ? 'urgent' : ($loop->index === 1 ? 'high' : 'normal');
+                                @endphp
+                                <section id="open-section-{{ $sectionKey }}" class="rounded-lg border border-gray-200 bg-white" data-open-section="{{ $sectionKey }}">
+                                    <button type="button" class="w-full flex items-center justify-between px-3 py-2" data-open-toggle="{{ $sectionKey }}">
+                                        <h4 class="text-xs font-bold uppercase tracking-wide {{ $section['header'] }}">
+                                            <i class="fas {{ $section['icon'] }} mr-1"></i>{{ $section['title'] }}
+                                        </h4>
+                                        <span class="inline-flex items-center gap-2">
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-semibold">{{ $section['count'] }}</span>
+                                            <i class="fas fa-chevron-up text-[10px] text-gray-500 transition-transform" data-open-toggle-icon="{{ $sectionKey }}"></i>
                                         </span>
-                                    @endif
-                                    @if($task->scheduled_date)
-                                        <span class="inline-flex items-center gap-1">
-                                            <i class="fas fa-calendar-alt text-blue-500"></i>{{ $task->scheduled_date->format('d/m/Y') }}
-                                        </span>
-                                    @endif
-                                    @if($task->scheduled_start_time)
-                                        <span class="inline-flex items-center gap-1">
-                                            <i class="fas fa-clock text-gray-500"></i>{{ substr($task->scheduled_start_time, 0, 5) }}
-                                        </span>
-                                    @endif
-                                </div>
-                            </a>
+                                    </button>
+                                    <div class="space-y-3 p-3 pt-0" data-open-section-body="{{ $sectionKey }}">
+                                        @foreach($section['tasks'] as $task)
+                                            @php
+                                                $score = (int) ($task->queue_score ?? 0);
+                                                $scoreBadgeClass = $score >= 700
+                                                    ? 'bg-red-100 text-red-800'
+                                                    : ($score >= 520 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800');
+                                            @endphp
+                                            <a href="{{ route('tasks.show', $task) }}"
+                                               draggable="true"
+                                               data-open-task
+                                               data-task-id="{{ $task->id }}"
+                                               data-task-status="{{ $task->status }}"
+                                               class="block border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                                                <div class="flex items-start justify-between gap-2 mb-1">
+                                                    <p class="text-xs font-semibold text-gray-500">{{ $task->task_code }}</p>
+                                                    @php
+                                                        $openStatusLabels = [
+                                                            'pending' => 'Pendiente',
+                                                            'confirmed' => 'Confirmada',
+                                                            'in_progress' => 'En progreso',
+                                                            'blocked' => 'Bloqueada',
+                                                            'in_review' => 'En revisión',
+                                                            'completed' => 'Completada',
+                                                            'rescheduled' => 'Reprogramada',
+                                                            'cancelled' => 'Cancelada',
+                                                        ];
+                                                    @endphp
+                                                    <div class="shrink-0 flex justify-end">
+                                                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] px-2 py-1 rounded-full {{ $scoreBadgeClass }} font-semibold leading-none cursor-help"
+                                                              title="Urgencia: {{ (int) ($task->queue_priority_score ?? 0) }} | Criticidad: {{ (int) ($task->queue_criticality_score ?? 0) }} | Servicio: {{ (int) ($task->queue_service_score ?? 0) }} | Tipo: {{ (int) ($task->queue_type_score ?? 0) }} | Antigüedad: {{ (int) ($task->queue_age_score ?? 0) }}">
+                                                            <span>{{ $openStatusLabels[$task->status] ?? ucfirst(str_replace('_', ' ', $task->status)) }}</span>
+                                                            <span class="opacity-60">•</span>
+                                                            <span>Score {{ $score }}</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <p class="text-sm font-medium text-gray-800 leading-snug overflow-hidden"
+                                                   style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">
+                                                    {{ $task->title }}
+                                                </p>
+
+                                                <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                                                    @php
+                                                        $openServiceName = $task->serviceRequest?->subService?->service?->name;
+                                                        $openSubServiceName = $task->serviceRequest?->subService?->name;
+                                                        $openServiceLabel = $openServiceName && $openSubServiceName
+                                                            ? "{$openServiceName} · {$openSubServiceName}"
+                                                            : ($openSubServiceName ?? $openServiceName);
+                                                    @endphp
+                                                    <span class="inline-flex items-center gap-1 min-w-0 max-w-full">
+                                                        <i class="fas fa-concierge-bell text-indigo-500"></i>
+                                                        <span class="truncate" title="{{ $openServiceLabel ?: 'Sin servicio' }}">{{ $openServiceLabel ?: 'Sin servicio' }}</span>
+                                                    </span>
+                                                    @if($task->priority)
+                                                        <span class="inline-flex items-center gap-1">
+                                                            <i class="fas fa-flag text-{{ $task->priority_color }}-500"></i>{{ ucfirst($task->priority) }}
+                                                        </span>
+                                                    @endif
+                                                    @if($task->scheduled_date)
+                                                        <span class="inline-flex items-center gap-1">
+                                                            <i class="fas fa-calendar-alt text-blue-500"></i>{{ $task->scheduled_date->format('d/m/Y') }}
+                                                        </span>
+                                                    @endif
+                                                    @if($task->scheduled_start_time)
+                                                        <span class="inline-flex items-center gap-1">
+                                                            <i class="fas fa-clock text-gray-500"></i>{{ substr($task->scheduled_start_time, 0, 5) }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </section>
+                            @endif
                         @endforeach
                     @endif
                 </div>
@@ -476,11 +679,31 @@
     </div>
 </div>
 
+<!-- Menú contextual de tareas -->
+<div id="taskContextMenu" class="hidden fixed z-[70] min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-xl py-1">
+    <button type="button" data-context-action="view" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        <i class="fas fa-eye mr-2 text-gray-500"></i>Ver tarea
+    </button>
+    <button type="button" data-context-action="schedule" class="hidden w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        <i class="fas fa-calendar-plus mr-2 text-blue-500"></i>Agendar hoy
+    </button>
+    <button type="button" data-context-action="start" class="hidden w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        <i class="fas fa-play mr-2 text-green-600"></i>Iniciar
+    </button>
+    <button type="button" data-context-action="complete" class="hidden w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        <i class="fas fa-check mr-2 text-indigo-600"></i>Completar
+    </button>
+    <button type="button" data-context-action="unschedule" class="hidden w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+        <i class="fas fa-undo mr-2 text-amber-600"></i>Devolver a abiertas
+    </button>
+</div>
+
 <script>
     function changeTechnician() {
         const technicianId = document.getElementById('technicianSelector').value;
         const date = document.getElementById('dateSelector').value;
         const params = new URLSearchParams(window.location.search);
+        params.delete('queue_strategy');
         params.set('date', date);
         if (technicianId) {
             params.set('technician_id', technicianId);
@@ -494,6 +717,7 @@
         const date = document.getElementById('dateSelector').value;
         const technicianId = document.getElementById('technicianSelector')?.value;
         const params = new URLSearchParams(window.location.search);
+        params.delete('queue_strategy');
         params.set('date', date);
         if (technicianId) {
             params.set('technician_id', technicianId);
@@ -549,6 +773,7 @@
 
     const scheduleQuickUrlTemplate = @json(route('tasks.schedule-quick', ['task' => '__ID__']));
     const unscheduleTaskUrlTemplate = @json(route('tasks.unschedule', ['task' => '__ID__']));
+    const startTaskUrlTemplate = @json(route('tasks.start', ['task' => '__ID__']));
     const reorderDayTasksUrl = @json(route('technician-schedule.reorder-day-tasks'));
 
     function buildScheduleQuickUrl(taskId) {
@@ -557,6 +782,10 @@
 
     function buildUnscheduleTaskUrl(taskId) {
         return unscheduleTaskUrlTemplate.replace('__ID__', taskId);
+    }
+
+    function buildStartTaskUrl(taskId) {
+        return startTaskUrlTemplate.replace('__ID__', taskId);
     }
 
     function showToast(message, type = 'info') {
@@ -570,6 +799,8 @@
             toast.classList.add('hidden');
         }, 2200);
     }
+
+    const manualQueueModeActive = @json($manualQueueMode);
 
     function initializeTaskDragBetweenLists() {
         const openTasks = document.querySelectorAll('[data-open-task]');
@@ -860,30 +1091,266 @@
             });
         }
 
-        dayTasks.forEach((item) => {
-            item.addEventListener('dragstart', (event) => {
-                startDayDrag(item, event);
+        if (manualQueueModeActive) {
+            dayTasks.forEach((item) => {
+                item.addEventListener('dragstart', (event) => {
+                    startDayDrag(item, event);
+                });
+
+                item.addEventListener('dragend', () => {
+                    endDayDrag(item);
+                });
             });
 
-            item.addEventListener('dragend', () => {
-                endDayDrag(item);
+            dayTaskHandles.forEach((handle) => {
+                handle.addEventListener('dragstart', (event) => {
+                    const item = handle.closest('[data-day-task]');
+                    startDayDrag(item, event);
+                });
+
+                handle.addEventListener('dragend', () => {
+                    const item = handle.closest('[data-day-task]');
+                    endDayDrag(item);
+                });
             });
+        }
+    }
+
+    function initializeTaskContextMenu() {
+        const menu = document.getElementById('taskContextMenu');
+        if (!menu) return;
+
+        let currentTask = null;
+
+        const hideMenu = () => {
+            menu.classList.add('hidden');
+            currentTask = null;
+        };
+
+        const setActionVisible = (action, visible) => {
+            const button = menu.querySelector(`[data-context-action="${action}"]`);
+            if (!button) return;
+            button.classList.toggle('hidden', !visible);
+        };
+
+        const showMenu = (event, taskElement, sourceType) => {
+            event.preventDefault();
+
+            currentTask = {
+                id: taskElement.dataset.taskId,
+                status: taskElement.dataset.taskStatus || '',
+                showUrl: taskElement.dataset.taskShowUrl || taskElement.getAttribute('href') || '',
+                source: sourceType,
+            };
+
+            setActionVisible('view', true);
+            setActionVisible('schedule', sourceType === 'open');
+            setActionVisible('unschedule', sourceType === 'day');
+            setActionVisible('start', sourceType === 'day' && currentTask.status === 'pending');
+            setActionVisible('complete', sourceType === 'day' && currentTask.status === 'in_progress');
+
+            menu.classList.remove('hidden');
+
+            const menuRect = menu.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const left = Math.min(event.clientX, viewportWidth - menuRect.width - 12);
+            const top = Math.min(event.clientY, viewportHeight - menuRect.height - 12);
+            menu.style.left = `${Math.max(8, left)}px`;
+            menu.style.top = `${Math.max(8, top)}px`;
+        };
+
+        const scheduleTaskToToday = async (taskId) => {
+            const dateValue = document.getElementById('dateSelector')?.value;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await fetch(buildScheduleQuickUrl(taskId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf || '',
+                },
+                body: JSON.stringify({ scheduled_date: dateValue || null }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'No se pudo agendar la tarea.');
+            }
+            showToast(`Tarea agendada (${data.scheduled_at}).`, 'success');
+            setTimeout(() => window.location.reload(), 500);
+        };
+
+        const unscheduleTask = async (taskId) => {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await fetch(buildUnscheduleTaskUrl(taskId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf || '',
+                },
+                body: JSON.stringify({}),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'No se pudo devolver la tarea.');
+            }
+            showToast('Tarea devuelta a tareas abiertas.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        };
+
+        const startTask = async (taskId) => {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await fetch(buildStartTaskUrl(taskId), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf || '',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('No se pudo iniciar la tarea.');
+            }
+            showToast('Tarea iniciada.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        };
+
+        document.querySelectorAll('[data-open-task]').forEach((item) => {
+            item.addEventListener('contextmenu', (event) => showMenu(event, item, 'open'));
         });
 
-        dayTaskHandles.forEach((handle) => {
-            handle.addEventListener('dragstart', (event) => {
-                const item = handle.closest('[data-day-task]');
-                startDayDrag(item, event);
-            });
+        document.querySelectorAll('[data-day-task]').forEach((item) => {
+            item.addEventListener('contextmenu', (event) => showMenu(event, item, 'day'));
+        });
 
-            handle.addEventListener('dragend', () => {
-                const item = handle.closest('[data-day-task]');
-                endDayDrag(item);
-            });
+        menu.addEventListener('click', async (event) => {
+            const actionButton = event.target.closest('[data-context-action]');
+            if (!actionButton || !currentTask) return;
+
+            const action = actionButton.dataset.contextAction;
+            const taskCtx = { ...currentTask };
+            hideMenu();
+
+            try {
+                if (action === 'view' && taskCtx.showUrl) {
+                    window.location.href = taskCtx.showUrl;
+                    return;
+                }
+                if (action === 'schedule') {
+                    await scheduleTaskToToday(taskCtx.id);
+                    return;
+                }
+                if (action === 'unschedule') {
+                    await unscheduleTask(taskCtx.id);
+                    return;
+                }
+                if (action === 'start') {
+                    await startTask(taskCtx.id);
+                    return;
+                }
+                if (action === 'complete') {
+                    openCompleteModal(taskCtx.id);
+                }
+            } catch (error) {
+                console.error(error);
+                showToast(error.message || 'No se pudo ejecutar la acción.', 'error');
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('#taskContextMenu')) {
+                hideMenu();
+            }
+        });
+
+        window.addEventListener('scroll', hideMenu, true);
+        window.addEventListener('resize', hideMenu);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') hideMenu();
         });
     }
 
-    document.addEventListener('DOMContentLoaded', initializeTaskDragBetweenLists);
+    function initializeOpenTaskSections() {
+        const openList = document.querySelector('[data-open-list]');
+        if (!openList) return;
+
+        const toggleButtons = document.querySelectorAll('[data-open-toggle]');
+        const jumpButtons = document.querySelectorAll('[data-open-jump]');
+
+        const setSectionState = (key, expanded) => {
+            const body = document.querySelector(`[data-open-section-body="${key}"]`);
+            const icon = document.querySelector(`[data-open-toggle-icon="${key}"]`);
+            if (!body || !icon) return;
+            body.classList.toggle('hidden', !expanded);
+            icon.classList.toggle('rotate-180', !expanded);
+        };
+
+        toggleButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const key = button.getAttribute('data-open-toggle');
+                const body = document.querySelector(`[data-open-section-body="${key}"]`);
+                if (!body) return;
+                const expanded = body.classList.contains('hidden');
+                setSectionState(key, expanded);
+            });
+        });
+
+        jumpButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const key = button.getAttribute('data-open-jump');
+                const section = document.getElementById(`open-section-${key}`);
+                if (!section) return;
+                setSectionState(key, true);
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Reducir ruido inicial: mantener "Resto" colapsado por defecto.
+        setSectionState('normal', false);
+    }
+
+    const agendaFiltersSidebar = document.getElementById('agendaFiltersSidebar');
+    const agendaFiltersOverlay = document.getElementById('agendaFiltersOverlay');
+    const openAgendaFiltersSidebar = document.getElementById('openAgendaFiltersSidebar');
+    const closeAgendaFiltersSidebar = document.getElementById('closeAgendaFiltersSidebar');
+
+    function showAgendaFiltersSidebar() {
+        if (!agendaFiltersSidebar || !agendaFiltersOverlay) return;
+        agendaFiltersOverlay.classList.remove('hidden');
+        agendaFiltersSidebar.classList.remove('translate-x-full');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function hideAgendaFiltersSidebar() {
+        if (!agendaFiltersSidebar || !agendaFiltersOverlay) return;
+        agendaFiltersSidebar.classList.add('translate-x-full');
+        agendaFiltersOverlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    if (openAgendaFiltersSidebar) {
+        openAgendaFiltersSidebar.addEventListener('click', showAgendaFiltersSidebar);
+    }
+
+    if (closeAgendaFiltersSidebar) {
+        closeAgendaFiltersSidebar.addEventListener('click', hideAgendaFiltersSidebar);
+    }
+
+    if (agendaFiltersOverlay) {
+        agendaFiltersOverlay.addEventListener('click', hideAgendaFiltersSidebar);
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            hideAgendaFiltersSidebar();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeTaskDragBetweenLists();
+        initializeOpenTaskSections();
+        initializeTaskContextMenu();
+    });
 </script>
 
 <div id="srToast" class="hidden fixed bottom-5 right-5 text-white text-sm px-4 py-2 rounded-lg shadow-lg bg-blue-600"></div>

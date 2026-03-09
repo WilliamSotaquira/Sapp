@@ -332,6 +332,12 @@
                         'icon' => 'fas fa-list',
                         'match' => ['service-requests.index'],
                     ],
+                    [
+                        'route' => 'technician-schedule.my-agenda',
+                        'label' => 'Mi Agenda',
+                        'icon' => 'fas fa-clipboard-list',
+                        'match' => ['technician-schedule.my-agenda'],
+                    ],
                 ],
             ],
             [

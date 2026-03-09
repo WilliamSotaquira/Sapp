@@ -12,11 +12,12 @@ Crear solicitudes rapido, con clasificacion correcta, trazabilidad y sin consult
 ## Flujo unico (rapido)
 
 1. Extraer: `solicitante`, `titulo`, `descripcion`, `canal`, `rutas web` (si existen).
-2. Identificar entidad del solicitante.
-3. Clasificar `sub_service_id` desde `CATALOGO_ACTIVO_POR_ENTIDAD.txt` usando solo `OMITIR=NO`.
-4. Resolver/crear solicitante con `findOrCreateRequesterForCompany(...)`.
-5. Resolver contexto tecnico con `resolveCreationContext(company_id, sub_service_id, criticality)`.
-6. Crear solicitud con `createServiceRequest(...)`.
+2. Validar duplicado: confirmar que la solicitud no exista ya (mismo solicitante + asunto/titulo + fecha/contexto); si existe, no crear otra y devolver referencia.
+3. Identificar entidad del solicitante.
+4. Clasificar `sub_service_id` desde `CATALOGO_ACTIVO_POR_ENTIDAD.txt` usando solo `OMITIR=NO`.
+5. Resolver/crear solicitante con `findOrCreateRequesterForCompany(...)`.
+6. Resolver contexto tecnico con `resolveCreationContext(company_id, sub_service_id, criticality)`.
+7. Crear solicitud con `createServiceRequest(...)`.
 
 ## Reglas fijas
 
@@ -34,6 +35,16 @@ Crear solicitudes rapido, con clasificacion correcta, trazabilidad y sin consult
 - Las subtareas deben incluir el tiempo en el titulo al final, en formato: `(XX min)`.
 - Funcion webmaster + practica ITIL deben ir en `description` (tarea) o `notes` (subtarea), sin sobrecargar el titulo.
 - La `description` de tareas y las `notes` de subtareas deben ser detalladas en longitud media (contexto, objetivo, alcance y validacion esperada).
+
+## Validacion obligatoria por entidad (no negociable)
+
+- Antes de crear, validar coherencia completa contra `company_id` (entidad destino).
+- `requester_id` debe pertenecer a la misma entidad (`requesters.company_id == company_id`).
+- `sub_service_id` debe pertenecer al catalogo/contrato activo de esa entidad.
+- `sla_id` debe corresponder exactamente al `sub_service_id` y a la entidad.
+- Si cualquier validacion falla: **no crear** la solicitud y devolver error claro indicando el campo inconsistente.
+- Esta regla aplica siempre: formulario web, API, scripts, carga masiva o creacion manual desde consola.
+- Nunca reutilizar por defecto `requester_id`, `sub_service_id` o `sla_id` de una solicitud previa sin revalidar entidad.
 
 ## Funciones webmaster permitidas (obligatorio)
 

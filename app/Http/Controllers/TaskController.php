@@ -38,19 +38,19 @@ class TaskController extends Controller
         }
 
         // Filtros
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->has('type')) {
+        if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
-        if ($request->has('technician_id')) {
+        if ($request->filled('technician_id')) {
             $query->where('technician_id', $request->technician_id);
         }
 
-        if ($request->has('date')) {
+        if ($request->filled('date')) {
             $query->forDate($request->date);
         }
 
@@ -63,15 +63,249 @@ class TaskController extends Controller
             $query->where('priority', $priority);
         }
 
-        $tasks = $query->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $queueStrategy = $request->get('queue_strategy', 'manual');
+        if (!in_array($queueStrategy, ['manual', 'auto'], true)) {
+            $queueStrategy = 'manual';
+        }
+        $queueDefaultWeights = $this->defaultQueueWeights();
+        $queueWeights = $this->resolveQueueWeights($request);
+
+        $queueMode = $request->filled('technician_id') && $request->filled('date');
+        $manualQueueMode = $queueMode && $queueStrategy === 'manual';
+        $autoQueueMode = $queueMode && $queueStrategy === 'auto';
+
+        if ($manualQueueMode) {
+            $query->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+                ->orderBy('scheduled_order')
+                ->orderBy('scheduled_start_time')
+                ->orderBy('created_at');
+        } elseif ($autoQueueMode) {
+            $wpCritical = (int) $queueWeights['priority_critical'];
+            $wpHigh = (int) $queueWeights['priority_high'];
+            $wpMedium = (int) $queueWeights['priority_medium'];
+            $wpLow = (int) $queueWeights['priority_low'];
+            $wpDefault = (int) $queueWeights['priority_default'];
+            $wtImpact = (int) $queueWeights['type_impact'];
+            $wtRegular = (int) $queueWeights['type_regular'];
+            $wsPending = (int) $queueWeights['status_pending'];
+            $wsInProgress = (int) $queueWeights['status_in_progress'];
+            $wsConfirmed = (int) $queueWeights['status_confirmed'];
+            $wsBlocked = (int) $queueWeights['status_blocked'];
+            $wsInReview = (int) $queueWeights['status_in_review'];
+            $wsCompleted = (int) $queueWeights['status_completed'];
+            $wsCancelled = (int) $queueWeights['status_cancelled'];
+            $wsDefault = (int) $queueWeights['status_default'];
+            $agePerHour = (int) $queueWeights['age_per_hour'];
+            $ageCap = (int) $queueWeights['age_cap'];
+
+            $query->select('tasks.*')
+                ->selectRaw("
+                    CASE priority
+                        WHEN 'critical' THEN {$wpCritical}
+                        WHEN 'high' THEN {$wpHigh}
+                        WHEN 'medium' THEN {$wpMedium}
+                        WHEN 'low' THEN {$wpLow}
+                        ELSE {$wpDefault}
+                    END AS queue_priority_score
+                ")
+                ->selectRaw("
+                    CASE type
+                        WHEN 'impact' THEN {$wtImpact}
+                        ELSE {$wtRegular}
+                    END AS queue_type_score
+                ")
+                ->selectRaw("
+                    CASE status
+                        WHEN 'pending' THEN {$wsPending}
+                        WHEN 'in_progress' THEN {$wsInProgress}
+                        WHEN 'confirmed' THEN {$wsConfirmed}
+                        WHEN 'blocked' THEN {$wsBlocked}
+                        WHEN 'in_review' THEN {$wsInReview}
+                        WHEN 'completed' THEN {$wsCompleted}
+                        WHEN 'cancelled' THEN {$wsCancelled}
+                        ELSE {$wsDefault}
+                    END AS queue_status_score
+                ")
+                ->selectRaw("
+                    (LEAST(TIMESTAMPDIFF(HOUR, created_at, NOW()), {$ageCap}) * {$agePerHour}) AS queue_age_score
+                ")
+                ->selectRaw("
+                    (
+                        CASE priority
+                        WHEN 'critical' THEN {$wpCritical}
+                        WHEN 'high' THEN {$wpHigh}
+                        WHEN 'medium' THEN {$wpMedium}
+                        WHEN 'low' THEN {$wpLow}
+                        ELSE {$wpDefault}
+                    END
+                        +
+                        CASE type
+                            WHEN 'impact' THEN {$wtImpact}
+                            ELSE {$wtRegular}
+                        END
+                        +
+                        CASE status
+                            WHEN 'pending' THEN {$wsPending}
+                            WHEN 'in_progress' THEN {$wsInProgress}
+                            WHEN 'confirmed' THEN {$wsConfirmed}
+                            WHEN 'blocked' THEN {$wsBlocked}
+                            WHEN 'in_review' THEN {$wsInReview}
+                            WHEN 'completed' THEN {$wsCompleted}
+                            WHEN 'cancelled' THEN {$wsCancelled}
+                            ELSE {$wsDefault}
+                        END
+                        +
+                        (LEAST(TIMESTAMPDIFF(HOUR, created_at, NOW()), {$ageCap}) * {$agePerHour})
+                    ) AS queue_score
+                ")
+                ->orderByDesc('queue_score')
+                ->orderBy('created_at');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $tasks = $query->paginate(20)->withQueryString();
+
+        $availableTasksForQueue = collect();
+        if ($manualQueueMode) {
+            $selectedDate = $request->get('date');
+            $selectedTechnicianId = (int) $request->get('technician_id');
+
+            $availableQuery = Task::with(['serviceRequest'])
+                ->where('technician_id', $selectedTechnicianId)
+                ->where(function ($q) use ($selectedDate) {
+                    $q->whereNull('scheduled_date')
+                        ->orWhereDate('scheduled_date', '!=', $selectedDate);
+                })
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->orderByDesc('created_at')
+                ->limit(30);
+
+            if ($currentCompanyId) {
+                $availableQuery->whereHas('serviceRequest', function ($sr) use ($currentCompanyId) {
+                    $sr->where('company_id', $currentCompanyId);
+                });
+            }
+
+            $availableTasksForQueue = $availableQuery->get();
+        }
 
         $technicians = Technician::with('user')
             ->active()
             ->whereHas('user')
             ->get();
 
-        return view('tasks.index', compact('tasks', 'technicians'));
+        return view('tasks.index', compact(
+            'tasks',
+            'technicians',
+            'queueMode',
+            'queueStrategy',
+            'queueWeights',
+            'queueDefaultWeights',
+            'manualQueueMode',
+            'autoQueueMode',
+            'availableTasksForQueue'
+        ));
+    }
+
+    public function enqueueDay(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'scheduled_date' => 'required|date',
+            'technician_id' => 'required|exists:technicians,id',
+        ]);
+
+        $technicianId = (int) $validated['technician_id'];
+        $scheduledDate = $validated['scheduled_date'];
+
+        if (!empty($task->technician_id) && (int) $task->technician_id !== $technicianId) {
+            $message = 'La tarea pertenece a otro técnico y no se puede encolar en esta agenda.';
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        $maxOrder = Task::whereDate('scheduled_date', $scheduledDate)
+            ->where('technician_id', $technicianId)
+            ->max('scheduled_order');
+        $nextOrder = ((int) $maxOrder) + 1;
+
+        $updatePayload = [
+            'technician_id' => $technicianId,
+            'scheduled_date' => $scheduledDate,
+            'scheduled_order' => $nextOrder,
+        ];
+
+        if (empty($task->scheduled_start_time)) {
+            $updatePayload['scheduled_start_time'] = '09:00';
+            $updatePayload['scheduled_time'] = '09:00';
+        }
+
+        $task->update($updatePayload);
+        $task->addHistory('rescheduled', auth()->id(), 'Tarea agregada manualmente a la cola del día.');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Tarea agregada a la cola.',
+                'task_id' => $task->id,
+                'scheduled_order' => $task->scheduled_order,
+            ]);
+        }
+
+        return back()->with('success', 'Tarea agregada a la cola del día.');
+    }
+
+    public function applyAutoQueue(Request $request)
+    {
+        $validated = $request->validate([
+            'scheduled_date' => 'required|date',
+            'technician_id' => 'required|exists:technicians,id',
+        ]);
+
+        $tasks = Task::whereDate('scheduled_date', $validated['scheduled_date'])
+            ->where('technician_id', $validated['technician_id'])
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->get();
+
+        if ($tasks->isEmpty()) {
+            $message = 'No hay tareas activas para ordenar automáticamente.';
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        $queueWeights = $this->resolveQueueWeights($request);
+
+        $ordered = $tasks->sort(function (Task $a, Task $b) use ($queueWeights) {
+            $scoreA = $this->calculateTaskImportanceScore($a, $queueWeights);
+            $scoreB = $this->calculateTaskImportanceScore($b, $queueWeights);
+
+            if ($scoreA === $scoreB) {
+                return $a->created_at <=> $b->created_at;
+            }
+
+            return $scoreB <=> $scoreA;
+        })->values();
+
+        \DB::transaction(function () use ($ordered) {
+            foreach ($ordered as $index => $task) {
+                $task->scheduled_order = $index + 1;
+                $task->save();
+            }
+        });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Orden automático aplicado.',
+                'updated_tasks' => $ordered->count(),
+            ]);
+        }
+
+        return back()->with('success', 'Orden automático aplicado a la cola del día.');
     }
 
     /**
@@ -1214,11 +1448,16 @@ class TaskController extends Controller
         $task->subtasks()->update([
             'status' => 'completed',
             'is_completed' => true,
+            'started_at' => \DB::raw('COALESCE(started_at, NOW())'),
             'completed_at' => now(),
         ]);
 
         if (isset($validated['actual_duration_minutes'])) {
-            $task->update(['actual_duration_minutes' => $validated['actual_duration_minutes']]);
+            $minutes = (int) $validated['actual_duration_minutes'];
+            $task->update([
+                'actual_duration_minutes' => $minutes,
+                'actual_hours' => round($minutes / 60, 2),
+            ]);
         }
 
         // Actualizar cumplimiento SLA
@@ -1487,6 +1726,109 @@ class TaskController extends Controller
         return $map[$key] ?? null;
     }
 
+    protected function calculateTaskImportanceScore(Task $task, array $weights): int
+    {
+        $priorityWeight = match ($task->priority) {
+            'critical' => (int) $weights['priority_critical'],
+            'high' => (int) $weights['priority_high'],
+            'medium' => (int) $weights['priority_medium'],
+            'low' => (int) $weights['priority_low'],
+            default => (int) $weights['priority_default'],
+        };
+
+        $typeWeight = $task->type === 'impact'
+            ? (int) $weights['type_impact']
+            : (int) $weights['type_regular'];
+
+        $statusWeight = match ($task->status) {
+            'pending' => (int) $weights['status_pending'],
+            'in_progress' => (int) $weights['status_in_progress'],
+            'confirmed' => (int) $weights['status_confirmed'],
+            'blocked' => (int) $weights['status_blocked'],
+            'in_review' => (int) $weights['status_in_review'],
+            'completed' => (int) $weights['status_completed'],
+            'cancelled' => (int) $weights['status_cancelled'],
+            default => (int) $weights['status_default'],
+        };
+
+        $ageCap = max(0, (int) $weights['age_cap']);
+        $agePerHour = max(0, (int) $weights['age_per_hour']);
+        $ageHours = min($ageCap, (int) ($task->created_at?->diffInHours(now()) ?? 0));
+        $ageWeight = $ageHours * $agePerHour;
+
+        return $priorityWeight + $typeWeight + $statusWeight + $ageWeight;
+    }
+
+    protected function resolveQueueWeights(Request $request): array
+    {
+        $defaults = $this->defaultQueueWeights();
+        $sessionWeights = (array) $request->session()->get($this->queueWeightsSessionKey(), []);
+        $hasWeightInRequest = false;
+
+        $weights = [];
+        foreach ($defaults as $key => $defaultValue) {
+            $requestKey = 'weight_' . $key;
+            if ($request->has($requestKey)) {
+                $hasWeightInRequest = true;
+            }
+
+            $value = $request->input($requestKey, $sessionWeights[$key] ?? $defaultValue);
+            $weights[$key] = $this->normalizeQueueWeight($value, $defaultValue, $key);
+        }
+
+        if ($hasWeightInRequest) {
+            $request->session()->put($this->queueWeightsSessionKey(), $weights);
+        }
+
+        return $weights;
+    }
+
+    protected function queueWeightsSessionKey(): string
+    {
+        return 'tasks.queue_weights.user_' . (auth()->id() ?? 'guest');
+    }
+
+    protected function normalizeQueueWeight($value, int $defaultValue, string $key): int
+    {
+        if (!is_numeric($value)) {
+            return $defaultValue;
+        }
+
+        $numeric = (int) $value;
+        if ($key === 'age_cap') {
+            return max(0, min(720, $numeric));
+        }
+
+        if ($key === 'age_per_hour') {
+            return max(0, min(50, $numeric));
+        }
+
+        return max(-2000, min(2000, $numeric));
+    }
+
+    protected function defaultQueueWeights(): array
+    {
+        return [
+            'priority_critical' => 400,
+            'priority_high' => 300,
+            'priority_medium' => 200,
+            'priority_low' => 100,
+            'priority_default' => 50,
+            'type_impact' => 120,
+            'type_regular' => 60,
+            'status_pending' => 140,
+            'status_in_progress' => 110,
+            'status_confirmed' => 90,
+            'status_blocked' => 60,
+            'status_in_review' => 40,
+            'status_completed' => -200,
+            'status_cancelled' => -300,
+            'status_default' => 20,
+            'age_per_hour' => 1,
+            'age_cap' => 240,
+        ];
+    }
+
     protected function getUiTimezone(): string
     {
         $timezone = config('app.ui_timezone');
@@ -1610,21 +1952,32 @@ class TaskController extends Controller
             abort(403);
         }
 
-        if (!$this->canConfirmAssociatedTaskProgress($task)) {
+        $isCurrentlyCompleted = $subtask->status === 'completed';
+
+        // Permitir desmarcar siempre; restringir solo al marcar como completada.
+        if (!$isCurrentlyCompleted && !$this->canConfirmAssociatedTaskProgress($task)) {
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
-            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.');
+            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.');
         }
 
-        if ($subtask->status === 'completed') {
+        if ($isCurrentlyCompleted) {
             $subtask->update(['status' => 'pending', 'completed_at' => null]);
         } else {
+            if (!in_array($task->status, ['in_progress', 'completed'], true)) {
+                $task->start();
+                $task->refresh();
+            }
             $subtask->complete();
+        }
+
+        if ($task->serviceRequest) {
+            $task->serviceRequest->updateStatusFromTasks();
         }
 
         if (request()->expectsJson()) {
@@ -1712,32 +2065,36 @@ class TaskController extends Controller
             if (!$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
             $completed = $request->input('completed', false);
 
             if ($completed) {
-                // Marcar como completada
-                $task->update([
-                    'status' => 'completed',
-                    'completed_at' => now(),
-                ]);
+                if (!$task->started_at) {
+                    $task->update(['started_at' => now()]);
+                }
 
                 // Marcar todas las subtareas como completadas
                 $task->subtasks()->update([
                     'is_completed' => true,
                     'status' => 'completed',
+                    'started_at' => \DB::raw('COALESCE(started_at, NOW())'),
                     'completed_at' => now(),
                 ]);
 
+                // Completar usando lógica centralizada para calcular tiempo real.
+                $task->complete();
                 $message = 'Tarea marcada como completada';
             } else {
                 // Volver a en proceso
                 $task->update([
                     'status' => 'in_progress',
                     'completed_at' => null,
+                    'started_at' => $task->started_at ?? now(),
+                    'actual_duration_minutes' => null,
+                    'actual_hours' => null,
                 ]);
 
                 // Desmarcar todas las subtareas
@@ -1745,15 +2102,21 @@ class TaskController extends Controller
                     'is_completed' => false,
                     'status' => 'pending',
                     'completed_at' => null,
+                    'actual_minutes' => null,
                 ]);
 
                 $message = 'Tarea marcada como en proceso';
             }
 
+            if ($task->serviceRequest) {
+                $task->serviceRequest->updateStatusFromTasks();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => $message,
-                'status' => $task->status
+                'status' => $task->status,
+                'actual_duration_minutes' => $task->actual_duration_minutes,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -1776,20 +2139,31 @@ class TaskController extends Controller
                 ], 403);
             }
 
-            if (!$this->canConfirmAssociatedTaskProgress($task)) {
+            $isCompleted = filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+
+            // Permitir desmarcar siempre; restringir solo al marcar como completada.
+            if ($isCompleted && !$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
                 ], 422);
             }
 
             $previousStatus = $task->status;
-            $isCompleted = filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+
+            if ($isCompleted && !in_array($task->status, ['in_progress', 'completed'], true)) {
+                $task->start();
+                $task->refresh();
+            }
 
             $subtask->update([
                 'is_completed' => $isCompleted,
                 'status' => $isCompleted ? 'completed' : 'pending',
+                'started_at' => $isCompleted ? ($subtask->started_at ?? now()) : $subtask->started_at,
                 'completed_at' => $isCompleted ? now() : null,
+                'actual_minutes' => $isCompleted
+                    ? (($subtask->started_at ?? now())->diffInMinutes(now()))
+                    : $subtask->actual_minutes,
             ]);
 
             if (!$isCompleted && $task->status === 'completed') {
@@ -1817,6 +2191,10 @@ class TaskController extends Controller
             }
 
             $task->refresh();
+
+            if ($task->serviceRequest) {
+                $task->serviceRequest->updateStatusFromTasks();
+            }
 
             $message = $isCompleted
                 ? 'Subtarea marcada como completada'
@@ -1847,6 +2225,6 @@ class TaskController extends Controller
             $task->load('serviceRequest:id,status');
         }
 
-        return in_array(optional($task->serviceRequest)->status, ['ACEPTADA', 'EN_PROCESO'], true);
+        return in_array(optional($task->serviceRequest)->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'], true);
     }
 }

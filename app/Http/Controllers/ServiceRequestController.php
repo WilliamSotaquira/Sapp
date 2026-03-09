@@ -523,7 +523,9 @@ class ServiceRequestController extends Controller
 
         $data = [
             'resolution_notes' => $resolutionNotes,
-            'actual_resolution_time' => (int) ($validated['actual_resolution_time'] ?? 60),
+            'actual_resolution_time' => isset($validated['actual_resolution_time'])
+                ? (int) $validated['actual_resolution_time']
+                : null,
         ];
 
         $result = $this->workflowService->resolveRequest($serviceRequest, $data);
