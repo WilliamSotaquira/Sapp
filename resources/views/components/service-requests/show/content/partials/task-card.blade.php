@@ -32,8 +32,8 @@
     $subtasks = $task->subtasks ?? collect();
 @endphp
 
-<div class="border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200" data-task-card="{{ $task->id }}" data-task-completed="{{ strtolower($task->status ?? '') === 'completed' ? '1' : '0' }}">
-    <div class="p-4 {{ $subtasks->count() > 0 ? 'border-b border-gray-100' : '' }}">
+<div class="border border-gray-200 rounded-lg" data-task-card="{{ $task->id }}" data-task-completed="{{ strtolower($task->status ?? '') === 'completed' ? '1' : '0' }}">
+    <div class="p-3 {{ $subtasks->count() > 0 ? 'border-b border-gray-100' : '' }}">
         <div class="flex items-start gap-3">
             <div class="flex-shrink-0 mt-1">
                 <input type="checkbox"
@@ -42,20 +42,15 @@
                     {{ strtolower($task->status ?? '') === 'completed' ? 'checked' : '' }}
                     onchange="toggleTaskStatus({{ $task->id }}, this.checked)"
                     {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
-                    title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está ACEPTADA o EN PROCESO.' : '' }}">
+                    title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está PENDIENTE, ACEPTADA o EN PROCESO.' : '' }}">
             </div>
 
             <div class="flex-1">
-                <div class="flex items-center gap-2 mb-2">
+                <div class="flex items-center gap-2 mb-1">
                     <a href="{{ route('tasks.show', $task) }}"
                         class="font-mono text-sm font-semibold text-purple-600 hover:text-purple-800 hover:underline">
                         {{ $task->task_code }}
                     </a>
-
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $task->type === 'impact' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
-                        <i class="fas {{ $task->type === 'impact' ? 'fa-exclamation-triangle' : 'fa-clipboard-list' }} mr-1"></i>
-                        {{ $task->type === 'impact' ? 'IMPACTO' : 'REGULAR' }}
-                    </span>
 
                     <span id="task-status-badge-{{ $task->id }}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $status['bg'] }} {{ $status['text'] }}">
                         <i class="fas {{ $status['icon'] }} mr-1"></i>
@@ -67,53 +62,16 @@
                     </span>
                 </div>
 
-                <h4 class="text-sm font-medium text-gray-900 mb-2 {{ $task->status === 'completed' ? 'line-through text-gray-500' : '' }}">
+                <h4 class="text-sm font-medium text-gray-900 {{ $task->status === 'completed' ? 'line-through text-gray-500' : '' }}">
                     {{ $task->title }}
                 </h4>
 
-                @if($task->description)
-                    <p class="text-xs text-gray-600 line-clamp-2 mb-2 {{ $task->status === 'completed' ? 'text-gray-400' : '' }}">
-                        {{ Str::limit($task->description, 150) }}
+                @if($subtasks->count() > 0)
+                    @php $completedSubtasks = $subtasks->where('is_completed', true)->count(); @endphp
+                    <p class="text-xs text-gray-500 mt-1">
+                        {{ $completedSubtasks }}/{{ $subtasks->count() }} subtareas completadas
                     </p>
                 @endif
-
-                <div class="flex flex-wrap gap-4 text-xs text-gray-500">
-                    @if($task->technician && $task->technician->user)
-                        <div class="flex items-center">
-                            <i class="fas fa-user text-gray-400 mr-1"></i>
-                            <span>{{ $task->technician->user->name }}</span>
-                        </div>
-                    @endif
-
-                    @if($task->scheduled_date)
-                        <div class="flex items-center">
-                            <i class="fas fa-calendar text-gray-400 mr-1"></i>
-                            <span>{{ \Carbon\Carbon::parse($task->scheduled_date)->format('d/m/Y') }}</span>
-                        </div>
-                    @endif
-
-                    @if($task->estimated_hours)
-                        <div class="flex items-center">
-                            <i class="fas fa-clock text-gray-400 mr-1"></i>
-                            <span>{{ $task->estimated_hours }}h estimadas</span>
-                        </div>
-                    @endif
-
-                    <div class="flex items-center">
-                        <i class="fas fa-calendar-plus text-gray-400 mr-1"></i>
-                        <span>Creada {{ $task->created_at->diffForHumans() }}</span>
-                    </div>
-
-                    @if($subtasks->count() > 0)
-                        @php
-                            $completedSubtasks = $subtasks->where('is_completed', true)->count();
-                        @endphp
-                        <div class="flex items-center text-purple-600 font-medium">
-                            <i class="fas fa-list-check text-purple-500 mr-1"></i>
-                            <span>{{ $completedSubtasks }}/{{ $subtasks->count() }} subtareas completadas</span>
-                        </div>
-                    @endif
-                </div>
             </div>
 
             <div class="flex-shrink-0">
@@ -127,18 +85,13 @@
     </div>
 
     @if($subtasks->count() > 0)
-        <div class="bg-gray-50 p-4">
-            <h5 class="text-xs font-semibold text-gray-700 mb-3 flex items-center">
-                <i class="fas fa-list-ul mr-2"></i>
+        <div class="bg-gray-50 p-3">
+            <h5 class="text-xs font-semibold text-gray-700 mb-2">
                 Subtareas ({{ $subtasks->count() }})
             </h5>
-            <div class="space-y-2">
+            <div class="space-y-1.5">
                 @foreach($subtasks as $subtask)
-                    @php
-                        $subPriorityKey = strtolower($subtask->priority ?? 'medium');
-                        $subPriority = $priorityConfig[$subPriorityKey] ?? $priorityConfig['medium'];
-                    @endphp
-                    <div class="flex items-start gap-3 p-2 bg-white rounded border border-gray-200 hover:border-purple-200 transition-colors" data-subtask-completed="{{ $subtask->is_completed ? '1' : '0' }}">
+                    <div class="flex items-start gap-2 p-2 bg-white rounded border border-gray-200" data-subtask-completed="{{ $subtask->is_completed ? '1' : '0' }}">
                         <div class="flex-shrink-0 mt-0.5">
                             <input type="checkbox"
                                 id="subtask-{{ $subtask->id }}"
@@ -146,23 +99,14 @@
                                 {{ $subtask->is_completed ? 'checked' : '' }}
                                 onchange="toggleSubtaskStatus({{ $task->id }}, {{ $subtask->id }}, this.checked)"
                                 {{ ($task->status === 'cancelled' || !$canConfirmProgress) ? 'disabled' : '' }}
-                                title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está ACEPTADA o EN PROCESO.' : '' }}">
+                                title="{{ !$canConfirmProgress ? 'Solo se puede confirmar avance cuando la solicitud está PENDIENTE, ACEPTADA o EN PROCESO.' : '' }}">
                         </div>
 
                         <div class="flex-1">
                             <label for="subtask-{{ $subtask->id }}" class="text-sm {{ $subtask->is_completed ? 'line-through text-gray-500' : 'text-gray-700 cursor-pointer' }}">
                                 {{ $subtask->title }}
                             </label>
-                            @if($subtask->description)
-                                <p class="text-xs text-gray-500 mt-1 {{ $subtask->is_completed ? 'text-gray-400' : '' }}">
-                                    {{ Str::limit($subtask->description, 100) }}
-                                </p>
-                            @endif
                         </div>
-
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $subPriority['bg'] }} {{ $subPriority['text'] }} flex-shrink-0">
-                            {{ $subPriority['label'] }}
-                        </span>
                     </div>
                 @endforeach
             </div>

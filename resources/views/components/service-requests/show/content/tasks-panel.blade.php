@@ -34,20 +34,6 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <button type="button"
-                        class="open-quick-task inline-flex items-center px-3 py-2 border {{ $quickTaskEnabled ? 'border-purple-600 text-purple-700 bg-white hover:bg-purple-50' : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed' }} rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
-                        data-disabled="{{ $quickTaskEnabled ? 'false' : 'true' }}"
-                        data-enabled-class="border-purple-600 text-purple-700 bg-white hover:bg-purple-50"
-                        data-disabled-class="border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed">
-                    <i class="fas fa-bolt mr-2"></i>
-                    Tarea Rápida
-                </button>
-                <button type="button"
-                        class="copy-completed-tasks inline-flex items-center px-3 py-2 border border-purple-600 text-purple-700 bg-white hover:bg-purple-50 rounded-md text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
-                        title="Copiar tareas y subtareas completas">
-                    <i class="fas fa-copy mr-2"></i>
-                    Copiar Completas
-                </button>
                 @if($isInProgress && $canResolveByEvidence)
                     <div id="tasks-resolve-action-{{ $serviceRequest->id }}"
                          data-tasks-resolve-action
@@ -72,12 +58,6 @@
                 </a>
             </div>
         </div>
-        @if(!$hasTechnicianAssigned)
-            <p class="mt-2 text-xs text-amber-600 flex items-center" data-quick-task-warning>
-                <i class="fas fa-info-circle mr-1"></i>
-                Asigna un técnico para habilitar la tarea rápida.
-            </p>
-        @endif
     </div>
 
     <div class="p-4 sm:p-6">
@@ -92,9 +72,7 @@
                 <i class="fas fa-clipboard-list text-gray-400 text-xl"></i>
             </div>
             <p class="text-sm font-medium text-gray-600">No hay tareas asociadas a esta solicitud.</p>
-            @if($canManageTasks)
-                <p class="text-xs text-gray-500 mt-1">Utiliza “Tarea Rápida” para crear la primera sin salir de esta vista.</p>
-            @endif
+            <p class="text-xs text-gray-500 mt-1">Usa “Abrir Gestor” para crear la primera.</p>
         </div>
     </div>
 </div>

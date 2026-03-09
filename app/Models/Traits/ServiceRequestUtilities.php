@@ -308,11 +308,13 @@ trait ServiceRequestUtilities
      */
     public function getTotalResolutionTime()
     {
-        if (!$this->resolved_at || !$this->created_at) {
+        $workStartAt = $this->responded_at;
+
+        if (!$this->resolved_at || !$workStartAt) {
             return null;
         }
 
-        $totalMinutes = $this->created_at->diffInMinutes($this->resolved_at);
+        $totalMinutes = $workStartAt->diffInMinutes($this->resolved_at);
 
         // Restar tiempo pausado si existe
         if ($this->total_paused_minutes) {
@@ -365,7 +367,7 @@ trait ServiceRequestUtilities
         }
 
         // Verificar cumplimiento SLA
-        if ($this->sla && $this->resolved_at) {
+        if ($this->sla && $this->resolved_at && !empty($stats['total_resolution_time'])) {
             $slaMinutes = $this->sla->resolution_time * 60; // Convertir horas a minutos
             $actualMinutes = $stats['total_resolution_time']['minutes'] ?? 0;
 

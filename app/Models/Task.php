@@ -388,19 +388,28 @@ class Task extends Model
         ]);
 
         $this->addHistory('started', auth()->id());
+
+        // Sincronizar el estado/tiempos de la solicitud asociada cuando inicia trabajo real.
+        if ($this->serviceRequest) {
+            $this->serviceRequest->updateStatusFromTasks();
+        }
     }
 
     public function complete($notes = null)
     {
-        $duration = $this->started_at ? now()->diffInMinutes($this->started_at) : null;
+        $completedAt = now();
+        $duration = $this->calculateActualDurationMinutes($completedAt);
+        $startedAt = $this->resolveEffectiveStartedAt($completedAt);
 
         // Verificar evidencia antes de completar
         $this->evidence_completed = $this->checkEvidenceComplete();
 
         $this->update([
             'status' => 'completed',
-            'completed_at' => now(),
+            'started_at' => $startedAt,
+            'completed_at' => $completedAt,
             'actual_duration_minutes' => $duration,
+            'actual_hours' => round($duration / 60, 2),
             'evidence_completed' => $this->evidence_completed,
         ]);
 
@@ -413,6 +422,51 @@ class Task extends Model
         if ($this->serviceRequest) {
             $this->serviceRequest->updateStatusFromTasks();
         }
+    }
+
+    public function calculateActualDurationMinutes(?Carbon $completedAt = null): int
+    {
+        $completedAt = $completedAt ?? now();
+        $this->loadMissing('subtasks');
+
+        $subtaskActual = (int) $this->subtasks->sum(fn ($subtask) => (int) ($subtask->actual_minutes ?? 0));
+        if ($subtaskActual > 0) {
+            return max(1, $subtaskActual);
+        }
+
+        $startedAt = $this->resolveEffectiveStartedAt($completedAt);
+        if ($startedAt) {
+            return max(1, (int) $startedAt->diffInMinutes($completedAt));
+        }
+
+        $estimated = (int) ($this->estimated_duration_minutes ?? 0);
+        if ($estimated > 0) {
+            return $estimated;
+        }
+
+        if (!empty($this->estimated_hours)) {
+            return max(1, (int) round(((float) $this->estimated_hours) * 60));
+        }
+
+        return self::TIME_BLOCK_MINUTES;
+    }
+
+    public function resolveEffectiveStartedAt(?Carbon $fallback = null): ?Carbon
+    {
+        if ($this->started_at) {
+            return $this->started_at->copy();
+        }
+
+        $subtaskStart = $this->subtasks()
+            ->whereNotNull('started_at')
+            ->orderBy('started_at')
+            ->value('started_at');
+
+        if ($subtaskStart) {
+            return Carbon::parse($subtaskStart);
+        }
+
+        return $fallback ? $fallback->copy() : null;
     }
 
     public function block($reason)

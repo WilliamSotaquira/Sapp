@@ -104,21 +104,31 @@ class Subtask extends Model
     // Métodos
     public function start()
     {
+        if ($this->task && !in_array($this->task->status, ['in_progress', 'completed'], true)) {
+            $this->task->start();
+        }
+
         $this->update([
             'status' => 'in_progress',
-            'started_at' => now(),
+            'started_at' => $this->started_at ?? now(),
         ]);
     }
 
     public function complete()
     {
-        $duration = $this->started_at ? now()->diffInMinutes($this->started_at) : null;
+        if ($this->task && !in_array($this->task->status, ['in_progress', 'completed'], true)) {
+            $this->task->start();
+        }
+
+        $startedAt = $this->started_at ?? now();
+        $duration = $startedAt ? now()->diffInMinutes($startedAt) : null;
 
         $this->update([
             'status' => 'completed',
             'is_completed' => true,
+            'started_at' => $startedAt,
             'completed_at' => now(),
-            'actual_minutes' => $duration,
+            'actual_minutes' => $duration ?? 0,
         ]);
 
         // Verificar si todas las subtareas de la tarea padre están completas
