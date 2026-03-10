@@ -6,6 +6,7 @@ use App\Models\ServiceRequest;
 use App\Models\ServiceRequestEvidence;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ServiceRequestWorkflowService
 {
@@ -149,12 +150,17 @@ class ServiceRequestWorkflowService
                 : $calculatedResolutionMinutes;
 
             ServiceRequest::withoutEvents(function () use ($serviceRequest, $data, $resolvedAt, $actualResolutionTime) {
-                $serviceRequest->update([
+                $payload = [
                     'status' => 'RESUELTA',
                     'resolution_notes' => $data['resolution_notes'] ?? 'Resolución completada',
-                    'actual_resolution_time' => $actualResolutionTime,
                     'resolved_at' => $resolvedAt,
-                ]);
+                ];
+
+                if (Schema::hasColumn($serviceRequest->getTable(), 'actual_resolution_time')) {
+                    $payload['actual_resolution_time'] = $actualResolutionTime;
+                }
+
+                $serviceRequest->update($payload);
             });
 
             return ['success' => true, 'message' => '¡Solicitud resuelta correctamente!'];

@@ -1959,11 +1959,11 @@ class TaskController extends Controller
             if (request()->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA, EN_PROCESO o RESUELTA.'
                 ], 422);
             }
 
-            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.');
+            return back()->with('error', 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA, EN_PROCESO o RESUELTA.');
         }
 
         if ($isCurrentlyCompleted) {
@@ -2065,7 +2065,7 @@ class TaskController extends Controller
             if (!$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA, EN_PROCESO o RESUELTA.'
                 ], 422);
             }
 
@@ -2145,7 +2145,7 @@ class TaskController extends Controller
             if ($isCompleted && !$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA o EN_PROCESO.'
+                    'message' => 'Solo se puede confirmar avance cuando la solicitud está en estado PENDIENTE, ACEPTADA, EN_PROCESO o RESUELTA.'
                 ], 422);
             }
 
@@ -2225,6 +2225,6 @@ class TaskController extends Controller
             $task->load('serviceRequest:id,status');
         }
 
-        return in_array(optional($task->serviceRequest)->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO'], true);
+        return in_array(optional($task->serviceRequest)->status, ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'RESUELTA'], true);
     }
 }

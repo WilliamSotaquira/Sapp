@@ -29,11 +29,11 @@ Crear solicitudes rapido, con clasificacion correcta, trazabilidad y sin consult
 - Debe existir al menos 1 tarea con subtareas.
 - Cada tarea/subtarea debe incluir tiempo en minutos.
 - Cada tarea y subtarea debe estar asociada a una funcion de webmaster.
-- Cada tarea y subtarea debe estar etiquetada y redactada bajo enfoque ITIL (practica/proceso aplicable).
-- Subtareas: solo estrategicas (agrupadas por fases clave, sin micro-pasos operativos).
+- Cada tarea y subtarea debe redactarse con enfoque de servicio tecnico aplicable, integrado de forma natural en el texto (sin prefijos o etiquetas literales).
+- Subtareas: estrategicas, descriptivas y completas; agrupadas por fases clave (sin micro-pasos operativos) y sin exceder la longitud maxima del campo.
 - Los titulos visibles de tareas/subtareas deben ser descriptivos y naturales (sin pipes `|`, sin prefijos tecnicos, sin metadatos incrustados).
 - Las subtareas deben incluir el tiempo en el titulo al final, en formato: `(XX min)`.
-- Funcion webmaster + practica ITIL deben ir en `description` (tarea) o `notes` (subtarea), sin sobrecargar el titulo.
+- La funcion webmaster y el enfoque de servicio tecnico deben quedar integrados en `description` (tarea) o `notes` (subtarea), sin sobrecargar el titulo.
 - La `description` de tareas y las `notes` de subtareas deben ser detalladas en longitud media (contexto, objetivo, alcance y validacion esperada).
 
 ## Validacion obligatoria por entidad (no negociable)
@@ -57,11 +57,11 @@ Crear solicitudes rapido, con clasificacion correcta, trazabilidad y sin consult
 - Gestion de incidencias y solicitudes web.
 - Revision de analitica y mejora continua.
 
-## Enfoque ITIL (obligatorio)
+## Enfoque de servicio tecnico (obligatorio)
 
-- Clasificar cada tarea/subtarea en al menos una practica ITIL: `Gestion de Incidentes`, `Gestion de Solicitudes de Servicio`, `Habilitacion de Cambios`, `Gestion de Problemas`, `Gestion de Niveles de Servicio`, `Monitoreo y Gestion de Eventos`, `Gestion del Conocimiento`.
+- Clasificar cada tarea/subtarea en una practica de servicio tecnico aplicable: `gestion de incidentes`, `gestion de solicitudes de servicio`, `habilitacion de cambios`, `gestion de problemas`, `gestion de niveles de servicio`, `monitoreo y gestion de eventos`, `gestion del conocimiento`.
 - Redactar el objetivo de la tarea con lenguaje de valor del servicio (resultado para usuario/negocio).
-- Mantener trazabilidad: registrar funcion webmaster + practica ITIL en `description/notes`.
+- Mantener trazabilidad: registrar funcion webmaster y practica aplicable de servicio tecnico en `description/notes`, sin usar etiquetas literales.
 
 ## Campos minimos para crear
 
@@ -83,9 +83,9 @@ Crear solicitudes rapido, con clasificacion correcta, trazabilidad y sin consult
 ## Formato de tiempos
 
 - `Titulo tarea: Actualizar enlace del formulario de inscripcion de motociclistas`
-- `Descripcion tarea: Aplicar el cambio solicitado con trazabilidad y validacion funcional de extremo a extremo. Funcion webmaster: Gestion de contenidos web (publicacion, actualizacion, retiro). ITIL: Gestion de Solicitudes de Servicio. Tiempo total estimado: 90 min.`
+- `Descripcion tarea: Aplicar el cambio solicitado con trazabilidad y validacion funcional de extremo a extremo, desde la gestion de contenidos web y la atencion de solicitudes de servicio. Tiempo total estimado: 90 min.`
 - `Titulo subtarea: Verificar enlace actualizado en entorno productivo (20 min)`
-- `Notas subtarea: Validar el comportamiento del enlace en desktop y movil, confirmar redireccionamiento correcto y registrar evidencia de conformidad para cierre. Funcion webmaster: Administracion de estructura y navegacion (menus, enlaces, arquitectura). ITIL: Monitoreo y Gestion de Eventos.`
+- `Notas subtarea: Validar el comportamiento del enlace en desktop y movil, confirmar redireccionamiento correcto y registrar evidencia de conformidad para cierre, con enfoque de administracion de estructura web y monitoreo funcional posterior al cambio.`
 
 ## Plantilla rapida
 
@@ -100,8 +100,8 @@ Canal:
 Rutas web (opcional):
 Tarea principal (min):
 Subtareas (min):
-Descripcion tarea (funcion webmaster + ITIL + tiempo):
-Notas subtareas (funcion webmaster + ITIL + tiempo):
+Descripcion tarea (funcion webmaster + enfoque de servicio tecnico + tiempo):
+Notas subtareas (funcion webmaster + enfoque de servicio tecnico + tiempo):
 ```
 
 ## Metodos obligatorios (optimizacion)

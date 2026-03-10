@@ -6,6 +6,10 @@ trait ServiceRequestWorkflow
 {
     protected function validateWorkflowRules()
     {
+        if (method_exists($this, 'hydrateAssignedToFromTaskTechnician') && empty($this->assigned_to)) {
+            $this->hydrateAssignedToFromTaskTechnician();
+        }
+
         // Validar estado EN_PROCESO sin técnico
         if ($this->status === self::STATUS_IN_PROGRESS && empty($this->assigned_to)) {
             throw new \Exception('No se puede establecer el estado EN_PROCESO sin un técnico asignado.');
@@ -34,7 +38,7 @@ trait ServiceRequestWorkflow
             self::STATUS_ACCEPTED => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED, self::STATUS_PAUSED],
             self::STATUS_IN_PROGRESS => [self::STATUS_RESOLVED, self::STATUS_CANCELLED, self::STATUS_PAUSED],
             self::STATUS_PAUSED => [self::STATUS_IN_PROGRESS, self::STATUS_CANCELLED, self::STATUS_RESOLVED, self::STATUS_CLOSED],
-            self::STATUS_RESOLVED => [self::STATUS_CLOSED, self::STATUS_REOPENED],
+            self::STATUS_RESOLVED => [self::STATUS_IN_PROGRESS, self::STATUS_CLOSED, self::STATUS_REOPENED],
             self::STATUS_CLOSED => [self::STATUS_REOPENED],
             self::STATUS_CANCELLED => [],
             self::STATUS_REOPENED => [self::STATUS_ACCEPTED, self::STATUS_CANCELLED],
@@ -53,6 +57,10 @@ trait ServiceRequestWorkflow
 
     protected function validateSpecificTransitions($from, $to)
     {
+        if ($to === self::STATUS_IN_PROGRESS && method_exists($this, 'hydrateAssignedToFromTaskTechnician') && empty($this->assigned_to)) {
+            $this->hydrateAssignedToFromTaskTechnician();
+        }
+
         // Validar transición a EN_PROCESO
         if ($from === self::STATUS_ACCEPTED && $to === self::STATUS_IN_PROGRESS && empty($this->assigned_to)) {
             throw new \Exception('No se puede iniciar el proceso sin un técnico asignado.');
@@ -60,7 +68,11 @@ trait ServiceRequestWorkflow
 
         // Validar transición a RESUELTA
         if ($from === self::STATUS_IN_PROGRESS && $to === self::STATUS_RESOLVED) {
-            if (empty($this->actual_resolution_time) || empty($this->resolution_notes)) {
+            $requiresResolutionTime = method_exists($this, 'hasActualResolutionTimeColumn')
+                ? $this->hasActualResolutionTimeColumn()
+                : true;
+
+            if (($requiresResolutionTime && empty($this->actual_resolution_time)) || empty($this->resolution_notes)) {
                 throw new \Exception('Para resolver una solicitud se requiere tiempo de resolución y notas.');
             }
         }
@@ -90,6 +102,7 @@ trait ServiceRequestWorkflow
 
         $timestampMap = [
             self::STATUS_ACCEPTED => 'accepted_at',
+            self::STATUS_IN_PROGRESS => 'responded_at',
             self::STATUS_RESOLVED => 'resolved_at',
             self::STATUS_CLOSED => 'closed_at',
             self::STATUS_PAUSED => 'paused_at',

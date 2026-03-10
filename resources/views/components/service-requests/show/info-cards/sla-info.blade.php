@@ -15,7 +15,8 @@
         <div class="flex items-center justify-between mb-4">
             @php
                 $fallbackResponseMinutes = (int) ($serviceRequest->sla->response_time_minutes ?? 0);
-                $responseStartAt = $serviceRequest->accepted_at;
+                // El tiempo de respuesta inicia cuando el técnico realmente inicia trabajo (EN_PROCESO).
+                $responseStartAt = $serviceRequest->responded_at;
                 $responseDeadline = ($responseStartAt && $fallbackResponseMinutes > 0)
                     ? $responseStartAt->copy()->addMinutes($fallbackResponseMinutes)
                     : null;
@@ -49,7 +50,7 @@
 
                 // Determinar estado y colores
                 if (!$responseStartAt) {
-                    $status = 'Pendiente de aceptación';
+                    $status = 'Pendiente de inicio';
                     $statusColor = 'text-slate-600';
                     $bgColor = 'bg-slate-50';
                     $borderColor = 'border-slate-200';
@@ -97,7 +98,7 @@
         </div>
 
         <div class="text-xs text-gray-500">
-            Inicio: {{ $responseStartAt ? $responseStartAt->format('d/m/Y H:i') : 'Pendiente de aceptación' }} ·
+            Inicio: {{ $responseStartAt ? $responseStartAt->format('d/m/Y H:i') : 'Pendiente de inicio' }} ·
             Límite: {{ $responseDeadline ? $responseDeadline->format('d/m/Y H:i') : 'Sin definir' }}
         </div>
     </div>

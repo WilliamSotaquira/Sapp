@@ -1,8 +1,8 @@
 @props(['serviceRequest'])
 
 @php
-    // Permitir evidencias en EN_PROCESO y CERRADA
-    $canUploadEvidence = in_array($serviceRequest->status, ['EN_PROCESO', 'CERRADA'], true);
+    // Permitir evidencias en EN_PROCESO, RESUELTA y CERRADA
+    $canUploadEvidence = in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true);
 @endphp
 
 @if(!$canUploadEvidence)
@@ -12,7 +12,7 @@
         <i class="fas fa-lock text-3xl text-gray-400 mb-4"></i>
         <h4 class="text-lg font-semibold text-gray-700 mb-2">Evidencias Bloqueadas</h4>
         <p class="text-gray-500 text-sm mb-4">
-            Solo puedes agregar evidencias cuando la solicitud está en estado <strong>EN PROCESO</strong> o <strong>CERRADA</strong>.
+            Solo puedes agregar evidencias cuando la solicitud está en estado <strong>EN PROCESO</strong>, <strong>RESUELTA</strong> o <strong>CERRADA</strong>.
         </p>
         <div class="inline-flex items-center px-4 py-2 rounded-lg bg-gray-200 text-gray-600 text-sm">
             <i class="fas fa-info-circle mr-2"></i>
