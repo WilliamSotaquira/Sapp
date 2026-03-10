@@ -56,7 +56,7 @@
         @endif
 
         <!-- Sección de subida de archivos -->
-        @if(in_array($serviceRequest->status, ['EN_PROCESO', 'CERRADA'], true))
+        @if(in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true))
         <div class="{{ $fileEvidences->count() > 0 ? 'mt-8 pt-6 border-t border-gray-200' : '' }}">
             <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div class="flex items-center justify-between mb-4">

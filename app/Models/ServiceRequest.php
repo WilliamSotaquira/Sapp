@@ -11,6 +11,7 @@ use App\Models\Traits\ServiceRequestScopes;
 use App\Models\Traits\ServiceRequestWorkflow;
 use App\Models\Traits\ServiceRequestAccessors;
 use App\Models\Traits\ServiceRequestUtilities;
+use Illuminate\Support\Facades\Schema;
 
 class ServiceRequest extends Model
 {
@@ -296,9 +297,11 @@ class ServiceRequest extends Model
     {
         $this->status = self::STATUS_RESOLVED;
         $this->resolution_notes = $notes;
-        $this->actual_resolution_time = $actualResolutionTime
-            ?? $this->actual_resolution_time
-            ?? 60;
+        if ($this->hasActualResolutionTimeColumn()) {
+            $this->actual_resolution_time = $actualResolutionTime
+                ?? $this->actual_resolution_time
+                ?? 60;
+        }
         $this->resolved_at = $this->resolved_at ?? now();
 
         try {
@@ -364,6 +367,12 @@ class ServiceRequest extends Model
     {
         $tasks = $tasks ?: $this->tasks;
         $now = now();
+
+        // Sincronizar assigned_to desde tareas cuando exista técnico en tareas
+        // pero la solicitud aún no tenga usuario asignado.
+        if (empty($this->assigned_to)) {
+            $this->hydrateAssignedToFromTaskTechnician($tasks);
+        }
 
         if ($this->status === self::STATUS_PENDING) {
             $assignedUserId = $this->assigned_to;
@@ -463,10 +472,50 @@ class ServiceRequest extends Model
     public function setStatusAttribute($value)
     {
         if ($value === 'EN_PROCESO' && empty($this->assigned_to)) {
-            throw new \Exception('No se puede establecer el estado EN PROCESO sin un técnico asignado.');
+            $this->hydrateAssignedToFromTaskTechnician();
+            if (empty($this->assigned_to)) {
+                throw new \Exception('No se puede establecer el estado EN PROCESO sin un técnico asignado.');
+            }
         }
 
         $this->attributes['status'] = $value;
+    }
+
+    protected function hydrateAssignedToFromTaskTechnician($tasks = null): void
+    {
+        if (!empty($this->assigned_to)) {
+            return;
+        }
+
+        $tasks = $tasks ?: (
+            $this->relationLoaded('tasks')
+                ? $this->tasks
+                : $this->tasks()->select(['id', 'service_request_id', 'technician_id'])->get()
+        );
+
+        $technicianId = optional($tasks->first(fn($task) => !empty($task->technician_id)))->technician_id;
+        if (empty($technicianId)) {
+            return;
+        }
+
+        $userId = Technician::withTrashed()
+            ->where('id', (int) $technicianId)
+            ->value('user_id');
+
+        if (!empty($userId)) {
+            $this->assigned_to = (int) $userId;
+        }
+    }
+
+    public function hasActualResolutionTimeColumn(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn($this->getTable(), 'actual_resolution_time');
+        }
+
+        return (bool) $hasColumn;
     }
 
     // En app/Models/ServiceRequest.php

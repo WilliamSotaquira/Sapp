@@ -695,7 +695,7 @@ class ServiceRequestController extends Controller
             }
         }
 
-        // Validaciones diferentes según el tipo de cierre + evidencias opcionales
+        // Validaciones de cierre + evidencias opcionales
         $rules = $isVencimiento
             ? ['closure_reason' => 'required|string|min:10']
             : ['resolution_description' => 'sometimes|string|min:0'];
@@ -710,6 +710,17 @@ class ServiceRequestController extends Controller
         ]);
 
         $validated = $request->validate($rules);
+
+        // Paso obligatorio previo al cierre normal:
+        // Debe existir un resumen de actividades registrado durante la resolución.
+        if ($isCierreNormal) {
+            $existingSummary = trim((string) ($serviceRequest->resolution_notes ?? ''));
+            if ($existingSummary === '') {
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest->id)
+                    ->with('error', 'Antes de cerrar, registra el resumen de actividades al resolver la solicitud.');
+            }
+        }
 
         $evidenceTypes = $request->input('evidence_type', []);
         $linkUrls = $request->input('link_url', []);
@@ -731,6 +742,28 @@ class ServiceRequestController extends Controller
             }
         }
 
+        $hasExistingEvidenceForClose = $serviceRequest->evidences()
+            ->whereIn('evidence_type', ['ARCHIVO', 'PASO_A_PASO', 'ENLACE'])
+            ->exists();
+
+        $hasIncomingEvidenceForClose = false;
+        foreach ($evidenceTypes as $idx => $type) {
+            if ($type === 'ARCHIVO' && !empty($files[$idx])) {
+                $hasIncomingEvidenceForClose = true;
+                break;
+            }
+            if ($type === 'ENLACE' && !empty($linkUrls[$idx])) {
+                $hasIncomingEvidenceForClose = true;
+                break;
+            }
+        }
+
+        if (!$hasExistingEvidenceForClose && !$hasIncomingEvidenceForClose) {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest->id)
+                ->with('error', 'No se puede cerrar la solicitud si no hay evidencias.');
+        }
+
         try {
             \DB::beginTransaction();
 
@@ -744,9 +777,14 @@ class ServiceRequestController extends Controller
             $currentNotes = $serviceRequest->resolution_notes ?? '';
 
             if ($isVencimiento) {
-                $closureDetails = "\n\n=== CIERRE POR VENCIMIENTO ===\n" . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n" . 'Usuario: ID ' . auth()->id() . "\n" . 'Motivo: ' . $request->closure_reason;
+                $closureDetails = "\n\n=== CIERRE POR VENCIMIENTO ===\n"
+                    . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n"
+                    . 'Usuario: ID ' . auth()->id() . "\n"
+                    . 'Motivo: ' . $request->closure_reason;
             } else {
-                $closureDetails = "\n\n=== CIERRE NORMAL ===\n" . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n" . 'Usuario: ID ' . auth()->id();
+                $closureDetails = "\n\n=== CIERRE NORMAL ===\n"
+                    . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n"
+                    . 'Usuario: ID ' . auth()->id();
 
                 if ($request->resolution_description) {
                     $closureDetails .= "\nDescripción: " . $request->resolution_description;
@@ -806,7 +844,9 @@ class ServiceRequestController extends Controller
             // Registrar en el historial
             if (class_exists('App\Models\ServiceRequestHistory')) {
                 $actionType = $isVencimiento ? 'CIERRE_POR_VENCIMIENTO' : 'CIERRE_NORMAL';
-                $description = $isVencimiento ? 'Solicitud cerrada por vencimiento del plazo - ' . $request->closure_reason : 'Solicitud cerrada normalmente' . ($request->resolution_description ? ' - ' . $request->resolution_description : '');
+                $description = $isVencimiento
+                    ? 'Solicitud cerrada por vencimiento del plazo - ' . $request->closure_reason
+                    : 'Solicitud cerrada normalmente';
 
                 \App\Models\ServiceRequestHistory::create([
                     'service_request_id' => $serviceRequest->id,

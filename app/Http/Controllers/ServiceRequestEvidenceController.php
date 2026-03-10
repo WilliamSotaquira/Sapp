@@ -18,7 +18,7 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function create(ServiceRequest $serviceRequest)
     {
-        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
 
         // Permitir agregar evidencias en proceso y también después de cerrada
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
@@ -44,7 +44,7 @@ class ServiceRequestEvidenceController extends Controller
         \Log::info('Request data:', $request->all());
         \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
 
-        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
 
         // Permitir carga en proceso y cerrada
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
@@ -164,7 +164,7 @@ class ServiceRequestEvidenceController extends Controller
             abort(404);
         }
 
-        $allowedStatuses = ['EN_PROCESO', 'CERRADA'];
+        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
 
         // Permitir eliminar solo en proceso y cerrada
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
