@@ -1,9 +1,15 @@
-# Solicitud (Modo Rapido)
+# Solicitud (Modo Rapido) - Tarea Global
+
+## Alcance global
+
+Esta tarea aplica de forma global para todo el proyecto `sapp`.
+Siempre que se use `crear solicitud`, `solicitud`, `requerimiento` o `+`, se debe ejecutar este flujo.
 
 ## Disparador
 
-Cuando se use la palabra `solicitud`, iniciar con:
-+ `Agrega la solicitud.`
+Cuando se use cualquiera de estos términos: `crear solicitud`, `solicitud`, `requerimiento`, `+`, iniciar con: `Agrega la solicitud.`
+
+Nota: para evitar falsos positivos, cuando se use `+` se interpreta como disparador solo si aparece como mensaje independiente o al inicio del mensaje.
 
 ## Objetivo
 
