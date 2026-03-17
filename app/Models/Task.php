@@ -80,7 +80,7 @@ class Task extends Model
         'completed_at' => 'datetime',
     ];
 
-    protected $appends = ['is_overdue', 'time_spent', 'status_color', 'priority_color', 'calculated_duration', 'is_due_soon'];
+    protected $appends = ['is_overdue', 'time_spent', 'status_color', 'priority_color', 'calculated_duration', 'is_due_soon', 'is_effectively_completed'];
 
     protected static function boot()
     {
@@ -537,6 +537,11 @@ class Task extends Model
         }
 
         return $this->actual_duration_minutes ?? 0;
+    }
+
+    public function getIsEffectivelyCompletedAttribute()
+    {
+        return $this->status === 'completed' || !is_null($this->completed_at);
     }
 
     public function getStatusColorAttribute()

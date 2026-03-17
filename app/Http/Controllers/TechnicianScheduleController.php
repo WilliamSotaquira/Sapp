@@ -396,6 +396,7 @@ class TechnicianScheduleController extends Controller
         $openTasksQuery = Task::query()
             ->where('technician_id', $technician->id)
             ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNull('completed_at')
             ->whereNull('scheduled_date');
 
         $currentCompanyId = (int) session('current_company_id');
@@ -520,7 +521,10 @@ class TechnicianScheduleController extends Controller
             return $task;
         });
 
-        $openTasks = $openTasks->sortByDesc('queue_score')->values();
+        $openTasks = $openTasks
+            ->reject(fn (Task $task) => $task->is_effectively_completed)
+            ->sortByDesc('queue_score')
+            ->values();
 
         return view('technician-schedule.my-agenda', compact(
             'technician',

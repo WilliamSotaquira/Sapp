@@ -273,6 +273,10 @@ class ServiceRequest extends Model
      */
     public function updateStatusFromTasks()
     {
+        if (in_array($this->status, ['RECHAZADA', self::STATUS_CANCELLED, self::STATUS_CLOSED], true)) {
+            return;
+        }
+
         $tasks = $this->tasks;
 
         if ($tasks->isEmpty()) {
