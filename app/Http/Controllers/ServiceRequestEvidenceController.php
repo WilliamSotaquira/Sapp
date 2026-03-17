@@ -74,7 +74,7 @@ class ServiceRequestEvidenceController extends Controller
 
             // Nuestro formulario usa 'files[]' no 'file'
             $request->validate([
-                'files' => 'required|array|min:1|max:5',
+                'files' => 'required|array|min:1|max:10',
                 'files.*' => 'required|file|max:10240|mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,txt,zip,rar,csv,svg',
             ]);
 
