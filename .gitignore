@@ -24,3 +24,6 @@ database/sapp.sql
 Homestead.json
 Homestead.yaml
 Thumbs.db
+__pycache__/
+*.py[cod]
+protocolos_descargas/
