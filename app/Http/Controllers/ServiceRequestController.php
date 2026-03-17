@@ -683,7 +683,7 @@ class ServiceRequestController extends Controller
         // Si la solicitud está excluida de reportes, exigir cierre con tareas completas.
         // Si NO está excluida de reportes, no aplicar esta restricción.
         $isExcludedFromReports = $serviceRequest->is_reportable === false;
-        if ($isExcludedFromReports) {
+        if ($isExcludedFromReports && !$isVencimiento) {
             $pendingTasksCount = $serviceRequest->tasks()
                 ->whereNotIn('status', ['completed', 'cancelled'])
                 ->count();
@@ -758,7 +758,7 @@ class ServiceRequestController extends Controller
             }
         }
 
-        if (!$hasExistingEvidenceForClose && !$hasIncomingEvidenceForClose) {
+        if (!$isVencimiento && !$hasExistingEvidenceForClose && !$hasIncomingEvidenceForClose) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest->id)
                 ->with('error', 'No se puede cerrar la solicitud si no hay evidencias.');
@@ -766,6 +766,27 @@ class ServiceRequestController extends Controller
 
         try {
             \DB::beginTransaction();
+
+            if ($isVencimiento) {
+                $tasksToCancel = $serviceRequest->tasks()
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->get();
+
+                foreach ($tasksToCancel as $task) {
+                    $task->update([
+                        'status' => 'cancelled',
+                        'completed_at' => null,
+                        'actual_duration_minutes' => null,
+                        'actual_hours' => null,
+                    ]);
+
+                    $task->addHistory(
+                        'cancelled',
+                        auth()->id(),
+                        'Tarea cancelada automáticamente por cierre por vencimiento de la solicitud asociada.'
+                    );
+                }
+            }
 
             $updateData = [
                 'status' => 'CERRADA',
@@ -891,6 +912,17 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.show', $serviceRequest->id)
                 ->with('error', 'Error al cerrar la solicitud: ' . $e->getMessage());
         }
+    }
+
+    public function closeByVencimiento(Request $request, ServiceRequest $serviceRequest)
+    {
+        if ($serviceRequest->status !== 'PAUSADA') {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest->id)
+                ->with('error', 'Solo se pueden cerrar por vencimiento solicitudes en estado PAUSADA.');
+        }
+
+        return $this->close($request, $serviceRequest);
     }
 
     /**

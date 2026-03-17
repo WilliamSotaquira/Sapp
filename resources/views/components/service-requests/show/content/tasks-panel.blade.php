@@ -44,10 +44,10 @@
                                 data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
                                 data-tasks-resolve-button
                                 onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
-                                class="inline-flex items-center px-3 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition whitespace-nowrap"
+                                class="flex items-center justify-center w-full px-4 py-3 bg-green-600 border-2 border-green-700 rounded-full font-semibold text-white text-sm hover:bg-green-700 hover:border-green-800 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 group min-h-[3rem]"
                                 aria-label="Resolver Solicitud">
-                            <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
-                            <span>Resolver Solicitud</span>
+                            <i class="fas fa-check-circle mr-2 flex-shrink-0 transition-transform group-hover:scale-110" aria-hidden="true"></i>
+                            <span class="line-clamp-2 text-center leading-tight">Resolver Solicitud</span>
                         </button>
                     </div>
                 @endif

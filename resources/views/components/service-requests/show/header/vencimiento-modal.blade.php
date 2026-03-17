@@ -43,7 +43,7 @@
             </div>
         @endif
 
-        <form action="{{ route('service-requests.close', $serviceRequest) }}" method="POST">
+        <form action="{{ route('service-requests.close-vencimiento', $serviceRequest) }}" method="POST">
             @csrf
             @method('POST')
 
