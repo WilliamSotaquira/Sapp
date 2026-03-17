@@ -398,6 +398,23 @@ class TechnicianScheduleController extends Controller
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->whereNull('scheduled_date');
 
+        $currentCompanyId = (int) session('current_company_id');
+        if ($currentCompanyId > 0) {
+            $companyFilter = function ($query) use ($currentCompanyId) {
+                $query->where(function ($inner) use ($currentCompanyId) {
+                    // Mantener tareas internas sin solicitud asociada.
+                    $inner->whereNull('service_request_id')
+                        ->orWhereHas('serviceRequest', function ($serviceRequestQuery) use ($currentCompanyId) {
+                            $serviceRequestQuery->withoutGlobalScopes()
+                                ->where('company_id', $currentCompanyId);
+                        });
+                });
+            };
+
+            $companyFilter($tasksQuery);
+            $companyFilter($openTasksQuery);
+        }
+
         $applyTaskFilters = function ($query) use ($filters) {
             if ($filters['q'] !== '') {
                 $search = $filters['q'];
