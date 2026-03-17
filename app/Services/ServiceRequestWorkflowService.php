@@ -58,13 +58,38 @@ class ServiceRequestWorkflowService
         }
 
         try {
-            ServiceRequest::withoutEvents(function () use ($serviceRequest, $rejectionReason) {
-                $serviceRequest->update([
-                    'status' => 'RECHAZADA',
-                    'rejection_reason' => $rejectionReason,
-                    'rejected_at' => now(),
-                    'rejected_by' => auth()->id(),
-                ]);
+            $cancelledTasks = 0;
+
+            DB::transaction(function () use ($serviceRequest, $rejectionReason, &$cancelledTasks) {
+                ServiceRequest::withoutEvents(function () use ($serviceRequest, $rejectionReason) {
+                    $serviceRequest->update([
+                        'status' => 'RECHAZADA',
+                        'rejection_reason' => $rejectionReason,
+                        'rejected_at' => now(),
+                        'rejected_by' => auth()->id(),
+                    ]);
+                });
+
+                $tasksToCancel = $serviceRequest->tasks()
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->get();
+
+                $cancelledTasks = $tasksToCancel->count();
+
+                foreach ($tasksToCancel as $task) {
+                    $task->update([
+                        'status' => 'cancelled',
+                        'completed_at' => null,
+                        'actual_duration_minutes' => null,
+                        'actual_hours' => null,
+                    ]);
+
+                    $task->addHistory(
+                        'cancelled',
+                        auth()->id(),
+                        'Tarea cancelada automáticamente porque la solicitud asociada fue rechazada.'
+                    );
+                }
             });
 
             $this->createSystemEvidence($serviceRequest, [
@@ -74,6 +99,7 @@ class ServiceRequestWorkflowService
                 'previous_status' => 'PENDIENTE',
                 'new_status' => 'RECHAZADA',
                 'rejection_reason' => $rejectionReason,
+                'cancelled_tasks' => $cancelledTasks,
             ]);
 
             return ['success' => true, 'message' => 'Solicitud rechazada correctamente.'];

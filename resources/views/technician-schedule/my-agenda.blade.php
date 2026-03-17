@@ -202,8 +202,12 @@
     </aside>
 
     @php
-        $totalTasks = $tasks->count();
-        $activeTaskCount = $tasks->whereNotIn('status', ['completed', 'cancelled'])->count();
+        $visibleAgendaTasks = $tasks->reject(function ($task) {
+            return $task->is_effectively_completed || $task->status === 'cancelled';
+        })->values();
+        $completedTasks = $tasks->filter(fn ($task) => $task->is_effectively_completed)->values();
+        $totalTasks = $visibleAgendaTasks->count();
+        $activeTaskCount = $visibleAgendaTasks->where('status', '!=', 'cancelled')->count();
     @endphp
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -229,20 +233,16 @@
                 </div>
 
 
-        @if($tasks->isEmpty())
+        @if($visibleAgendaTasks->isEmpty())
             <div id="tasksEmptyState" class="text-center py-12">
                 <i class="fas fa-calendar-check text-6xl text-gray-300 mb-4"></i>
                 <p class="text-gray-500 text-lg">No tienes tareas programadas para este día</p>
                 <p class="text-gray-400 text-sm mt-2">Arrastra tareas desde "Tareas Abiertas" para construir tu agenda de hoy.</p>
             </div>
         @else
-                    @php
-                        $activeTasks = $tasks->where('status', '!=', 'completed')->values();
-                    @endphp
-
                     @if($autoQueueMode)
                         @php
-                            $ordered = $activeTasks->sortByDesc(fn($task) => (int) ($task->queue_score ?? 0))->values();
+                            $ordered = $visibleAgendaTasks->sortByDesc(fn($task) => (int) ($task->queue_score ?? 0))->values();
                             $nowTask = $ordered->first();
                             $nextTasks = $ordered->slice(1, 3)->values();
                             $backlogTasks = $ordered->slice(4)->values();
@@ -329,13 +329,14 @@
                         @endif
                     @else
                     <div class="space-y-4" id="tasksList">
-                        @foreach($activeTasks as $task)
-                            <div class="border border-{{ $task->type === 'impact' ? 'red' : 'blue' }}-200 bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-50/50 rounded-lg p-4"
+                        @foreach($visibleAgendaTasks as $task)
+                            <div class="border border-{{ $task->type === 'impact' ? 'red' : 'blue' }}-200 bg-{{ $task->type === 'impact' ? 'red' : 'blue' }}-50/50 rounded-lg p-4 cursor-pointer transition hover:shadow-md"
                                  draggable="{{ $manualQueueMode ? 'true' : 'false' }}"
                                  data-day-task
                                  data-task-id="{{ $task->id }}"
                                  data-task-status="{{ $task->status }}"
-                                 data-task-show-url="{{ route('tasks.show', $task) }}">
+                                 data-task-show-url="{{ route('tasks.show', $task) }}"
+                                 data-task-card-link>
                         <div class="flex flex-col lg:flex-row lg:items-start gap-4">
                             <div class="flex items-start gap-2 lg:gap-3">
                                 @if($manualQueueMode)
@@ -411,7 +412,10 @@
                                 @endphp
                                 <div class="flex items-center gap-2 text-xs text-gray-600 min-w-0" title="{{ $serviceLabel ?: 'Sin servicio' }}">
                                     @if($task->serviceRequest)
-                                        <span class="text-green-700 font-medium shrink-0">{{ $task->serviceRequest->ticket_number }}</span>
+                                        <a href="{{ route('service-requests.show', $task->serviceRequest) }}"
+                                           class="text-green-700 hover:text-green-900 hover:underline font-medium shrink-0">
+                                            {{ $task->serviceRequest->ticket_number }}
+                                        </a>
                                         <span class="text-gray-300 shrink-0">|</span>
                                     @endif
                                     <span class="truncate">{{ $serviceLabel ?: 'Sin servicio' }}</span>
@@ -442,9 +446,6 @@
                                         <i class="fas fa-check"></i> Completar
                                     </button>
                                 @endif
-                                <a href="{{ route('tasks.show', $task) }}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-lg text-center whitespace-nowrap">
-                                    <i class="fas fa-eye"></i> Ver
-                                </a>
                             </div>
                         </div>
                     </div>
@@ -460,10 +461,6 @@
             </div>
 
             <!-- Tareas Completadas (Sección colapsable) -->
-            @php
-                $completedTasks = $tasks->where('status', 'completed');
-            @endphp
-
             @if($completedTasks->count() > 0)
                 <div class="bg-white rounded-lg shadow-md p-6">
                     <button onclick="toggleCompleted()" class="w-full flex justify-between items-center text-left">
@@ -1116,6 +1113,23 @@
         }
     }
 
+    function initializeDayTaskCardNavigation() {
+        document.querySelectorAll('[data-task-card-link]').forEach((card) => {
+            card.addEventListener('click', (event) => {
+                if (window.getSelection()?.toString()) return;
+                if (card.classList.contains('dragging')) return;
+
+                const interactiveTarget = event.target.closest('a, button, form, input, select, textarea, [data-drag-handle]');
+                if (interactiveTarget) return;
+
+                const url = card.dataset.taskShowUrl;
+                if (url) {
+                    window.location.href = url;
+                }
+            });
+        });
+    }
+
     function initializeTaskContextMenu() {
         const menu = document.getElementById('taskContextMenu');
         if (!menu) return;
@@ -1348,6 +1362,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         initializeTaskDragBetweenLists();
+        initializeDayTaskCardNavigation();
         initializeOpenTaskSections();
         initializeTaskContextMenu();
     });

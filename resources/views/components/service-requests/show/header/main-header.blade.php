@@ -36,7 +36,24 @@
                             </span>
                         @endif
                     </div>
-                    <p class="text-[#374151] mt-1 text-sm sm:text-base font-medium leading-snug line-clamp-2">{{ $serviceRequest->title }}</p>
+                    <div class="mt-1 flex items-start gap-2">
+                        <p class="text-[#374151] text-sm sm:text-base font-medium leading-snug line-clamp-2">{{ $serviceRequest->title }}</p>
+                        <button type="button"
+                            class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
+                            data-default-icon="fa-copy"
+                            data-success-icon="fa-check"
+                            aria-label="Copiar título de la solicitud"
+                            onclick="copyTextContent(@js($serviceRequest->title), this, {
+                                defaultLabel: 'Copiar título de la solicitud',
+                                successLabel: 'Título copiado',
+                                successTitle: 'Título copiado',
+                                successMessage: 'Título de la solicitud copiado al portapapeles',
+                                errorTitle: 'No se pudo copiar',
+                                errorMessage: 'No se pudo copiar el título de la solicitud. Por favor, cópialo manualmente.'
+                            })">
+                            <i class="fas fa-copy text-[13px]"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -54,29 +71,31 @@
 @once
     @push('scripts')
         <script>
-            if (typeof window.copyTicketNumber !== 'function') {
-                window.copyTicketNumber = function(ticketNumber, button) {
-                    if (!ticketNumber) {
+            if (typeof window.copyTextContent !== 'function') {
+                window.copyTextContent = function(textToCopy, button, options = {}) {
+                    if (!textToCopy) {
                         return;
                     }
 
                     const iconElement = button ? button.querySelector('i') : null;
                     const defaultIconClass = button ? (button.getAttribute('data-default-icon') || 'fa-copy') : 'fa-copy';
                     const successIconClass = button ? (button.getAttribute('data-success-icon') || 'fa-check') : 'fa-check';
+                    const defaultLabel = options.defaultLabel || 'Copiar texto';
+                    const successLabel = options.successLabel || 'Texto copiado';
 
                     const showButtonFeedback = () => {
                         if (!button) {
                             return;
                         }
                         button.classList.add('bg-white/40');
-                        button.setAttribute('aria-label', 'Número copiado');
+                        button.setAttribute('aria-label', successLabel);
                         if (iconElement) {
                             iconElement.classList.remove(defaultIconClass);
                             iconElement.classList.add(successIconClass);
                         }
                         setTimeout(() => {
                             button.classList.remove('bg-white/40');
-                            button.setAttribute('aria-label', 'Copiar número de ticket');
+                            button.setAttribute('aria-label', defaultLabel);
                             if (iconElement) {
                                 iconElement.classList.remove(successIconClass);
                                 iconElement.classList.add(defaultIconClass);
@@ -84,34 +103,31 @@
                         }, 1500);
                     };
 
-                    const notify = (success, options = {}) => {
+                    const notify = (success) => {
                         if (typeof window.showCopyNotification === 'function') {
-                            window.showCopyNotification(ticketNumber, success, options);
+                            window.showCopyNotification(textToCopy, success, {
+                                successTitle: options.successTitle || 'Texto copiado',
+                                successMessage: options.successMessage || 'Texto copiado al portapapeles',
+                                errorTitle: options.errorTitle || 'No se pudo copiar',
+                                errorMessage: options.errorMessage || 'No se pudo copiar el texto. Por favor, cópialo manualmente.',
+                            });
                         } else if (!success) {
-                            alert(options.errorMessage || 'No se pudo copiar el número. Por favor copia manualmente.');
-                        } else {
-                            console.info(options.successMessage || `Ticket ${ticketNumber} copiado`);
+                            alert(options.errorMessage || 'No se pudo copiar el texto. Por favor, cópialo manualmente.');
                         }
                     };
 
                     const onCopySuccess = () => {
                         showButtonFeedback();
-                        notify(true, {
-                            successTitle: 'Número copiado',
-                            successMessage: 'Número de ticket ' + ticketNumber + ' copiado al portapapeles',
-                        });
+                        notify(true);
                     };
 
                     const onCopyFailure = () => {
-                        notify(false, {
-                            errorTitle: 'No se pudo copiar',
-                            errorMessage: 'No se pudo copiar el número de ticket. Por favor, cópialo manualmente.',
-                        });
+                        notify(false);
                     };
 
                     const fallbackCopy = () => {
                         const textArea = document.createElement('textarea');
-                        textArea.value = ticketNumber;
+                        textArea.value = textToCopy;
                         textArea.style.position = 'fixed';
                         textArea.style.opacity = '0';
                         document.body.appendChild(textArea);
@@ -133,12 +149,25 @@
                     };
 
                     if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(ticketNumber)
+                        navigator.clipboard.writeText(textToCopy)
                             .then(onCopySuccess)
                             .catch(fallbackCopy);
                     } else {
                         fallbackCopy();
                     }
+                };
+            }
+
+            if (typeof window.copyTicketNumber !== 'function') {
+                window.copyTicketNumber = function(ticketNumber, button) {
+                    window.copyTextContent(ticketNumber, button, {
+                        defaultLabel: 'Copiar número de ticket',
+                        successLabel: 'Número copiado',
+                        successTitle: 'Número copiado',
+                        successMessage: 'Número de ticket ' + ticketNumber + ' copiado al portapapeles',
+                        errorTitle: 'No se pudo copiar',
+                        errorMessage: 'No se pudo copiar el número de ticket. Por favor, cópialo manualmente.',
+                    });
                 };
             }
         </script>
