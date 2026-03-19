@@ -35,15 +35,15 @@
                 </div>
 
                 <!-- Mensajes de éxito/error -->
-                @if(session('success'))
+                @if(session('evidence_success'))
                     <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                        <i class="fas fa-check-circle mr-2"></i>{{ session('success') }}
+                        <i class="fas fa-check-circle mr-2"></i>{{ session('evidence_success') }}
                     </div>
                 @endif
 
-                @if(session('error'))
+                @if(session('evidence_error'))
                     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('error') }}
+                        <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('evidence_error') }}
                     </div>
                 @endif
 

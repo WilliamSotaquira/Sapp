@@ -24,7 +24,7 @@ class ServiceRequestEvidenceController extends Controller
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
+                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
         }
 
         // Obtener el siguiente número de paso
@@ -50,7 +50,7 @@ class ServiceRequestEvidenceController extends Controller
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
+                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
         }
 
         try {
@@ -69,7 +69,7 @@ class ServiceRequestEvidenceController extends Controller
                     'user_id' => auth()->id(),
                 ]);
 
-                return redirect()->back()->with('success', 'Enlace agregado correctamente.');
+                return redirect()->back()->with('evidence_success', 'Enlace agregado correctamente.');
             }
 
             // Nuestro formulario usa 'files[]' no 'file'
@@ -82,7 +82,7 @@ class ServiceRequestEvidenceController extends Controller
 
             if (!$request->hasFile('files')) {
                 \Log::warning('⚠️ No files to process');
-                return redirect()->back()->with('error', 'No se seleccionaron archivos.');
+                return redirect()->back()->with('evidence_error', 'No se seleccionaron archivos.');
             }
 
             $evidenceService = app(EvidenceService::class);
@@ -93,16 +93,16 @@ class ServiceRequestEvidenceController extends Controller
                 if ($result['error_count'] > 0) {
                     $message .= ' ' . $result['error_count'] . ' archivo(s) con errores.';
                 }
-                return redirect()->back()->with('success', $message);
+                return redirect()->back()->with('evidence_success', $message);
             }
 
-            return redirect()->back()->with('error', 'No se pudieron subir los archivos.');
+            return redirect()->back()->with('evidence_error', 'No se pudieron subir los archivos.');
         } catch (\Exception $e) {
             \Log::error('❌ STORE EVIDENCE ERROR: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
             return redirect()
                 ->back()
-                ->with('error', 'Error al subir archivos: ' . $e->getMessage());
+                ->with('evidence_error', 'Error al subir archivos: ' . $e->getMessage());
         }
     }
 

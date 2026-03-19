@@ -46,7 +46,16 @@
                         <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Solicitante</div>
                         <div class="mt-1 space-y-0.5">
                             <div class="text-sm text-gray-700 leading-snug">
-                                <span class="font-semibold text-gray-900" data-requester-name>{{ $serviceRequest->requester->name ?? 'N/A' }}</span>
+                                @if($serviceRequest->requester)
+                                    <a href="{{ route('requester-management.requesters.show', $serviceRequest->requester) }}"
+                                       class="font-semibold text-gray-900 hover:text-blue-700 hover:underline"
+                                       data-requester-name
+                                       data-requester-link>
+                                        {{ $serviceRequest->requester->name }}
+                                    </a>
+                                @else
+                                    <span class="font-semibold text-gray-900" data-requester-name> N/A </span>
+                                @endif
                             </div>
                             <div class="text-sm text-gray-600 leading-snug truncate">
                                 <span data-requester-email title="{{ $serviceRequest->requester->email ?? '' }}">{{ $serviceRequest->requester->email ?? 'Sin correo' }}</span>
@@ -78,7 +87,16 @@
                         <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Técnico asignado</div>
                         <div class="mt-1 space-y-0.5">
                             <div class="text-sm text-gray-700 leading-snug">
-                                <span class="font-semibold text-gray-900" data-assignee-name>{{ $serviceRequest->assignee->name ?? 'Sin asignar' }}</span>
+                                @if($serviceRequest->assigned_to)
+                                    <a href="{{ $serviceRequest->assignee?->technician ? route('technicians.show', $serviceRequest->assignee->technician) : '#' }}"
+                                       class="font-semibold text-gray-900 hover:text-blue-700 hover:underline"
+                                       data-assignee-name
+                                       data-assignee-link>
+                                        {{ $serviceRequest->assignee->name ?? 'Sin asignar' }}
+                                    </a>
+                                @else
+                                    <span class="font-semibold text-gray-900" data-assignee-name>Sin asignar</span>
+                                @endif
                             </div>
                             <div class="text-sm text-gray-600 leading-snug truncate">
                                 <span data-assignee-email title="{{ $assigneeCompanyEmail }}">{{ $assigneeCompanyEmail ?: 'Sin correo' }}</span>
@@ -390,12 +408,14 @@
             var requesterPositionEl = card.querySelector('[data-requester-position]');
             var requesterInitialEl = card.querySelector('[data-requester-initial]');
             var requesterLabel = card.querySelector('[data-requester-action-label]');
+            var requesterLinkEl = card.querySelector('[data-requester-link]');
 
             if (requesterNameEl) requesterNameEl.textContent = name || 'Solicitante';
             if (requesterEmailEl) requesterEmailEl.textContent = email || 'Sin correo';
             if (requesterPositionEl) requesterPositionEl.textContent = payload.position || 'Sin cargo';
             if (requesterInitialEl && name) requesterInitialEl.textContent = name.charAt(0).toUpperCase();
             if (requesterLabel) requesterLabel.textContent = 'Reasignar';
+            if (requesterLinkEl && payload.requesterId) requesterLinkEl.href = '/requester-management/requesters/' + payload.requesterId;
             return;
         }
 
@@ -405,12 +425,14 @@
         var initialEl = card.querySelector('[data-assignee-initial]');
         var avatarEl = card.querySelector('[data-assignee-avatar]');
         var actionLabel = card.querySelector('[data-assignee-action-label]');
+        var assigneeLinkEl = card.querySelector('[data-assignee-link]');
 
         if (nameEl) nameEl.textContent = name || 'Sin asignar';
         if (emailEl) emailEl.textContent = email || 'Sin correo';
         if (positionEl) positionEl.textContent = payload.position || 'Sin cargo';
         if (initialEl) initialEl.textContent = (name && name.length) ? name.charAt(0).toUpperCase() : '?';
         if (actionLabel) actionLabel.textContent = (name && name.length) ? 'Reasignar' : 'Asignar';
+        if (assigneeLinkEl && payload.assignedToTechnicianId) assigneeLinkEl.href = '/technicians/' + payload.assignedToTechnicianId;
 
         if (avatarEl) {
             avatarEl.classList.remove('bg-amber-100', 'text-amber-700', 'bg-gradient-to-br', 'from-blue-500', 'to-cyan-500', 'text-white');
@@ -969,6 +991,7 @@
                                 name: assigneeName,
                                 email: assigneeEmail,
                                 position: assigneePosition,
+                                assignedToTechnicianId: result && result.assigned_to_technician_id ? result.assigned_to_technician_id : null,
                                 });
                             }
                         }
