@@ -20,6 +20,9 @@
                     <p class="text-sm text-gray-600 mt-0.5">
                         Ticket: <span class="font-mono font-semibold text-gray-900">#{{ $serviceRequest->ticket_number }}</span>
                     </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        La solicitud ya fue resuelta. Este paso confirma el cierre final.
+                    </p>
                 </div>
             </div>
             <button type="button"
@@ -40,19 +43,6 @@
             @method('POST')
 
             <div class="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
-                <!-- Alerta de confirmación -->
-                <div class="p-4 bg-purple-50 border border-purple-200 rounded-md">
-                    <div class="flex items-start">
-                        <i class="fas fa-exclamation-triangle text-purple-500 mt-0.5 mr-2 flex-shrink-0"></i>
-                        <div>
-                            <p class="text-sm font-semibold text-purple-800">Acción Final</p>
-                            <p class="text-xs text-purple-700 mt-1">
-                                Al cerrar, la solicitud cambiará a estado <strong>CERRADA</strong>.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
                 @if($errors->any())
                     <div class="p-3 bg-red-50 border border-red-200 rounded-md">
                         <p class="text-sm font-medium text-red-700 mb-1">Revisa los campos:</p>
@@ -64,42 +54,19 @@
                     </div>
                 @endif
 
-                <!-- Resumen del cierre (alineado) -->
-                <div class="bg-gray-50 rounded-md p-4 border border-gray-200">
-                    <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                        <i class="fas fa-clipboard-check mr-2 text-purple-600"></i>
-                        Resumen del cierre
-                    </h4>
-                    <dl class="space-y-2 text-sm">
-                        <div class="flex items-center justify-between gap-6">
-                            <dt class="text-gray-600 shrink-0 w-28">Ticket</dt>
-                            <dd class="font-mono font-semibold text-gray-900 text-right">{{ $serviceRequest->ticket_number }}</dd>
-                        </div>
-                        <div class="flex items-center justify-between gap-6">
-                            <dt class="text-gray-600 shrink-0 w-28">Evidencias</dt>
-                            <dd class="text-right">
-                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium {{ $evidencesCount > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                    {{ $evidencesCount }} adjunta(s)
-                                </span>
-                            </dd>
-                        </div>
-                        <div class="flex items-center justify-between gap-6">
-                            <dt class="text-gray-600 shrink-0 w-28">Estado actual</dt>
-                            <dd class="text-right">
-                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    {{ $serviceRequest->status }}
-                                </span>
-                            </dd>
-                        </div>
-                        <div class="flex items-center justify-between gap-6">
-                            <dt class="text-gray-600 shrink-0 w-28">Nuevo estado</dt>
-                            <dd class="text-right">
-                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                    CERRADA
-                                </span>
-                            </dd>
-                        </div>
-                    </dl>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+                        <span class="font-medium mr-1">Ticket:</span>{{ $serviceRequest->ticket_number }}
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full {{ $evidencesCount > 0 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 border border-gray-200' }}">
+                        {{ $evidencesCount }} adjunta(s)
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-green-100 text-green-800 border border-green-200">
+                        {{ $serviceRequest->status }}
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                        CERRADA
+                    </span>
                 </div>
 
                 <div class="grid grid-cols-1 gap-4">
@@ -121,7 +88,7 @@
                             </div>
                         @else
                             <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
-                                <h4 class="text-sm font-semibold text-gray-800 mb-2 flex items-center">
+                                <h4 class="text-sm font-semibold text-gray-800 mb-3 flex items-center">
                                     <i class="fas fa-paper-plane mr-2 text-purple-600"></i>
                                     Respuesta
                                 </h4>
@@ -143,10 +110,13 @@
                         <div class="flex items-center justify-between mb-2">
                             <h4 class="text-sm font-semibold text-gray-800 flex items-center">
                                 <i class="fas fa-paperclip mr-2 text-purple-600"></i>
-                                Evidencias
+                                Evidencias adicionales
                             </h4>
-                            <span class="text-xs text-gray-500">{{ $evidencesCount }} adjunta(s)</span>
+                            <span class="text-xs text-gray-500">{{ $evidencesCount }} registradas</span>
                         </div>
+                        <p class="text-xs text-gray-500 mb-3">
+                            Agrega solo soportes nuevos si hacen falta para el cierre.
+                        </p>
 
                         <div class="space-y-3">
                             <div id="close-evidence-list-{{ $serviceRequest->id }}" class="space-y-3"></div>

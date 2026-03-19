@@ -1198,6 +1198,7 @@ class ServiceRequestController extends Controller
                     ? 'Técnico asignado, solicitud aceptada e iniciada correctamente.'
                     : 'Técnico asignado correctamente',
                 'assigned_to' => $service_request->assignee->name,
+                'assigned_to_technician_id' => $service_request->assignee?->technician?->id,
                 'assigned_to_email' => $service_request->assignee?->getEmailForCompany((int) $service_request->company_id),
                 'assigned_to_position' => $service_request->assignee?->getPositionForCompany((int) $service_request->company_id),
                 'status' => $service_request->status,

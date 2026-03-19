@@ -1,6 +1,7 @@
 @props(['serviceRequest'])
 
 @php
+    $viewService = app(\App\Services\ServiceRequestViewService::class);
     $tasks = $serviceRequest->tasks()
         ->with(['technician.user', 'subtasks'])
         ->orderBy('created_at', 'desc')
@@ -12,7 +13,7 @@
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
     $isInProgress = $serviceRequest->status === 'EN_PROCESO';
     $canResolveByEvidence = ($serviceRequest->is_reportable === false)
-        || $serviceRequest->evidences()->where('evidence_type', 'ARCHIVO')->exists();
+        || $viewService->getResolvableEvidenceCount($serviceRequest) > 0;
     $completedTasksCount = $tasks->filter(fn($task) => strtolower((string) $task->status) === 'completed')->count();
     $allTasksCompleted = $tasks->isNotEmpty() && $completedTasksCount === $tasks->count();
 @endphp

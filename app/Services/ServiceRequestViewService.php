@@ -6,6 +6,8 @@ use App\Models\ServiceRequest;
 
 class ServiceRequestViewService
 {
+    private array $resolvableEvidenceTypes = ['ARCHIVO', 'ENLACE', 'PASO_A_PASO', 'COMENTARIO'];
+
     public function getStatusColors(): array
     {
         return [
@@ -67,24 +69,37 @@ class ServiceRequestViewService
 
     public function canResolve(ServiceRequest $request): bool
     {
-        return $request->status === 'EN_PROCESO' &&
-               (($request->stepByStepEvidences->count() ?? 0) > 0 ||
-                ($request->fileEvidences->count() ?? 0) > 0);
+        return $request->status === 'EN_PROCESO' && $this->getResolvableEvidenceCount($request) > 0;
     }
 
     public function getResolveButtonData(ServiceRequest $request): array
     {
         $hasStepEvidences = ($request->stepByStepEvidences->count() ?? 0) > 0;
         $hasFileEvidences = ($request->fileEvidences->count() ?? 0) > 0;
-        $canResolve = $hasStepEvidences || $hasFileEvidences;
+        $resolvableEvidencesCount = $this->getResolvableEvidenceCount($request);
+        $canResolve = $resolvableEvidencesCount > 0;
 
         return [
             'can_resolve' => $canResolve,
             'has_step_evidences' => $hasStepEvidences,
             'has_file_evidences' => $hasFileEvidences,
             'step_evidences_count' => $request->stepByStepEvidences->count() ?? 0,
-            'file_evidences_count' => $request->fileEvidences->count() ?? 0
+            'file_evidences_count' => $request->fileEvidences->count() ?? 0,
+            'resolvable_evidences_count' => $resolvableEvidencesCount,
         ];
+    }
+
+    public function getResolvableEvidenceCount(ServiceRequest $request): int
+    {
+        if ($request->relationLoaded('evidences')) {
+            return $request->evidences
+                ->whereIn('evidence_type', $this->resolvableEvidenceTypes)
+                ->count();
+        }
+
+        return $request->evidences()
+            ->whereIn('evidence_type', $this->resolvableEvidenceTypes)
+            ->count();
     }
 
     public function shouldShowPauseInfo(ServiceRequest $request): bool
