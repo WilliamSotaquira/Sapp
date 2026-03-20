@@ -240,7 +240,82 @@ class CreateFastServiceRequestCommandTest extends TestCase
         $created = ServiceRequest::withoutGlobalScopes()->first();
         $this->assertNotNull($created);
         $this->assertSame(1, $created->tasks()->count());
-        $this->assertSame(3, $created->tasks()->withCount('subtasks')->first()->subtasks_count);
+
+        $task = $created->tasks()->withCount('subtasks')->first();
+        $this->assertNotNull($task);
+        $this->assertSame(4, $task->subtasks_count);
+        $this->assertStringNotContainsStringIgnoringCase('gestionar', $task->title);
+        $this->assertStringContainsStringIgnoringCase('SEO', $task->title);
+        $this->assertStringNotContainsStringIgnoringCase('Atender la solicitud recibida', (string) $task->description);
+    }
+
+    public function test_command_rejects_generic_manual_tasks(): void
+    {
+        $data = $this->seedServiceTree();
+
+        $payload = [
+            'company_name' => $data['company']->name,
+            'sub_service_code' => 'SEO_TEC',
+            'requester_name' => 'Jimena Delgado Soto',
+            'requester_email' => 'jdelgados@example.com',
+            'title' => 'Posicionamiento SEO OMB',
+            'description' => 'Se requiere revisar el posicionamiento SEO del Observatorio de Movilidad.',
+            'criticality_level' => 'MEDIA',
+            'entry_channel' => 'email_corporativo',
+            'requested_by' => $data['user']->id,
+            'assigned_to' => $data['user']->id,
+            'tasks' => [
+                [
+                    'title' => 'Gestionar posicionamiento seo omb',
+                    'description' => 'Atender la solicitud recibida, realizar revisión inicial y consolidar hallazgos o acciones recomendadas con trazabilidad del servicio.',
+                    'priority' => 'medium',
+                    'type' => 'regular',
+                    'subtasks' => [
+                        [
+                            'title' => 'Revisar contexto y alcance de la solicitud (20 min)',
+                            'notes' => 'Analizar el requerimiento recibido para orientar la atención técnica del caso.',
+                            'priority' => 'medium',
+                            'estimated_minutes' => 20,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->artisan('service-requests:create-fast', [
+            '--json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        ])
+            ->assertExitCode(1)
+            ->expectsOutputToContain('"error": "validation_error"');
+
+        $this->assertDatabaseCount('service_requests', 0);
+    }
+
+    public function test_fast_command_forces_requests_to_be_excluded_from_reports(): void
+    {
+        $data = $this->seedServiceTree();
+
+        $payload = [
+            'company_name' => $data['company']->name,
+            'sub_service_code' => 'SEO_TEC',
+            'requester_name' => 'Jimena Delgado Soto',
+            'requester_email' => 'jdelgados@example.com',
+            'title' => 'Posicionamiento SEO OMB',
+            'description' => 'Se requiere revisar el posicionamiento SEO del Observatorio de Movilidad.',
+            'criticality_level' => 'MEDIA',
+            'entry_channel' => 'email_corporativo',
+            'requested_by' => $data['user']->id,
+            'assigned_to' => $data['user']->id,
+            'is_reportable' => true,
+        ];
+
+        $this->artisan('service-requests:create-fast', [
+            '--json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        ])->assertExitCode(0);
+
+        $created = ServiceRequest::withoutGlobalScopes()->first();
+        $this->assertNotNull($created);
+        $this->assertFalse((bool) $created->is_reportable);
     }
 
     public function test_command_infers_company_and_subservice_when_missing(): void
