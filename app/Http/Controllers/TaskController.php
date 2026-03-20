@@ -1171,7 +1171,7 @@ class TaskController extends Controller
     {
         $task->load([
             'technician.user',
-            'serviceRequest',
+            'serviceRequest.requester',
             'project',
             'sla',
             'history.user',
