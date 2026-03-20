@@ -440,10 +440,36 @@
                         <span class="text-sm font-medium text-gray-900">{{ $task->technician->user?->name ?? '—' }}</span>
                     </div>
                     @if($task->service_request_id)
+                    <div class="px-5 py-3 flex items-start justify-between gap-4">
+                        <span class="text-sm text-gray-500">Título</span>
+                        <div class="max-w-[16rem] text-right">
+                            <div class="flex items-start justify-end gap-2">
+                                @if(!empty($task->serviceRequest?->title))
+                                <button
+                                    type="button"
+                                    class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-gray-200 text-[11px] text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+                                    data-copy-title="{{ $task->serviceRequest->title }}"
+                                    title="Copiar título"
+                                    aria-label="Copiar título">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                @endif
+                                <div class="text-sm font-medium text-gray-900 break-words">
+                                    {{ $task->serviceRequest?->title ?? '—' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-5 py-3 flex items-center justify-between gap-4">
+                        <span class="text-sm text-gray-500">Solicitante</span>
+                        <span class="text-sm font-medium text-right text-gray-900">
+                            {{ $task->serviceRequest?->requester?->name ?? '—' }}
+                        </span>
+                    </div>
                     <a href="{{ route('service-requests.show', $task->service_request_id) }}" 
-                       class="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition">
+                       class="px-5 py-3 flex items-center justify-between gap-4 hover:bg-gray-50 transition">
                         <span class="text-sm text-gray-500">Solicitud</span>
-                        <span class="text-sm font-medium text-blue-600 hover:underline">
+                        <span class="text-sm font-medium text-right text-blue-600 hover:underline">
                             #{{ $task->serviceRequest?->ticket_number ?? $task->service_request_id }}
                             <i class="fas fa-external-link-alt text-xs ml-1"></i>
                         </span>
@@ -779,6 +805,43 @@ document.addEventListener('DOMContentLoaded', function() {
             .finally(() => {
                 this.disabled = false;
             });
+        });
+    });
+
+    document.querySelectorAll('[data-copy-title]').forEach(button => {
+        button.addEventListener('click', function() {
+            const title = this.dataset.copyTitle || '';
+            if (!title) {
+                showToast('No hay título para copiar', 'error');
+                return;
+            }
+
+            const copyWithFallback = () => {
+                const textArea = document.createElement('textarea');
+                textArea.value = title;
+                textArea.setAttribute('readonly', '');
+                textArea.style.position = 'absolute';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    showToast(successful ? 'Título copiado al portapapeles' : 'No se pudo copiar el título', successful ? 'success' : 'error');
+                } catch (error) {
+                    showToast('No se pudo copiar el título', 'error');
+                }
+
+                document.body.removeChild(textArea);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(title)
+                    .then(() => showToast('Título copiado al portapapeles', 'success'))
+                    .catch(copyWithFallback);
+            } else {
+                copyWithFallback();
+            }
         });
     });
 
