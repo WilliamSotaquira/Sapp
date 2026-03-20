@@ -11,6 +11,7 @@ use App\Models\Technician;
 use App\Models\User;
 use App\Models\Cut;
 use App\Models\Requester;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -637,6 +638,8 @@ class ServiceRequestService
             return;
         }
 
+        $this->validateWebAdminTasks($normalized);
+
         foreach ($normalized as $taskData) {
             $task = Task::create([
                 'service_request_id' => $serviceRequest->id,
@@ -686,6 +689,78 @@ class ServiceRequestService
                 }
             }
         }
+    }
+
+    private function validateWebAdminTasks(array $tasks): void
+    {
+        $errors = [];
+
+        foreach ($tasks as $index => $task) {
+            if (!is_array($task) || !empty($task['standard_task_id'])) {
+                continue;
+            }
+
+            $title = trim((string) ($task['title'] ?? ''));
+            $description = trim((string) ($task['description'] ?? ''));
+
+            if ($title !== '' && $this->looksGenericWebTaskText($title)) {
+                $errors["tasks.$index.title"] = 'La tarea debe ser específica y acorde a una actividad real de administración web.';
+            }
+
+            if ($description !== '' && $this->looksGenericWebTaskText($description)) {
+                $errors["tasks.$index.description"] = 'La descripción de la tarea debe detallar una acción web concreta y verificable.';
+            }
+
+            foreach (($task['subtasks'] ?? []) as $subIndex => $subtask) {
+                if (!is_array($subtask)) {
+                    continue;
+                }
+
+                $subtaskTitle = trim((string) ($subtask['title'] ?? ''));
+                $subtaskNotes = trim((string) ($subtask['notes'] ?? ''));
+
+                if ($subtaskTitle !== '' && $this->looksGenericWebTaskText($subtaskTitle)) {
+                    $errors["tasks.$index.subtasks.$subIndex.title"] = 'La subtarea debe reflejar una acción concreta de webmaster.';
+                }
+
+                if ($subtaskNotes !== '' && $this->looksGenericWebTaskText($subtaskNotes)) {
+                    $errors["tasks.$index.subtasks.$subIndex.notes"] = 'Las notas de la subtarea deben describir una ejecución web concreta.';
+                }
+            }
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    private function looksGenericWebTaskText(string $text): bool
+    {
+        $normalized = Str::lower(trim(preg_replace('/\s+/', ' ', $text) ?? ''));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $genericSnippets = [
+            'atender la solicitud recibida',
+            'revisión inicial',
+            'revision inicial',
+            'hallazgos o acciones recomendadas',
+            'revisar contexto y alcance de la solicitud',
+            'validar hallazgos iniciales',
+            'elementos relevantes del caso',
+            'documentar acciones y resultado esperado para seguimiento',
+            'orientar la atención técnica del caso',
+            'trazabilidad clara para continuidad del servicio',
+        ];
+
+        foreach ($genericSnippets as $snippet) {
+            if (str_contains($normalized, $snippet)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

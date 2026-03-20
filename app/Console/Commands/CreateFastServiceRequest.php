@@ -228,7 +228,8 @@ class CreateFastServiceRequest extends Command
             'web_routes' => $this->normalizeWebRoutes($webRoutes),
             'requested_by' => (int) ($payload['requested_by'] ?? 3),
             'assigned_to' => (int) ($payload['assigned_to'] ?? 3),
-            'is_reportable' => (bool) ($payload['is_reportable'] ?? false),
+            // Las solicitudes creadas por flujo rápido deben quedar excluidas de reportes.
+            'is_reportable' => false,
             'tasks_template' => $tasksTemplate ? trim((string) $tasksTemplate) : null,
             'tasks' => is_array($tasks) ? $tasks : [],
             'source_date' => $this->normalizeDate($sourceDate),
@@ -416,7 +417,32 @@ class CreateFastServiceRequest extends Command
                 $title = trim((string) ($task['title'] ?? ''));
                 if ($title !== '') {
                     $hasValidTask = true;
-                    break;
+                }
+
+                if ($title !== '' && $this->looksGenericTaskText($title)) {
+                    $validator->errors()->add('tasks', 'Las tareas deben ser realistas y específicas para administración web; evita títulos genéricos.');
+                }
+
+                $description = trim((string) ($task['description'] ?? ''));
+                if ($description !== '' && $this->looksGenericTaskText($description)) {
+                    $validator->errors()->add('tasks', 'La descripción de la tarea debe indicar una acción web concreta y no una plantilla genérica.');
+                }
+
+                foreach (($task['subtasks'] ?? []) as $subtask) {
+                    if (!is_array($subtask)) {
+                        continue;
+                    }
+
+                    $subtaskTitle = trim((string) ($subtask['title'] ?? ''));
+                    $subtaskNotes = trim((string) ($subtask['notes'] ?? ''));
+
+                    if ($subtaskTitle !== '' && $this->looksGenericTaskText($subtaskTitle)) {
+                        $validator->errors()->add('tasks', 'Las subtareas deben reflejar acciones concretas de webmaster y no textos genéricos.');
+                    }
+
+                    if ($subtaskNotes !== '' && $this->looksGenericTaskText($subtaskNotes)) {
+                        $validator->errors()->add('tasks', 'Las notas de subtareas deben describir una ejecución web concreta y verificable.');
+                    }
                 }
             }
 
@@ -538,35 +564,7 @@ class CreateFastServiceRequest extends Command
             }
         }
 
-        $subject = $this->limitSentence($title !== '' ? $title : $description, 90);
-        $baseDescription = $description !== '' ? $description : $title;
-
-        return [[
-            'title' => 'Gestionar ' . Str::lower($subject),
-            'description' => 'Atender la solicitud recibida, realizar revisión inicial y consolidar hallazgos o acciones recomendadas con trazabilidad del servicio. Tiempo total estimado: 75 min.',
-            'priority' => 'medium',
-            'type' => 'regular',
-            'subtasks' => [
-                [
-                    'title' => 'Revisar contexto y alcance de la solicitud (20 min)',
-                    'notes' => 'Analizar el requerimiento recibido, identificar objetivo, alcance y posibles restricciones para orientar la atención técnica del caso. Contexto base: ' . $this->limitSentence($baseDescription, 180),
-                    'priority' => 'medium',
-                    'estimated_minutes' => 20,
-                ],
-                [
-                    'title' => 'Validar hallazgos iniciales y elementos relevantes del caso (30 min)',
-                    'notes' => 'Realizar la verificación inicial de los elementos funcionales o técnicos relacionados con la solicitud y registrar hallazgos priorizados para su atención.',
-                    'priority' => 'medium',
-                    'estimated_minutes' => 30,
-                ],
-                [
-                    'title' => 'Documentar acciones y resultado esperado para seguimiento (25 min)',
-                    'notes' => 'Consolidar el resultado de la revisión, definir acciones recomendadas o siguiente paso y dejar trazabilidad clara para continuidad del servicio.',
-                    'priority' => 'medium',
-                    'estimated_minutes' => 25,
-                ],
-            ],
-        ]];
+        return $this->buildRealisticWebAdminTasks($title, $description);
     }
 
     private function limitSentence(string $value, int $limit): string
@@ -607,5 +605,190 @@ class CreateFastServiceRequest extends Command
     private function toJson(array $data): string
     {
         return (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function looksGenericTaskText(string $text): bool
+    {
+        $normalized = Str::lower(trim(preg_replace('/\s+/', ' ', $text) ?? ''));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $genericSnippets = [
+            'atender la solicitud recibida',
+            'revisión inicial',
+            'revision inicial',
+            'hallazgos o acciones recomendadas',
+            'revisar contexto y alcance de la solicitud',
+            'validar hallazgos iniciales',
+            'elementos relevantes del caso',
+            'documentar acciones y resultado esperado para seguimiento',
+            'orientar la atención técnica del caso',
+            'trazabilidad clara para continuidad del servicio',
+        ];
+
+        foreach ($genericSnippets as $snippet) {
+            if (str_contains($normalized, $snippet)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function buildRealisticWebAdminTasks(string $title, string $description): array
+    {
+        $baseText = trim($title . ' ' . $description);
+        $baseSummary = $this->limitSentence($description !== '' ? $description : $title, 220);
+        $subject = $this->limitSentence($title !== '' ? $title : $description, 120);
+        $haystack = Str::lower($baseText);
+
+        $containsAny = function (array $patterns) use ($haystack): bool {
+            foreach ($patterns as $pattern) {
+                if (str_contains($haystack, $pattern)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        if ($containsAny(['feria', 'evento', 'pieza', 'piezas', 'banner', 'divulg', 'campa', 'jornada'])) {
+            return [[
+                'title' => 'Publicar y coordinar la divulgación web de ' . Str::lower($subject),
+                'description' => 'Gestionar la divulgación solicitada en canales institucionales, verificando insumos, preparando la publicación y dejando trazabilidad funcional de lo publicado para asegurar una salida coherente y útil para la ciudadanía. Tiempo total estimado: 90 min.',
+                'priority' => 'medium',
+                'type' => 'regular',
+                'subtasks' => [
+                    [
+                        'title' => 'Verificar piezas gráficas y datos del contenido a publicar (20 min)',
+                        'notes' => 'Revisar el material recibido, confirmar fechas, nombres, enlaces y demás datos visibles para asegurar que el contenido sea publicable sin inconsistencias desde la gestión de contenidos web. Contexto base: ' . $baseSummary,
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                    [
+                        'title' => 'Preparar y cargar la divulgación en el canal web aplicable (30 min)',
+                        'notes' => 'Adecuar el contenido al espacio institucional que corresponda, cargar piezas, ajustar texto de apoyo y validar presentación visual antes de publicar, con enfoque de publicación web y habilitación controlada del cambio.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 30,
+                    ],
+                    [
+                        'title' => 'Validar referencias de atención y mensaje complementario del contenido (20 min)',
+                        'notes' => 'Comprobar la información operativa que deba acompañar la publicación, como sedes, ventanillas, enlaces o indicaciones de servicio, para que el contenido publicado oriente correctamente al usuario final.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                    [
+                        'title' => 'Comprobar publicación y registrar evidencia para seguimiento (20 min)',
+                        'notes' => 'Verificar que la salida quede visible en el canal intervenido, registrar evidencia de publicación y dejar trazabilidad del resultado esperado para continuidad o cierre del caso.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                ],
+            ]];
+        }
+
+        if ($containsAny(['seo', 'index', 'indexacion', 'metadato', 'metadatos', 'buscador', 'google', 'posicionamiento'])) {
+            return [[
+                'title' => 'Revisar y ajustar visibilidad orgánica de ' . Str::lower($subject),
+                'description' => 'Atender la solicitud mediante diagnóstico y ajuste de elementos SEO del contenido o sección reportada, dejando trazabilidad técnica y funcional sobre la mejora aplicada. Tiempo total estimado: 90 min.',
+                'priority' => 'medium',
+                'type' => 'regular',
+                'subtasks' => [
+                    [
+                        'title' => 'Verificar indexación y presencia actual del contenido (25 min)',
+                        'notes' => 'Comprobar cómo aparece el contenido en buscadores, identificar síntomas de visibilidad y registrar hallazgos iniciales para orientar la intervención SEO.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 25,
+                    ],
+                    [
+                        'title' => 'Revisar títulos, descripciones y señales técnicas de la página (25 min)',
+                        'notes' => 'Validar metadatos, encabezados y señales técnicas relacionadas con la página o sección reportada para detectar ajustes concretos desde la gestión SEO técnica.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 25,
+                    ],
+                    [
+                        'title' => 'Aplicar ajuste priorizado o dejar plan de corrección validado (20 min)',
+                        'notes' => 'Ejecutar el cambio viable en el contenido o documentar el ajuste requerido con criterio de implementación para que la solicitud avance sin ambigüedad.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                    [
+                        'title' => 'Registrar evidencia y resultado esperado del ajuste SEO (20 min)',
+                        'notes' => 'Dejar trazabilidad de hallazgos, cambio aplicado o siguiente acción recomendada, con evidencia suficiente para seguimiento del caso.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                ],
+            ]];
+        }
+
+        if ($containsAny(['enlace', 'link', 'url', 'boton', 'menú', 'menu', 'redir', 'formulario'])) {
+            return [[
+                'title' => 'Corregir comportamiento funcional solicitado en ' . Str::lower($subject),
+                'description' => 'Gestionar la actualización funcional reportada sobre enlaces, botones o rutas del sitio, verificando el comportamiento esperado y dejando evidencia de validación posterior al cambio. Tiempo total estimado: 75 min.',
+                'priority' => 'medium',
+                'type' => 'regular',
+                'subtasks' => [
+                    [
+                        'title' => 'Reproducir el comportamiento reportado y confirmar alcance (20 min)',
+                        'notes' => 'Validar el enlace, botón o ruta involucrada para confirmar el síntoma y definir con precisión qué parte del sitio debe ajustarse.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 20,
+                    ],
+                    [
+                        'title' => 'Actualizar la referencia o configuración afectada en el sitio (25 min)',
+                        'notes' => 'Aplicar el ajuste requerido en el contenido, menú, enlace o configuración relacionada, manteniendo coherencia con la estructura y navegación institucional.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 25,
+                    ],
+                    [
+                        'title' => 'Validar funcionamiento posterior al cambio en el canal intervenido (15 min)',
+                        'notes' => 'Comprobar que el comportamiento corregido responda como se espera y que no se afecten rutas o accesos relacionados.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 15,
+                    ],
+                    [
+                        'title' => 'Registrar evidencia y cierre operativo del ajuste (15 min)',
+                        'notes' => 'Documentar el cambio realizado, la validación ejecutada y el resultado funcional para continuidad o cierre de la solicitud.',
+                        'priority' => 'medium',
+                        'estimated_minutes' => 15,
+                    ],
+                ],
+            ]];
+        }
+
+        return [[
+            'title' => 'Atender requerimiento web sobre ' . Str::lower($subject),
+            'description' => 'Gestionar la solicitud con acciones concretas de administración web, validando insumos, ejecutando el ajuste o publicación que aplique y dejando evidencia verificable del resultado. Tiempo total estimado: 80 min.',
+            'priority' => 'medium',
+            'type' => 'regular',
+            'subtasks' => [
+                [
+                    'title' => 'Validar insumos, alcance y dependencia del requerimiento web (20 min)',
+                    'notes' => 'Revisar el caso recibido, confirmar qué contenido, sección o funcionalidad del sitio está involucrada y precisar restricciones antes de intervenir. Contexto base: ' . $baseSummary,
+                    'priority' => 'medium',
+                    'estimated_minutes' => 20,
+                ],
+                [
+                    'title' => 'Ejecutar el ajuste o publicación correspondiente en el sitio (30 min)',
+                    'notes' => 'Realizar la actualización en el contenido, estructura, metadatos o canal institucional que corresponda, con enfoque de administración web y control del cambio.',
+                    'priority' => 'medium',
+                    'estimated_minutes' => 30,
+                ],
+                [
+                    'title' => 'Verificar resultado funcional y visual de la intervención (15 min)',
+                    'notes' => 'Comprobar que el cambio aplicado responda al objetivo de la solicitud y que el contenido o funcionalidad intervenida quede operativa.',
+                    'priority' => 'medium',
+                    'estimated_minutes' => 15,
+                ],
+                [
+                    'title' => 'Registrar evidencia y trazabilidad para seguimiento del caso (15 min)',
+                    'notes' => 'Dejar evidencia de la atención realizada, el resultado obtenido y cualquier observación necesaria para continuidad o cierre.',
+                    'priority' => 'medium',
+                    'estimated_minutes' => 15,
+                ],
+            ],
+        ]];
     }
 }

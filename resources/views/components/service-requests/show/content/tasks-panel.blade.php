@@ -20,7 +20,7 @@
 
 <div id="tasks-panel-{{ $serviceRequest->id }}" tabindex="-1" class="bg-white shadow rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
     <div class="px-4 sm:px-6 py-4 border-b {{ $isDead ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50' }}">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div class="flex items-center">
                 <div class="flex items-center justify-center w-9 h-9 bg-purple-100 rounded-lg mr-3">
                     <i class="fas fa-tasks text-purple-600 text-sm"></i>
@@ -34,7 +34,7 @@
                     </p>
                 </div>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-center gap-3 xl:justify-end">
                 @if($isInProgress && $canResolveByEvidence)
                     <div id="tasks-resolve-action-{{ $serviceRequest->id }}"
                          data-tasks-resolve-action
@@ -45,16 +45,16 @@
                                 data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
                                 data-tasks-resolve-button
                                 onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
-                                class="flex items-center justify-center w-full px-4 py-3 bg-green-600 border-2 border-green-700 rounded-full font-semibold text-white text-sm hover:bg-green-700 hover:border-green-800 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 group min-h-[3rem]"
+                                class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 bg-emerald-600 border border-emerald-700 rounded-2xl font-semibold text-white text-sm shadow-sm hover:bg-emerald-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-150 group min-h-[3rem]"
                                 aria-label="Resolver Solicitud">
-                            <i class="fas fa-check-circle mr-2 flex-shrink-0 transition-transform group-hover:scale-110" aria-hidden="true"></i>
-                            <span class="line-clamp-2 text-center leading-tight">Resolver Solicitud</span>
+                            <i class="fas fa-check-circle flex-shrink-0 transition-transform group-hover:scale-110" aria-hidden="true"></i>
+                            <span class="text-center leading-tight">Resolver Solicitud</span>
                         </button>
                     </div>
                 @endif
                 <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
-                   class="inline-flex items-center px-3 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition">
-                    <i class="fas fa-external-link-alt mr-2"></i>
+                   class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 bg-purple-600 border border-purple-700 rounded-2xl font-semibold text-sm text-white shadow-sm hover:bg-purple-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-150 min-h-[3rem]">
+                    <i class="fas fa-external-link-alt flex-shrink-0"></i>
                     Abrir Gestor
                 </a>
             </div>
@@ -158,12 +158,29 @@ function areAllTasksCompleted(tasksPanel) {
 
     return taskCards.every(card => {
         const checkbox = card.querySelector('input[id^="task-"]');
-        if (checkbox) return checkbox.checked;
+        if (checkbox && checkbox.checked) return true;
+
+        if (card.dataset.taskCompleted === '1') return true;
 
         const badge = card.querySelector('[id^="task-status-badge-"]');
         const badgeText = badge ? badge.textContent.toLowerCase() : '';
         return badgeText.includes('completada');
     });
+}
+
+function setTaskCardCompletedState(taskId, completed) {
+    const taskCard = document.querySelector(`[data-task-card="${taskId}"]`);
+    if (taskCard) {
+        taskCard.dataset.taskCompleted = completed ? '1' : '0';
+    }
+}
+
+function setSubtaskCompletedState(subtaskId, completed) {
+    const subtaskCheckbox = document.getElementById('subtask-' + subtaskId);
+    const subtaskRow = subtaskCheckbox ? subtaskCheckbox.closest('[data-subtask-completed]') : null;
+    if (subtaskRow) {
+        subtaskRow.dataset.subtaskCompleted = completed ? '1' : '0';
+    }
 }
 
 function updateResolveActionVisibility(serviceRequestId) {
@@ -229,6 +246,7 @@ function toggleTaskStatus(taskId, isChecked) {
             if (isChecked) {
                 badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800';
                 badge.innerHTML = '<i class="fas fa-check-double mr-1"></i>Completada';
+                setTaskCardCompletedState(taskId, true);
 
                 // Agregar estilo tachado
                 if (titleElement) {
@@ -243,6 +261,7 @@ function toggleTaskStatus(taskId, isChecked) {
             } else {
                 badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800';
                 badge.innerHTML = '<i class="fas fa-spinner mr-1"></i>En Proceso';
+                setTaskCardCompletedState(taskId, false);
 
                 // Quitar estilo tachado
                 if (titleElement) {
@@ -293,6 +312,7 @@ function toggleAllSubtasks(taskId, isChecked) {
             const description = checkbox.closest('.flex').querySelector('p');
 
             if (isChecked) {
+                setSubtaskCompletedState(subtaskId, true);
                 if (label) {
                     label.classList.add('line-through', 'text-gray-500');
                     label.classList.remove('cursor-pointer');
@@ -301,6 +321,7 @@ function toggleAllSubtasks(taskId, isChecked) {
                     description.classList.add('text-gray-400');
                 }
             } else {
+                setSubtaskCompletedState(subtaskId, false);
                 if (label) {
                     label.classList.remove('line-through', 'text-gray-500');
                     label.classList.add('cursor-pointer', 'text-gray-700');
@@ -409,6 +430,7 @@ function toggleSubtaskStatus(taskId, subtaskId, isChecked) {
                         badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800';
                         badge.innerHTML = '<i class="fas fa-spinner mr-1"></i>En Proceso';
                     }
+                    setTaskCardCompletedState(taskId, false);
                     if (titleElement) {
                         titleElement.classList.remove('line-through', 'text-gray-500');
                     }
@@ -470,6 +492,7 @@ function checkAndMarkParentTask(taskId) {
             badge.className = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800';
             badge.innerHTML = '<i class="fas fa-check-double mr-1"></i>Completada';
         }
+        setTaskCardCompletedState(taskId, true);
         if (titleElement) {
             titleElement.classList.add('line-through', 'text-gray-500');
         }
@@ -830,5 +853,22 @@ function setupCopyCompletedTasks() {
 }
 
 document.addEventListener('DOMContentLoaded', setupCopyCompletedTasks);
-document.addEventListener('DOMContentLoaded', () => updateResolveActionVisibility('{{ $serviceRequest->id }}'));
+document.addEventListener('DOMContentLoaded', () => {
+    updateResolveActionVisibility('{{ $serviceRequest->id }}');
+
+    const resolveModal = document.getElementById('resolve-modal-{{ $serviceRequest->id }}');
+    if (!resolveModal) return;
+
+    resolveModal.addEventListener('click', (event) => {
+        if (event.target === resolveModal) {
+            setTimeout(() => updateResolveActionVisibility('{{ $serviceRequest->id }}'), 0);
+        }
+    });
+
+    resolveModal.querySelectorAll('[onclick*="closeModal"]').forEach((button) => {
+        button.addEventListener('click', () => {
+            setTimeout(() => updateResolveActionVisibility('{{ $serviceRequest->id }}'), 0);
+        });
+    });
+});
 </script>
