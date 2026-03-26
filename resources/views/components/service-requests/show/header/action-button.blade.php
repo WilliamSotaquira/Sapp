@@ -86,20 +86,6 @@ function handleConfirmation(message, event) {
     return result;
 }
 
-// 👈 NUEVO: Función para abrir modales
-function openModal(modalId) {
-    console.log('🔍 Abriendo modal:', modalId);
-    const modal = document.getElementById(modalId);
-
-    if (modal) {
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-        console.log('✅ Modal abierto correctamente');
-    } else {
-        console.error('❌ Modal no encontrado:', modalId);
-    }
-}
-
 // Debug para confirmaciones y modales
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔍 Action Button Component - Confirmaciones y modales cargados');

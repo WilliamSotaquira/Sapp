@@ -164,7 +164,20 @@ function areAllTasksCompleted(tasksPanel) {
 
         const badge = card.querySelector('[id^="task-status-badge-"]');
         const badgeText = badge ? badge.textContent.toLowerCase() : '';
-        return badgeText.includes('completada');
+        if (badgeText.includes('completada')) return true;
+
+        const subtaskCheckboxes = Array.from(card.querySelectorAll('input[id^="subtask-"]'));
+        if (!subtaskCheckboxes.length) return false;
+
+        return subtaskCheckboxes.every((subtaskCheckbox) => {
+            if (subtaskCheckbox.checked) return true;
+
+            const subtaskRow = subtaskCheckbox.closest('[data-subtask-completed]');
+            if (subtaskRow?.dataset.subtaskCompleted === '1') return true;
+
+            const subtaskLabel = subtaskCheckbox.closest('.flex')?.querySelector('label');
+            return !!subtaskLabel?.classList.contains('line-through');
+        });
     });
 }
 
