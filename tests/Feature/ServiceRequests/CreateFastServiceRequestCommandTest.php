@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ServiceRequests;
 
+use App\Http\Controllers\Reports\CutController;
 use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Cut;
@@ -337,5 +338,84 @@ class CreateFastServiceRequestCommandTest extends TestCase
             '--json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
             '--dry-run' => true,
         ])->assertExitCode(0);
+    }
+
+    public function test_command_resolves_cut_by_source_date_instead_of_latest_cut(): void
+    {
+        $data = $this->seedServiceTree();
+
+        $aprilCut = Cut::create([
+            'contract_id' => $data['company']->active_contract_id,
+            'name' => 'Corte abril',
+            'start_date' => '2026-04-01',
+            'end_date' => '2026-04-30',
+            'created_by' => $data['user']->id,
+        ]);
+
+        $payload = [
+            'company_name' => $data['company']->name,
+            'sub_service_code' => 'SEO_TEC',
+            'requester_name' => 'Jimena Delgado Soto',
+            'requester_email' => 'jdelgados@example.com',
+            'title' => 'Contenido de abril',
+            'description' => 'Solicitud correspondiente al corte de abril.',
+            'criticality_level' => 'MEDIA',
+            'entry_channel' => 'email_corporativo',
+            'requested_by' => $data['user']->id,
+            'assigned_to' => $data['user']->id,
+            'source_date' => '2026-04-10',
+        ];
+
+        $this->artisan('service-requests:create-fast', [
+            '--json' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        ])->assertExitCode(0);
+
+        $created = ServiceRequest::withoutGlobalScopes()->first();
+        $this->assertNotNull($created);
+        $this->assertSame([$aprilCut->id], $created->cuts()->pluck('cuts.id')->all());
+    }
+
+    public function test_cut_sync_keeps_request_in_a_single_cut_based_on_creation_date(): void
+    {
+        $data = $this->seedServiceTree();
+
+        $marchCut = Cut::query()->firstOrFail();
+        $aprilCut = Cut::create([
+            'contract_id' => $data['company']->active_contract_id,
+            'name' => 'Corte abril',
+            'start_date' => '2026-04-01',
+            'end_date' => '2026-04-30',
+            'created_by' => $data['user']->id,
+        ]);
+
+        $serviceRequest = ServiceRequest::withoutGlobalScopes()->create([
+            'company_id' => $data['company']->id,
+            'requester_id' => Requester::withoutGlobalScopes()->where('company_id', $data['company']->id)->value('id'),
+            'title' => 'Solicitud exclusiva abril',
+            'description' => 'Debe quedar solo en abril.',
+            'sub_service_id' => $data['subService']->id,
+            'sla_id' => $data['sla']->id,
+            'requested_by' => $data['user']->id,
+            'assigned_to' => $data['user']->id,
+            'entry_channel' => 'email_corporativo',
+            'criticality_level' => 'MEDIA',
+            'status' => 'PENDIENTE',
+        ]);
+
+        $serviceRequest->forceFill([
+            'created_at' => '2026-04-10 09:00:00',
+            'updated_at' => '2026-04-10 09:00:00',
+        ])->saveQuietly();
+
+        $serviceRequest->cuts()->attach($marchCut->id);
+
+        session(['current_company_id' => $data['company']->id]);
+
+        $controller = app(CutController::class);
+        $method = new \ReflectionMethod($controller, 'syncCutServiceRequests');
+        $method->setAccessible(true);
+        $method->invoke($controller, $aprilCut);
+
+        $this->assertSame([$aprilCut->id], $serviceRequest->fresh()->cuts()->pluck('cuts.id')->all());
     }
 }

@@ -144,9 +144,14 @@ class StoreServiceRequestRequest extends FormRequest
 
             $cutId = $this->input('cut_id');
             if ($cutId && $activeContractId) {
-                $cutContractId = \App\Models\Cut::where('id', $cutId)->value('contract_id');
+                $cut = \App\Models\Cut::find($cutId);
+                $cutContractId = $cut?->contract_id;
                 if ($cutContractId && (string) $cutContractId !== (string) $activeContractId) {
                     $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
+                }
+
+                if ($cut && !$cut->containsDate(now())) {
+                    $validator->errors()->add('cut_id', 'El corte seleccionado no corresponde a la fecha actual de creación de la solicitud.');
                 }
             }
 

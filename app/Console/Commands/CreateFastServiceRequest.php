@@ -66,6 +66,7 @@ class CreateFastServiceRequest extends Command
                 $company->id,
                 $subService->id,
                 $normalized['criticality_level'],
+                $normalized['source_date'],
             );
             $normalized['tasks'] = $this->ensureTasks(
                 $normalized['tasks'],

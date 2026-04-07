@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -85,6 +86,14 @@ class CutController extends Controller
         $activeContract = $currentCompany?->activeContract;
         if (!$activeContract) {
             return back()->withInput()->with('error', 'No hay contrato activo para el espacio de trabajo actual.');
+        }
+
+        $probeCut = new Cut(['contract_id' => $activeContract->id]);
+        if ($probeCut->overlapsRange($validated['start_date'], $validated['end_date'])) {
+            return back()->withInput()->with(
+                'error',
+                'El rango del corte se solapa con otro corte del mismo contrato. Ajusta las fechas antes de guardar.'
+            );
         }
 
         $cut = Cut::create([
@@ -227,6 +236,13 @@ class CutController extends Controller
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        if ($cut->overlapsRange($validated['start_date'], $validated['end_date'], $cut->id)) {
+            return back()->withInput()->with(
+                'error',
+                'El rango del corte se solapa con otro corte del mismo contrato. Ajusta las fechas antes de guardar.'
+            );
+        }
 
         $cut->update([
             'name' => $validated['name'],
@@ -376,6 +392,23 @@ class CutController extends Controller
             }
         }
 
+        if (!empty($ids)) {
+            $outOfRangeIds = ServiceRequest::query()
+                ->whereIn('id', $ids)
+                ->get(['id', 'created_at'])
+                ->filter(fn($serviceRequest) => !$cut->containsDate($serviceRequest->created_at))
+                ->pluck('id')
+                ->values()
+                ->all();
+
+            if (!empty($outOfRangeIds)) {
+                return back()->with(
+                    'error',
+                    'Algunas solicitudes no pertenecen al rango de fechas del corte: ' . implode(', ', $outOfRangeIds)
+                );
+            }
+        }
+
         $cut->serviceRequests()->sync($ids);
 
         return back()->with('success', 'Solicitudes asociadas al corte actualizadas correctamente.');
@@ -402,6 +435,9 @@ class CutController extends Controller
             if ((int) $familyContractId !== (int) $cut->contract_id) {
                 return back()->with('error', 'La solicitud no pertenece al contrato de este corte.');
             }
+        }
+        if (!$cut->containsDate($serviceRequest->created_at)) {
+            return back()->with('error', 'La solicitud no pertenece al rango de fechas de este corte.');
         }
 
         $cut->serviceRequests()->syncWithoutDetaching([$serviceRequest->id]);
@@ -571,32 +607,24 @@ class CutController extends Controller
                     $fq->where('contract_id', $cut->contract_id);
                 });
             })
-            ->where(function ($q) use ($start, $end) {
-                // Actividad base: creación/actualización de la solicitud
-                $q->whereBetween('created_at', [$start, $end])
-                    ->orWhereBetween('updated_at', [$start, $end]);
-
-                // Historiales de estado
-                $q->orWhereHas('statusHistories', function ($h) use ($start, $end) {
-                    $h->whereBetween('created_at', [$start, $end]);
-                });
-
-                // Evidencias
-                $q->orWhereHas('evidences', function ($e) use ($start, $end) {
-                    $e->whereBetween('created_at', [$start, $end]);
-                });
-
-                // Tareas y su historial (si aplica)
-                $q->orWhereHas('tasks', function ($t) use ($start, $end) {
-                    $t->whereBetween('created_at', [$start, $end])
-                        ->orWhereBetween('updated_at', [$start, $end])
-                        ->orWhereHas('history', function ($th) use ($start, $end) {
-                            $th->whereBetween('created_at', [$start, $end]);
-                        });
-                });
-            })
+            // El corte debe ser exclusivo y basarse en la fecha de creación de la solicitud.
+            ->whereBetween('created_at', [$start, $end])
             ->pluck('id')
             ->all();
+
+        if ($cut->contract_id && !empty($requestIds)) {
+            $siblingCutIds = Cut::query()
+                ->where('contract_id', $cut->contract_id)
+                ->where('id', '!=', $cut->id)
+                ->pluck('id');
+
+            if ($siblingCutIds->isNotEmpty()) {
+                DB::table('cut_service_request')
+                    ->whereIn('cut_id', $siblingCutIds)
+                    ->whereIn('service_request_id', $requestIds)
+                    ->delete();
+            }
+        }
 
         $cut->serviceRequests()->sync($requestIds);
     }

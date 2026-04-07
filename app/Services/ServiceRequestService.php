@@ -11,6 +11,7 @@ use App\Models\Technician;
 use App\Models\User;
 use App\Models\Cut;
 use App\Models\Requester;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -77,9 +78,9 @@ class ServiceRequestService
 
     /**
      * Resuelve en una sola consulta los IDs técnicos para crear una solicitud.
-     * Retorna: family_id, service_id, sub_service_id, sla_id y cut_id (más reciente).
+     * Retorna: family_id, service_id, sub_service_id, sla_id y cut_id según la fecha de referencia.
      */
-    public function resolveCreationContext(int $companyId, int $subServiceId, string $criticality): array
+    public function resolveCreationContext(int $companyId, int $subServiceId, string $criticality, string|\DateTimeInterface|null $referenceDate = null): array
     {
         $criticality = mb_strtoupper(trim($criticality));
 
@@ -115,15 +116,6 @@ class ServiceRequestService
                 'ss.id as sub_service_id',
                 DB::raw('COALESCE(MIN(sla_ss.id), MIN(sla_sf.id)) as sla_id'),
             ])
-            ->selectSub(function ($query) use ($companyId) {
-                $query->from('cuts as cu')
-                    ->join('contracts as ct', 'ct.id', '=', 'cu.contract_id')
-                    ->where('ct.company_id', '=', $companyId)
-                    ->orderByDesc('cu.start_date')
-                    ->orderByDesc('cu.id')
-                    ->limit(1)
-                    ->select('cu.id');
-            }, 'cut_id')
             ->groupBy('sf.id', 's.id', 'ss.id')
             ->first();
 
@@ -140,8 +132,39 @@ class ServiceRequestService
             'service_id' => (int) $row->service_id,
             'sub_service_id' => (int) $row->sub_service_id,
             'sla_id' => (int) $row->sla_id,
-            'cut_id' => !empty($row->cut_id) ? (int) $row->cut_id : null,
+            'cut_id' => $this->resolveCutIdForDate($companyId, $referenceDate),
         ];
+    }
+
+    private function resolveCutIdForDate(int $companyId, string|\DateTimeInterface|null $referenceDate = null): ?int
+    {
+        $reference = $referenceDate instanceof \DateTimeInterface
+            ? Carbon::instance(\DateTimeImmutable::createFromInterface($referenceDate))
+            : ($referenceDate ? Carbon::parse($referenceDate) : now());
+
+        $cutId = Cut::query()
+            ->whereHas('contract', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->whereDate('start_date', '<=', $reference->toDateString())
+            ->whereDate('end_date', '>=', $reference->toDateString())
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->value('id');
+
+        if ($cutId) {
+            return (int) $cutId;
+        }
+
+        $fallbackCutId = Cut::query()
+            ->whereHas('contract', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->value('id');
+
+        return $fallbackCutId ? (int) $fallbackCutId : null;
     }
 
     private function applySorting($query, ?string $sortBy): void

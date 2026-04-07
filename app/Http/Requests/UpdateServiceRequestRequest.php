@@ -121,9 +121,16 @@ class UpdateServiceRequestRequest extends FormRequest
 
             $cutId = $this->input('cut_id');
             if ($cutId && $activeContractId) {
-                $cutContractId = \App\Models\Cut::where('id', $cutId)->value('contract_id');
+                $cut = \App\Models\Cut::find($cutId);
+                $cutContractId = $cut?->contract_id;
                 if ($cutContractId && (string) $cutContractId !== (string) $activeContractId) {
                     $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
+                }
+
+                $serviceRequest = $this->route('service_request');
+                $referenceDate = $serviceRequest?->created_at ?: now();
+                if ($cut && !$cut->containsDate($referenceDate)) {
+                    $validator->errors()->add('cut_id', 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.');
                 }
             }
 

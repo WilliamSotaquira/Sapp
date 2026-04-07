@@ -1404,12 +1404,20 @@ class ServiceRequestController extends Controller
             ]);
 
             if (!empty($validated['cut_id'])) {
-                $cutContractId = \App\Models\Cut::where('id', $validated['cut_id'])->value('contract_id');
+                $cut = \App\Models\Cut::find($validated['cut_id']);
+                $cutContractId = $cut?->contract_id;
                 $familyContractId = $serviceRequest->subService?->service?->family?->contract_id;
                 if ($cutContractId && $familyContractId && (string) $cutContractId !== (string) $familyContractId) {
                     return response()->json([
                         'success' => false,
                         'message' => 'El corte seleccionado no corresponde al contrato de la solicitud.',
+                    ], 422);
+                }
+
+                if ($cut && !$cut->containsDate($serviceRequest->created_at)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.',
                     ], 422);
                 }
             }
