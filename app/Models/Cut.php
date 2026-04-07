@@ -47,4 +47,30 @@ class Cut extends Model
 
         return [$start, $end];
     }
+
+    public function containsDate($date): bool
+    {
+        if (empty($date)) {
+            return false;
+        }
+
+        [$start, $end] = $this->getDateRangeForQuery();
+        $reference = Carbon::parse($date);
+
+        return $reference->between($start, $end, true);
+    }
+
+    public function overlapsRange($startDate, $endDate, ?int $ignoreCutId = null): bool
+    {
+        $query = static::query()
+            ->where('contract_id', $this->contract_id)
+            ->whereDate('start_date', '<=', Carbon::parse($endDate)->toDateString())
+            ->whereDate('end_date', '>=', Carbon::parse($startDate)->toDateString());
+
+        if ($ignoreCutId) {
+            $query->where('id', '!=', $ignoreCutId);
+        }
+
+        return $query->exists();
+    }
 }
