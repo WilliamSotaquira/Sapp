@@ -76,7 +76,7 @@
                         id="resolution_notes_{{ $serviceRequest->id }}"
                         rows="3"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                        placeholder="Agrega cualquier información adicional relevante...">{{ old('resolution_notes') }}</textarea>
+                        placeholder="Agrega información adicional relevante para dejar documentada la resolución...">{{ old('resolution_notes') }}</textarea>
                 </div>
 
             </div>
@@ -87,7 +87,7 @@
                     <div>
                         <p class="text-sm font-medium text-green-800">Proceso de Resolución</p>
                         <p class="text-xs text-green-700 mt-1">
-                            Al resolver, la solicitud cambiará a estado <strong>RESUELTA</strong> y podrás proceder al cierre final.
+                            Al resolver, la solicitud cambiará a estado <strong>RESUELTA</strong>. El cierre final debe hacerse manualmente y no se ejecuta automáticamente.
                         </p>
                     </div>
                 </div>

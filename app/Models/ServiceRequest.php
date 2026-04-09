@@ -283,13 +283,15 @@ class ServiceRequest extends Model
             return;
         }
 
-        $allCompleted = $tasks->every(fn($task) => $task->status === 'completed');
         $anyInProgress = $tasks->contains(fn($task) => $task->status === 'in_progress');
+        $anyCompleted = $tasks->contains(fn($task) => $task->status === 'completed');
 
-        if ($allCompleted) {
-            $this->ensureInProgressState($tasks);
-            $this->resolve('Todas las tareas han sido completadas');
-        } elseif ($anyInProgress && $this->status !== self::STATUS_IN_PROGRESS) {
+        // Completar tareas ya no resuelve ni cierra automáticamente la solicitud.
+        // La transición a RESUELTA debe hacerse solo mediante el formulario de resolución.
+        if (
+            ($anyInProgress && $this->status !== self::STATUS_IN_PROGRESS)
+            || ($anyCompleted && in_array($this->status, [self::STATUS_PENDING, self::STATUS_ACCEPTED, self::STATUS_REOPENED], true))
+        ) {
             $this->ensureInProgressState($tasks);
         }
     }
