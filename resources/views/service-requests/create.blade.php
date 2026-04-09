@@ -1083,6 +1083,7 @@
             const addSubtaskBtn = row.querySelector('[data-add-subtask]');
             const subtaskCountEl = row.querySelector('[data-subtask-count]');
             const titleEl = row.querySelector('[data-field="title"]');
+            const priorityEl = row.querySelector('[data-field="priority"]');
 
             function openSubtasks() {
                 subtasksSection?.classList.remove('hidden');
@@ -1102,6 +1103,71 @@
                     closeSubtasks();
                 }
             });
+
+            function extractSubtaskCountFromTaskTitle(rawTitle) {
+                const normalizedTitle = String(rawTitle ?? '').trim();
+                const match = normalizedTitle.match(/^(.*?)(?:\s*\((\d+)\s+subtareas?\))\s*$/iu);
+                if (!match) return null;
+
+                const cleanTitle = String(match[1] ?? '').trim();
+                const count = parseInt(String(match[2] ?? '0'), 10);
+
+                if (!cleanTitle || !Number.isFinite(count) || count < 1) {
+                    return null;
+                }
+
+                return {
+                    cleanTitle,
+                    count: Math.min(10, count),
+                };
+            }
+
+            function normalizeTaskPriorityToSubtaskPriority(taskPriority) {
+                const normalized = String(taskPriority ?? '').toLowerCase();
+                if (normalized === 'urgent' || normalized === 'critical' || normalized === 'high') {
+                    return 'high';
+                }
+                if (normalized === 'low') {
+                    return 'low';
+                }
+                return 'medium';
+            }
+
+            function appendAutomaticSubtasks(count) {
+                openSubtasks();
+
+                const safeCount = Math.max(1, Math.min(10, parseInt(String(count ?? '1'), 10) || 1));
+                const currentSubtasks = Array.from(subtasksList?.querySelectorAll('[data-subtask-row]') ?? []);
+                const baseIndex = currentSubtasks.length;
+                const subtaskPriority = normalizeTaskPriorityToSubtaskPriority(priorityEl?.value);
+
+                for (let i = 0; i < safeCount; i++) {
+                    const stRow = createSubtaskRow({
+                        title: `Subtarea ${baseIndex + i + 1}`,
+                        priority: subtaskPriority,
+                    });
+                    subtasksList?.appendChild(stRow);
+                }
+
+                if (subtaskCountEl) {
+                    subtaskCountEl.value = String(safeCount);
+                }
+
+                reindexRows();
+                recalcTaskEstimateFromSubtasks(row);
+                scheduleDraftSave();
+            }
+
+            function maybeCreateSubtasksFromTaskTitle() {
+                const parsed = extractSubtaskCountFromTaskTitle(titleEl?.value);
+                if (!parsed) return;
+
+                if (titleEl) {
+                    titleEl.value = parsed.cleanTitle;
+                }
+
+                appendAutomaticSubtasks(parsed.count);
+            }
 
             addSubtaskBtn?.addEventListener('click', function() {
                 openSubtasks();
@@ -1127,6 +1193,10 @@
                     e.preventDefault();
                     addRow({}, { focusTitle: true });
                 }
+            });
+
+            titleEl?.addEventListener('input', function() {
+                maybeCreateSubtasksFromTaskTitle();
             });
 
             subtaskCountEl?.addEventListener('keydown', function (e) {
@@ -1163,6 +1233,8 @@
                     subtasksList?.appendChild(stRow);
                 });
             }
+
+            maybeCreateSubtasksFromTaskTitle();
 
             row.querySelectorAll('input, textarea, select').forEach((inputEl) => {
                 inputEl.addEventListener('input', scheduleDraftSave);

@@ -516,7 +516,7 @@ class ServiceRequestController extends Controller
         $resolutionDescription = trim((string) $validated['resolution_description']);
         $extraNotes = trim((string) ($validated['resolution_notes'] ?? ''));
 
-        $resolutionNotes = $resolutionDescription;
+        $resolutionNotes = "Acciones realizadas:\n" . $resolutionDescription;
         if ($extraNotes !== '') {
             $resolutionNotes .= "\n\nNotas adicionales:\n" . $extraNotes;
         }
