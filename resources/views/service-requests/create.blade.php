@@ -616,6 +616,30 @@
             return Math.round(totalMinutes / 5) * 5;
         }
 
+        function extractSubtaskTitleAndMinutes(title) {
+            const rawTitle = String(title ?? '').trim();
+            if (!rawTitle) return null;
+
+            const matches = Array.from(rawTitle.matchAll(/\(([^()]*)\)/g));
+            if (!matches.length) return null;
+
+            const lastMatch = matches[matches.length - 1];
+            const parsedMinutes = parseMinutesFromSubtaskTitle(rawTitle);
+            if (parsedMinutes === null || typeof lastMatch.index !== 'number') {
+                return null;
+            }
+
+            const cleanTitle = `${rawTitle.slice(0, lastMatch.index)}${rawTitle.slice(lastMatch.index + lastMatch[0].length)}`.trim().replace(/\s{2,}/g, ' ');
+            if (!cleanTitle) {
+                return null;
+            }
+
+            return {
+                cleanTitle,
+                minutes: parsedMinutes,
+            };
+        }
+
         function bindTaskEstimateSync(row) {
             const displayEl = row.querySelector('[data-field="estimated_display"]');
             const minutesEl = row.querySelector('[data-field="estimated_minutes"]');
@@ -905,25 +929,33 @@
 
             // Si el título ya trae una duración y coincide con minutos, sacar el input del tab order
             if (subtaskTitleEl && subtaskMinutesEl) {
-                const initialParsed = parseMinutesFromSubtaskTitle(subtaskTitleEl.value);
+                const initialParsed = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
                 if (initialParsed !== null) {
-                    setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: initialParsed });
+                    subtaskTitleEl.value = initialParsed.cleanTitle;
+
+                    if (subtaskMinutesEl.dataset.touched !== '1') {
+                        subtaskMinutesEl.value = String(initialParsed.minutes);
+                    }
+
+                    setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: initialParsed.minutes });
                 }
             }
 
             subtaskTitleEl?.addEventListener('input', function() {
                 // Si el título trae duración entre paréntesis, usarla para minutos (si no se ha editado manualmente)
-                if (subtaskMinutesEl && subtaskMinutesEl.dataset.touched !== '1') {
-                    const parsed = parseMinutesFromSubtaskTitle(subtaskTitleEl.value);
-                    if (parsed !== null) {
-                        subtaskMinutesEl.value = String(parsed);
-                        // disparar recálculo sin marcar touched
-                        subtaskMinutesEl.dataset.programmatic = '1';
-                        subtaskMinutesEl.dispatchEvent(new Event('input', { bubbles: true }));
+                const extracted = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
+                if (extracted !== null) {
+                    subtaskTitleEl.value = extracted.cleanTitle;
+                }
 
-                        // Si fue autocompletado, evitar tabular hacia este campo
-                        setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: parsed });
-                    }
+                if (subtaskMinutesEl && subtaskMinutesEl.dataset.touched !== '1' && extracted !== null) {
+                    subtaskMinutesEl.value = String(extracted.minutes);
+                        // disparar recálculo sin marcar touched
+                    subtaskMinutesEl.dataset.programmatic = '1';
+                    subtaskMinutesEl.dispatchEvent(new Event('input', { bubbles: true }));
+
+                    // Si fue autocompletado, evitar tabular hacia este campo
+                    setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: extracted.minutes });
                 }
                 const taskRow = el.closest('[data-task-row]');
                 recalcTaskEstimateFromSubtasks(taskRow);
@@ -974,7 +1006,7 @@
                         <div class="flex flex-wrap items-center justify-end gap-2">
                             <div class="flex items-center gap-2">
                                 <label class="text-sm text-gray-600">Cantidad</label>
-                                <select class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
+                                <select tabindex="-1" class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
                                     <option value="1" selected>1</option>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
@@ -987,7 +1019,7 @@
                                     <option value="10">10</option>
                                 </select>
                             </div>
-                            <button type="button" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
+                            <button type="button" tabindex="-1" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
                             <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-subtasks>Ver subtareas</button>
                         </div>
                     </div>
