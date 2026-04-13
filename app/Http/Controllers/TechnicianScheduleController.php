@@ -9,6 +9,7 @@ use App\Models\ServiceRequest;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TechnicianScheduleController extends Controller
 {
@@ -356,7 +357,9 @@ class TechnicianScheduleController extends Controller
         $user = auth()->user();
 
         // Si se especifica un técnico en la URL y el usuario es admin, mostrar ese técnico
-        $technicianId = $request->get('technician_id');
+        $technicianId = $request->filled('technician_id') && is_numeric($request->get('technician_id'))
+            ? (int) $request->get('technician_id')
+            : null;
 
         if ($technicianId && $user->isAdmin()) {
             // Administrador viendo la agenda de otro técnico
@@ -375,19 +378,14 @@ class TechnicianScheduleController extends Controller
             }
         }
 
-        $date = $request->get('date', now()->format('Y-m-d'));
+        $date = $this->normalizeAgendaDate($request->get('date'));
         // Mi Agenda se opera siempre en modo manual (drag & drop).
         // La priorización automática se usa para clasificar tareas abiertas en la barra lateral.
         $queueStrategy = 'manual';
         $manualQueueMode = true;
         $autoQueueMode = false;
 
-        $filters = [
-            'q' => trim((string) $request->get('q', '')),
-            'status' => trim((string) $request->get('status', '')),
-            'type' => trim((string) $request->get('type', '')),
-            'priority' => trim((string) $request->get('priority', '')),
-        ];
+        $filters = $this->resolveAgendaFilters($request);
 
         $tasksQuery = Task::query()
             ->where('technician_id', $technician->id)
@@ -416,40 +414,10 @@ class TechnicianScheduleController extends Controller
             $companyFilter($openTasksQuery);
         }
 
-        $applyTaskFilters = function ($query) use ($filters) {
-            if ($filters['q'] !== '') {
-                $search = $filters['q'];
-                $query->where(function ($inner) use ($search) {
-                    $inner->where('task_code', 'like', "%{$search}%")
-                        ->orWhere('title', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('serviceRequest', function ($serviceRequestQuery) use ($search) {
-                            $serviceRequestQuery->withoutGlobalScope('workspace')
-                                ->where(function ($srInner) use ($search) {
-                                    $srInner->where('ticket_number', 'like', "%{$search}%")
-                                        ->orWhere('title', 'like', "%{$search}%")
-                                        ->orWhere('description', 'like', "%{$search}%");
-                                });
-                        });
-                });
-            }
+        $printableTasksQuery = clone $tasksQuery;
 
-            if ($filters['status'] !== '') {
-                $query->where('status', $filters['status']);
-            }
-
-            if ($filters['type'] !== '') {
-                $query->where('type', $filters['type']);
-            }
-
-            if ($filters['priority'] !== '') {
-                $priority = $filters['priority'] === 'urgent' ? 'critical' : $filters['priority'];
-                $query->where('priority', $priority);
-            }
-        };
-
-        $applyTaskFilters($tasksQuery);
-        $applyTaskFilters($openTasksQuery);
+        $this->applyAgendaTaskFilters($tasksQuery, $filters);
+        $this->applyAgendaTaskFilters($openTasksQuery, $filters);
 
         if ($manualQueueMode) {
             $tasksQuery
@@ -463,7 +431,7 @@ class TechnicianScheduleController extends Controller
         $tasks = $tasksQuery
             ->with([
                 'serviceRequest' => function ($query) {
-                    $query->withoutGlobalScope('workspace')->with(['subService.service']);
+                    $query->withoutGlobalScope('workspace')->with(['subService.service', 'requester', 'requestedBy']);
                 },
                 'slaCompliance',
             ])
@@ -483,6 +451,20 @@ class TechnicianScheduleController extends Controller
         if ($autoQueueMode) {
             $tasks = $tasks->sortByDesc('queue_score')->values();
         }
+
+        $printableTasks = $printableTasksQuery
+            ->with([
+                'serviceRequest' => function ($query) {
+                    $query->withoutGlobalScope('workspace')->with(['subService.service', 'requester', 'requestedBy']);
+                },
+                'slaCompliance',
+            ])
+            ->orderByRaw("CASE WHEN scheduled_order IS NULL OR scheduled_order = 0 THEN 1 ELSE 0 END")
+            ->orderBy('scheduled_order')
+            ->orderBy('scheduled_start_time')
+            ->get()
+            ->reject(fn (Task $task) => $task->status === 'cancelled')
+            ->values();
 
         $scheduleBlocks = $technician->scheduleBlocks()->forDate($date)->orderBy('start_time')->get();
 
@@ -504,7 +486,7 @@ class TechnicianScheduleController extends Controller
         $openTasks = $openTasksQuery
             ->with([
                 'serviceRequest' => function ($query) {
-                    $query->withoutGlobalScope('workspace')->with(['subService.service']);
+                    $query->withoutGlobalScope('workspace')->with(['subService.service', 'requester', 'requestedBy']);
                 },
             ])
             ->orderByDesc('updated_at')
@@ -536,16 +518,176 @@ class TechnicianScheduleController extends Controller
             'technicians',
             'openTasks',
             'filters',
+            'printableTasks',
             'queueStrategy',
             'manualQueueMode',
             'autoQueueMode'
         ));
     }
 
+    protected function normalizeAgendaDate(mixed $value): string
+    {
+        try {
+            return Carbon::parse((string) $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return now()->format('Y-m-d');
+        }
+    }
+
+    protected function resolveAgendaFilters(Request $request): array
+    {
+        $validated = validator($request->only(['q', 'status', 'type', 'priority']), [
+            'q' => ['nullable', 'string', 'max:150'],
+            'status' => ['nullable', 'string', 'max:40'],
+            'type' => ['nullable', 'string', 'max:40'],
+            'priority' => ['nullable', 'string', 'max:40'],
+        ])->validate();
+
+        return [
+            'q' => $this->normalizeAgendaSearch((string) ($validated['q'] ?? '')),
+            'status' => $this->normalizeAgendaStatus($validated['status'] ?? ''),
+            'type' => $this->normalizeAgendaType($validated['type'] ?? ''),
+            'priority' => $this->normalizeAgendaPriority($validated['priority'] ?? ''),
+        ];
+    }
+
+    protected function normalizeAgendaSearch(string $value): string
+    {
+        $value = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $value) ?? $value;
+        return (string) Str::of($value)->squish()->limit(150, '');
+    }
+
+    protected function normalizeAgendaStatus(?string $value): string
+    {
+        $normalized = $this->normalizeAgendaFilterKey($value);
+
+        return match ($normalized) {
+            'pending', 'pendiente' => 'pending',
+            'confirmed', 'confirmada', 'confirmado' => 'confirmed',
+            'in_progress', 'en_progreso', 'progreso' => 'in_progress',
+            'blocked', 'bloqueada', 'bloqueado' => 'blocked',
+            'in_review', 'en_revision', 'revision' => 'in_review',
+            'completed', 'completada', 'completado' => 'completed',
+            'rescheduled', 'reprogramada', 'reprogramado' => 'rescheduled',
+            'cancelled', 'canceled', 'cancelada', 'cancelado' => 'cancelled',
+            default => '',
+        };
+    }
+
+    protected function normalizeAgendaType(?string $value): string
+    {
+        $normalized = $this->normalizeAgendaFilterKey($value);
+
+        return match ($normalized) {
+            'impact', 'impacto' => 'impact',
+            'regular' => 'regular',
+            default => '',
+        };
+    }
+
+    protected function normalizeAgendaPriority(?string $value): string
+    {
+        $normalized = $this->normalizeAgendaFilterKey($value);
+
+        return match ($normalized) {
+            'critical', 'critica', 'urgente', 'urgent' => 'critical',
+            'high', 'alta' => 'high',
+            'medium', 'media' => 'medium',
+            'low', 'baja' => 'low',
+            default => '',
+        };
+    }
+
+    protected function normalizeAgendaFilterKey(?string $value): string
+    {
+        $value = Str::ascii((string) $value);
+        $value = Str::lower(Str::squish($value));
+        $value = preg_replace('/[^a-z0-9]+/', '_', $value) ?? '';
+
+        return trim($value, '_');
+    }
+
+    protected function applyAgendaTaskFilters($query, array $filters): void
+    {
+        if (($filters['q'] ?? '') !== '') {
+            foreach ($this->extractAgendaSearchTerms($filters['q']) as $term) {
+                $likeTerm = '%' . $this->escapeLike($term) . '%';
+
+                $query->where(function ($inner) use ($likeTerm) {
+                    $inner->where('task_code', 'like', $likeTerm)
+                        ->orWhere('title', 'like', $likeTerm)
+                        ->orWhere('description', 'like', $likeTerm)
+                        ->orWhere('technical_notes', 'like', $likeTerm)
+                        ->orWhere('block_reason', 'like', $likeTerm)
+                        ->orWhereHas('serviceRequest', function ($serviceRequestQuery) use ($likeTerm) {
+                            $serviceRequestQuery->withoutGlobalScope('workspace')
+                                ->where(function ($srInner) use ($likeTerm) {
+                                    $srInner->where('ticket_number', 'like', $likeTerm)
+                                        ->orWhere('title', 'like', $likeTerm)
+                                        ->orWhere('description', 'like', $likeTerm)
+                                        ->orWhere('resolution_notes', 'like', $likeTerm)
+                                        ->orWhereHas('subService', function ($subServiceQuery) use ($likeTerm) {
+                                            $subServiceQuery->where('name', 'like', $likeTerm)
+                                                ->orWhere('code', 'like', $likeTerm)
+                                                ->orWhereHas('service', function ($serviceQuery) use ($likeTerm) {
+                                                    $serviceQuery->where('name', 'like', $likeTerm)
+                                                        ->orWhere('code', 'like', $likeTerm);
+                                                });
+                                        });
+                                });
+                        });
+                });
+            }
+        }
+
+        if (($filters['status'] ?? '') !== '') {
+            $query->where('status', $filters['status']);
+        }
+
+        if (($filters['type'] ?? '') !== '') {
+            $query->where('type', $filters['type']);
+        }
+
+        if (($filters['priority'] ?? '') !== '') {
+            $query->whereIn('priority', $this->agendaPriorityCandidates($filters['priority']));
+        }
+    }
+
+    protected function extractAgendaSearchTerms(string $search): array
+    {
+        $sanitized = preg_replace('/[^\pL\pN\s\-_.#\/]+/u', ' ', $search) ?? $search;
+        $tokens = preg_split('/\s+/u', Str::squish($sanitized), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return collect([$search])
+            ->merge($tokens)
+            ->map(fn ($term) => trim((string) Str::limit($term, 60, '')))
+            ->filter()
+            ->unique(fn ($term) => mb_strtolower($term, 'UTF-8'))
+            ->take(8)
+            ->values()
+            ->all();
+    }
+
+    protected function agendaPriorityCandidates(string $priority): array
+    {
+        return match ($priority) {
+            'critical' => ['critical', 'urgent'],
+            'high' => ['high'],
+            'medium' => ['medium'],
+            'low' => ['low'],
+            default => [],
+        };
+    }
+
+    protected function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
     protected function calculateAgendaPriorityScore(Task $task): array
     {
         $priorityScore = match ($task->priority) {
-            'critical' => 350,
+            'critical', 'urgent' => 350,
             'high' => 260,
             'medium' => 160,
             'low' => 80,
@@ -605,7 +747,7 @@ class TechnicianScheduleController extends Controller
 
         if ($task->type === 'impact') {
             return match($task->priority) {
-                'critical' => '#dc2626',
+                'critical', 'urgent' => '#dc2626',
                 'high' => '#f97316',
                 'medium' => '#f59e0b',
                 'low' => '#84cc16',
@@ -615,7 +757,7 @@ class TechnicianScheduleController extends Controller
 
         // Regular
         return match($task->priority) {
-            'critical' => '#dc2626',
+            'critical', 'urgent' => '#dc2626',
             'high' => '#f59e0b',
             'medium' => '#3b82f6',
             'low' => '#10b981',

@@ -328,7 +328,7 @@ class Task extends Model
 
     public function scopeHighPriority($query)
     {
-        return $query->whereIn('priority', ['critical', 'high']);
+        return $query->whereIn('priority', ['critical', 'urgent', 'high']);
     }
 
     public function scopeCritical($query)
@@ -561,7 +561,7 @@ class Task extends Model
     public function getPriorityColorAttribute()
     {
         return match($this->priority) {
-            'critical' => 'red',
+            'critical', 'urgent' => 'red',
             'high' => 'orange',
             'medium' => 'yellow',
             'low' => 'green',

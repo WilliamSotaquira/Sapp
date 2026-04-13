@@ -39,6 +39,25 @@
         $totalSolicitudes = $serviceRequests->sum(fn($group) => $group->count());
         $rangeStart = $dateRange['start'] ? $dateRange['start']->format('Y-m-d') : '';
         $rangeEnd = $dateRange['end'] ? $dateRange['end']->format('Y-m-d') : '';
+        $extractResolutionDescription = function ($notes) {
+            $notes = trim((string) $notes);
+            if ($notes === '') {
+                return '';
+            }
+
+            $notes = preg_replace('/\s*===\s*CIERRE(?:\s+POR\s+VENCIMIENTO|\s+NORMAL)\s*===.*$/is', '', $notes) ?? $notes;
+            $notes = preg_replace('/^\s*Fecha\/Hora:.*$/im', '', $notes) ?? $notes;
+            $notes = preg_replace('/^\s*Usuario:\s*ID\s*\d+.*$/im', '', $notes) ?? $notes;
+            $notes = trim((string) $notes);
+
+            if (preg_match('/Acciones realizadas:\s*(.*?)(?:\n\s*Notas adicionales:\s*|$)/is', $notes, $matches)) {
+                $notes = trim((string) ($matches[1] ?? ''));
+            }
+
+            $notes = preg_replace('/\n{3,}/', "\n\n", $notes) ?? $notes;
+
+            return trim((string) $notes);
+        };
         $contractNumber = $cut?->contract?->number;
 
         if (empty($contractNumber)) {
@@ -128,21 +147,11 @@
                                 @endif
                             </td>
                             <td>
-                                @if($sr->tasks->count() > 0)
-                                    @foreach($sr->tasks as $task)
-                                        <div><strong>{{ $task->title }}</strong></div>
-                                        @if($task->subtasks->count() > 0)
-                                            <div class="muted">
-                                                @foreach($task->subtasks as $subtask)
-                                                    - {{ $subtask->title }}
-                                                    @if($subtask->evidence_completed)
-                                                        ✓
-                                                    @endif
-                                                    <br>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                    @endforeach
+                                @php
+                                    $activitySummary = $extractResolutionDescription($sr->resolution_notes ?? '');
+                                @endphp
+                                @if($activitySummary !== '')
+                                    <div class="muted" style="white-space: pre-line;">{{ $activitySummary }}</div>
                                 @else
                                     <span class="muted">—</span>
                                 @endif
@@ -150,37 +159,15 @@
                             <td>
                                 @php
                                     $fileEvidences = $sr->evidences->where('file_path');
-                                    $linkEvidences = $sr->evidences->where('evidence_type', 'ENLACE');
-                                    $hasProducts = $fileEvidences->count() > 0 || $linkEvidences->count() > 0;
+                                    $hasProducts = $fileEvidences->count() > 0;
                                 @endphp
                                 @if($hasProducts)
                                     @foreach($fileEvidences as $evidence)
                                         @php
-                                            $evidenceLabel = $evidence->file_original_name
-                                                ?? $evidence->file_name
-                                                ?? $evidence->title
-                                                ?? 'Evidencia';
+                                            $evidenceLabel = trim((string) ($evidence->file_original_name ?? $evidence->file_name ?? ''));
                                         @endphp
-                                        @if(!empty($evidence->file_url))
-                                            <div>
-                                                <a href="{{ $evidence->file_url }}" class="link-wrap" style="color:#2563eb; text-decoration: underline;">
-                                                    {{ $evidenceLabel }}
-                                                </a>
-                                            </div>
-                                        @else
+                                        @if($evidenceLabel !== '')
                                             <div class="muted">{{ $evidenceLabel }}</div>
-                                        @endif
-                                    @endforeach
-                                    @foreach($linkEvidences as $evidence)
-                                        @php
-                                            $linkUrl = $evidence->evidence_data['url'] ?? $evidence->description;
-                                        @endphp
-                                        @if($linkUrl)
-                                            <div>
-                                                <a href="{{ $linkUrl }}" class="link-wrap" style="color:#2563eb; text-decoration: underline;">
-                                                    {{ $linkUrl }}
-                                                </a>
-                                            </div>
                                         @endif
                                     @endforeach
                                 @else

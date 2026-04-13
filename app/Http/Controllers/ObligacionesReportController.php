@@ -30,6 +30,9 @@ class ObligacionesReportController extends Controller
      */
     public function index(Request $request): View
     {
+        $filters = $this->getFiltersFromRequest($request);
+        $availableStatuses = ServiceRequest::getStatusOptions();
+
         $cuts = Cut::query()
             ->orderByDesc('start_date')
             ->when((int) session('current_company_id'), function ($query) {
@@ -48,6 +51,7 @@ class ObligacionesReportController extends Controller
         }
 
         $cutId = $request->get('cut_id');
+        $filters['cut_id'] = $cutId;
 
         // Ordenar por fecha descendente
         $allServiceRequests = $this->buildFilteredQuery($request)
@@ -70,18 +74,37 @@ class ObligacionesReportController extends Controller
             'total_actividades' => Task::whereIn('service_request_id', (clone $statsBaseQuery)->select('id'))->count(),
             'obligaciones_pendientes' => (clone $statsBaseQuery)->where('status', 'PENDIENTE')->count(),
             'obligaciones_en_progreso' => (clone $statsBaseQuery)->where('status', 'EN_PROCESO')->count(),
-            'obligaciones_resueltas' => (clone $statsBaseQuery)->where('status', 'RESUELTA')->count(),
+            'obligaciones_cerradas' => (clone $statsBaseQuery)->where('status', ServiceRequest::STATUS_CLOSED)->count(),
+            'total_productos' => ServiceRequestEvidence::query()
+                ->whereIn('service_request_id', (clone $statsBaseQuery)->select('id'))
+                ->count(),
+            'familias' => $serviceRequests->count(),
         ];
+
+        $familySummaries = $serviceRequests->map(function ($items, $serviceName) {
+            $slugBase = Str::slug($serviceName);
+            $first = $items->first();
+            $productCount = $items->sum(fn ($sr) => (int) $sr->evidences->count());
+            $taskCount = $items->sum(fn ($sr) => (int) $sr->tasks->count());
+
+            return [
+                'name' => $serviceName,
+                'anchor' => 'family-' . ($slugBase !== '' ? $slugBase : 'sin-familia'),
+                'count' => $items->count(),
+                'products' => $productCount,
+                'tasks' => $taskCount,
+                'description' => $first?->subService?->service?->family?->description,
+            ];
+        })->values();
 
         return view('reports.obligaciones.index', [
             'pageTitle' => 'Reporte de Obligaciones',
             'serviceRequests' => $serviceRequests,
             'stats' => $stats,
-            'statuses' => ServiceRequest::getStatusOptions(),
+            'familySummaries' => $familySummaries,
+            'statuses' => $availableStatuses,
             'cuts' => $cuts,
-            'filters' => [
-                'cut_id' => $cutId,
-            ]
+            'filters' => $filters,
         ]);
     }
 
@@ -173,19 +196,29 @@ class ObligacionesReportController extends Controller
                 return back()->with('error', 'La extensión ZIP no está habilitada. Contacte al administrador para habilitar php-zip.');
             }
 
-            $serviceRequests = $this->applyFilters(ServiceRequest::query(), $request)
-                ->get(['id', 'ticket_number']);
+            $serviceRequests = $this->applyFilters(
+                ServiceRequest::query()->with(['subService.service.family']),
+                $request
+            )->get();
 
             if ($serviceRequests->isEmpty()) {
                 return back()->with('warning', 'No hay solicitudes para el filtro seleccionado.');
             }
 
-            $ticketByRequestId = $serviceRequests
-                ->pluck('ticket_number', 'id')
-                ->map(fn($ticket) => $this->sanitizeTicketFolder((string) $ticket));
+            $foldersByRequestId = $serviceRequests->mapWithKeys(function (ServiceRequest $serviceRequest) {
+                $familyFolder = $this->buildEvidenceFamilyFolderName($serviceRequest);
+                $requestFolder = $this->buildEvidenceRequestFolderName($serviceRequest);
+
+                return [
+                    $serviceRequest->id => [
+                        'family' => $familyFolder,
+                        'request' => $requestFolder,
+                    ],
+                ];
+            });
 
             $evidences = ServiceRequestEvidence::query()
-                ->whereIn('service_request_id', $ticketByRequestId->keys())
+                ->whereIn('service_request_id', $foldersByRequestId->keys())
                 ->whereNotNull('file_path')
                 ->get(['id', 'service_request_id', 'file_path', 'file_original_name', 'title']);
 
@@ -224,8 +257,14 @@ class ObligacionesReportController extends Controller
                     continue;
                 }
 
-                $ticketFolder = $ticketByRequestId->get($evidence->service_request_id, 'sin-ticket');
-                $folderInZip = "evidencias/{$ticketFolder}";
+                $requestFolders = $foldersByRequestId->get($evidence->service_request_id, [
+                    'family' => 'sin-familia',
+                    'request' => 'sin-ticket',
+                ]);
+
+                $familyFolder = $requestFolders['family'] ?? 'sin-familia';
+                $requestFolder = $requestFolders['request'] ?? 'sin-ticket';
+                $folderInZip = "evidencias/{$familyFolder}/{$requestFolder}";
                 $originalName = $evidence->file_original_name ?: basename($storagePath);
                 $safeName = $this->sanitizeFileNameForZip($originalName);
                 $entryName = $this->buildUniqueZipEntryName($folderInZip, $safeName, $usedNames);
@@ -263,6 +302,7 @@ class ObligacionesReportController extends Controller
         $query = ServiceRequest::with([
             'subService.service.family.contract',
             'requester',
+            'requestedBy',
             'assignedTechnician',
             'tasks.subtasks',
             'evidences'
@@ -274,6 +314,8 @@ class ObligacionesReportController extends Controller
     private function applyFilters(Builder $query, Request $request): Builder
     {
         $currentCompanyId = (int) session('current_company_id');
+        $availableStatuses = ServiceRequest::getStatusOptions();
+
         if ($currentCompanyId) {
             $query->where('company_id', $currentCompanyId);
         }
@@ -285,6 +327,41 @@ class ObligacionesReportController extends Controller
             });
         }
 
+        $statuses = $this->resolveSelectedStatuses($request);
+        if (count($statuses) > 0 && count($statuses) < count($availableStatuses)) {
+            $query->whereIn('status', $statuses);
+        }
+
+        $search = Str::of((string) $request->get('q', ''))->squish()->limit(120, '');
+        if ($search !== '') {
+            $searchTerm = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], (string) $search) . '%';
+
+            $query->where(function ($inner) use ($searchTerm) {
+                $inner->where('ticket_number', 'like', $searchTerm)
+                    ->orWhere('title', 'like', $searchTerm)
+                    ->orWhere('description', 'like', $searchTerm)
+                    ->orWhereHas('requester', function ($requesterQuery) use ($searchTerm) {
+                        $requesterQuery->where('name', 'like', $searchTerm)
+                            ->orWhere('email', 'like', $searchTerm)
+                            ->orWhere('department', 'like', $searchTerm);
+                    })
+                    ->orWhereHas('requestedBy', function ($requestedByQuery) use ($searchTerm) {
+                        $requestedByQuery->where('name', 'like', $searchTerm)
+                            ->orWhere('email', 'like', $searchTerm);
+                    })
+                    ->orWhereHas('subService', function ($subServiceQuery) use ($searchTerm) {
+                        $subServiceQuery->where('name', 'like', $searchTerm)
+                            ->orWhereHas('service', function ($serviceQuery) use ($searchTerm) {
+                                $serviceQuery->where('name', 'like', $searchTerm)
+                                    ->orWhereHas('family', function ($familyQuery) use ($searchTerm) {
+                                        $familyQuery->where('name', 'like', $searchTerm)
+                                            ->orWhere('description', 'like', $searchTerm);
+                                    });
+                            });
+                    });
+            });
+        }
+
         return $query;
     }
 
@@ -292,7 +369,40 @@ class ObligacionesReportController extends Controller
     {
         return [
             'cut_id' => $request->get('cut_id'),
+            'status' => $this->resolveSelectedStatuses($request)[0] ?? ServiceRequest::STATUS_CLOSED,
+            'statuses' => $this->resolveSelectedStatuses($request),
+            'q' => (string) Str::of((string) $request->get('q', ''))->squish()->limit(120, ''),
         ];
+    }
+
+    private function resolveSelectedStatuses(Request $request): array
+    {
+        $rawStatuses = $request->input('statuses', []);
+
+        if (!is_array($rawStatuses)) {
+            $rawStatuses = [$rawStatuses];
+        }
+
+        if (count($rawStatuses) === 0) {
+            $legacyStatus = $request->get('status');
+            if ($legacyStatus !== null && trim((string) $legacyStatus) !== '') {
+                $rawStatuses = [$legacyStatus];
+            }
+        }
+
+        $availableStatuses = ServiceRequest::getStatusOptions();
+        $statuses = collect($rawStatuses)
+            ->map(fn ($status) => strtoupper(trim((string) $status)))
+            ->filter(fn ($status) => $status !== '' && array_key_exists($status, $availableStatuses))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($statuses) === 0) {
+            return [ServiceRequest::STATUS_CLOSED];
+        }
+
+        return $statuses;
     }
 
     private function getDateRangeFromFilters(Request $request): array
@@ -403,6 +513,53 @@ class ObligacionesReportController extends Controller
         return $clean !== '' ? $clean : 'sin-ticket';
     }
 
+    private function sanitizeZipFolderSegment(string $value, string $fallback = 'sin-valor', int $maxLength = 80): string
+    {
+        $ascii = Str::ascii($value);
+        $clean = preg_replace('/[^A-Za-z0-9._ -]+/', '-', $ascii) ?? '';
+        $clean = preg_replace('/[\s-]+/', '-', trim($clean)) ?? '';
+        $clean = trim($clean, '-._ ');
+
+        if ($clean === '') {
+            return $fallback;
+        }
+
+        if (strlen($clean) > $maxLength) {
+            $clean = substr($clean, 0, $maxLength);
+            $clean = rtrim($clean, '-._ ');
+        }
+
+        return $clean !== '' ? $clean : $fallback;
+    }
+
+    private function buildEvidenceFamilyFolderName(ServiceRequest $serviceRequest): string
+    {
+        $family = $serviceRequest->subService?->service?->family;
+        $familyName = $family?->name ?: 'Sin Familia';
+        $familyId = (int) ($family?->id ?? 0);
+        $familyTitle = Str::ascii($familyName);
+        $familyTitle = preg_replace('/[^A-Za-z0-9 ]+/', ' ', $familyTitle) ?? '';
+        $familyTitle = preg_replace('/\s+/', ' ', trim($familyTitle)) ?? '';
+
+        if ($familyTitle === '') {
+            $familyTitle = 'Sin Familia';
+        }
+
+        return max(0, $familyId) . '. ' . $familyTitle;
+    }
+
+    private function buildEvidenceRequestFolderName(ServiceRequest $serviceRequest): string
+    {
+        $ticketSegment = $this->sanitizeTicketFolder((string) ($serviceRequest->ticket_number ?: 'sin-ticket'));
+        $titleSegment = $this->sanitizeZipFolderSegment((string) ($serviceRequest->title ?: ''), '', 24);
+
+        if ($titleSegment !== '') {
+            return $ticketSegment . '__' . $titleSegment;
+        }
+
+        return $ticketSegment;
+    }
+
     private function isExternalUrl(string $path): bool
     {
         return (bool) preg_match('#^https?://#i', $path);
@@ -459,9 +616,11 @@ class ObligacionesReportController extends Controller
         $sanitized = trim($sanitized, '._-');
         $sanitized = $sanitized !== '' ? $sanitized : 'archivo';
 
-        $maxLength = 140 - strlen($extension);
+        $maxLength = max(20, 72 - strlen($extension));
         if (strlen($sanitized) > $maxLength) {
-            $sanitized = substr($sanitized, 0, $maxLength);
+            $hash = substr(md5($filename), 0, 6);
+            $trimmedLength = max(12, $maxLength - 7);
+            $sanitized = rtrim(substr($sanitized, 0, $trimmedLength), '._-') . '_' . $hash;
         }
 
         return $sanitized . $extension;
@@ -480,7 +639,12 @@ class ObligacionesReportController extends Controller
         $pathInfo = pathinfo($safeName);
         $extension = isset($pathInfo['extension']) ? '.' . $pathInfo['extension'] : '';
         $basename = $pathInfo['filename'] ?? 'archivo';
-        $finalName = $basename . '_' . ($counter + 1) . $extension;
+        $suffix = '_' . ($counter + 1);
+        $maxBaseLength = max(12, 72 - strlen($extension) - strlen($suffix));
+        if (strlen($basename) > $maxBaseLength) {
+            $basename = rtrim(substr($basename, 0, $maxBaseLength), '._-');
+        }
+        $finalName = $basename . $suffix . $extension;
 
         return $folderInZip . '/' . $finalName;
     }

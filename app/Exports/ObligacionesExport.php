@@ -86,7 +86,7 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
             foreach ($items as $sr) {
                 $rows[] = [
                     '',
-                    $this->stripStatusPrefix($sr->title ?? ''),
+                    $this->formatObligation($sr),
                     $this->formatActivities($sr),
                     $this->formatProducts($sr),
                 ];
@@ -168,27 +168,6 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                         ->getStartColor()->setARGB($this->hexToArgb($this->primaryColor));
                 }
 
-                // Convertir enlaces en la columna D (Productos Presentados)
-                $highestRow = $sheet->getHighestRow();
-                for ($row = $this->headerRowIndex + 1; $row <= $highestRow; $row++) {
-                    $cell = $sheet->getCell("D{$row}");
-                    $value = (string) $cell->getValue();
-                    if ($value === '') {
-                        continue;
-                    }
-
-                    $firstUrl = $this->extractFirstUrl($value);
-                    if ($firstUrl) {
-                        $cell->getHyperlink()->setUrl($firstUrl);
-                        $sheet->getStyle("D{$row}")
-                            ->getFont()
-                            ->getColor()
-                            ->setARGB('FF2563EB');
-                        $sheet->getStyle("D{$row}")
-                            ->getFont()
-                            ->setUnderline(true);
-                    }
-                }
             },
         ];
     }
@@ -205,30 +184,20 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
     private function formatActivities(ServiceRequest $serviceRequest): string
     {
-        if (!$serviceRequest->relationLoaded('tasks')) {
-            return '';
-        }
+        return $this->extractResolutionDescription((string) ($serviceRequest->resolution_notes ?? ''));
+    }
 
+    private function formatObligation(ServiceRequest $serviceRequest): string
+    {
         $lines = [];
 
-        foreach ($serviceRequest->tasks as $task) {
-            $taskTitle = $task->title ?? 'Tarea';
-            $lines[] = $taskTitle;
-            $subtaskTitles = [];
+        if (!empty($serviceRequest->ticket_number)) {
+            $lines[] = 'Solicitud: ' . $serviceRequest->ticket_number;
+        }
 
-            if ($task->relationLoaded('subtasks')) {
-                foreach ($task->subtasks as $subtask) {
-                    if (!empty($subtask->title)) {
-                        $subtaskTitles[] = $subtask->title;
-                    }
-                }
-            }
-
-            if (!empty($subtaskTitles)) {
-                foreach ($subtaskTitles as $subtaskTitle) {
-                    $lines[] = '  - ' . $subtaskTitle;
-                }
-            }
+        $title = $this->stripStatusPrefix((string) ($serviceRequest->title ?? ''));
+        if ($title !== '') {
+            $lines[] = $title;
         }
 
         return implode("\n", $lines);
@@ -241,27 +210,26 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         }
 
         $names = [];
-        $urls = [];
         foreach ($serviceRequest->evidences as $evidence) {
             if (empty($evidence->file_path)) {
                 continue;
             }
 
-            $names[] = $evidence->file_original_name
-                ?? $evidence->file_name
-                ?? $evidence->title
-                ?? 'Evidencia';
-
-            if (!empty($evidence->file_url)) {
-                $urls[] = $evidence->file_url;
-            }
+            $names[] = $this->resolveEvidenceFileName($evidence);
         }
 
-        $output = implode("\n", $names);
-        if (!empty($urls)) {
-            $output .= "\n" . implode("\n", $urls);
-        }
-        return $output;
+        $names = array_values(array_filter($names));
+
+        return implode("\n", $names);
+    }
+
+    private function resolveEvidenceFileName($evidence): string
+    {
+        return trim((string) (
+            $evidence->file_original_name
+            ?? $evidence->file_name
+            ?? ''
+        ));
     }
 
     private function stripStatusPrefix(string $title): string
@@ -285,6 +253,27 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';
 
         return preg_replace($pattern, '', $title) ?? $title;
+    }
+
+    private function extractResolutionDescription(string $notes): string
+    {
+        $notes = trim($notes);
+        if ($notes === '') {
+            return '';
+        }
+
+        $notes = preg_replace('/\s*===\s*CIERRE(?:\s+POR\s+VENCIMIENTO|\s+NORMAL)\s*===.*$/is', '', $notes) ?? $notes;
+        $notes = preg_replace('/^\s*Fecha\/Hora:.*$/im', '', $notes) ?? $notes;
+        $notes = preg_replace('/^\s*Usuario:\s*ID\s*\d+.*$/im', '', $notes) ?? $notes;
+        $notes = trim($notes);
+
+        if (preg_match('/Acciones realizadas:\s*(.*?)(?:\n\s*Notas adicionales:\s*|$)/is', $notes, $matches)) {
+            $notes = trim((string) ($matches[1] ?? ''));
+        }
+
+        $notes = preg_replace('/\n{3,}/', "\n\n", $notes) ?? $notes;
+
+        return trim($notes);
     }
 
     private function resolveContractPeriodLabel(): string
@@ -315,15 +304,6 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         }
 
         return $contractNumber . ': ' . $periodLabel;
-    }
-
-    private function extractFirstUrl(string $value): ?string
-    {
-        if (preg_match('/https?:\\/\\/[^\\s]+/i', $value, $matches)) {
-            return $matches[0];
-        }
-
-        return null;
     }
 
     private function normalizeHexColor(string $value, string $fallback = '#1E3A8A'): string
