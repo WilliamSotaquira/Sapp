@@ -8,21 +8,134 @@
     $reportContrastColor = (isset($currentWorkspace?->contrast_color) && preg_match('/^#([A-Fa-f0-9]{6})$/', $currentWorkspace->contrast_color))
         ? strtoupper($currentWorkspace->contrast_color)
         : '#FFFFFF';
+    $extractResolutionDescription = function ($notes) {
+        $notes = trim((string) $notes);
+        if ($notes === '') {
+            return '';
+        }
+
+        $notes = preg_replace('/\s*===\s*CIERRE(?:\s+POR\s+VENCIMIENTO|\s+NORMAL)\s*===.*$/is', '', $notes) ?? $notes;
+        $notes = preg_replace('/^\s*Fecha\/Hora:.*$/im', '', $notes) ?? $notes;
+        $notes = preg_replace('/^\s*Usuario:\s*ID\s*\d+.*$/im', '', $notes) ?? $notes;
+        $notes = trim((string) $notes);
+
+        if (preg_match('/Acciones realizadas:\s*(.*?)(?:\n\s*Notas adicionales:\s*|$)/is', $notes, $matches)) {
+            $notes = trim((string) ($matches[1] ?? ''));
+        }
+
+        $notes = preg_replace('/\n{3,}/', "\n\n", $notes) ?? $notes;
+
+        return trim((string) $notes);
+    };
 @endphp
 <div class="py-8 px-4 sm:px-6 lg:px-8">
+    @php
+        $selectedStatuses = collect($filters['statuses'] ?? []);
+        $activeFilterCount = collect([
+            ($filters['cut_id'] ?? null) && ($filters['cut_id'] ?? null) !== 'all' ? 'cut' : null,
+            ($selectedStatuses->count() > 0 && $selectedStatuses->count() < count($statuses)) ? 'status' : null,
+            filled($filters['q'] ?? '') ? 'q' : null,
+        ])->filter()->count();
+        $exportParams = array_filter([
+            'cut_id' => $filters['cut_id'] ?? null,
+            'statuses' => $filters['statuses'] ?? [],
+            'q' => $filters['q'] ?? null,
+        ], function ($value) {
+            if (is_array($value)) {
+                return count($value) > 0;
+            }
+
+            return $value !== null && $value !== '' && $value !== 'all';
+        });
+        $selectedStatusLabels = $selectedStatuses
+            ->map(fn ($statusKey) => $statuses[$statusKey] ?? $statusKey)
+            ->values();
+    @endphp
     <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Reporte de Obligaciones</h1>
-        <p class="text-gray-600 mt-2">Gestión de obligaciones, actividades y productos ejecutados</p>
+    <div class="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Reporte de Obligaciones</h1>
+            <p class="text-gray-600 mt-2">Gestión de obligaciones, actividades y productos ejecutados</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-sm">
+            <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 font-semibold text-blue-800">
+                <i class="fas fa-filter text-xs"></i>Filtros activos: {{ $activeFilterCount }}
+            </span>
+            <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 font-semibold text-slate-700">
+                <i class="fas fa-layer-group text-xs"></i>{{ $stats['familias'] ?? 0 }} familias
+            </span>
+        </div>
     </div>
 
-    <!-- Filtros -->
-    <div class="bg-white rounded-lg shadow p-6 mb-8">
-        <form method="GET" action="{{ route('reports.obligaciones.index') }}" class="space-y-4" id="cutFilterForm">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-2xl shadow p-5 mb-8 border border-gray-100">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button"
+                            id="openFiltersSidebar"
+                            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                        <i class="fas fa-sliders-h text-xs"></i>
+                        Filtros
+                    </button>
+                    <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                        <i class="fas fa-layer-group text-[11px]"></i>
+                        {{ $selectedStatuses->count() }} estado{{ $selectedStatuses->count() === 1 ? '' : 's' }} seleccionado{{ $selectedStatuses->count() === 1 ? '' : 's' }}
+                    </span>
+                    @if(($filters['cut_id'] ?? null) && ($filters['cut_id'] ?? null) !== 'all')
+                        <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                            <i class="fas fa-calendar-alt text-[11px]"></i>
+                            {{ $cuts->firstWhere('id', (int) $filters['cut_id'])?->name ?? 'Corte seleccionado' }}
+                        </span>
+                    @endif
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($selectedStatusLabels as $statusLabel)
+                        <span class="inline-flex items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                            {{ $statusLabel }}
+                        </span>
+                    @endforeach
+                    @if(filled($filters['q'] ?? ''))
+                        <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                            "{{ $filters['q'] }}"
+                        </span>
+                    @endif
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('reports.obligaciones.export', array_merge($exportParams, ['format' => 'pdf'])) }}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg">
+                    Descargar PDF
+                </a>
+                <a href="{{ route('reports.obligaciones.export', array_merge($exportParams, ['format' => 'xlsx'])) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-lg">
+                    Descargar Excel
+                </a>
+                <a href="{{ route('reports.obligaciones.download-evidences', $exportParams) }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-5 rounded-lg">
+                    Descargar Evidencias
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="filtersSidebarOverlay" class="fixed inset-0 z-40 hidden bg-slate-900/40 backdrop-blur-[1px]"></div>
+
+    <aside id="filtersSidebar" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md translate-x-full flex-col overflow-y-auto bg-white shadow-2xl transition-transform duration-300 ease-in-out">
+        <div class="border-b border-blue-700 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <h3 class="flex items-center gap-2 text-lg font-semibold text-white">
+                    <i class="fas fa-sliders-h"></i>
+                    Filtros del Reporte
+                </h3>
+                <button type="button" id="closeFiltersSidebar" class="text-white transition-colors hover:text-blue-100">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <p class="mt-1 text-xs text-blue-100">Ajusta corte, estados y búsqueda del reporte.</p>
+        </div>
+
+        <form method="GET" action="{{ route('reports.obligaciones.index') }}" class="flex flex-1 flex-col" id="cutFilterForm">
+            <div class="flex-1 space-y-6 px-6 py-5">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Corte</label>
-                    <select name="cut_id" id="cutFilterSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="mb-2 block text-sm font-medium text-gray-700">Corte</label>
+                    <select name="cut_id" id="cutFilterSelect" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">Todos los cortes</option>
                         @foreach($cuts as $cut)
                             <option value="{{ $cut->id }}" {{ (string)($filters['cut_id'] ?? '') === (string)$cut->id ? 'selected' : '' }}>
@@ -31,49 +144,99 @@
                         @endforeach
                     </select>
                 </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700">Estados</label>
+                    <div class="grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:grid-cols-2">
+                        @foreach($statuses as $statusKey => $statusLabel)
+                            @php
+                                $isChecked = in_array($statusKey, $filters['statuses'] ?? [], true);
+                            @endphp
+                            <label class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+                                <input type="checkbox"
+                                       name="statuses[]"
+                                       value="{{ $statusKey }}"
+                                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                       {{ $isChecked ? 'checked' : '' }}>
+                                <span>{{ $statusLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Por defecto se muestra <strong>Cerrada</strong>. Marca otros estados para sumarlos al reporte.</p>
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700">Buscar</label>
+                    <input type="text"
+                           name="q"
+                           value="{{ $filters['q'] ?? '' }}"
+                           placeholder="Ticket, obligación, solicitante o familia"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
             </div>
-            @php
-                $exportParams = array_filter([
-                    'cut_id' => $filters['cut_id'] ?? null,
-                ], function ($value) {
-                    return $value !== null && $value !== '' && $value !== 'all';
-                });
-            @endphp
-            <div class="flex gap-2">
-                <a href="{{ route('reports.obligaciones.index') }}" class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-6 rounded-lg">
-                    Limpiar
+
+            <div class="flex gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+                <a href="{{ route('reports.obligaciones.index') }}" class="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-center text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">
+                    <i class="fas fa-redo mr-2"></i>Limpiar
                 </a>
-                <a href="{{ route('reports.obligaciones.export', array_merge($exportParams, ['format' => 'pdf'])) }}" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg ml-auto">
-                    Descargar PDF
-                </a>
-                <a href="{{ route('reports.obligaciones.export', array_merge($exportParams, ['format' => 'xlsx'])) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-6 rounded-lg">
-                    Descargar Excel
-                </a>
-                <a href="{{ route('reports.obligaciones.download-evidences', $exportParams) }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg">
-                    Descargar Evidencias
-                </a>
+                <button type="submit" class="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700">
+                    <i class="fas fa-check mr-2"></i>Aplicar
+                </button>
             </div>
         </form>
-    </div>
+    </aside>
+
+    @if(($familySummaries ?? collect())->count() > 0)
+        <div class="bg-white rounded-2xl shadow p-5 mb-8 border border-gray-100">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">Navegación por Familias</h2>
+                    <p class="text-sm text-gray-500">Salta rápido a cada bloque del reporte.</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @foreach($familySummaries as $familySummary)
+                    <a href="#{{ $familySummary['anchor'] }}"
+                       class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                        <span>{{ $familySummary['name'] }}</span>
+                        <span class="rounded-full bg-white px-2 py-0.5 text-[11px] text-gray-600">{{ $familySummary['count'] }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     <!-- Lista de Obligaciones Agrupadas por Familia -->
     @if($serviceRequests->count() > 0)
         <div class="space-y-6">
             @foreach($serviceRequests as $serviceName => $obligaciones)
-                <div class="bg-white rounded-lg shadow overflow-hidden">
+                @php
+                    $familyAnchor = 'family-' . (\Illuminate\Support\Str::slug($serviceName) !== '' ? \Illuminate\Support\Str::slug($serviceName) : 'sin-familia');
+                @endphp
+                <div id="{{ $familyAnchor }}" class="bg-white rounded-2xl shadow overflow-hidden border border-gray-100 scroll-mt-24">
                     <!-- Encabezado de la Familia -->
                     <div class="px-6 py-3" style="background-color: {{ $reportPrimaryColor }};">
                         @php
                             $familyDescription = $obligaciones->first()?->subService?->service?->family?->description;
                             $familyTotal = $obligaciones->count();
+                            $familyTaskCount = $obligaciones->sum(fn ($sr) => (int) $sr->tasks->count());
+                            $familyEvidenceCount = $obligaciones->sum(fn ($sr) => (int) $sr->evidences->count());
                         @endphp
                         <h2 class="text-lg font-bold" style="color: {{ $reportContrastColor }};">{{ $serviceName }}</h2>
                         @if($familyDescription)
                             <p class="text-sm mt-1" style="color: {{ $reportContrastColor }}; opacity: .9;">{{ $familyDescription }}</p>
                         @endif
-                        <p class="text-sm mt-1" style="color: {{ $reportContrastColor }}; opacity: .9;">
-                            Total acciones: <span class="font-semibold" style="color: {{ $reportContrastColor }};">{{ $familyTotal }}</span>
-                        </p>
+                        <div class="mt-2 flex flex-wrap gap-2 text-xs">
+                            <span class="rounded-full px-3 py-1 font-semibold" style="background-color: rgba(255,255,255,.16); color: {{ $reportContrastColor }};">
+                                {{ $familyTotal }} obligaciones
+                            </span>
+                            <span class="rounded-full px-3 py-1 font-semibold" style="background-color: rgba(255,255,255,.16); color: {{ $reportContrastColor }};">
+                                {{ $familyTaskCount }} actividades
+                            </span>
+                            <span class="rounded-full px-3 py-1 font-semibold" style="background-color: rgba(255,255,255,.16); color: {{ $reportContrastColor }};">
+                                {{ $familyEvidenceCount }} productos
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Tabla de Obligaciones de la Familia -->
@@ -95,41 +258,33 @@
                                 <tr class="hover:bg-gray-50">
                                     <!-- OBLIGACIONES -->
                                     <td class="px-6 py-3 text-sm">
+                                        @php
+                                            $requesterName = $sr->requester?->name ?? $sr->requestedBy?->name ?? 'Sin solicitante';
+                                            $activitiesCount = $sr->tasks->count();
+                                            $productsCount = $sr->evidences->count();
+                                        @endphp
+                                        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                                            <span class="text-[11px] font-semibold text-blue-700 bg-blue-50 rounded-full px-2.5 py-1">{{ $sr->ticket_number }}</span>
+                                            <span class="text-[11px] font-semibold text-gray-700 bg-gray-100 rounded-full px-2.5 py-1">{{ $statuses[$sr->status] ?? $sr->status }}</span>
+                                        </div>
                                         <p class="font-semibold text-gray-900">{{ $sr->title }}</p>
                                         @if($sr->description)
-                                            <p class="text-xs text-gray-600 mt-1">{{ Str::limit($sr->description, 80) }}</p>
+                                            <p class="text-xs text-gray-600 mt-1">{{ Str::limit($sr->description, 120) }}</p>
                                         @endif
+                                        <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                                            <span><i class="fas fa-user mr-1 text-gray-400"></i>{{ $requesterName }}</span>
+                                            <span><i class="fas fa-list-check mr-1 text-gray-400"></i>{{ $activitiesCount }} actividades</span>
+                                            <span><i class="fas fa-paperclip mr-1 text-gray-400"></i>{{ $productsCount }} productos</span>
+                                        </div>
                                     </td>
 
                                     <!-- ACTIVIDADES EJECUTADAS -->
                                     <td class="px-6 py-3 text-sm">
-                                        @if($sr->tasks->count() > 0)
-                                            <div class="space-y-2">
-                                                @foreach($sr->tasks as $task)
-                                                    @php
-                                                        $taskTitleDisplay = preg_replace('/\s*\(\d+\s*minutos?\)\.?\s*/iu', ' ', (string) $task->title);
-                                                        $taskTitleDisplay = trim(preg_replace('/\s{2,}/', ' ', $taskTitleDisplay));
-                                                    @endphp
-                                                    <div>
-                                                        <p class="font-semibold text-gray-900 text-xs">{{ $taskTitleDisplay }}</p>
-                                                        @if($task->subtasks->count() > 0)
-                                                            <ul class="mt-1 space-y-1">
-                                                                @foreach($task->subtasks as $subtask)
-                                                                    @php
-                                                                        $subtaskTitleDisplay = preg_replace('/\s*\(\d+\s*minutos?\)\.?\s*/iu', ' ', (string) $subtask->title);
-                                                                        $subtaskTitleDisplay = trim(preg_replace('/\s{2,}/', ' ', $subtaskTitleDisplay));
-                                                                    @endphp
-                                                                    <li class="text-xs text-gray-700">- {{ $subtaskTitleDisplay }}
-                                                                        @if($subtask->evidence_completed)
-                                                                            <span class="text-green-600 ml-1">✓</span>
-                                                                        @endif
-                                                                    </li>
-                                                                @endforeach
-                                                            </ul>
-                                                        @endif
-                                                    </div>
-                                                @endforeach
-                                            </div>
+                                        @php
+                                            $activitySummary = $extractResolutionDescription($sr->resolution_notes ?? '');
+                                        @endphp
+                                        @if($activitySummary !== '')
+                                            <div class="whitespace-pre-line text-xs leading-5 text-gray-800">{{ $activitySummary }}</div>
                                         @else
                                             <p class="text-xs text-gray-500">—</p>
                                         @endif
@@ -139,27 +294,17 @@
                                     <td class="px-6 py-3 text-sm break-words">
                                         @php
                                             $fileEvidences = $sr->evidences->where('file_path');
-                                            $linkEvidences = $sr->evidences->where('evidence_type', 'ENLACE');
-                                            $hasProducts = $fileEvidences->count() > 0 || $linkEvidences->count() > 0;
+                                            $hasProducts = $fileEvidences->count() > 0;
                                         @endphp
                                         @if($hasProducts)
                                             <ul class="space-y-1">
                                                 @foreach($fileEvidences as $evidence)
-                                                    <li>
-                                                        <a href="{{ $evidence->file_url }}" target="_blank" class="inline-block max-w-full break-all text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
-                                                            {{ $evidence->file_original_name }}
-                                                        </a>
-                                                    </li>
-                                                @endforeach
-                                                @foreach($linkEvidences as $evidence)
                                                     @php
-                                                        $linkUrl = $evidence->evidence_data['url'] ?? $evidence->description;
+                                                        $realFileName = trim((string) ($evidence->file_original_name ?? $evidence->file_name ?? ''));
                                                     @endphp
-                                                    @if($linkUrl)
-                                                        <li>
-                                                            <a href="{{ $linkUrl }}" target="_blank" rel="noopener noreferrer" class="inline-block max-w-full break-all text-blue-600 hover:text-blue-800 text-xs font-semibold underline">
-                                                                {{ $linkUrl }}
-                                                            </a>
+                                                    @if($realFileName !== '')
+                                                        <li class="text-xs text-gray-700 break-all">
+                                                            {{ $realFileName }}
                                                         </li>
                                                     @endif
                                                 @endforeach
@@ -190,15 +335,37 @@
 </style>
 <script>
     (function () {
-        const select = document.getElementById('cutFilterSelect');
+        const body = document.body;
         const form = document.getElementById('cutFilterForm');
+        const sidebar = document.getElementById('filtersSidebar');
+        const overlay = document.getElementById('filtersSidebarOverlay');
+        const openButton = document.getElementById('openFiltersSidebar');
+        const closeButton = document.getElementById('closeFiltersSidebar');
 
-        if (!select || !form) {
+        if (!form || !sidebar || !overlay || !openButton || !closeButton) {
             return;
         }
 
-        select.addEventListener('change', function () {
-            form.submit();
+        const openSidebar = function () {
+            sidebar.classList.remove('translate-x-full');
+            overlay.classList.remove('hidden');
+            body.classList.add('overflow-hidden');
+        };
+
+        const closeSidebar = function () {
+            sidebar.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+            body.classList.remove('overflow-hidden');
+        };
+
+        openButton.addEventListener('click', openSidebar);
+        closeButton.addEventListener('click', closeSidebar);
+        overlay.addEventListener('click', closeSidebar);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeSidebar();
+            }
         });
     })();
 </script>

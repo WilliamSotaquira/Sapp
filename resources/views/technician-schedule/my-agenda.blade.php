@@ -29,6 +29,7 @@
 
 @section('content')
 <div class="container mx-auto px-3 sm:px-4 md:px-6">
+    <div class="agenda-screen-content">
     <!-- Encabezado con controles -->
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-5 mb-4 sm:mb-6">
         <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -92,6 +93,10 @@
                         <i class="fas fa-calendar-alt"></i>
                         <span class="hidden sm:inline ml-1">Calendario</span>
                     </a>
+                    <button type="button" onclick="printAgenda()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm transition-colors">
+                        <i class="fas fa-print"></i>
+                        <span class="hidden sm:inline ml-1">Imprimir control</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -145,8 +150,9 @@
                     <label for="filter_q" class="block text-xs font-semibold text-gray-600 mb-1">Buscar</label>
                     <input type="text" id="filter_q" name="q"
                         value="{{ $filters['q'] ?? request('q') }}"
-                        placeholder="Código, título o descripción"
+                        placeholder="Código, ticket, título, servicio o notas"
                         class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <p class="mt-1 text-[11px] text-gray-500">Busca por tarea, solicitud asociada, servicio, subservicio o notas técnicas.</p>
                 </div>
 
                 <div>
@@ -180,7 +186,7 @@
                     <select id="filter_priority" name="priority"
                         class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Todas</option>
-                        <option value="critical" {{ ($filters['priority'] ?? '') === 'critical' ? 'selected' : '' }}>Crítica</option>
+                        <option value="critical" {{ ($filters['priority'] ?? '') === 'critical' ? 'selected' : '' }}>Crítica / Urgente</option>
                         <option value="high" {{ ($filters['priority'] ?? '') === 'high' ? 'selected' : '' }}>Alta</option>
                         <option value="medium" {{ ($filters['priority'] ?? '') === 'medium' ? 'selected' : '' }}>Media</option>
                         <option value="low" {{ ($filters['priority'] ?? '') === 'low' ? 'selected' : '' }}>Baja</option>
@@ -200,6 +206,7 @@
             </form>
         </div>
     </aside>
+    </div>
 
     @php
         $visibleAgendaTasks = $tasks->reject(function ($task) {
@@ -208,8 +215,70 @@
         $completedTasks = $tasks->filter(fn ($task) => $task->is_effectively_completed)->values();
         $totalTasks = $visibleAgendaTasks->count();
         $activeTaskCount = $visibleAgendaTasks->where('status', '!=', 'cancelled')->count();
+        $printChecklistTasks = ($printableTasks ?? collect())->values();
     @endphp
 
+    <section class="agenda-print-sheet" aria-hidden="true">
+        <div class="agenda-print-page">
+            <div class="agenda-print-header">
+                <h2>Agenda {{ \Carbon\Carbon::parse($date)->format('d/m/Y') }}</h2>
+                <div class="agenda-print-meta">
+                    <span>{{ $technician->user->name }}</span>
+                    <span>{{ $printChecklistTasks->count() }} tareas</span>
+                </div>
+            </div>
+
+            @if($printChecklistTasks->isEmpty())
+                <div class="agenda-print-empty">
+                    No hay tareas programadas para este día.
+                </div>
+            @else
+                <div class="agenda-print-list">
+                    @foreach($printChecklistTasks as $task)
+                        @php
+                            $printServiceName = $task->serviceRequest?->subService?->service?->name;
+                            $printSubServiceName = $task->serviceRequest?->subService?->name;
+                            $printRequesterName = $task->serviceRequest?->requester?->name
+                                ?? $task->serviceRequest?->requestedBy?->name
+                                ?? null;
+                            $printServiceLabel = $printServiceName && $printSubServiceName
+                                ? "{$printServiceName} · {$printSubServiceName}"
+                                : ($printSubServiceName ?? $printServiceName ?? 'Sin servicio');
+                            $printCodeLine = trim(collect([
+                                $task->task_code,
+                                $task->serviceRequest?->ticket_number,
+                                $task->priority ? strtoupper($task->priority === 'critical' ? 'URG' : $task->priority) : null,
+                            ])->filter()->implode(' · '));
+                            $printSecondaryLine = trim(collect([
+                                $printServiceLabel !== 'Sin servicio' ? \Illuminate\Support\Str::limit($printServiceLabel, 42, '') : null,
+                                $task->formatted_duration,
+                            ])->filter()->implode(' · '));
+                        @endphp
+                        <article class="agenda-print-item">
+                            <div class="agenda-print-check" aria-hidden="true"></div>
+                            <div class="agenda-print-time">
+                                {{ $task->scheduled_start_time ? substr($task->scheduled_start_time, 0, 5) : '--:--' }}
+                            </div>
+                            <div class="agenda-print-body">
+                                <h3>{{ \Illuminate\Support\Str::limit($task->title, 78, '') }}</h3>
+                                @if($printCodeLine !== '')
+                                    <p>{{ $printCodeLine }}</p>
+                                @endif
+                                @if($printRequesterName)
+                                    <small>Solicitante: {{ \Illuminate\Support\Str::limit($printRequesterName, 42, '') }}</small>
+                                @endif
+                                @if($printSecondaryLine !== '')
+                                    <small>{{ $printSecondaryLine }}</small>
+                                @endif
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </section>
+
+    <div class="agenda-screen-content">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Timeline de tareas -->
         <div class="lg:col-span-6 xl:col-span-7 space-y-6">
@@ -652,7 +721,208 @@
             </div>
         </aside>
     </div>
+    </div>
 </div>
+
+<style>
+    .agenda-print-sheet {
+        display: none;
+    }
+
+    @media print {
+        @page {
+            size: 11in 8.5in;
+            margin: 6%;
+        }
+
+        html,
+        body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .agenda-screen-content,
+        #completeModal,
+        #taskContextMenu {
+            display: none !important;
+        }
+
+        .agenda-print-sheet {
+            display: block !important;
+            position: fixed;
+            top: 6%;
+            left: 6%;
+            width: 41%;
+            max-width: 41%;
+            padding: 0;
+            margin: 0;
+            color: #111827;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .agenda-print-page {
+            width: 100%;
+            max-width: 100%;
+            border: 1px solid #0f172a;
+            border-radius: 6px;
+            padding: 3.5mm;
+            box-sizing: border-box;
+        }
+
+        .agenda-print-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 3mm;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 2.2mm;
+            margin-bottom: 2.8mm;
+        }
+
+        .agenda-print-header h2 {
+            margin: 0;
+            font-size: 11pt;
+            line-height: 1.1;
+        }
+
+        .agenda-print-meta {
+            min-width: 0;
+            display: grid;
+            gap: 0.5mm;
+            text-align: right;
+            font-size: 7pt;
+            font-weight: 600;
+        }
+
+        .agenda-print-empty {
+            margin-bottom: 2mm;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            border-radius: 4px;
+            padding: 2mm;
+            font-size: 8pt;
+        }
+
+        .agenda-print-list {
+            column-count: 1;
+            column-gap: 0;
+        }
+
+        .agenda-print-item {
+            break-inside: avoid;
+            display: grid;
+            grid-template-columns: 6mm 15mm 1fr;
+            gap: 1.8mm;
+            align-items: flex-start;
+            border-bottom: 1px dashed #cbd5e1;
+            padding: 0 0 1.8mm;
+            margin: 0 0 1.8mm;
+        }
+
+        .agenda-print-check {
+            width: 5mm;
+            height: 5mm;
+            border: 1.2px solid #0f172a;
+            border-radius: .5mm;
+            margin-top: .6mm;
+        }
+
+        .agenda-print-time {
+            font-size: 8.5pt;
+            font-weight: 700;
+            line-height: 1.1;
+            padding-top: .4mm;
+        }
+
+        .agenda-print-body h3,
+        .agenda-print-body p,
+        .agenda-print-body small {
+            display: block;
+            margin: 0;
+            line-height: 1.15;
+        }
+
+        .agenda-print-body h3 {
+            font-size: 8pt;
+            font-weight: 700;
+            margin-bottom: .8mm;
+        }
+
+        .agenda-print-body p,
+        .agenda-print-body small {
+            font-size: 6.4pt;
+            color: #475569;
+            letter-spacing: .01em;
+        }
+
+        .agenda-print-body small {
+            font-size: 6pt;
+        }
+    }
+</style>
+
+<template id="agendaPrintMarkup">
+    <div class="agenda-print-popup-root">
+        <div class="agenda-print-page">
+            <div class="agenda-print-header">
+                <h2>Agenda {{ \Carbon\Carbon::parse($date)->format('d/m/Y') }}</h2>
+                <div class="agenda-print-meta">
+                    <span>{{ $technician->user->name }}</span>
+                    <span>{{ $printChecklistTasks->count() }} tareas</span>
+                </div>
+            </div>
+
+            @if($printChecklistTasks->isEmpty())
+                <div class="agenda-print-empty">
+                    No hay tareas programadas para este día.
+                </div>
+            @else
+                <div class="agenda-print-list">
+                    @foreach($printChecklistTasks as $task)
+                        @php
+                            $printServiceName = $task->serviceRequest?->subService?->service?->name;
+                            $printSubServiceName = $task->serviceRequest?->subService?->name;
+                            $printRequesterName = $task->serviceRequest?->requester?->name
+                                ?? $task->serviceRequest?->requestedBy?->name
+                                ?? null;
+                            $printServiceLabel = $printServiceName && $printSubServiceName
+                                ? "{$printServiceName} · {$printSubServiceName}"
+                                : ($printSubServiceName ?? $printServiceName ?? 'Sin servicio');
+                            $printCodeLine = trim(collect([
+                                $task->task_code,
+                                $task->serviceRequest?->ticket_number,
+                                $task->priority ? strtoupper($task->priority === 'critical' ? 'URG' : $task->priority) : null,
+                            ])->filter()->implode(' · '));
+                            $printSecondaryLine = trim(collect([
+                                $printServiceLabel !== 'Sin servicio' ? \Illuminate\Support\Str::limit($printServiceLabel, 42, '') : null,
+                                $task->formatted_duration,
+                            ])->filter()->implode(' · '));
+                        @endphp
+                        <article class="agenda-print-item">
+                            <div class="agenda-print-check" aria-hidden="true"></div>
+                            <div class="agenda-print-time">
+                                {{ $task->scheduled_start_time ? substr($task->scheduled_start_time, 0, 5) : '--:--' }}
+                            </div>
+                            <div class="agenda-print-body">
+                                <h3>{{ \Illuminate\Support\Str::limit($task->title, 78, '') }}</h3>
+                                @if($printCodeLine !== '')
+                                    <p>{{ $printCodeLine }}</p>
+                                @endif
+                                @if($printRequesterName)
+                                    <small>Solicitante: {{ \Illuminate\Support\Str::limit($printRequesterName, 42, '') }}</small>
+                                @endif
+                                @if($printSecondaryLine !== '')
+                                    <small>{{ $printSecondaryLine }}</small>
+                                @endif
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </div>
+</template>
 
 <!-- Modal para completar tarea -->
 <div id="completeModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
@@ -696,6 +966,164 @@
 </div>
 
 <script>
+    function printAgenda() {
+        const template = document.getElementById('agendaPrintMarkup');
+        if (!template) return;
+
+        const printWindow = window.open('', '_blank', 'width=1280,height=900');
+        if (!printWindow) return;
+
+        const markup = template.innerHTML;
+        const styles = `
+            <style>
+                @page {
+                    size: 11in 8.5in;
+                    margin: 6%;
+                }
+
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    background: #ffffff;
+                    color: #111827;
+                    font-family: Arial, Helvetica, sans-serif;
+                }
+
+                body {
+                    min-height: 100vh;
+                }
+
+                .agenda-print-popup-root {
+                    width: 41%;
+                    max-width: 41%;
+                    margin-left: 0;
+                }
+
+                .agenda-print-page {
+                    width: 100%;
+                    max-width: 100%;
+                    border: 1px solid #0f172a;
+                    border-radius: 6px;
+                    padding: 3.5mm;
+                    box-sizing: border-box;
+                }
+
+                .agenda-print-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 3mm;
+                    border-bottom: 1px solid #cbd5e1;
+                    padding-bottom: 2.2mm;
+                    margin-bottom: 2.8mm;
+                }
+
+                .agenda-print-header h2 {
+                    margin: 0;
+                    font-size: 11pt;
+                    line-height: 1.1;
+                }
+
+                .agenda-print-meta {
+                    min-width: 0;
+                    display: grid;
+                    gap: 0.5mm;
+                    text-align: right;
+                    font-size: 7pt;
+                    font-weight: 600;
+                }
+
+                .agenda-print-empty {
+                    margin-bottom: 2mm;
+                    border: 1px solid #cbd5e1;
+                    background: #f8fafc;
+                    border-radius: 4px;
+                    padding: 2mm;
+                    font-size: 8pt;
+                }
+
+                .agenda-print-list {
+                    column-count: 1;
+                    column-gap: 0;
+                }
+
+                .agenda-print-item {
+                    break-inside: avoid;
+                    display: grid;
+                    grid-template-columns: 6mm 15mm 1fr;
+                    gap: 1.8mm;
+                    align-items: flex-start;
+                    border-bottom: 1px dashed #cbd5e1;
+                    padding: 0 0 1.8mm;
+                    margin: 0 0 1.8mm;
+                }
+
+                .agenda-print-check {
+                    width: 5mm;
+                    height: 5mm;
+                    border: 1.2px solid #0f172a;
+                    border-radius: .5mm;
+                    margin-top: .6mm;
+                }
+
+                .agenda-print-time {
+                    font-size: 8.5pt;
+                    font-weight: 700;
+                    line-height: 1.1;
+                    padding-top: .4mm;
+                }
+
+                .agenda-print-body h3,
+                .agenda-print-body p,
+                .agenda-print-body small {
+                    display: block;
+                    margin: 0;
+                    line-height: 1.15;
+                }
+
+                .agenda-print-body h3 {
+                    font-size: 8pt;
+                    font-weight: 700;
+                    margin-bottom: .8mm;
+                }
+
+                .agenda-print-body p,
+                .agenda-print-body small {
+                    font-size: 6.4pt;
+                    color: #475569;
+                    letter-spacing: .01em;
+                }
+
+                .agenda-print-body small {
+                    font-size: 6pt;
+                }
+            </style>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Imprimir agenda</title>
+    ${styles}
+</head>
+<body>
+    ${markup}
+    <script>
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                window.focus();
+                window.print();
+                window.close();
+            }, 150);
+        });
+    <\/script>
+</body>
+</html>`);
+        printWindow.document.close();
+    }
+
     function changeTechnician() {
         const technicianId = document.getElementById('technicianSelector').value;
         const date = document.getElementById('dateSelector').value;
