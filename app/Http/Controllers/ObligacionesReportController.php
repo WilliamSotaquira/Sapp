@@ -59,12 +59,15 @@ class ObligacionesReportController extends Controller
             ->get();
 
         // Agrupar por servicio
-        $serviceRequests = $allServiceRequests->groupBy(function ($sr) {
-            $family = $sr->subService?->service?->family;
-            $familyName = $family?->name ?? 'Sin Familia';
-            $contractNumber = $family?->contract?->number;
-            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
-        })->sortKeys();
+        $serviceRequests = $allServiceRequests
+            ->groupBy(function ($sr) {
+                $family = $sr->subService?->service?->family;
+
+                return $family?->name ?? 'Sin Familia';
+            })
+            ->sortBy(function ($items) {
+                return (int) ($items->first()?->subService?->service?->family?->sort_order ?? PHP_INT_MAX);
+            });
 
         $statsBaseQuery = $this->applyFilters(ServiceRequest::query(), $request);
 
@@ -97,11 +100,21 @@ class ObligacionesReportController extends Controller
             ];
         })->values();
 
+        $familyExportRequirements = $serviceRequests->map(function ($items, $serviceName) {
+            $family = $items->first()?->subService?->service?->family;
+
+            return [
+                'id' => (int) ($family?->id ?? 0),
+                'name' => $serviceName,
+            ];
+        })->filter(fn ($family) => $family['id'] > 0)->values();
+
         return view('reports.obligaciones.index', [
             'pageTitle' => 'Reporte de Obligaciones',
             'serviceRequests' => $serviceRequests,
             'stats' => $stats,
             'familySummaries' => $familySummaries,
+            'familyExportRequirements' => $familyExportRequirements,
             'statuses' => $availableStatuses,
             'cuts' => $cuts,
             'filters' => $filters,
@@ -123,12 +136,20 @@ class ObligacionesReportController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $groupedServiceRequests = $serviceRequests->groupBy(function ($sr) {
-            $family = $sr->subService?->service?->family;
-            $familyName = $family?->name ?? 'Sin Familia';
-            $contractNumber = $family?->contract?->number;
-            return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
-        })->sortKeys();
+        $groupedServiceRequests = $serviceRequests
+            ->groupBy(function ($sr) {
+                $family = $sr->subService?->service?->family;
+
+                return $family?->name ?? 'Sin Familia';
+            })
+            ->sortBy(function ($items) {
+                return (int) ($items->first()?->subService?->service?->family?->sort_order ?? PHP_INT_MAX);
+            });
+
+        $linkValidationError = $this->validateFamilyCloudLinks($serviceRequests, $request);
+        if ($linkValidationError !== null) {
+            return back()->withInput()->with('error', $linkValidationError);
+        }
 
         $dateRange = $this->getDateRangeFromFilters($request);
         $selectedCut = null;
@@ -757,6 +778,71 @@ class ObligacionesReportController extends Controller
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';
 
         return preg_replace($pattern, '', $title) ?? $title;
+    }
+
+    private function validateFamilyCloudLinks($serviceRequests, Request $request): ?string
+    {
+        $familyLinks = $request->input('family_links', []);
+        if (!is_array($familyLinks)) {
+            $familyLinks = [];
+        }
+
+        $requiredFamilies = $serviceRequests
+            ->map(function (ServiceRequest $serviceRequest) {
+                $family = $serviceRequest->subService?->service?->family;
+                return [
+                    'id' => (int) ($family?->id ?? 0),
+                    'label' => $family?->name ?? 'Sin Familia',
+                ];
+            })
+            ->filter(fn ($family) => $family['id'] > 0)
+            ->unique('id')
+            ->values();
+
+        if ($requiredFamilies->isEmpty()) {
+            return null;
+        }
+
+        $missingFamilies = [];
+        $invalidFamilies = [];
+
+        foreach ($requiredFamilies as $family) {
+            $rawLink = trim((string) ($familyLinks[$family['id']] ?? ''));
+
+            if ($rawLink === '') {
+                $missingFamilies[] = $family['label'];
+                continue;
+            }
+
+            if (!$this->isValidAbsoluteUrl($rawLink)) {
+                $invalidFamilies[] = $family['label'];
+            }
+        }
+
+        if (count($missingFamilies) === 0 && count($invalidFamilies) === 0) {
+            return null;
+        }
+
+        $parts = ['Antes de generar el informe debe registrar un enlace absoluto del directorio en la nube por cada familia incluida en el reporte.'];
+
+        if (count($missingFamilies) > 0) {
+            $parts[] = 'Falta enlace en: ' . implode(', ', $missingFamilies) . '.';
+        }
+
+        if (count($invalidFamilies) > 0) {
+            $parts[] = 'El enlace debe ser absoluto y válido en: ' . implode(', ', $invalidFamilies) . '.';
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function isValidAbsoluteUrl(string $value): bool
+    {
+        if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        return (bool) preg_match('#^https?://#i', $value);
     }
 
     // CSV eliminado por solicitud.
