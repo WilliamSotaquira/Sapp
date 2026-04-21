@@ -6,6 +6,7 @@ use App\Models\ServiceRequest;
 use App\Models\Task;
 use App\Models\Cut;
 use App\Models\Company;
+use App\Models\FamilyCloudLink;
 use App\Models\ServiceRequestEvidence;
 use App\Exports\ObligacionesExport;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -84,6 +85,8 @@ class ObligacionesReportController extends Controller
             'familias' => $serviceRequests->count(),
         ];
 
+        $storedFamilyLinks = $this->getStoredFamilyCloudLinks();
+
         $familySummaries = $serviceRequests->map(function ($items, $serviceName) {
             $slugBase = Str::slug($serviceName);
             $first = $items->first();
@@ -100,14 +103,21 @@ class ObligacionesReportController extends Controller
             ];
         })->values();
 
-        $familyExportRequirements = $serviceRequests->map(function ($items, $serviceName) {
-            $family = $items->first()?->subService?->service?->family;
+        $familyExportRequirements = $serviceRequests
+            ->map(function ($items, $serviceName) {
+                $family = $items->first()?->subService?->service?->family;
 
-            return [
-                'id' => (int) ($family?->id ?? 0),
-                'name' => $serviceName,
-            ];
-        })->filter(fn ($family) => $family['id'] > 0)->values();
+                return [
+                    'id' => (int) ($family?->id ?? 0),
+                    'name' => $serviceName,
+                    'requires_link' => $items->contains(function ($serviceRequest) {
+                        return $this->serviceRequestHasFileEvidence($serviceRequest);
+                    }),
+                    'stored_link' => $storedFamilyLinks[(int) ($family?->id ?? 0)] ?? '',
+                ];
+            })
+            ->filter(fn ($family) => $family['id'] > 0 && ($family['requires_link'] ?? false))
+            ->values();
 
         return view('reports.obligaciones.index', [
             'pageTitle' => 'Reporte de Obligaciones',
@@ -167,6 +177,8 @@ class ObligacionesReportController extends Controller
         $primaryColor = $this->resolvePrimaryColor();
         $contrastColor = $this->resolveContrastColor();
         $exportFilename = $this->buildExportFilename($serviceRequests, $selectedCut, $dateRange, $format);
+        $familyLinks = $this->resolveFamilyCloudLinks($request);
+        $this->persistFamilyCloudLinks($familyLinks, optional($request->user())->id);
 
         if ($format === 'pdf') {
             $pdf = Pdf::loadView('reports.exports.obligaciones-pdf', [
@@ -177,6 +189,7 @@ class ObligacionesReportController extends Controller
                 'primaryColor' => $primaryColor,
                 'contrastColor' => $contrastColor,
                 'generatedByName' => optional($request->user())->name,
+                'familyLinks' => $familyLinks,
             ])->setPaper('a4', 'portrait')
                 ->setOption('isRemoteEnabled', true);
 
@@ -201,7 +214,7 @@ class ObligacionesReportController extends Controller
         }
 
         if ($format === 'xlsx') {
-            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange, $primaryColor, $contrastColor), $exportFilename);
+            return Excel::download(new ObligacionesExport($serviceRequests, $selectedCut, $dateRange, $primaryColor, $contrastColor, $familyLinks), $exportFilename);
         }
 
         return response('Formato no válido', 400);
@@ -782,10 +795,7 @@ class ObligacionesReportController extends Controller
 
     private function validateFamilyCloudLinks($serviceRequests, Request $request): ?string
     {
-        $familyLinks = $request->input('family_links', []);
-        if (!is_array($familyLinks)) {
-            $familyLinks = [];
-        }
+        $familyLinks = $this->resolveFamilyCloudLinks($request);
 
         $requiredFamilies = $serviceRequests
             ->map(function (ServiceRequest $serviceRequest) {
@@ -793,9 +803,10 @@ class ObligacionesReportController extends Controller
                 return [
                     'id' => (int) ($family?->id ?? 0),
                     'label' => $family?->name ?? 'Sin Familia',
+                    'requires_link' => $this->serviceRequestHasFileEvidence($serviceRequest),
                 ];
             })
-            ->filter(fn ($family) => $family['id'] > 0)
+            ->filter(fn ($family) => $family['id'] > 0 && ($family['requires_link'] ?? false))
             ->unique('id')
             ->values();
 
@@ -834,6 +845,81 @@ class ObligacionesReportController extends Controller
         }
 
         return implode(' ', $parts);
+    }
+
+    private function resolveFamilyCloudLinks(Request $request): array
+    {
+        $storedFamilyLinks = $this->getStoredFamilyCloudLinks();
+        $familyLinks = $request->input('family_links', []);
+        if (!is_array($familyLinks)) {
+            return $storedFamilyLinks;
+        }
+
+        return collect($familyLinks)
+            ->mapWithKeys(function ($value, $key) {
+                return [(int) $key => trim((string) $value)];
+            })
+            ->filter(fn ($value, $key) => $key > 0 && $value !== '')
+            ->union($storedFamilyLinks)
+            ->all();
+    }
+
+    private function getStoredFamilyCloudLinks(): array
+    {
+        $companyId = (int) session('current_company_id');
+        if ($companyId <= 0) {
+            return [];
+        }
+
+        return FamilyCloudLink::query()
+            ->where('company_id', $companyId)
+            ->pluck('url', 'service_family_id')
+            ->mapWithKeys(fn ($value, $key) => [(int) $key => trim((string) $value)])
+            ->all();
+    }
+
+    private function persistFamilyCloudLinks(array $familyLinks, ?int $userId = null): void
+    {
+        $companyId = (int) session('current_company_id');
+        if ($companyId <= 0 || empty($familyLinks)) {
+            return;
+        }
+
+        foreach ($familyLinks as $familyId => $url) {
+            $familyId = (int) $familyId;
+            $url = trim((string) $url);
+
+            if ($familyId <= 0 || $url === '') {
+                continue;
+            }
+
+            FamilyCloudLink::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'service_family_id' => $familyId,
+                ],
+                [
+                    'url' => $url,
+                    'updated_by' => $userId,
+                    'created_by' => $userId,
+                ]
+            );
+        }
+    }
+
+    private function serviceRequestHasFileEvidence(ServiceRequest $serviceRequest): bool
+    {
+        if (!$serviceRequest->relationLoaded('evidences')) {
+            return false;
+        }
+
+        return $serviceRequest->evidences->contains(function ($evidence) {
+            $filePath = trim((string) ($evidence->file_path ?? ''));
+
+            return $filePath !== ''
+                && ($evidence->evidence_type ?? null) !== 'ENLACE'
+                && !$this->isValidAbsoluteUrl($filePath);
+        });
     }
 
     private function isValidAbsoluteUrl(string $value): bool

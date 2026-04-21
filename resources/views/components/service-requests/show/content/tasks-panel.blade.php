@@ -12,6 +12,20 @@
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
     $isInProgress = $serviceRequest->status === 'EN_PROCESO';
+    $tasksActionMode = $quickTaskEnabled
+        ? 'tasks'
+        : ($hasTechnicianAssigned ? 'show' : 'assign-technician');
+    $tasksActionUrl = $tasksActionMode === 'tasks'
+        ? route('tasks.create', ['service_request_id' => $serviceRequest->id])
+        : route('service-requests.show', $serviceRequest);
+    $tasksActionLabel = $quickTaskEnabled
+        ? 'Abrir Gestor'
+        : ($hasTechnicianAssigned ? 'Ver Solicitud' : 'Asignar Técnico');
+    $tasksActionTitle = $quickTaskEnabled
+        ? 'Crear o gestionar tareas de esta solicitud.'
+        : ($hasTechnicianAssigned
+            ? 'La solicitud no permite crear tareas en su estado actual. Revisa el detalle.'
+            : 'La solicitud no tiene técnico asignado. Abre el selector para asignarlo.');
     $canResolveByEvidence = ($serviceRequest->is_reportable === false)
         || $viewService->getResolvableEvidenceCount($serviceRequest) > 0;
     $completedTasksCount = $tasks->filter(fn($task) => strtolower((string) $task->status) === 'completed')->count();
@@ -52,11 +66,25 @@
                         </button>
                     </div>
                 @endif
-                <a href="{{ route('tasks.create', ['service_request_id' => $serviceRequest->id]) }}"
-                   class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 bg-purple-600 border border-purple-700 rounded-2xl font-semibold text-sm text-white shadow-sm hover:bg-purple-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-150 min-h-[3rem]">
-                    <i class="fas fa-external-link-alt flex-shrink-0"></i>
-                    Abrir Gestor
-                </a>
+                @if($tasksActionMode === 'assign-technician')
+                    <button type="button"
+                            data-service-request-id="{{ $serviceRequest->id }}"
+                            data-workflow-action="assign-technician"
+                            data-modal-id="assign-technician-modal-{{ $serviceRequest->id }}"
+                            onclick="openModal('assign-technician-modal-{{ $serviceRequest->id }}', this)"
+                            title="{{ $tasksActionTitle }}"
+                            class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 bg-amber-100 border-amber-200 text-amber-900 hover:bg-amber-200 focus:ring-amber-400 border rounded-2xl font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-150 min-h-[3rem]">
+                        <i class="fas fa-user-plus flex-shrink-0"></i>
+                        {{ $tasksActionLabel }}
+                    </button>
+                @else
+                    <a href="{{ $tasksActionUrl }}"
+                       title="{{ $tasksActionTitle }}"
+                       class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 {{ $quickTaskEnabled ? 'bg-purple-600 border-purple-700 text-white shadow-sm hover:bg-purple-700 hover:shadow-md focus:ring-purple-500' : 'bg-amber-100 border-amber-200 text-amber-900 hover:bg-amber-200 focus:ring-amber-400' }} border rounded-2xl font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-150 min-h-[3rem]">
+                        <i class="fas {{ $quickTaskEnabled ? 'fa-external-link-alt' : 'fa-eye' }} flex-shrink-0"></i>
+                        {{ $tasksActionLabel }}
+                    </a>
+                @endif
             </div>
         </div>
     </div>
@@ -73,7 +101,9 @@
                 <i class="fas fa-clipboard-list text-gray-400 text-xl"></i>
             </div>
             <p class="text-sm font-medium text-gray-600">No hay tareas asociadas a esta solicitud.</p>
-            <p class="text-xs text-gray-500 mt-1">Usa “Abrir Gestor” para crear la primera.</p>
+            <p class="text-xs text-gray-500 mt-1">
+                {{ $quickTaskEnabled ? 'Usa “Abrir Gestor” para crear la primera.' : ($hasTechnicianAssigned ? 'Esta solicitud no permite crear tareas en su estado actual. Revisa el detalle para continuar.' : 'Usa “Asignar Técnico” para completar la asignación y luego crear tareas.') }}
+            </p>
         </div>
     </div>
 </div>

@@ -127,11 +127,6 @@ class UpdateServiceRequestRequest extends FormRequest
                     $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
                 }
 
-                $serviceRequest = $this->route('service_request');
-                $referenceDate = $serviceRequest?->created_at ?: now();
-                if ($cut && !$cut->containsDate($referenceDate)) {
-                    $validator->errors()->add('cut_id', 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.');
-                }
             }
 
             $requesterId = $this->input('requester_id');

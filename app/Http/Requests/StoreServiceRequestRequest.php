@@ -150,9 +150,6 @@ class StoreServiceRequestRequest extends FormRequest
                     $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
                 }
 
-                if ($cut && !$cut->containsDate(now())) {
-                    $validator->errors()->add('cut_id', 'El corte seleccionado no corresponde a la fecha actual de creación de la solicitud.');
-                }
             }
 
             $requesterId = $this->input('requester_id');

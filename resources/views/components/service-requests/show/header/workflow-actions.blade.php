@@ -28,7 +28,7 @@
                 'route' => $serviceRequest->assigned_to ? 'accept-modal' : 'assign-technician-modal', // Cambiar a modal
                 'icon' => $serviceRequest->assigned_to ? 'handshake' : 'user-plus',
                 'method' => $serviceRequest->assigned_to ? 'MODAL' : 'MODAL', // Ambos usan modal
-                'label' => $serviceRequest->assigned_to ? 'Aceptar Solicitud' : 'Asignar Técnico Primero',
+                'label' => $serviceRequest->assigned_to ? 'Aceptar Solicitud' : 'Asignar Técnico',
                 'condition' => true,
                 'appearance' => 'primary',
                 'modal_id' => $serviceRequest->assigned_to
