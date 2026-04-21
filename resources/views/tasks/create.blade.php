@@ -362,8 +362,12 @@
                                     <div class="mt-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
                                         <p class="text-xs text-amber-800">
                                             <i class="fas fa-triangle-exclamation mr-1"></i>
-                                            La solicitud está asignada a <span class="font-medium">{{ $preselectedServiceRequest->assignee->name ?? 'un usuario' }}</span>,
-                                            pero no tiene perfil de técnico. Selecciona un técnico manualmente antes de guardar.
+                                            @if(!empty($serviceRequestHasAssignedUserWithoutTechnicianProfile))
+                                                La solicitud está asignada a <span class="font-medium">{{ $preselectedServiceRequest->assignee->name ?? 'un usuario' }}</span>,
+                                                pero no tiene perfil de técnico. Selecciona un técnico manualmente antes de guardar.
+                                            @else
+                                                La solicitud no tiene técnico asignado. Selecciona un técnico manualmente antes de guardar la tarea.
+                                            @endif
                                         </p>
                                     </div>
                                 @endif

@@ -77,7 +77,7 @@
                 <h2 class="text-base font-bold text-amber-950">Regla para generar PDF y Excel</h2>
                 <p>Antes de descargar el informe, debes registrar un enlace del directorio en la nube por cada familia incluida en el reporte.</p>
                 <p>Ese enlace es obligatorio para generar el PDF o el Excel. Si falta un enlace o si no es una ruta absoluta, la exportación se bloquea.</p>
-                <p>Dentro del programa solo se muestran los nombres de los archivos y su extensión; no se publican esos enlaces en la tabla de productos.</p>
+                <p>Los enlaces se almacenan para futuras consultas y se autocompletan cuando vuelvas a exportar.</p>
             </div>
         </div>
     </div>
@@ -146,7 +146,7 @@
                         <i class="fas fa-cloud"></i>
                         Directorios en la nube
                     </h3>
-                    <p class="mt-1 text-xs text-emerald-100">Se requiere un enlace absoluto por cada familia antes de exportar.</p>
+                    <p class="mt-1 text-xs text-emerald-100">Se requiere un enlace absoluto solo para familias con evidencias de archivo.</p>
                 </div>
                 <button type="button" id="closeCloudLinksPanel" class="text-white transition-colors hover:text-emerald-100">
                     <i class="fas fa-times text-xl"></i>
@@ -157,7 +157,7 @@
         <form id="cloudLinksForm" class="flex flex-1 flex-col">
             <div class="flex-1 space-y-5 px-6 py-5">
                 <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                    El sistema pedirá un enlace `https://...` por cada familia visible en el reporte. No se aceptan rutas relativas.
+                    El sistema pedirá un enlace `https://...` solo para las familias que tengan evidencias de archivo. Las familias con solo enlaces externos no lo requieren.
                 </div>
 
                 @forelse($familyExportRequirements as $familyRequirement)
@@ -169,6 +169,7 @@
                         <input type="url"
                                id="family-link-{{ $familyRequirement['id'] }}"
                                name="family_links[{{ $familyRequirement['id'] }}]"
+                               value="{{ $familyRequirement['stored_link'] ?? '' }}"
                                class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                placeholder="https://..."
                                inputmode="url"
@@ -383,8 +384,13 @@
                                     <!-- PRODUCTOS PRESENTADOS -->
                                     <td class="px-6 py-3 text-sm break-words">
                                         @php
-                                            $fileEvidences = $sr->evidences->where('file_path');
-                                            $hasProducts = $fileEvidences->count() > 0;
+                                            $fileEvidences = $sr->evidences->filter(fn ($evidence) => filled($evidence->file_path));
+                                            $linkEvidences = $sr->evidences->filter(function ($evidence) {
+                                                $url = $evidence->evidence_data['url'] ?? $evidence->description ?? null;
+
+                                                return $evidence->evidence_type === 'ENLACE' && filled($url);
+                                            });
+                                            $hasProducts = $fileEvidences->isNotEmpty() || $linkEvidences->isNotEmpty();
                                         @endphp
                                         @if($hasProducts)
                                             <ul class="space-y-1">
@@ -395,6 +401,26 @@
                                                     @if($realFileName !== '')
                                                         <li class="text-xs text-gray-700 break-all">
                                                             {{ $realFileName }}
+                                                        </li>
+                                                    @endif
+                                                @endforeach
+                                                @foreach($linkEvidences as $evidence)
+                                                    @php
+                                                        $externalUrl = trim((string) ($evidence->evidence_data['url'] ?? $evidence->description ?? ''));
+                                                        $externalUrl = preg_replace('/ovprdnwportwebapp01/i', 'www', $externalUrl) ?? $externalUrl;
+                                                        $externalLabel = trim((string) ($evidence->title ?? ''));
+                                                        if ($externalLabel === '' || str_starts_with($externalLabel, 'Enlace - ')) {
+                                                            $externalLabel = $externalUrl;
+                                                        }
+                                                    @endphp
+                                                    @if($externalUrl !== '')
+                                                        <li class="text-xs break-all">
+                                                            <a href="{{ $externalUrl }}"
+                                                               target="_blank"
+                                                               rel="noopener noreferrer"
+                                                               class="text-blue-700 hover:text-blue-800 hover:underline">
+                                                                {{ $externalLabel }}
+                                                            </a>
                                                         </li>
                                                     @endif
                                                 @endforeach

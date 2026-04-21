@@ -16,7 +16,7 @@
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid {{ $pdfPrimaryColor }}; padding-bottom: 8px; }
         .meta { font-size: 10px; color: #555; margin-top: 0; line-height: 1.15; }
         .table { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
-        .table th, .table td { border: 1px solid #ddd; padding: 6px; vertical-align: top; }
+        .table th, .table td { border: 1px solid #ddd; padding: 6px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
         .table th { background-color: #f2f2f2; font-weight: bold; }
         .table .section-head-cell {
             background: {{ $pdfPrimaryColor }};
@@ -32,6 +32,25 @@
         .link-wrap { word-break: break-all; overflow-wrap: anywhere; }
         .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #666; }
         .pill { display: inline-block; padding: 2px 6px; border-radius: 10px; background: #eef2ff; color: #1e3a8a; font-size: 9px; }
+        .cloud-link-box {
+            margin-top: 6px;
+            padding: 6px 8px;
+            border: 1px solid rgba(255,255,255,0.45);
+            background: rgba(255,255,255,0.12);
+            border-radius: 6px;
+        }
+        .cloud-link-label {
+            display: block;
+            font-size: 10px;
+            font-weight: bold;
+            color: {{ $pdfContrastColor }};
+            margin-bottom: 2px;
+        }
+        .cloud-link-anchor {
+            color: {{ $pdfContrastColor }};
+            font-weight: bold;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +105,7 @@
         }
 
         $headerLabel = $contractNumber . ': ' . $periodLabel;
+        $familyLinks = collect($familyLinks ?? [])->mapWithKeys(fn ($value, $key) => [(int) $key => trim((string) $value)]);
     @endphp
 
     <div class="header" style="text-align: left;">
@@ -109,6 +129,8 @@
             @foreach($serviceRequests as $serviceName => $obligaciones)
             @php
                 $familyDescription = $obligaciones->first()?->subService?->service?->family?->description;
+                $familyId = (int) ($obligaciones->first()?->subService?->service?->family?->id ?? 0);
+                $familyCloudLink = $familyLinks->get($familyId);
             @endphp
             @php
                 $familyTotal = $obligaciones->count();
@@ -126,6 +148,12 @@
                             <div style="font-weight: normal; color: {{ $pdfContrastColor }}; opacity: 0.9; font-size: 10px; margin-top: 2px;">
                                 Total acciones: {{ $familyTotal }}
                             </div>
+                            @if(!empty($familyCloudLink))
+                                <div class="cloud-link-box">
+                                    <span class="cloud-link-label">DIRECTORIO EN LA NUBE</span>
+                                    <a href="{{ $familyCloudLink }}" class="cloud-link-anchor link-wrap">{{ $familyCloudLink }}</a>
+                                </div>
+                            @endif
                         </th>
                     </tr>
                     <tr>
@@ -158,8 +186,13 @@
                             </td>
                             <td>
                                 @php
-                                    $fileEvidences = $sr->evidences->where('file_path');
-                                    $hasProducts = $fileEvidences->count() > 0;
+                                    $fileEvidences = $sr->evidences->filter(fn ($evidence) => filled($evidence->file_path));
+                                    $linkEvidences = $sr->evidences->filter(function ($evidence) {
+                                        $url = $evidence->evidence_data['url'] ?? $evidence->description ?? null;
+
+                                        return $evidence->evidence_type === 'ENLACE' && filled($url);
+                                    });
+                                    $hasProducts = $fileEvidences->isNotEmpty() || $linkEvidences->isNotEmpty();
                                 @endphp
                                 @if($hasProducts)
                                     @foreach($fileEvidences as $evidence)
@@ -167,7 +200,20 @@
                                             $evidenceLabel = trim((string) ($evidence->file_original_name ?? $evidence->file_name ?? ''));
                                         @endphp
                                         @if($evidenceLabel !== '')
-                                            <div class="muted">{{ $evidenceLabel }}</div>
+                                            <div class="muted link-wrap">{{ $evidenceLabel }}</div>
+                                        @endif
+                                    @endforeach
+                                    @foreach($linkEvidences as $evidence)
+                                        @php
+                                            $externalUrl = trim((string) ($evidence->evidence_data['url'] ?? $evidence->description ?? ''));
+                                            $externalUrl = preg_replace('/ovprdnwportwebapp01/i', 'www', $externalUrl) ?? $externalUrl;
+                                            $externalLabel = trim((string) ($evidence->title ?? ''));
+                                            if ($externalLabel === '' || str_starts_with($externalLabel, 'Enlace - ')) {
+                                                $externalLabel = $externalUrl;
+                                            }
+                                        @endphp
+                                        @if($externalUrl !== '')
+                                            <div class="muted link-wrap">{{ $externalLabel }}</div>
                                         @endif
                                     @endforeach
                                 @else

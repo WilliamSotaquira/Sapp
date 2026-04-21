@@ -111,7 +111,7 @@
                         <button type="button" data-request-id="{{ $serviceRequest->id }}"
                             class="quick-assign-btn inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
                             <i class="fas fa-user-plus mr-1"></i>
-                            <span data-assignee-action-label>{{ $serviceRequest->assigned_to ? 'Reasignar' : 'Asignar' }}</span>
+                            <span data-assignee-action-label>{{ $serviceRequest->assigned_to ? 'Reasignar Técnico' : 'Asignar Técnico' }}</span>
                         </button>
                     </div>
                 @endif
@@ -431,7 +431,7 @@
         if (emailEl) emailEl.textContent = email || 'Sin correo';
         if (positionEl) positionEl.textContent = payload.position || 'Sin cargo';
         if (initialEl) initialEl.textContent = (name && name.length) ? name.charAt(0).toUpperCase() : '?';
-        if (actionLabel) actionLabel.textContent = (name && name.length) ? 'Reasignar' : 'Asignar';
+        if (actionLabel) actionLabel.textContent = (name && name.length) ? 'Reasignar Técnico' : 'Asignar Técnico';
         if (assigneeLinkEl && payload.assignedToTechnicianId) assigneeLinkEl.href = '/technicians/' + payload.assignedToTechnicianId;
 
         if (avatarEl) {

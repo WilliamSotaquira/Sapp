@@ -1414,12 +1414,6 @@ class ServiceRequestController extends Controller
                     ], 422);
                 }
 
-                if ($cut && !$cut->containsDate($serviceRequest->created_at)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.',
-                    ], 422);
-                }
             }
 
             // Primero, desasociar todos los cortes actuales

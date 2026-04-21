@@ -23,15 +23,18 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
     private string $contrastColor;
     private int $headerRowIndex = 0;
     private array $familyRowIndexes = [];
+    private array $familyLinkRowIndexes = [];
     private int $summaryStartRow = 1;
     private int $summaryEndRow = 0;
+    private array $familyLinks;
 
     public function __construct(
         Collection $serviceRequests,
         ?Cut $cut = null,
         array $dateRange = [],
         string $primaryColor = '#1E3A8A',
-        string $contrastColor = '#FFFFFF'
+        string $contrastColor = '#FFFFFF',
+        array $familyLinks = []
     )
     {
         $this->serviceRequests = $serviceRequests;
@@ -39,6 +42,10 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         $this->dateRange = $dateRange;
         $this->primaryColor = $this->normalizeHexColor($primaryColor);
         $this->contrastColor = $this->normalizeHexColor($contrastColor, '#FFFFFF');
+        $this->familyLinks = collect($familyLinks)
+            ->mapWithKeys(fn ($value, $key) => [(int) $key => trim((string) $value)])
+            ->filter(fn ($value, $key) => $key > 0 && $value !== '')
+            ->all();
     }
 
     public function array(): array
@@ -76,14 +83,27 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
         foreach ($grouped as $serviceName => $items) {
             $familyDescription = $items->first()?->subService?->service?->family?->description ?? '';
             $familyTotal = $items->count();
+            $familyId = (int) ($items->first()?->subService?->service?->family?->id ?? 0);
+            $familyCloudLink = $this->familyLinks[$familyId] ?? '';
             $rows[] = [
                 $serviceName,
-                $familyDescription,
+                $familyCloudLink !== '' ? $familyCloudLink : $familyDescription,
                 'Total acciones',
                 $familyTotal
             ];
             $rowIndex++;
             $this->familyRowIndexes[] = $rowIndex;
+
+            if ($familyCloudLink !== '') {
+                $rows[] = [
+                    '',
+                    'Directorio en la nube',
+                    $familyCloudLink,
+                    '',
+                ];
+                $rowIndex++;
+                $this->familyLinkRowIndexes[$rowIndex] = $familyCloudLink;
+            }
 
             $first = true;
             foreach ($items as $sr) {
@@ -171,6 +191,17 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                         ->getStartColor()->setARGB($this->hexToArgb($this->primaryColor));
                 }
 
+                foreach ($this->familyLinkRowIndexes as $row => $url) {
+                    $sheet->mergeCells("C{$row}:D{$row}");
+                    $sheet->getCell("C{$row}")->getHyperlink()->setUrl($url);
+                    $sheet->getStyle("B{$row}:D{$row}")
+                        ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setARGB('FFD9F99D');
+                    $sheet->getStyle("B{$row}:D{$row}")->getFont()->setBold(true);
+                    $sheet->getStyle("C{$row}")->getFont()->setUnderline(true);
+                    $sheet->getStyle("C{$row}")->getFont()->getColor()->setARGB('FF166534');
+                }
+
             },
         ];
     }
@@ -214,11 +245,26 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
 
         $names = [];
         foreach ($serviceRequest->evidences as $evidence) {
-            if (empty($evidence->file_path)) {
+            if (!empty($evidence->file_path)) {
+                $names[] = $this->resolveEvidenceFileName($evidence);
                 continue;
             }
 
-            $names[] = $this->resolveEvidenceFileName($evidence);
+            if (($evidence->evidence_type ?? null) !== 'ENLACE') {
+                continue;
+            }
+
+            $url = trim((string) ($evidence->evidence_data['url'] ?? $evidence->description ?? ''));
+            if ($url === '') {
+                continue;
+            }
+
+            $url = $this->normalizeExternalUrl($url);
+
+            $label = trim((string) ($evidence->title ?? ''));
+            $names[] = ($label !== '' && !str_starts_with($label, 'Enlace - '))
+                ? "{$label}: {$url}"
+                : $url;
         }
 
         $names = array_values(array_filter($names));
@@ -233,6 +279,11 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
             ?? $evidence->file_name
             ?? ''
         ));
+    }
+
+    private function normalizeExternalUrl(string $url): string
+    {
+        return preg_replace('/ovprdnwportwebapp01/i', 'www', $url) ?? $url;
     }
 
     private function stripStatusPrefix(string $title): string

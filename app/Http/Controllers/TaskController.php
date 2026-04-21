@@ -341,6 +341,7 @@ class TaskController extends Controller
         $preselectedPriority = null;
         $preselectedEstimatedHours = null;
         $needsTechnicianSelection = false;
+        $serviceRequestHasAssignedUserWithoutTechnicianProfile = false;
 
         $requestedServiceRequestId = (int) $request->query('service_request_id');
 
@@ -363,12 +364,6 @@ class TaskController extends Controller
                 return redirect()
                     ->route('service-requests.show', $preselectedServiceRequest)
                     ->with('error', 'No se pueden crear tareas para una solicitud en estado ' . $preselectedServiceRequest->status . '.');
-            }
-
-            if ($preselectedServiceRequest && empty($preselectedServiceRequest->assigned_to)) {
-                return redirect()
-                    ->route('service-requests.show', $preselectedServiceRequest)
-                    ->with('error', 'La solicitud seleccionada aún no tiene un técnico asignado. Asigna un técnico antes de crear la tarea.');
             }
 
             if ($preselectedServiceRequest) {
@@ -402,7 +397,8 @@ class TaskController extends Controller
 
                 // Si la SR tiene assigned_to pero ese usuario no tiene perfil de técnico,
                 // permitimos continuar (sin bloquear) pero avisamos para que se seleccione manualmente.
-                $needsTechnicianSelection = !empty($preselectedServiceRequest->assigned_to) && empty($preselectedTechnicianId);
+                $serviceRequestHasAssignedUserWithoutTechnicianProfile = !empty($preselectedServiceRequest->assigned_to) && empty($preselectedTechnicianId);
+                $needsTechnicianSelection = empty($preselectedTechnicianId);
 
                 if ($preselectedTechnicianId && !$technicians->contains('id', $preselectedTechnicianId)) {
                     $fallbackTechnician = Technician::withTrashed()->with('user')->find($preselectedTechnicianId);
@@ -432,6 +428,7 @@ class TaskController extends Controller
             'preselectedEstimatedHours' => $preselectedEstimatedHours,
             'shouldSkipInitialModal' => $shouldSkipInitialModal,
             'needsTechnicianSelection' => $needsTechnicianSelection,
+            'serviceRequestHasAssignedUserWithoutTechnicianProfile' => $serviceRequestHasAssignedUserWithoutTechnicianProfile,
             'prefillScheduledDate' => $prefillScheduledDate,
             'prefillScheduledTime' => $prefillScheduledTime,
         ]);
