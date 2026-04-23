@@ -74,9 +74,9 @@ class EvidenceService
             throw new \Exception('El archivo excede el tamaño máximo permitido');
         }
 
-        // Generar nombre y carpeta por ticket
-        $ticketFolder = $this->buildTicketFolder($serviceRequest->ticket_number);
-        $fileName = $this->generateTicketFileName($serviceRequest->ticket_number, $file, $sequenceNumber);
+        // Generar nombre y carpeta por solicitud
+        $ticketFolder = $this->buildRequestFolder($serviceRequest);
+        $fileName = $this->generateRequestFileName($serviceRequest, $file, $sequenceNumber);
 
         // Crear directorio si no existe
         $this->ensureDirectoryExists($ticketFolder);
@@ -268,36 +268,23 @@ class EvidenceService
     }
 
     /**
-     * Construir carpeta por ticket
+     * Construir carpeta por solicitud
      */
-    private function buildTicketFolder(string $ticketNumber): string
+    private function buildRequestFolder(ServiceRequest $serviceRequest): string
     {
-        $cleanTicket = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketNumber);
-        return self::EVIDENCE_DIRECTORY . '/' . $cleanTicket;
+        return self::EVIDENCE_DIRECTORY . '/solicitud-' . $serviceRequest->id;
     }
 
     /**
-     * Generar nombre basado en ticket y letra alfabética (A, B, C...)
+     * Generar nombre basado en ticket y consecutivo numérico
      */
-    private function generateTicketFileName(string $ticketNumber, UploadedFile $file, int $sequenceNumber): string
+    private function generateRequestFileName(ServiceRequest $serviceRequest, UploadedFile $file, int $sequenceNumber): string
     {
-        $base = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketNumber);
-        $letter = $this->sequenceToLetter($sequenceNumber);
-        $extension = $file->getClientOriginalExtension();
-        return "{$base}-{$letter}.{$extension}";
-    }
+        $ticketNumber = $serviceRequest->ticket_number ?: ('SR-' . $serviceRequest->id);
+        $cleanTicketNumber = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticketNumber);
+        $extension = strtolower($file->getClientOriginalExtension());
+        $paddedSequence = str_pad((string) $sequenceNumber, 3, '0', STR_PAD_LEFT);
 
-    /**
-     * Convertir número a letra secuencial (1=A, 2=B, ... 27=AA)
-     */
-    private function sequenceToLetter(int $number): string
-    {
-        $letters = '';
-        while ($number > 0) {
-            $number--; // Ajuste para que 1 => A
-            $letters = chr(65 + ($number % 26)) . $letters;
-            $number = intdiv($number, 26);
-        }
-        return $letters;
+        return "{$cleanTicketNumber}-{$paddedSequence}.{$extension}";
     }
 }
