@@ -536,7 +536,6 @@
         @endphp
         <input type="text" name="web_routes_temp[]" value="{{ $existingRoutesText }}"
             placeholder="https://ejemplo.com/ruta, /ruta-interna, https://otro-enlace.com"
-            tabindex="-1"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 web-route-input">
         <p class="mt-1 text-sm text-gray-500">
             Ingresa URLs completas o rutas internas separadas por comas. Máximo 8 rutas.

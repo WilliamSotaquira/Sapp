@@ -22,7 +22,7 @@
 </div>
 @else
 <!-- Formulario normal de carga de evidencias -->
-<div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-gray-400 transition duration-150">
+<div id="evidenceUploadArea" class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-gray-400 transition duration-150">
     <div class="max-w-5xl mx-auto">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 text-left">
             <div class="space-y-4 md:pr-4 md:border-r md:border-gray-200">
@@ -65,8 +65,7 @@
                                    id="evidenceFiles"
                                    multiple
                                    class="hidden"
-                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.csv,.svg"
-                                   onchange="handleFileSelection(this)">
+                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.csv,.svg">
                         </label>
                     </div>
 
@@ -74,6 +73,7 @@
 
                     <div class="text-xs text-gray-400">
                         Formatos permitidos: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP, CSV, SVG<br>
+                        También puedes pegar imágenes con `Ctrl + V` o `Cmd + V`<br>
                         Tamaño máximo por archivo: 10MB
                     </div>
 
@@ -119,81 +119,152 @@
 </div>
 
 <script>
-function handleFileSelection(input) {
+(function () {
+    const evidenceInput = document.getElementById('evidenceFiles');
     const fileList = document.getElementById('fileList');
     const uploadButton = document.getElementById('uploadButton');
+    const uploadArea = document.getElementById('evidenceUploadArea');
+    const evidenceForm = document.getElementById('evidenceUploadForm');
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'rar', 'csv', 'svg'];
 
-    if(input.files.length > 0) {
+    if (!evidenceInput || !fileList || !uploadButton || !uploadArea) {
+        return;
+    }
+
+    function renderSelectedFiles(files) {
+        if (files.length > 0) {
+            fileList.innerHTML = '';
+            fileList.classList.remove('hidden');
+            uploadButton.classList.remove('hidden');
+
+            Array.from(files).forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                fileItem.innerHTML = `
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <i class="fas fa-file text-gray-400"></i>
+                        <span class="text-sm text-gray-700 truncate">${file.name}</span>
+                    </div>
+                    <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            return;
+        }
+
         fileList.innerHTML = '';
-        fileList.classList.remove('hidden');
-        uploadButton.classList.remove('hidden');
-
-        Array.from(input.files).forEach(file => {
-            const fileItem = document.createElement('div');
-            fileItem.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
-            fileItem.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <i class="fas fa-file text-gray-400"></i>
-                    <span class="text-sm text-gray-700">${file.name}</span>
-                </div>
-                <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</span>
-            `;
-            fileList.appendChild(fileItem);
-        });
-    } else {
         fileList.classList.add('hidden');
         uploadButton.classList.add('hidden');
     }
-}
 
-// Drag and drop functionality
-const uploadArea = document.querySelector('.border-dashed');
-if (uploadArea) {
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
+    function getCurrentFiles() {
+        return Array.from(evidenceInput.files || []);
     }
 
+    function setFiles(files) {
+        const dataTransfer = new DataTransfer();
+        files.forEach(file => dataTransfer.items.add(file));
+        evidenceInput.files = dataTransfer.files;
+        renderSelectedFiles(evidenceInput.files);
+    }
+
+    function mergeFiles(newFiles) {
+        const mergedFiles = [...getCurrentFiles()];
+
+        Array.from(newFiles).forEach(file => {
+            const fileKey = [file.name, file.size, file.type, file.lastModified].join('::');
+            const alreadyExists = mergedFiles.some(existingFile => {
+                const existingKey = [existingFile.name, existingFile.size, existingFile.type, existingFile.lastModified].join('::');
+                return existingKey === fileKey;
+            });
+
+            if (!alreadyExists) {
+                mergedFiles.push(file);
+            }
+        });
+
+        setFiles(mergedFiles);
+    }
+
+    function isAllowedFile(file) {
+        const extension = (file.name.split('.').pop() || '').toLowerCase();
+        return allowedExtensions.includes(extension);
+    }
+
+    function createClipboardFile(blob, index) {
+        const extension = (blob.type || 'image/png').split('/')[1] || 'png';
+        const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+        const safeExtension = extension === 'svg+xml' ? 'svg' : extension;
+
+        return new File([blob], `portapapeles-${timestamp}-${index}.${safeExtension}`, {
+            type: blob.type || 'image/png',
+            lastModified: Date.now(),
+        });
+    }
+
+    evidenceInput.addEventListener('change', function () {
+        renderSelectedFiles(this.files);
+    });
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
     ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
+        uploadArea.addEventListener(eventName, function () {
+            uploadArea.classList.add('border-blue-400', 'bg-blue-50');
+        }, false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
+        uploadArea.addEventListener(eventName, function () {
+            uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
+        }, false);
     });
 
-    function highlight() {
-        uploadArea.classList.add('border-blue-400', 'bg-blue-50');
-    }
+    uploadArea.addEventListener('drop', function (e) {
+        const files = Array.from(e.dataTransfer.files || []).filter(isAllowedFile);
+        if (files.length > 0) {
+            mergeFiles(files);
+        }
+    }, false);
 
-    function unhighlight() {
-        uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
-    }
+    document.addEventListener('paste', function (e) {
+        const activeElement = document.activeElement;
+        const isTypingInField = activeElement && ['INPUT', 'TEXTAREA'].includes(activeElement.tagName);
 
-    uploadArea.addEventListener('drop', handleDrop, false);
+        if (isTypingInField && activeElement.id === 'link_url') {
+            return;
+        }
 
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        document.getElementById('evidenceFiles').files = files;
-        handleFileSelection(document.getElementById('evidenceFiles'));
-    }
-}
+        const clipboardFiles = Array.from(e.clipboardData?.items || [])
+            .filter(item => item.kind === 'file')
+            .map((item, index) => {
+                const blob = item.getAsFile();
+                return blob ? createClipboardFile(blob, index + 1) : null;
+            })
+            .filter(file => file && isAllowedFile(file));
 
-// Limpiar formulario después de enviar
-const evidenceForm = document.getElementById('evidenceUploadForm');
-if (evidenceForm) {
-    evidenceForm.addEventListener('submit', function() {
-    setTimeout(() => {
-        this.reset();
-        document.getElementById('fileList').classList.add('hidden');
-        document.getElementById('uploadButton').classList.add('hidden');
-    }, 1000);
+        if (clipboardFiles.length === 0) {
+            return;
+        }
+
+        e.preventDefault();
+        mergeFiles(clipboardFiles);
     });
-}
+
+    if (evidenceForm) {
+        evidenceForm.addEventListener('submit', function() {
+            setTimeout(() => {
+                this.reset();
+                renderSelectedFiles([]);
+            }, 1000);
+        });
+    }
+})();
 </script>
 @endif
