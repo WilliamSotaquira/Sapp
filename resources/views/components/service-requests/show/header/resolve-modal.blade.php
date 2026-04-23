@@ -24,12 +24,6 @@
             </button>
         </div>
 
-        <a href="https://chat.deepseek.com/a/chat/s/b7462bd2-f93f-4913-bca4-5c249eee8ec8"
-           target="deepseek_window"
-           class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline mb-3">
-            <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
-        </a>
-
         <p class="mb-4 text-sm text-gray-700">
             Evidencias adjuntas:
             <span class="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">
@@ -111,6 +105,14 @@
                     <i class="fas fa-check-circle mr-2"></i>
                     Confirmar Resolución
                 </button>
+            </div>
+
+            <div class="mt-3 flex justify-start">
+                <a href="https://chat.deepseek.com/a/chat/s/b7462bd2-f93f-4913-bca4-5c249eee8ec8"
+                   target="deepseek_window"
+                   class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                    <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
+                </a>
             </div>
         </form>
     </div>
