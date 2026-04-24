@@ -32,6 +32,11 @@
                         {{ $totalAssociated }} solicitud{{ $totalAssociated !== 1 ? 'es' : '' }}
                     </span>
                 </div>
+                @if($family)
+                    <p class="mt-2 max-w-3xl text-sm text-gray-600 leading-5">
+                        {{ $family->description ?: 'Sin descripción registrada para esta familia.' }}
+                    </p>
+                @endif
             </div>
 
             <div class="flex items-center gap-2">
