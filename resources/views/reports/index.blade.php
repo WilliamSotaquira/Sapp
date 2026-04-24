@@ -40,6 +40,22 @@
         </div>
     </a>
 
+    <!-- Informe Analitico por Corte -->
+    <a href="{{ route('reports.cuts.index') }}" class="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-emerald-500">
+        <div class="flex items-center justify-between flex-wrap sm:flex-nowrap gap-3">
+            <div class="flex-1 min-w-0">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900">Informe Analitico por Corte</h3>
+                <p class="text-gray-600 text-xs sm:text-sm mt-1">Resumen, distribuciones, hallazgos y recomendaciones usando los datos asociados al corte</p>
+            </div>
+            <div class="bg-emerald-100 p-2.5 sm:p-3 rounded-full flex-shrink-0">
+                <i class="fas fa-chart-column text-emerald-700 text-lg sm:text-xl"></i>
+            </div>
+        </div>
+        <div class="mt-3 sm:mt-4">
+            <span class="text-xs sm:text-sm text-gray-500">Ingresa por Cortes y luego abre el informe del corte deseado</span>
+        </div>
+    </a>
+
     <!-- Timeline por Ticket Card - NUEVO -->
     <a href="{{ route('reports.timeline.by-ticket') }}" class="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-red-500">
         <div class="flex items-center justify-between flex-wrap sm:flex-nowrap gap-3">
@@ -304,5 +320,4 @@
     });
 </script>
 @endpush
-
 
