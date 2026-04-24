@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Reports\ReportController as ReportsController;
+use App\Http\Controllers\Reports\CutAnalyticsReportController;
 use App\Http\Controllers\Reports\CutController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +44,9 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
         Route::get('/{cut}/export', [CutController::class, 'export'])->name('export');
         Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');
+        Route::get('/{cut}/analytics', [CutAnalyticsReportController::class, 'show'])->name('analytics');
+        Route::get('/{cut}/analytics/export/csv', [CutAnalyticsReportController::class, 'exportCsv'])->name('analytics.export.csv');
+        Route::get('/{cut}/analytics/export/pdf', [CutAnalyticsReportController::class, 'exportPdf'])->name('analytics.export.pdf');
     });
 
     // Ruta de prueba (puedes eliminarla en producción)
