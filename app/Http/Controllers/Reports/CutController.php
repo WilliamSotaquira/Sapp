@@ -514,8 +514,17 @@ class CutController extends Controller
             })
             ->values();
 
-        $serviceRequests = $cut->serviceRequests()
+        [$start, $end] = $cut->getDateRangeForQuery();
+
+        $serviceRequests = ServiceRequest::query()
             ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla', 'tasks.subtasks', 'evidences.uploadedBy'])
+            ->when($currentCompanyId, fn($query) => $query->where('company_id', $currentCompanyId))
+            ->when($cut->contract_id, function ($query) use ($cut) {
+                $query->whereHas('subService.service.family', function ($q) use ($cut) {
+                    $q->where('contract_id', $cut->contract_id);
+                });
+            })
+            ->whereBetween('created_at', [$start, $end])
             ->when(!empty($selectedFamilyIds), function ($query) use ($selectedFamilyIds) {
                 $query->whereHas('subService.service.family', function ($q) use ($selectedFamilyIds) {
                     $q->whereIn('service_families.id', $selectedFamilyIds);
@@ -637,6 +646,18 @@ class CutController extends Controller
         return $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
     }
 
+    private function buildFamilyInfoText($family): string
+    {
+        $familyName = $this->formatFamilyLabel($family);
+        $familyDescription = trim((string) ($family?->description ?? ''));
+
+        if ($familyDescription === '') {
+            $familyDescription = 'Sin descripción registrada para esta familia.';
+        }
+
+        return "Nombre: {$familyName}\nDescripción: {$familyDescription}\n";
+    }
+
     private function generateZipWithEvidences(array $reportData, string $baseFileName)
     {
         if (!class_exists('ZipArchive')) {
@@ -672,7 +693,7 @@ class CutController extends Controller
 
             $family = $familyRequests->first()?->subService?->service?->family;
             $familyLabel = $this->formatFamilyLabel($family);
-            $familyFolderName = $this->buildFamilyFolderName((int) ($family?->id ?? 0), $familyLabel);
+            $familyFolderName = $this->buildFamilyFolderName($family);
             $familyRoot = $familyFolderName;
 
             $familyGroupedData = collect([$familyLabel => $familyRequests]);
@@ -697,6 +718,7 @@ class CutController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->output();
             $zip->addFromString("{$familyRoot}/reporte.pdf", $pdfContent);
+            $zip->addFromString("{$familyRoot}/descripcion.txt", $this->buildFamilyInfoText($family));
             $pdfCount++;
             $familiesProcessed++;
 
@@ -780,17 +802,11 @@ class CutController extends Controller
         return $sanitized . $extension;
     }
 
-    private function buildFamilyFolderName(int $familyId, string $familyLabel): string
+    private function buildFamilyFolderName($family): string
     {
-        $slug = Str::slug($familyLabel, '-');
-        if ($slug === '') {
-            $slug = 'familia';
-        }
+        $sortOrder = (int) ($family?->sort_order ?? 0);
 
-        // Keep names concise and stable in ZIP explorers.
-        $slug = Str::limit($slug, 90, '');
-
-        return str_pad((string) max(0, $familyId), 2, '0', STR_PAD_LEFT) . '-' . $slug;
+        return 'Obligacion ' . max(0, $sortOrder);
     }
 
     private function generateFamilyPdfPackage(
@@ -833,6 +849,11 @@ class CutController extends Controller
             }
 
             $familyRequests = $requestsByFamilyId->get((int) $familyId, collect());
+            $familyFolderName = $this->buildFamilyFolderName($family);
+            $familyRoot = $singleFamilyPackage ? '' : $familyFolderName;
+            $familyInfoPath = $familyRoot === '' ? 'descripcion.txt' : "{$familyRoot}/descripcion.txt";
+            $zip->addFromString($familyInfoPath, $this->buildFamilyInfoText($family));
+
             if ($familyRequests->isEmpty()) {
                 continue;
             }
@@ -860,8 +881,6 @@ class CutController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->output();
 
-            $familyFolderName = $this->buildFamilyFolderName((int) $family->id, $familyLabel);
-            $familyRoot = $singleFamilyPackage ? '' : $familyFolderName;
             $reportPath = $familyRoot === '' ? 'reporte.pdf' : "{$familyRoot}/reporte.pdf";
             $zip->addFromString($reportPath, $pdfContent);
             $pdfCount++;
