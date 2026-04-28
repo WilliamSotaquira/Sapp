@@ -24,7 +24,8 @@
     $sizeClass = $compact ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-sm';
 @endphp
 
-<span class="{{ $sizeClass }} font-medium rounded-full {{ $config['class'] }}">
-    <i class="fas {{ $config['icon'] }} mr-1 text-xs"></i>
+<span class="{{ $sizeClass }} inline-flex items-center gap-1 font-semibold rounded-full {{ $config['class'] }}"
+      title="Prioridad: {{ ucfirst(strtolower($priority)) }}">
+    <i class="fas {{ $config['icon'] }} text-[10px]"></i>
     {{ $priority }}
 </span>

@@ -19,10 +19,8 @@
                     'serviceRequest' => $serviceRequest,
                     'subServices' => $subServices,
                     'selectedSubService' => $selectedSubService ?? null,
-                    'selectedCutId' => $selectedCutId ?? null,
                     'requesters' => $requesters,
                     'companies' => $companies ?? [],
-                    'cuts' => $cuts ?? [],
                     'errors' => $errors,
                     'mode' => 'edit'
                 ])
@@ -67,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const requester = document.getElementById('requester_id');
         const subService = document.getElementById('sub_service_id');
         const entryChannel = document.getElementById('entry_channel');
+        const createdAt = document.getElementById('created_at');
 
         const checks = [
             { el: title, ok: !!title?.value?.trim(), label: 'Título' },
@@ -74,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { el: requester, ok: !!requester?.value, label: 'Solicitante' },
             { el: subService, ok: !!subService?.value, label: 'Subservicio' },
             { el: entryChannel, ok: !!entryChannel?.value, label: 'Canal de ingreso' },
+            { el: createdAt, ok: !!createdAt?.value, label: 'Fecha de creación' },
         ];
 
         checks.forEach(({ el, ok }) => setFieldValidity(el, ok));
@@ -86,12 +86,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const requester = document.getElementById('requester_id');
         const subService = document.getElementById('sub_service_id');
         const channel = document.getElementById('entry_channel');
-        const cut = document.getElementById('cut_id');
+        const createdAt = document.getElementById('created_at')?.value || 'Sin fecha';
+        const dueDate = document.getElementById('due_date')?.value || 'Sin vencimiento';
 
         const requesterText = requester?.selectedOptions?.[0]?.textContent?.trim() || 'Sin solicitante';
         const subServiceText = subService?.selectedOptions?.[0]?.textContent?.trim() || 'Sin subservicio';
         const channelText = channel?.selectedOptions?.[0]?.textContent?.trim() || 'Sin canal';
-        const cutText = cut?.selectedOptions?.[0]?.textContent?.trim() || 'Sin corte';
 
         return [
             'Resumen de cambios:',
@@ -99,13 +99,14 @@ document.addEventListener('DOMContentLoaded', function () {
             `- Solicitante: ${requesterText}`,
             `- Subservicio: ${subServiceText}`,
             `- Canal: ${channelText}`,
-            `- Corte: ${cutText}`,
+            `- Fecha de creación: ${createdAt}`,
+            `- Vencimiento: ${dueDate}`,
             '',
             '¿Deseas actualizar la solicitud?'
         ].join('\n');
     }
 
-    ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel'].forEach((id) => {
+    ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel', 'created_at', 'due_date'].forEach((id) => {
         const field = document.getElementById(id);
         if (!field) return;
         field.addEventListener('input', validateMainFields);

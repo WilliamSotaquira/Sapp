@@ -76,7 +76,6 @@
                         'selectedSubService' => $selectedSubService ?? null,
                         'requesters' => $requesters,
                         'companies' => $companies ?? [],
-                        'cuts' => $cuts ?? [],
                         'errors' => $errors,
                         'mode' => 'create',
                     ])
@@ -264,13 +263,12 @@
             const requester = document.getElementById('requester_id');
             const subService = document.getElementById('sub_service_id');
             const channel = document.getElementById('entry_channel');
-            const cut = document.getElementById('cut_id');
+            const dueDate = document.getElementById('due_date')?.value || 'Sin vencimiento';
             const tasksCount = document.querySelectorAll('#tasksList [data-task-row]').length;
 
             const requesterText = requester?.selectedOptions?.[0]?.textContent?.trim() || 'Sin solicitante';
             const subServiceText = subService?.selectedOptions?.[0]?.textContent?.trim() || 'Sin subservicio';
             const channelText = channel?.selectedOptions?.[0]?.textContent?.trim() || 'Sin canal';
-            const cutText = cut?.selectedOptions?.[0]?.textContent?.trim() || 'Sin corte';
 
             return [
                 'Resumen de la solicitud:',
@@ -278,7 +276,7 @@
                 `- Solicitante: ${requesterText}`,
                 `- Subservicio: ${subServiceText}`,
                 `- Canal: ${channelText}`,
-                `- Corte: ${cutText}`,
+                `- Vencimiento: ${dueDate}`,
                 `- Tareas: ${tasksCount}`,
                 '',
                 '¿Deseas crear la solicitud?'
@@ -323,7 +321,7 @@
                 requester_id: document.getElementById('requester_id')?.value ?? '',
                 sub_service_id: document.getElementById('sub_service_id')?.value ?? '',
                 entry_channel: document.getElementById('entry_channel')?.value ?? '',
-                cut_id: document.getElementById('cut_id')?.value ?? '',
+                due_date: document.getElementById('due_date')?.value ?? '',
                 tasks_template: templateSelect?.value ?? 'none',
                 tasks: rows,
                 saved_at: new Date().toISOString(),
@@ -441,7 +439,7 @@
             isOpen() ? closeSection() : openSection();
         });
 
-        ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel'].forEach((id) => {
+        ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel', 'due_date'].forEach((id) => {
             const field = document.getElementById(id);
             if (!field) return;
             field.addEventListener('input', validateMainFields);
@@ -449,8 +447,6 @@
             field.addEventListener('input', scheduleDraftSave);
             field.addEventListener('change', scheduleDraftSave);
         });
-        document.getElementById('cut_id')?.addEventListener('change', scheduleDraftSave);
-
         function getRowData(rowEl) {
             const subtasks = Array.from(rowEl.querySelectorAll('[data-subtask-row]')).map((stRow) => ({
                 title: stRow.querySelector('input[type="text"]')?.value ?? '',
@@ -1410,7 +1406,7 @@
             setValue('requester_id', draft.requester_id);
             setValue('sub_service_id', draft.sub_service_id);
             setValue('entry_channel', draft.entry_channel);
-            setValue('cut_id', draft.cut_id);
+            setValue('due_date', draft.due_date);
             setValue('tasks_template', draft.tasks_template || 'none');
 
             clearAllRows();

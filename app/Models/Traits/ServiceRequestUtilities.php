@@ -27,6 +27,51 @@ trait ServiceRequestUtilities
         return $this->formatDuration($now->diff($this->resolution_deadline));
     }
 
+    public function hasRequestDueDate(): bool
+    {
+        return !empty($this->due_date);
+    }
+
+    public function isRequestDueOverdue(): bool
+    {
+        if (!$this->hasRequestDueDate() || $this->isFinalStatusForDueDate()) {
+            return false;
+        }
+
+        return $this->due_date->copy()->startOfDay()->lt(now()->startOfDay());
+    }
+
+    public function isRequestDueSoon(int $days = 3): bool
+    {
+        if (!$this->hasRequestDueDate() || $this->isFinalStatusForDueDate()) {
+            return false;
+        }
+
+        $today = now()->startOfDay();
+        $dueDate = $this->due_date->copy()->startOfDay();
+
+        return $dueDate->gte($today) && $dueDate->lte($today->copy()->addDays($days));
+    }
+
+    public function daysUntilRequestDue(): ?int
+    {
+        if (!$this->hasRequestDueDate()) {
+            return null;
+        }
+
+        return (int) now()->startOfDay()->diffInDays($this->due_date->copy()->startOfDay(), false);
+    }
+
+    private function isFinalStatusForDueDate(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_RESOLVED,
+            self::STATUS_CLOSED,
+            self::STATUS_CANCELLED,
+            'RECHAZADA',
+        ], true);
+    }
+
     public function formatDuration($duration)
     {
         if (!$duration) return '0 minutos';

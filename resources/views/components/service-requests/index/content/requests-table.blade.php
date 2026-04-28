@@ -5,6 +5,7 @@
     $search = request('q', request('search'));
     $status = request('status');
     $criticality = request('criticality');
+    $dueStatus = request('due_status');
     $requester = request('requester');
     $startDate = request('start_date');
     $endDate = request('end_date');
@@ -19,6 +20,15 @@
     if ($search) $activeFilters[] = ['label' => 'Búsqueda: ' . \Illuminate\Support\Str::limit($search, 30), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['search' => true]))];
     if ($status) $activeFilters[] = ['label' => 'Estado: ' . ucfirst(strtolower(str_replace('_',' ', $status))), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['status' => true]))];
     if ($criticality) $activeFilters[] = ['label' => 'Prioridad: ' . ucfirst(strtolower($criticality)), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['criticality' => true]))];
+    if ($dueStatus) {
+        $dueStatusLabels = [
+            'with_due' => 'Con vencimiento',
+            'without_due' => 'Sin vencimiento',
+            'overdue' => 'Vencidas',
+            'due_soon' => 'Por vencer',
+        ];
+        $activeFilters[] = ['label' => 'Vencimiento: ' . ($dueStatusLabels[$dueStatus] ?? $dueStatus), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['due_status' => true]))];
+    }
     if ($requester) $activeFilters[] = ['label' => 'Solicitante: ' . \Illuminate\Support\Str::limit($requester, 24), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['requester' => true]))];
     if ($serviceId && $services) {
         $serviceName = optional($services->firstWhere('id', (int) $serviceId))->name;
@@ -39,58 +49,142 @@
             'priority_low' => 'Prioridad baja a alta',
             'status_az' => 'Estado A-Z',
             'status_za' => 'Estado Z-A',
+            'due_date' => 'Vencimiento más cercano',
         ];
         $activeFilters[] = ['label' => 'Orden: ' . ($sortLabels[$sortBy] ?? $sortBy), 'remove' => route('service-requests.index', array_diff_key($baseParams, ['sort_by' => true]))];
     }
+
+    $quickFilters = [
+        [
+            'field' => 'criticality',
+            'value' => 'CRITICA',
+            'label' => 'Críticas',
+            'icon' => 'fa-exclamation-circle',
+            'iconClass' => 'text-red-500',
+            'active' => $criticality === 'CRITICA',
+        ],
+        [
+            'field' => 'in_course',
+            'value' => '1',
+            'label' => 'En espera',
+            'icon' => 'fa-hourglass-half',
+            'iconClass' => 'text-amber-500',
+            'active' => (string) $inCourse === '1',
+        ],
+        [
+            'field' => 'status',
+            'value' => 'PENDIENTE',
+            'label' => 'Pendientes',
+            'icon' => 'fa-clock',
+            'iconClass' => 'text-yellow-600',
+            'active' => $status === 'PENDIENTE',
+        ],
+        [
+            'field' => 'status',
+            'value' => 'EN_PROCESO',
+            'label' => 'En proceso',
+            'icon' => 'fa-spinner',
+            'iconClass' => 'text-blue-500',
+            'active' => $status === 'EN_PROCESO',
+        ],
+        [
+            'field' => 'due_status',
+            'value' => 'overdue',
+            'label' => 'Vencidas',
+            'icon' => 'fa-calendar-times',
+            'iconClass' => 'text-red-500',
+            'active' => $dueStatus === 'overdue',
+        ],
+        [
+            'field' => 'due_status',
+            'value' => 'due_soon',
+            'label' => 'Por vencer',
+            'icon' => 'fa-calendar-day',
+            'iconClass' => 'text-amber-500',
+            'active' => $dueStatus === 'due_soon',
+        ],
+        [
+            'field' => 'open',
+            'value' => '1',
+            'label' => 'Abiertas',
+            'icon' => 'fa-folder-open',
+            'iconClass' => 'text-emerald-600',
+            'active' => (string) $open === '1',
+        ],
+        [
+            'field' => 'status',
+            'value' => 'PAUSADA',
+            'label' => 'Pausadas',
+            'icon' => 'fa-pause-circle',
+            'iconClass' => 'text-orange-500',
+            'active' => $status === 'PAUSADA',
+        ],
+        [
+            'field' => 'status',
+            'value' => 'RECHAZADA',
+            'label' => 'Rechazadas',
+            'icon' => 'fa-ban',
+            'iconClass' => 'text-rose-500',
+            'active' => $status === 'RECHAZADA',
+        ],
+        [
+            'field' => 'status',
+            'value' => 'CERRADA',
+            'label' => 'Cerradas',
+            'icon' => 'fa-lock',
+            'iconClass' => 'text-slate-500',
+            'active' => $status === 'CERRADA',
+        ],
+    ];
 @endphp
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200" role="region" aria-labelledby="requests-table-title">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" role="region" aria-labelledby="requests-table-title">
     <!-- Header Compacto -->
-    <div class="bg-gray-50 px-2.5 sm:px-3.5 py-2 sm:py-2.5 border-b border-gray-200">
-        <div class="flex items-center justify-between flex-wrap gap-2">
-            <h3 id="requests-table-title" class="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
-                <i class="fas fa-tasks text-blue-500 mr-1.5 sm:mr-2 text-xs sm:text-sm"></i>
-                <span class="hidden sm:inline">Solicitudes de Servicio</span>
-                <span class="sm:hidden">Solicitudes</span>
-                <span class="ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium text-gray-500 bg-gray-200 px-1.5 sm:px-2 py-0.5 rounded-full">
-                    {{ $serviceRequests->total() }}
-                </span>
-            </h3>
-
-            <!-- Toggle Vista Tabla/Tarjetas -->
-            <div class="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                <button id="viewToggleTable" onclick="toggleView('table')" class="px-2 py-1 text-xs rounded transition-colors bg-white shadow-sm text-gray-900">
-                    <i class="fas fa-list mr-1"></i>
-                    <span class="hidden sm:inline">Tabla</span>
-                </button>
-                <button id="viewToggleCards" onclick="toggleView('cards')" class="px-2 py-1 text-xs rounded transition-colors text-gray-600">
-                    <i class="fas fa-th-large mr-1"></i>
-                    <span class="hidden sm:inline">Tarjetas</span>
-                </button>
+    <div class="bg-slate-50 px-4 sm:px-5 py-3 border-b border-gray-200">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+            <div class="min-w-0">
+                <h3 id="requests-table-title" class="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                        <i class="fas fa-tasks text-sm"></i>
+                    </span>
+                    <span>Solicitudes de Servicio</span>
+                    <span class="text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-1 rounded-full">
+                        {{ $serviceRequests->total() }}
+                    </span>
+                </h3>
+                <p class="mt-1 text-xs text-slate-500">Listado operativo con seguimiento de SLA y vencimientos de solicitud.</p>
             </div>
 
-            <!-- Estado Resumido -->
-            <div class="flex items-center gap-2 sm:gap-3 text-xs">
-                <span class="flex items-center text-yellow-600">
-                    <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1"></span>
-                    {{ $pendingCount ?? 0 }}
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                    Pendientes: {{ $pendingCount ?? 0 }}
                 </span>
-                <span class="flex items-center text-red-600">
-                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></span>
-                    {{ $criticalCount ?? 0 }}
+                <span class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                    <span class="h-2 w-2 rounded-full bg-red-500"></span>
+                    Críticas: {{ $criticalCount ?? 0 }}
                 </span>
-                <span class="flex items-center text-green-600">
-                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></span>
-                    {{ $resolvedCount ?? 0 }}
+                <span class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Resueltas: {{ $resolvedCount ?? 0 }}
                 </span>
-                <span class="hidden sm:inline text-[11px] text-gray-500 ml-1">Totales según filtros</span>
+                <div class="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg">
+                    <button id="viewToggleTable" onclick="toggleView('table')" class="px-2.5 py-1.5 text-xs rounded-md transition-colors bg-slate-900 text-white shadow-sm">
+                        <i class="fas fa-list mr-1"></i>
+                        <span>Tabla</span>
+                    </button>
+                    <button id="viewToggleCards" onclick="toggleView('cards')" class="px-2.5 py-1.5 text-xs rounded-md transition-colors text-slate-600 hover:text-slate-900">
+                        <i class="fas fa-th-large mr-1"></i>
+                        <span>Tarjetas</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Nueva Barra de Búsqueda y Filtros Rápidos -->
-    <div class="px-2.5 sm:px-3.5 py-2.5 bg-white border-b border-gray-200">
-        <div class="flex flex-col sm:flex-row gap-3">
+    <div class="px-4 sm:px-5 py-4 bg-white border-b border-gray-200">
+        <div class="flex flex-col lg:flex-row gap-3">
             <!-- Búsqueda Principal -->
             <div class="flex-1 relative">
                 <div class="relative">
@@ -121,62 +215,44 @@
             <!-- Botón Filtros Avanzados -->
             <button type="button" 
                     id="toggleFiltersSidebar"
-                    class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-sm">
+                    class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center justify-center gap-2 text-sm font-medium shadow-sm">
                 <i class="fas fa-filter"></i>
                 <span>Filtros</span>
                 <span id="activeFiltersCount" class="hidden bg-white text-blue-600 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
             </button>
         </div>
 
-        <!-- Filtros Rápidos -->
-            <div class="flex gap-2 mt-2.5 flex-wrap">
-            <button type="button" onclick="applyQuickFilter('criticality', 'CRITICA')" 
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-red-300 text-red-700 hover:bg-red-50 transition-colors">
-                <i class="fas fa-exclamation-circle mr-1"></i>Críticas
-            </button>
-            <button type="button" onclick="applyQuickFilter('in_course', '1')" 
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
-                <i class="fas fa-hourglass-half mr-1"></i>En espera
-            </button>
-            <button type="button" onclick="applyQuickFilter('status', 'PENDIENTE')" 
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-yellow-300 text-yellow-700 hover:bg-yellow-50 transition-colors">
-                <i class="fas fa-clock mr-1"></i>Pendientes
-            </button>
-            <button type="button" onclick="applyQuickFilter('status', 'EN_PROCESO')" 
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors">
-                <i class="fas fa-spinner mr-1"></i>En Proceso
-            </button>
-            <button type="button" onclick="applyQuickFilter('open', '1')" 
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-green-300 text-green-700 hover:bg-green-50 transition-colors">
-                <i class="fas fa-folder-open mr-1"></i>Abiertas
-            </button>
-            <button type="button" onclick="applyQuickFilter('status', 'PAUSADA')"
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors">
-                <i class="fas fa-pause-circle mr-1"></i>Pausadas
-            </button>
-            <button type="button" onclick="applyQuickFilter('status', 'RECHAZADA')"
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors">
-                <i class="fas fa-ban mr-1"></i>Rechazadas
-            </button>
-            <button type="button" onclick="applyQuickFilter('status', 'CERRADA')"
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
-                <i class="fas fa-lock mr-1"></i>Cerradas
-            </button>
-            <button type="button" id="showPresetsBtn"
-                    class="px-3 py-1.5 text-xs font-medium rounded-full border border-purple-300 text-purple-700 hover:bg-purple-50 transition-colors">
-                <i class="fas fa-star mr-1"></i>Presets
-            </button>
-            <button type="button" onclick="applyQuickFilter('all', '1')"
-                    class="quick-filter px-3 py-1.5 text-xs font-medium rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
-                <i class="fas fa-layer-group mr-1"></i>Total
-            </button>
+        <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 p-1.5">
+            <div class="sr-quick-filters flex items-center gap-1.5">
+                @foreach($quickFilters as $filter)
+                    <button type="button"
+                            onclick="applyQuickFilter('{{ $filter['field'] }}', '{{ $filter['value'] }}')"
+                            class="quick-filter inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-semibold transition-colors {{ $filter['active'] ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-100' }}"
+                            title="Filtrar por {{ $filter['label'] }}">
+                        <i class="fas {{ $filter['icon'] }} {{ $filter['active'] ? 'text-white' : $filter['iconClass'] }} text-[11px]"></i>
+                        <span class="truncate">{{ $filter['label'] }}</span>
+                    </button>
+                @endforeach
+                <button type="button" id="showPresetsBtn"
+                        class="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                        title="Abrir presets de filtros">
+                    <i class="fas fa-star text-purple-500 text-[11px]"></i>
+                    <span class="truncate">Presets</span>
+                </button>
+                <button type="button" onclick="applyQuickFilter('all', '1')"
+                        class="quick-filter inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                        title="Ver todas las solicitudes">
+                    <i class="fas fa-layer-group text-slate-500 text-[11px]"></i>
+                    <span class="truncate">Total</span>
+                </button>
+            </div>
         </div>
 
         @if (count($activeFilters) > 0)
-            <div class="mt-2.5 flex flex-wrap items-center gap-2">
-                <span class="text-xs text-gray-500">Filtros activos:</span>
+            <div class="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold text-blue-900">Filtros activos</span>
                 @foreach ($activeFilters as $filter)
-                    <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[11px]">
+                    <span class="inline-flex items-center gap-1 bg-white text-blue-700 border border-blue-200 px-2 py-1 rounded-full text-[11px] font-medium">
                         <i class="fas fa-filter text-[10px]"></i>
                         {{ $filter['label'] }}
                         <a href="{{ $filter['remove'] }}" class="ml-1 text-blue-600 hover:text-blue-800" aria-label="Quitar filtro">
@@ -185,7 +261,7 @@
                     </span>
                 @endforeach
                 <a href="{{ route('service-requests.index') }}"
-                   class="text-xs text-blue-600 hover:text-blue-800 ml-1">Limpiar filtros</a>
+                   class="text-xs font-semibold text-blue-700 hover:text-blue-900 ml-1">Limpiar filtros</a>
             </div>
         @endif
     </div>
@@ -257,6 +333,18 @@
                         </select>
                     </div>
 
+                    <!-- Vencimiento -->
+                    <div>
+                        <label for="dueStatusFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Vencimiento</label>
+                        <select id="dueStatusFilterAdv" name="due_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Todos</option>
+                            <option value="with_due" {{ request('due_status') === 'with_due' ? 'selected' : '' }}>Con vencimiento</option>
+                            <option value="overdue" {{ request('due_status') === 'overdue' ? 'selected' : '' }}>Vencidas</option>
+                            <option value="due_soon" {{ request('due_status') === 'due_soon' ? 'selected' : '' }}>Por vencer (3 días)</option>
+                            <option value="without_due" {{ request('due_status') === 'without_due' ? 'selected' : '' }}>Sin vencimiento</option>
+                        </select>
+                    </div>
+
                     <!-- Solicitante -->
                     <div>
                         <label for="requesterFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Solicitante</label>
@@ -286,6 +374,7 @@
                             <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>Antigüedad (más antiguas primero)</option>
                             <option value="priority_high" {{ request('sort_by') === 'priority_high' ? 'selected' : '' }}>Prioridad alta a baja</option>
                             <option value="priority_low" {{ request('sort_by') === 'priority_low' ? 'selected' : '' }}>Prioridad baja a alta</option>
+                            <option value="due_date" {{ request('sort_by') === 'due_date' ? 'selected' : '' }}>Vencimiento más cercano</option>
                             <option value="status_az" {{ request('sort_by') === 'status_az' ? 'selected' : '' }}>Estado A-Z</option>
                             <option value="status_za" {{ request('sort_by') === 'status_za' ? 'selected' : '' }}>Estado Z-A</option>
                         </select>
@@ -322,21 +411,29 @@
     <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40" onclick="document.getElementById('filtersSidebar').classList.add('translate-x-full'); this.classList.add('hidden');"></div>
 
     <!-- Contenido Compacto -->
-    <div class="p-2.5 sm:p-3.5" id="tableContainer">
+    <div class="p-3 sm:p-4" id="tableContainer">
         @if ($serviceRequests->count() > 0)
-            <div class="overflow-x-auto -mx-2.5 sm:mx-0">
+            <div class="sr-table-view rounded-lg border border-slate-200 overflow-hidden">
                 <!-- Tabla Compacta -->
-                <table class="min-w-full text-xs sm:text-sm" aria-describedby="table-instructions">
-                    <thead class="bg-gray-50 text-xs text-gray-700 uppercase">
+                <table class="sr-requests-table w-full table-fixed text-sm" aria-describedby="table-instructions">
+                    <colgroup>
+                        <col class="w-[14%]">
+                        <col class="w-[32%]">
+                        <col class="w-[9%]">
+                        <col class="w-[11%]">
+                        <col class="w-[16%]">
+                        <col class="w-[9%]">
+                        <col class="w-[9%]">
+                    </colgroup>
+                    <thead class="bg-slate-50 text-xs text-slate-600 uppercase">
                         <tr>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Ticket</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium w-1/5 hidden md:table-cell">Solicitud</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium w-1/5 hidden lg:table-cell">Servicio</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Prioridad</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Estado</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium hidden sm:table-cell">Solicitante</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium hidden xl:table-cell">Fecha</th>
-                            <th class="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-left font-medium">Acciones</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Ticket</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Solicitud</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Prioridad</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Estado</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Solicitante</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Creada</th>
+                            <th class="px-3 py-2.5 text-right font-semibold tracking-wide">Acciones</th>
                         </tr>
                     </thead>
 
@@ -374,6 +471,27 @@
                             'MEDIA' => 'bg-yellow-500 text-white',
                             'BAJA' => 'bg-green-500 text-white'
                         ];
+                        $hasDueDate = $request->hasRequestDueDate();
+                        $isFinalForDueDate = in_array(strtoupper((string) $request->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'], true);
+                        $dueDays = $request->daysUntilRequestDue();
+                        $dueClasses = 'bg-slate-50 text-slate-700 border-slate-200';
+                        $dueLabel = 'Sin vencimiento';
+
+                        if ($hasDueDate) {
+                            if ($isFinalForDueDate) {
+                                $dueClasses = 'bg-slate-50 text-slate-600 border-slate-200';
+                                $dueLabel = 'Registrado';
+                            } elseif ($request->isRequestDueOverdue()) {
+                                $dueClasses = 'bg-red-50 text-red-700 border-red-200';
+                                $dueLabel = 'Vencida';
+                            } elseif ($request->isRequestDueSoon()) {
+                                $dueClasses = 'bg-amber-50 text-amber-700 border-amber-200';
+                                $dueLabel = $dueDays === 0 ? 'Vence hoy' : 'Por vencer';
+                            } else {
+                                $dueClasses = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                $dueLabel = 'En plazo';
+                            }
+                        }
 
                         $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
                         $isOpenRequest = in_array(strtoupper((string) $request->status), $openStatuses, true);
@@ -471,6 +589,21 @@
                                 </div>
                             </div>
 
+                            <!-- Vencimiento -->
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-calendar-check {{ $hasDueDate ? 'text-amber-500' : 'text-gray-400' }} text-xs mt-0.5"></i>
+                                <div class="flex-1 min-w-0">
+                                    @if($hasDueDate)
+                                        <div class="inline-flex items-center gap-1 px-2 py-1 rounded-md border {{ $dueClasses }} text-[11px] font-semibold">
+                                            <span>{{ $request->due_date->format('d/m/Y') }}</span>
+                                            <span>{{ $dueLabel }}</span>
+                                        </div>
+                                    @else
+                                        <div class="text-xs text-gray-500">Sin vencimiento</div>
+                                    @endif
+                                </div>
+                            </div>
+
                             
                             <!-- Solicitante -->
                             <div class="flex items-center gap-2">
@@ -532,22 +665,20 @@
 </div>
 
 <style>
-    /* Mejoras de densidad */
-    .min-w-full th,
-    .min-w-full td {
-        padding: 0.5rem 0.75rem;
+    .sr-requests-table th,
+    .sr-requests-table td {
+        padding: 0.625rem 0.75rem;
     }
 
-    /* Estados de enfoque para accesibilidad */
-    tr:focus {
+    .sr-requests-table tr:focus {
         outline: 2px solid #3b82f6;
         background-color: #eff6ff;
     }
 
-    /* Hover sutil */
-    tr:hover {
+    .sr-requests-table tr:hover {
         background-color: #f9fafb;
     }
+
     /* Dropdown sugerencias */
     #requesterSuggestions li { padding:0.4rem 0.6rem; }
     #requesterSuggestions li:hover, #requesterSuggestions li[aria-selected='true'] { background:#eef2ff; }
@@ -555,25 +686,26 @@
 
 <script>
 function toggleView(view) {
-    const tableView = document.querySelector('.overflow-x-auto');
+    const tableView = document.querySelector('#tableContainer .sr-table-view');
     const cardsView = document.getElementById('cardsView');
     const tableBtn = document.getElementById('viewToggleTable');
     const cardsBtn = document.getElementById('viewToggleCards');
+    if (!tableView || !cardsView || !tableBtn || !cardsBtn) return;
     
     if (view === 'table') {
         tableView.classList.remove('hidden');
         cardsView.classList.add('hidden');
-        tableBtn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
-        tableBtn.classList.remove('text-gray-600');
-        cardsBtn.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
-        cardsBtn.classList.add('text-gray-600');
+        tableBtn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+        tableBtn.classList.remove('text-slate-600', 'hover:text-slate-900');
+        cardsBtn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+        cardsBtn.classList.add('text-slate-600', 'hover:text-slate-900');
     } else {
         tableView.classList.add('hidden');
         cardsView.classList.remove('hidden');
-        cardsBtn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
-        cardsBtn.classList.remove('text-gray-600');
-        tableBtn.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
-        tableBtn.classList.add('text-gray-600');
+        cardsBtn.classList.add('bg-slate-900', 'text-white', 'shadow-sm');
+        cardsBtn.classList.remove('text-slate-600', 'hover:text-slate-900');
+        tableBtn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
+        tableBtn.classList.add('text-slate-600', 'hover:text-slate-900');
     }
     
     // Guardar preferencia en localStorage
@@ -790,6 +922,7 @@ function gatherFilters() {
         search: document.getElementById('searchFilter')?.value || '',
         status: document.getElementById('statusFilterAdv')?.value || '',
         criticality: document.getElementById('criticalityFilterAdv')?.value || '',
+        due_status: document.getElementById('dueStatusFilterAdv')?.value || '',
         service_id: document.getElementById('serviceFilterAdv')?.value || '',
         requester: document.getElementById('requesterFilterAdv')?.value || '',
         start_date: document.getElementById('startDateFilterAdv')?.value || '',

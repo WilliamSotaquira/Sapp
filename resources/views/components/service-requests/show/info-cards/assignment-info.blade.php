@@ -10,21 +10,21 @@
         : '';
 @endphp
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden" data-assignment-card="1" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
-    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100' }} px-6 py-3 border-b">
+<div class="h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-assignment-card="1" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-emerald-50 border-emerald-100' }} px-5 py-3 border-b">
         <h3 class="sr-card-title text-gray-800 flex items-center">
-            <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-green-600' }} mr-3"></i>
+            <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-emerald-600' }} mr-2"></i>
             Asignación y Responsables
         </h3>
     </div>
 
-    <div class="p-4">
+    <div class="p-5">
         @if ($serviceRequest->status === 'EN_PROCESO' && !$serviceRequest->assigned_to)
-            <div class="mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div class="mb-4 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 Falta asignar técnico para continuar.
             </div>
         @elseif ($serviceRequest->status === 'ACEPTADA' && !$serviceRequest->assigned_to)
-            <div class="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+            <div class="mb-4 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
                 Asignación pendiente para iniciar el proceso.
             </div>
         @endif
@@ -35,16 +35,16 @@
                 ->get();
         @endphp
 
-        <div class="grid grid-cols-1 gap-2.5">
+        <div class="divide-y divide-gray-100">
             <!-- Solicitante -->
-            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
-                <div class="grid grid-cols-[auto,1fr,auto] gap-2.5 items-start">
-                    <div class="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+            <div class="pb-4">
+                <div class="grid grid-cols-[auto,1fr] sm:grid-cols-[auto,1fr,auto] gap-3 items-start">
+                    <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                         <span data-requester-initial>{{ substr($serviceRequest->requester->name ?? 'U', 0, 1) }}</span>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Solicitante</div>
-                        <div class="mt-1 space-y-0.5">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Solicitante</div>
+                        <div class="mt-1 space-y-0.5 min-w-0">
                             <div class="text-sm text-gray-700 leading-snug">
                                 @if($serviceRequest->requester)
                                     <a href="{{ route('requester-management.requesters.show', $serviceRequest->requester) }}"
@@ -60,15 +60,15 @@
                             <div class="text-sm text-gray-600 leading-snug truncate">
                                 <span data-requester-email title="{{ $serviceRequest->requester->email ?? '' }}">{{ $serviceRequest->requester->email ?? 'Sin correo' }}</span>
                             </div>
-                            <div class="text-sm text-gray-600">
+                            <div class="text-sm text-gray-600 truncate">
                                 <span data-requester-position title="{{ $serviceRequest->requester->position ?? '' }}">{{ $serviceRequest->requester->position ?? 'Sin cargo' }}</span>
                             </div>
                         </div>
                     </div>
                 @if($serviceRequest->status !== 'CERRADA')
-                    <div class="self-start">
+                    <div class="col-span-2 sm:col-span-1 sm:self-start sm:justify-self-end">
                         <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                            class="quick-requester-btn inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
+                            class="quick-requester-btn inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
                             <i class="fas fa-user-edit mr-1"></i>
                             <span data-requester-action-label>{{ $serviceRequest->requester ? 'Cambiar' : 'Asignar' }}</span>
                         </button>
@@ -78,14 +78,14 @@
             </div>
 
             <!-- Técnico -->
-            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
-                <div class="grid grid-cols-[auto,1fr,auto] gap-2.5 items-start">
-                    <div data-assignee-avatar class="flex-shrink-0 w-9 h-9 {{ $serviceRequest->assigned_to ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' : 'bg-amber-100 text-amber-700' }} rounded-full flex items-center justify-center font-bold text-sm">
+            <div class="pt-4">
+                <div class="grid grid-cols-[auto,1fr] sm:grid-cols-[auto,1fr,auto] gap-3 items-start">
+                    <div data-assignee-avatar class="flex-shrink-0 w-10 h-10 {{ $serviceRequest->assigned_to ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' : 'bg-amber-100 text-amber-700' }} rounded-full flex items-center justify-center font-bold text-sm">
                         <span data-assignee-initial>{{ $serviceRequest->assigned_to ? substr($serviceRequest->assignee->name ?? 'T', 0, 1) : '?' }}</span>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-xs font-semibold uppercase tracking-normal text-gray-500">Técnico asignado</div>
-                        <div class="mt-1 space-y-0.5">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Técnico asignado</div>
+                        <div class="mt-1 space-y-0.5 min-w-0">
                             <div class="text-sm text-gray-700 leading-snug">
                                 @if($serviceRequest->assigned_to)
                                     <a href="{{ $serviceRequest->assignee?->technician ? route('technicians.show', $serviceRequest->assignee->technician) : '#' }}"
@@ -101,15 +101,15 @@
                             <div class="text-sm text-gray-600 leading-snug truncate">
                                 <span data-assignee-email title="{{ $assigneeCompanyEmail }}">{{ $assigneeCompanyEmail ?: 'Sin correo' }}</span>
                             </div>
-                            <div class="text-sm text-gray-600">
+                            <div class="text-sm text-gray-600 truncate">
                                 <span data-assignee-position title="{{ $assigneeCompanyPosition }}">{{ $assigneeCompanyPosition ?: 'Sin cargo' }}</span>
                             </div>
                         </div>
                     </div>
                 @if($serviceRequest->status !== 'CERRADA')
-                    <div class="self-start">
+                    <div class="col-span-2 sm:col-span-1 sm:self-start sm:justify-self-end">
                         <button type="button" data-request-id="{{ $serviceRequest->id }}"
-                            class="quick-assign-btn inline-flex items-center justify-center px-2.5 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
+                            class="quick-assign-btn inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50">
                             <i class="fas fa-user-plus mr-1"></i>
                             <span data-assignee-action-label>{{ $serviceRequest->assigned_to ? 'Reasignar Técnico' : 'Asignar Técnico' }}</span>
                         </button>

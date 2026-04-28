@@ -1,6 +1,6 @@
 @props(['request', 'compact' => false])
 
-<div class="flex items-center gap-1" data-request-id="{{ $request->id }}">
+<div class="flex items-center justify-end gap-1 min-w-[4.75rem]" data-request-id="{{ $request->id }}">
     <!-- Ver Detalles -->
     <a href="{{ route('service-requests.show', $request) }}"
        class="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors duration-150 inline-flex items-center"

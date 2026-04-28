@@ -34,7 +34,6 @@
                     <th scope="col" class="w-[24%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Familia</th>
                     <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Estado</th>
                     <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Creada</th>
-                    <th scope="col" class="w-[8%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 bg-white">
@@ -81,20 +80,10 @@
                                 <span class="text-gray-400">Sin fecha</span>
                             @endif
                         </td>
-                        <td class="w-[8%] px-4 py-3 text-sm whitespace-nowrap">
-                            <form method="POST" action="{{ route('reports.cuts.requests.remove', [$cut, $sr]) }}" onsubmit="return confirm('¿Remover esta solicitud del corte?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1" aria-label="Quitar solicitud {{ $sr->ticket_number }} del corte">
-                                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-                                    <span class="sr-only">Quitar</span>
-                                </button>
-                            </form>
-                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-4 py-10 text-center text-sm text-gray-500">
+                        <td colspan="5" class="px-4 py-10 text-center text-sm text-gray-500">
                             No hay solicitudes asociadas a este corte para las familias seleccionadas.
                         </td>
                     </tr>

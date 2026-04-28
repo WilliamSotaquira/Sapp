@@ -179,6 +179,10 @@
             <div class="info-item">
                 <span class="info-label">Fecha Creación:</span> {{ $serviceRequest->created_at->format('d/m/Y H:i') }}
             </div>
+            <div class="info-item">
+                <span class="info-label">Fecha Vencimiento:</span>
+                {{ $serviceRequest->due_date ? $serviceRequest->due_date->format('d/m/Y') : 'Sin vencimiento' }}
+            </div>
         </div>
     </div>
 

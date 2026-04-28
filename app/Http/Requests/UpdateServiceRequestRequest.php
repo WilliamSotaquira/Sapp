@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\ServiceRequest;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateServiceRequestRequest extends FormRequest
@@ -62,13 +63,14 @@ class UpdateServiceRequestRequest extends FormRequest
             'requester_id' => 'required|exists:requesters,id',
             'sub_service_id' => 'required|exists:sub_services,id',
             'sla_id' => 'required|exists:service_level_agreements,id',
-            'cut_id' => 'nullable|exists:cuts,id',
             'assigned_to' => 'nullable|exists:users,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'criticality_level' => 'required|in:BAJA,MEDIA,ALTA,URGENTE,CRITICA',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'is_reportable' => 'sometimes|boolean',
+            'due_date' => 'nullable|date',
+            'created_at' => 'sometimes|required|date|before_or_equal:now',
         ];
     }
 
@@ -119,21 +121,30 @@ class UpdateServiceRequestRequest extends FormRequest
                 }
             }
 
-            $cutId = $this->input('cut_id');
-            if ($cutId && $activeContractId) {
-                $cut = \App\Models\Cut::find($cutId);
-                $cutContractId = $cut?->contract_id;
-                if ($cutContractId && (string) $cutContractId !== (string) $activeContractId) {
-                    $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
-                }
-
-            }
-
             $requesterId = $this->input('requester_id');
             if ($requesterId && $companyId) {
                 $requesterCompanyId = \App\Models\Requester::where('id', $requesterId)->value('company_id');
                 if ($requesterCompanyId && (string) $requesterCompanyId !== (string) $companyId) {
                     $validator->errors()->add('requester_id', 'El solicitante no pertenece al espacio de trabajo actual.');
+                }
+            }
+
+            $routeServiceRequest = $this->route('service_request') ?? $this->route('serviceRequest');
+            if ($routeServiceRequest instanceof ServiceRequest && $this->filled('created_at')) {
+                try {
+                    $createdAt = Carbon::parse($this->input('created_at'));
+                    foreach (['accepted_at', 'responded_at', 'resolved_at', 'closed_at'] as $field) {
+                        $timestamp = $routeServiceRequest->{$field};
+                        if ($timestamp && $createdAt->gt($timestamp)) {
+                            $validator->errors()->add(
+                                'created_at',
+                                'La fecha de creación no puede ser posterior a fechas ya registradas en la solicitud.'
+                            );
+                            break;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // La regla date reporta el error de formato.
                 }
             }
         });
@@ -154,6 +165,10 @@ class UpdateServiceRequestRequest extends FormRequest
             'criticality_level.in' => 'El nivel de criticidad seleccionado no es válido.',
             'entry_channel.required' => 'El canal de entrada es obligatorio.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
+            'due_date.date' => 'La fecha de vencimiento no tiene un formato válido.',
+            'created_at.required' => 'La fecha de creación es obligatoria.',
+            'created_at.date' => 'La fecha de creación no tiene un formato válido.',
+            'created_at.before_or_equal' => 'La fecha de creación no puede ser futura.',
         ];
     }
 }

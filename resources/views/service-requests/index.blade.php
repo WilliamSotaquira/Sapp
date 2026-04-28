@@ -23,11 +23,11 @@
     <x-service-requests.index.header.main-header />
 
     <div class="space-y-3 md:space-y-6" id="resultsContainer">
-        @if(($slaAlerts['overdue'] ?? 0) > 0 || ($slaAlerts['dueSoon'] ?? 0) > 0)
+        @if(($slaAlerts['overdue'] ?? 0) > 0 || ($slaAlerts['dueSoon'] ?? 0) > 0 || ($dueAlerts['overdue'] ?? 0) > 0 || ($dueAlerts['dueSoon'] ?? 0) > 0)
             <div class="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 text-amber-800 text-sm font-semibold">
                     <i class="fas fa-bell"></i>
-                    Alertas SLA
+                    Alertas
                 </div>
                 @if(($slaAlerts['overdue'] ?? 0) > 0)
                     <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['open' => 1])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
@@ -39,6 +39,18 @@
                     <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['open' => 1])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold">
                         <i class="fas fa-clock"></i>
                         {{ $slaAlerts['dueSoon'] }} por vencer (24h)
+                    </a>
+                @endif
+                @if(($dueAlerts['overdue'] ?? 0) > 0)
+                    <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['due_status' => 'overdue'])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                        <i class="fas fa-calendar-times"></i>
+                        {{ $dueAlerts['overdue'] }} vencimiento(s) vencido(s)
+                    </a>
+                @endif
+                @if(($dueAlerts['dueSoon'] ?? 0) > 0)
+                    <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['due_status' => 'due_soon'])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                        <i class="fas fa-calendar-day"></i>
+                        {{ $dueAlerts['dueSoon'] }} vencimiento(s) próximos
                     </a>
                 @endif
             </div>
@@ -128,10 +140,16 @@
         return {
             search: document.getElementById('searchFilter'),
             status: document.getElementById('statusFilter'),
+            statusAdv: document.getElementById('statusFilterAdv'),
             criticality: document.getElementById('criticalityFilter'),
+            criticalityAdv: document.getElementById('criticalityFilterAdv'),
+            dueStatus: document.getElementById('dueStatusFilterAdv'),
             requester: document.getElementById('requesterFilter'),
+            requesterAdv: document.getElementById('requesterFilterAdv'),
             startDate: document.getElementById('startDateFilter'),
+            startDateAdv: document.getElementById('startDateFilterAdv'),
             endDate: document.getElementById('endDateFilter'),
+            endDateAdv: document.getElementById('endDateFilterAdv'),
             open: document.getElementById('openFilter'),
             suggestions: document.getElementById('requesterSuggestions'),
             badge: document.getElementById('filtersActiveBadge'),
@@ -142,11 +160,12 @@
     function countActiveFilters(el) {
         var c = 0;
         if(el.search && el.search.value.trim()) c++;
-        if(el.status && el.status.value) c++;
-        if(el.criticality && el.criticality.value) c++;
-        if(el.requester && el.requester.value.trim()) c++;
-        if(el.startDate && el.startDate.value) c++;
-        if(el.endDate && el.endDate.value) c++;
+        if((el.status && el.status.value) || (el.statusAdv && el.statusAdv.value)) c++;
+        if((el.criticality && el.criticality.value) || (el.criticalityAdv && el.criticalityAdv.value)) c++;
+        if(el.dueStatus && el.dueStatus.value) c++;
+        if((el.requester && el.requester.value.trim()) || (el.requesterAdv && el.requesterAdv.value.trim())) c++;
+        if((el.startDate && el.startDate.value) || (el.startDateAdv && el.startDateAdv.value)) c++;
+        if((el.endDate && el.endDate.value) || (el.endDateAdv && el.endDateAdv.value)) c++;
         if(el.open && el.open.value) c++;
         return c;
     }
@@ -250,11 +269,12 @@
         var el = getFilterElements();
         var state = {
             search: el.search ? el.search.value : '',
-            status: el.status ? el.status.value : '',
-            criticality: el.criticality ? el.criticality.value : '',
-            requester: el.requester ? el.requester.value : '',
-            start_date: el.startDate ? el.startDate.value : '',
-            end_date: el.endDate ? el.endDate.value : '',
+            status: el.statusAdv ? el.statusAdv.value : (el.status ? el.status.value : ''),
+            criticality: el.criticalityAdv ? el.criticalityAdv.value : (el.criticality ? el.criticality.value : ''),
+            due_status: el.dueStatus ? el.dueStatus.value : '',
+            requester: el.requesterAdv ? el.requesterAdv.value : (el.requester ? el.requester.value : ''),
+            start_date: el.startDateAdv ? el.startDateAdv.value : (el.startDate ? el.startDate.value : ''),
+            end_date: el.endDateAdv ? el.endDateAdv.value : (el.endDate ? el.endDate.value : ''),
             open: el.open ? el.open.value : ''
         };
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
@@ -268,10 +288,16 @@
             var state = JSON.parse(raw);
             if(el.search && !el.search.value) el.search.value = state.search || '';
             if(el.status && !el.status.value) el.status.value = state.status || '';
+            if(el.statusAdv && !el.statusAdv.value) el.statusAdv.value = state.status || '';
             if(el.criticality && !el.criticality.value) el.criticality.value = state.criticality || '';
+            if(el.criticalityAdv && !el.criticalityAdv.value) el.criticalityAdv.value = state.criticality || '';
+            if(el.dueStatus && !el.dueStatus.value) el.dueStatus.value = state.due_status || '';
             if(el.requester && !el.requester.value) el.requester.value = state.requester || '';
+            if(el.requesterAdv && !el.requesterAdv.value) el.requesterAdv.value = state.requester || '';
             if(el.startDate && !el.startDate.value) el.startDate.value = state.start_date || '';
+            if(el.startDateAdv && !el.startDateAdv.value) el.startDateAdv.value = state.start_date || '';
             if(el.endDate && !el.endDate.value) el.endDate.value = state.end_date || '';
+            if(el.endDateAdv && !el.endDateAdv.value) el.endDateAdv.value = state.end_date || '';
             if(el.open && state.open) el.open.value = state.open;
             updateBadge();
             if (el.search && document.activeElement === el.search) placeCaretAtEnd(el.search);
@@ -290,11 +316,17 @@
     function buildParams(el){
         var params = new URLSearchParams();
         if (el.search && el.search.value.trim()) params.append('search', el.search.value.trim());
-        if (el.status && el.status.value) params.append('status', el.status.value);
-        if (el.criticality && el.criticality.value) params.append('criticality', el.criticality.value);
-        if (el.requester && el.requester.value.trim()) params.append('requester', el.requester.value.trim());
-        if (el.startDate && el.startDate.value) params.append('start_date', el.startDate.value);
-        if (el.endDate && el.endDate.value) params.append('end_date', el.endDate.value);
+        var status = el.statusAdv ? el.statusAdv.value : (el.status ? el.status.value : '');
+        var criticality = el.criticalityAdv ? el.criticalityAdv.value : (el.criticality ? el.criticality.value : '');
+        var requester = el.requesterAdv ? el.requesterAdv.value : (el.requester ? el.requester.value : '');
+        var startDate = el.startDateAdv ? el.startDateAdv.value : (el.startDate ? el.startDate.value : '');
+        var endDate = el.endDateAdv ? el.endDateAdv.value : (el.endDate ? el.endDate.value : '');
+        if (status) params.append('status', status);
+        if (criticality) params.append('criticality', criticality);
+        if (el.dueStatus && el.dueStatus.value) params.append('due_status', el.dueStatus.value);
+        if (requester && requester.trim()) params.append('requester', requester.trim());
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
         if (el.open && el.open.value) params.append('open', el.open.value);
         return params;
     }

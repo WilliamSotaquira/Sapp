@@ -78,7 +78,7 @@ class ServiceRequestService
 
     /**
      * Resuelve en una sola consulta los IDs técnicos para crear una solicitud.
-     * Retorna: family_id, service_id, sub_service_id, sla_id y cut_id según la fecha de referencia.
+     * Retorna: contract_id, family_id, service_id, sub_service_id, sla_id y cut_id según la fecha de referencia.
      */
     public function resolveCreationContext(int $companyId, int $subServiceId, string $criticality, string|\DateTimeInterface|null $referenceDate = null): array
     {
@@ -112,11 +112,12 @@ class ServiceRequestService
             ->where('sf.is_active', 1)
             ->select([
                 'sf.id as family_id',
+                'sf.contract_id as contract_id',
                 's.id as service_id',
                 'ss.id as sub_service_id',
                 DB::raw('COALESCE(MIN(sla_ss.id), MIN(sla_sf.id)) as sla_id'),
             ])
-            ->groupBy('sf.id', 's.id', 'ss.id')
+            ->groupBy('sf.id', 'sf.contract_id', 's.id', 'ss.id')
             ->first();
 
         if (!$row) {
@@ -129,42 +130,67 @@ class ServiceRequestService
 
         return [
             'family_id' => (int) $row->family_id,
+            'contract_id' => (int) $row->contract_id,
             'service_id' => (int) $row->service_id,
             'sub_service_id' => (int) $row->sub_service_id,
             'sla_id' => (int) $row->sla_id,
-            'cut_id' => $this->resolveCutIdForDate($companyId, $referenceDate),
+            'cut_id' => $this->resolveCutIdForContractDate((int) $row->contract_id, $referenceDate),
         ];
     }
 
-    private function resolveCutIdForDate(int $companyId, string|\DateTimeInterface|null $referenceDate = null): ?int
+    private function resolveCutIdForContractDate(int $contractId, string|\DateTimeInterface|null $referenceDate = null): ?int
     {
         $reference = $referenceDate instanceof \DateTimeInterface
             ? Carbon::instance(\DateTimeImmutable::createFromInterface($referenceDate))
             : ($referenceDate ? Carbon::parse($referenceDate) : now());
 
         $cutId = Cut::query()
-            ->whereHas('contract', function ($query) use ($companyId) {
-                $query->where('company_id', $companyId);
-            })
+            ->where('contract_id', $contractId)
             ->whereDate('start_date', '<=', $reference->toDateString())
             ->whereDate('end_date', '>=', $reference->toDateString())
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->value('id');
 
-        if ($cutId) {
-            return (int) $cutId;
+        return $cutId ? (int) $cutId : null;
+    }
+
+    public function resolveCutByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        $serviceRequest->loadMissing('subService.service.family.contract');
+
+        $reference = $serviceRequest->created_at
+            ? Carbon::parse($serviceRequest->created_at)
+            : now();
+
+        $contractId = (int) ($serviceRequest->subService?->service?->family?->contract_id ?? 0);
+        $companyId = (int) ($serviceRequest->company_id ?? 0);
+
+        if ($contractId <= 0 && $companyId <= 0) {
+            return null;
         }
 
-        $fallbackCutId = Cut::query()
-            ->whereHas('contract', function ($query) use ($companyId) {
-                $query->where('company_id', $companyId);
+        return Cut::query()
+            ->when($contractId > 0, fn($query) => $query->where('contract_id', $contractId))
+            ->when($contractId <= 0 && $companyId > 0, function ($query) use ($companyId) {
+                $query->whereHas('contract', function ($contractQuery) use ($companyId) {
+                    $contractQuery->where('company_id', $companyId);
+                });
             })
+            ->whereDate('start_date', '<=', $reference->toDateString())
+            ->whereDate('end_date', '>=', $reference->toDateString())
             ->orderByDesc('start_date')
             ->orderByDesc('id')
-            ->value('id');
+            ->first(['id', 'contract_id', 'name', 'start_date', 'end_date']);
+    }
 
-        return $fallbackCutId ? (int) $fallbackCutId : null;
+    public function syncCutAssociationByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        $cut = $this->resolveCutByCreationDate($serviceRequest);
+
+        $serviceRequest->cuts()->sync($cut ? [$cut->id] : []);
+
+        return $cut;
     }
 
     private function applySorting($query, ?string $sortBy): void
@@ -187,6 +213,11 @@ class ServiceRequestService
                 break;
             case 'status_za':
                 $query->orderBy('status', 'desc')
+                    ->orderByDesc('created_at');
+                break;
+            case 'due_date':
+                $query->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('due_date', 'asc')
                     ->orderByDesc('created_at');
                 break;
             case 'recent':
@@ -289,6 +320,29 @@ class ServiceRequestService
             $query->where('criticality_level', $filters['criticality']);
         }
 
+        if (!empty($filters['due_status'])) {
+            $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
+
+            switch ($filters['due_status']) {
+                case 'with_due':
+                    $query->whereNotNull('due_date');
+                    break;
+                case 'without_due':
+                    $query->whereNull('due_date');
+                    break;
+                case 'overdue':
+                    $query->whereIn('status', $openStatuses)
+                        ->whereNotNull('due_date')
+                        ->whereDate('due_date', '<', now()->toDateString());
+                    break;
+                case 'due_soon':
+                    $query->whereIn('status', $openStatuses)
+                        ->whereNotNull('due_date')
+                        ->whereBetween('due_date', [now()->toDateString(), now()->addDays(3)->toDateString()]);
+                    break;
+            }
+        }
+
         // Servicio
         if (!empty($filters['service_id'])) {
             $serviceId = (int) $filters['service_id'];
@@ -358,7 +412,7 @@ class ServiceRequestService
             ->select([
                 'id', 'company_id', 'ticket_number', 'title', 'description', 'status',
                 'criticality_level', 'requester_id', 'sub_service_id', 'sla_id',
-                'created_at', 'updated_at', 'accepted_at', 'response_deadline', 'responded_at'
+                'created_at', 'updated_at', 'due_date', 'accepted_at', 'response_deadline', 'responded_at'
             ]);
 
         $this->applySorting($query, $filters['sort_by'] ?? 'recent');
@@ -429,9 +483,12 @@ class ServiceRequestService
 
             $tasks = $data['tasks'] ?? null;
             $tasksTemplate = $data['tasks_template'] ?? null;
-            $cutId = $data['cut_id'] ?? null;
 
             unset($data['tasks'], $data['tasks_template'], $data['cut_id']);
+
+            if (array_key_exists('created_at', $data)) {
+                $data['created_at'] = $this->normalizeCreationTimestamp($data['created_at']);
+            }
 
             // Procesar web_routes si existe
             if (!empty($data['web_routes'])) {
@@ -440,13 +497,11 @@ class ServiceRequestService
                     : $data['web_routes'];
             }
 
-            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, $cutId) {
+            $resolvedCut = null;
+            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, &$resolvedCut) {
                 $serviceRequest = ServiceRequest::create($data);
 
-                // Vincular al corte si se proporcionó
-                if (!empty($cutId)) {
-                    $serviceRequest->cuts()->attach($cutId);
-                }
+                $resolvedCut = $this->syncCutAssociationByCreationDate($serviceRequest);
 
                 $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
 
@@ -457,7 +512,7 @@ class ServiceRequestService
                 'id' => $serviceRequest->id,
                 'ticket_number' => $serviceRequest->ticket_number,
                 'requester_id' => $serviceRequest->requester_id,
-                'cut_id' => $cutId,
+                'cut_id' => $resolvedCut?->id,
             ]);
 
             return $serviceRequest;
@@ -813,17 +868,6 @@ class ServiceRequestService
                 ->get(['id', 'name', 'email', 'department', 'company_id']),
             'companies' => \App\Models\Company::orderBy('name')->get(),
             'currentCompany' => $currentCompany,
-            'cuts' => Cut::with('contract:id,number,company_id')
-                ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
-                    $query->whereHas('contract', function ($q) use ($currentCompanyId) {
-                        $q->where('company_id', $currentCompanyId);
-                    });
-                })
-                ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
-                    $query->where('contract_id', $currentCompany->active_contract_id);
-                })
-                ->orderBy('start_date', 'desc')
-                ->get(['id', 'contract_id', 'name', 'start_date', 'end_date']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
         ];
     }
@@ -842,6 +886,7 @@ class ServiceRequestService
             'requester:id,name,email,phone,position',
             'company:id,name',
             'assignee:id,name,email',
+            'cuts:id,name,start_date,end_date,notes',
             'breachLogs:id,service_request_id,breach_type,breach_minutes,created_at',
             'evidences' => function($query) {
                 $query->with('user:id,name')
@@ -854,7 +899,7 @@ class ServiceRequestService
     /**
      * Obtener datos para el formulario de edición
      */
-    public function getEditFormData(?int $selectedSubServiceId = null, ?int $selectedCutId = null): array
+    public function getEditFormData(?int $selectedSubServiceId = null): array
     {
         $selectedSubService = null;
         if ($selectedSubServiceId) {
@@ -885,27 +930,9 @@ class ServiceRequestService
         $currentCompany = $currentCompanyId
             ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
             : null;
-        $cuts = Cut::with('contract:id,number,company_id')
-            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
-                $query->whereHas('contract', function ($q) use ($currentCompanyId) {
-                    $q->where('company_id', $currentCompanyId);
-                });
-            })
-            ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
-                $query->where('contract_id', $currentCompany->active_contract_id);
-            })
-            ->orderBy('start_date', 'desc')
-            ->get(['id', 'contract_id', 'name', 'start_date', 'end_date']);
 
-        if ($selectedCutId && !$cuts->contains('id', $selectedCutId)) {
-            $selectedCut = Cut::with('contract:id,number,company_id')
-                ->find($selectedCutId, ['id', 'contract_id', 'name', 'start_date', 'end_date']);
-            if ($selectedCut) {
-                $cuts->prepend($selectedCut);
-            }
-        }
         $criticalityLevels = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
-        return compact('subServices', 'selectedSubService', 'users', 'requesters', 'companies', 'cuts', 'criticalityLevels', 'currentCompany');
+        return compact('subServices', 'selectedSubService', 'users', 'requesters', 'companies', 'criticalityLevels', 'currentCompany');
     }
 
     /**
@@ -919,20 +946,17 @@ class ServiceRequestService
         ]);
 
         try {
-            $hasCutInPayload = array_key_exists('cut_id', $data);
-            $cutIdRaw = $hasCutInPayload ? $data['cut_id'] : null;
-            $cutId = ($cutIdRaw === '' || $cutIdRaw === null) ? null : (int) $cutIdRaw;
             unset($data['cut_id']);
+
+            if (array_key_exists('created_at', $data)) {
+                $data['created_at'] = $this->normalizeCreationTimestamp($data['created_at'], $serviceRequest->created_at);
+            }
 
             $previousAssignedTo = $serviceRequest->assigned_to;
 
-            DB::transaction(function () use ($serviceRequest, $data, $hasCutInPayload, $cutId) {
+            DB::transaction(function () use ($serviceRequest, $data) {
                 $serviceRequest->update($data);
-
-                if ($hasCutInPayload) {
-                    // Un solo corte asociado por solicitud desde este formulario.
-                    $serviceRequest->cuts()->sync($cutId ? [$cutId] : []);
-                }
+                $this->syncCutAssociationByCreationDate($serviceRequest->refresh());
             });
 
             Log::info('✅ Solicitud actualizada exitosamente', [
@@ -991,6 +1015,30 @@ class ServiceRequestService
         ]);
 
         return $technician?->id;
+    }
+
+    private function normalizeCreationTimestamp(mixed $value, ?\DateTimeInterface $fallback = null): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return $fallback ? Carbon::parse($fallback) : null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::parse($value);
+        }
+
+        $raw = trim((string) $value);
+        $parsed = Carbon::parse($raw);
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            if ($fallback) {
+                return $parsed->setTimeFrom(Carbon::parse($fallback));
+            }
+
+            return $parsed->startOfDay();
+        }
+
+        return $parsed;
     }
 
     /**

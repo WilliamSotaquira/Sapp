@@ -88,11 +88,16 @@ class CreateFastServiceRequest extends Command
                 'requested_by' => $normalized['requested_by'],
                 'assigned_to' => $normalized['assigned_to'],
                 'entry_channel' => $normalized['entry_channel'],
+                'due_date' => $normalized['due_date'],
                 'web_routes' => json_encode($normalized['web_routes']),
                 'is_reportable' => $normalized['is_reportable'],
                 'tasks_template' => $normalized['tasks_template'],
                 'tasks' => $normalized['tasks'],
             ];
+
+            if (!empty($normalized['source_date'])) {
+                $data['created_at'] = Carbon::parse($normalized['source_date'])->startOfDay();
+            }
 
             $this->validateNormalizedData($data, $company->id);
 
@@ -106,6 +111,7 @@ class CreateFastServiceRequest extends Command
                     'sub_service_id' => $context['sub_service_id'],
                     'sla_id' => $context['sla_id'],
                     'cut_id' => $context['cut_id'],
+                    'due_date' => $normalized['due_date'],
                     'task_count' => count($normalized['tasks']),
                     'tasks_template' => $normalized['tasks_template'],
                 ]));
@@ -212,6 +218,7 @@ class CreateFastServiceRequest extends Command
         }
 
         $sourceDate = $this->firstPresent($payload, ['source_date', 'fecha_contexto', 'date']);
+        $dueDate = $this->firstPresent($payload, ['due_date', 'fecha_vencimiento', 'vencimiento', 'deadline']);
 
         return [
             'company_id' => isset($payload['company_id']) ? (int) $payload['company_id'] : null,
@@ -234,6 +241,7 @@ class CreateFastServiceRequest extends Command
             'tasks_template' => $tasksTemplate ? trim((string) $tasksTemplate) : null,
             'tasks' => is_array($tasks) ? $tasks : [],
             'source_date' => $this->normalizeDate($sourceDate),
+            'due_date' => $this->normalizeDate($dueDate),
         ];
     }
 
@@ -390,6 +398,8 @@ class CreateFastServiceRequest extends Command
             'assigned_to' => 'required|integer|exists:users,id',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'web_routes' => 'required|string',
+            'created_at' => 'nullable|date',
+            'due_date' => 'nullable|date',
             'tasks_template' => 'nullable|in:none,subservice_standard',
             'tasks' => 'nullable|array',
             'tasks.*.title' => 'nullable|string|max:255',
