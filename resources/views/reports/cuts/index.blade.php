@@ -17,7 +17,7 @@
             <div>
                 <p class="text-xs uppercase tracking-wide text-gray-500">Reportes</p>
                 <h2 class="text-xl font-bold text-gray-900">Cortes</h2>
-                <p class="text-sm text-gray-600">Agrupa solicitudes por periodos (fecha inicio / fin) según actividad.</p>
+                <p class="text-sm text-gray-600">Agrupa solicitudes por periodos según la fecha de creación de cada solicitud.</p>
             </div>
             <a href="{{ route('reports.cuts.create') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
                 <i class="fa-solid fa-plus"></i>
@@ -35,7 +35,7 @@
         <div class="p-6">
             @if($cuts->count() === 0)
                 <div class="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p class="text-sm text-yellow-800">Aún no hay cortes. Crea el primero para asociar solicitudes por actividad.</p>
+                    <p class="text-sm text-yellow-800">Aún no hay cortes. Crea el primero para asociar solicitudes por fecha de creación.</p>
                 </div>
             @else
                 <div class="overflow-x-auto">

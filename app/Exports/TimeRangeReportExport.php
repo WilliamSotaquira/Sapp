@@ -63,6 +63,9 @@ class RequestsSheet implements FromCollection, WithHeadings, WithTitle, ShouldAu
                 'Estado' => $request->status,
                 'Criticidad' => $request->criticality_level,
                 'Creado' => $request->created_at->format('d/m/Y H:i'),
+                'Vencimiento Solicitud' => $request->due_date
+                    ? $request->due_date->format('d/m/Y')
+                    : 'N/A',
                 'Fecha Límite' => $request->resolution_deadline
                     ? $request->resolution_deadline->format('d/m/Y H:i')
                     : 'N/A',
@@ -83,7 +86,7 @@ class RequestsSheet implements FromCollection, WithHeadings, WithTitle, ShouldAu
         return [
             'No.', 'Ticket', 'Título', 'Familia', 'Servicio', 'Subservicio',
             'Solicitante', 'Asignado', 'Estado', 'Criticidad', 'Creado',
-            'Fecha Límite', 'Resuelto', 'Tiempo Resolución (min)', 'Satisfacción', 'Evidencias'
+            'Vencimiento Solicitud', 'Fecha Límite', 'Resuelto', 'Tiempo Resolución (min)', 'Satisfacción', 'Evidencias'
         ];
     }
 

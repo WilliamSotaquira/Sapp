@@ -3,10 +3,8 @@
     'serviceRequest' => null,
     'subServices' => [], // Lista de subservicios (opcional; puede ser vacía si usamos Select2 AJAX)
     'selectedSubService' => null, // Subservicio precargado para mostrar selección inicial
-    'selectedCutId' => null, // Corte precargado para edición
     'requesters' => [], // Lista de solicitantes para seleccionar solicitante
     'companies' => [], // Lista de empresas para seleccionar
-    'cuts' => [], // Lista de cortes disponibles
     'errors' => null,
     'mode' => 'create', // 'create' or 'edit'
 ])
@@ -19,6 +17,8 @@
         $requesterBorderClass = $errors->has('requester_id') ? 'border-red-500' : 'border-gray-300';
         $entryChannelBorderClass = $errors->has('entry_channel') ? 'border-red-500' : 'border-gray-300';
         $subServiceBorderClass = $errors->has('sub_service_id') ? 'border-red-500' : 'border-gray-300';
+        $createdAtBorderClass = $errors->has('created_at') ? 'border-red-500' : 'border-gray-300';
+        $dueDateBorderClass = $errors->has('due_date') ? 'border-red-500' : 'border-gray-300';
     @endphp
 
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
@@ -89,6 +89,49 @@
         <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
             {{ $activeContract ? ($activeContract->number . ($activeContract->name ? ' - ' . $activeContract->name : '')) : 'Sin contrato activo' }}
         </div>
+    </div>
+
+    @if(($mode ?? 'create') === 'edit')
+        <div>
+            <label for="created_at" class="block text-sm font-medium text-gray-700 mb-2">
+                Fecha de creación <span class="text-red-500">*</span>
+            </label>
+            <input
+                type="datetime-local"
+                name="created_at"
+                id="created_at"
+                value="{{ old('created_at', optional($serviceRequest?->created_at)->format('Y-m-d\TH:i')) }}"
+                max="{{ now()->format('Y-m-d\TH:i') }}"
+                class="w-full px-4 py-3 border {{ $createdAtBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                required
+            >
+            <p class="mt-1 text-xs text-gray-500">
+                El corte asociado se recalcula con esta fecha y el rango configurado en cortes.
+            </p>
+            @error('created_at')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+    @endif
+
+    <div>
+        <label for="due_date" class="block text-sm font-medium text-gray-700 mb-2">
+            Fecha de vencimiento
+        </label>
+        <input
+            type="date"
+            name="due_date"
+            id="due_date"
+            value="{{ old('due_date', optional($serviceRequest?->due_date)->format('Y-m-d')) }}"
+            class="w-full px-4 py-3 border {{ $dueDateBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+            @error('due_date') aria-invalid="true" @enderror
+        >
+        <p class="mt-1 text-xs text-gray-500">
+            Úsala solo cuando la solicitud traiga un vencimiento propio.
+        </p>
+        @error('due_date')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
     </div>
 
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
@@ -294,48 +337,6 @@
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </div>
-
-    <!-- Selector de Corte (opcional) -->
-    @php
-        $cutBorderClass = $errors->has('cut_id') ? 'border-red-500' : 'border-gray-300';
-        $defaultCutId = null;
-        if (($mode ?? 'create') === 'create' && !empty($cuts)) {
-            $defaultCutId = optional($cuts->sortByDesc('end_date')->first())->id;
-        }
-        $selectedCutValue = old('cut_id', $selectedCutId ?? $serviceRequest->cut_id ?? $defaultCutId);
-    @endphp
-    <div>
-        <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
-            Corte <span class="text-gray-500 text-xs">(Opcional)</span>
-        </label>
-    @php
-        $activeContractId = $currentCompany?->active_contract_id;
-    @endphp
-    <select name="cut_id" id="cut_id" data-active-contract-id="{{ $activeContractId }}"
-            data-preserve-selected="{{ ($mode ?? 'create') === 'edit' ? '1' : '0' }}"
-            class="w-full px-4 py-3 border {{ $cutBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-            @if(($mode ?? 'create') === 'create') tabindex="-1" @endif>
-            <option value="">Sin corte asignado</option>
-        @foreach ($cuts as $cut)
-            <option value="{{ $cut->id }}"
-                    data-contract-id="{{ $cut->contract_id ?? '' }}"
-                    {{ (string)$selectedCutValue === (string)$cut->id ? 'selected' : '' }}>
-                {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }})
-            </option>
-        @endforeach
-    </select>
-        <p class="mt-1 text-xs text-gray-500">
-            Vincula esta solicitud a un período (opcional).
-        </p>
-        @error('cut_id')
-            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-        @enderror
-    </div>
-
-
-    <!-- Resto del formulario permanece igual -->
-
-
 
     <!-- SELECT2: Selector de Subservicios (con búsqueda integrada) -->
     <div>
@@ -1142,26 +1143,6 @@
                         });
                     }
 
-                    const cutSelect = window.jQuery('#cut_id');
-                    if (cutSelect.length && !cutSelect.data('select2')) {
-                        cutSelect.select2({
-                            width: '100%',
-                            placeholder: 'Sin corte asignado'
-                        });
-
-                        cutSelect.on('select2:open', function () {
-                            const search = document.querySelector('.select2-container--open .select2-search__field');
-                            if (search instanceof HTMLInputElement) {
-                                search.focus();
-                                search.select();
-                            } else if (search) {
-                                search.focus();
-                            }
-                        });
-
-                        attachPasteSupport(cutSelect);
-                    }
-
                     const subServiceSelect = window.jQuery('#sub_service_id');
                     if (subServiceSelect.length && !subServiceSelect.data('select2')) {
                         function getFocusableElementsInDocument() {
@@ -1655,40 +1636,9 @@
 
         // Mantener sincronizados familia/servicio/SLA/criticidad al cambiar subservicio
         const subServiceSelect = document.getElementById('sub_service_id');
-        const cutSelect = document.getElementById('cut_id');
         if (subServiceSelect) {
             subServiceSelect.addEventListener('change', updateFormFields);
         }
-
-        function filterCutsByContract() {
-            if (!cutSelect) return;
-            const contractId = cutSelect.dataset.activeContractId || '';
-            const preserveSelected = cutSelect.dataset.preserveSelected === '1';
-            let hasSelection = false;
-            Array.from(cutSelect.options).forEach(option => {
-                if (!option.value) return;
-                const optionContractId = option.dataset.contractId || '';
-                const shouldShow = !contractId || optionContractId === contractId || (preserveSelected && option.selected);
-                option.hidden = !shouldShow;
-                option.disabled = !shouldShow;
-                if (shouldShow && option.selected) {
-                    hasSelection = true;
-                }
-            });
-
-            if (contractId && !hasSelection && cutSelect.value) {
-                cutSelect.value = '';
-            }
-
-            if (window.jQuery && window.jQuery.fn?.select2) {
-                const $cutSelect = window.jQuery(cutSelect);
-                if ($cutSelect.data('select2')) {
-                    $cutSelect.trigger('change.select2');
-                }
-            }
-        }
-
-        filterCutsByContract();
 
         // Ejecutar inmediatamente para establecer valores iniciales
         setTimeout(updateFormFields, 100);

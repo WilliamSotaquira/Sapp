@@ -34,7 +34,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::put('/{cut}', [CutController::class, 'update'])->name('update');
         Route::get('/{cut}', [CutController::class, 'show'])->name('show');
 
-        // Gestión manual de solicitudes asociadas
+        // Consulta y recalculo de solicitudes asociadas por fecha de creación
         Route::get('/{cut}/requests', [CutController::class, 'requests'])->name('requests');
         Route::get('/{cut}/associated-requests', [CutController::class, 'associatedRequests'])->name('associated-requests');
         Route::post('/{cut}/requests', [CutController::class, 'updateRequests'])->name('requests.update');

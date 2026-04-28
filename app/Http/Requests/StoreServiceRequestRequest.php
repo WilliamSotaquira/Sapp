@@ -34,11 +34,9 @@ class StoreServiceRequestRequest extends FormRequest
             'sla_id' => 'required|exists:service_level_agreements,id',
             'requested_by' => 'required|exists:users,id',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
+            'due_date' => 'nullable|date',
             'web_routes' => 'required|string',
             'is_reportable' => 'sometimes|boolean',
-
-            // Corte (opcional)
-            'cut_id' => 'nullable|exists:cuts,id',
 
             // Tareas (opcional)
             'tasks_template' => 'nullable|in:none,subservice_standard',
@@ -88,8 +86,8 @@ class StoreServiceRequestRequest extends FormRequest
             'requested_by.exists' => 'El usuario que solicita no es válido.',
             'entry_channel.required' => 'Debe seleccionar un canal de entrada.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
+            'due_date.date' => 'La fecha de vencimiento no tiene un formato válido.',
             'web_routes.required' => 'Las rutas web son obligatorias.',
-            'cut_id.exists' => 'El corte seleccionado no es válido.',
         ];
     }
 
@@ -140,16 +138,6 @@ class StoreServiceRequestRequest extends FormRequest
                         $validator->errors()->add('sla_id', 'El SLA no corresponde al subservicio seleccionado.');
                     }
                 }
-            }
-
-            $cutId = $this->input('cut_id');
-            if ($cutId && $activeContractId) {
-                $cut = \App\Models\Cut::find($cutId);
-                $cutContractId = $cut?->contract_id;
-                if ($cutContractId && (string) $cutContractId !== (string) $activeContractId) {
-                    $validator->errors()->add('cut_id', 'El corte no corresponde al contrato activo del espacio de trabajo.');
-                }
-
             }
 
             $requesterId = $this->input('requester_id');

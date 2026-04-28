@@ -4,224 +4,123 @@
     $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
     $selectedEntryChannel = $serviceRequest->entry_channel;
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $hasDueDate = $serviceRequest->hasRequestDueDate();
+    $isFinalForDueDate = in_array(strtoupper((string) $serviceRequest->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'], true);
+    $dueDays = $serviceRequest->daysUntilRequestDue();
+    $dueTone = 'bg-slate-50 text-slate-700 border-slate-200';
+    $dueLabel = 'Sin vencimiento';
+
+    if ($hasDueDate) {
+        if ($isFinalForDueDate) {
+            $dueTone = 'bg-slate-50 text-slate-600 border-slate-200';
+            $dueLabel = 'Registrado';
+        } elseif ($serviceRequest->isRequestDueOverdue()) {
+            $dueTone = 'bg-red-50 text-red-700 border-red-200';
+            $dueLabel = 'Vencida';
+        } elseif ($serviceRequest->isRequestDueSoon()) {
+            $dueTone = 'bg-amber-50 text-amber-700 border-amber-200';
+            $dueLabel = $dueDays === 0 ? 'Vence hoy' : 'Por vencer';
+        } else {
+            $dueTone = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            $dueLabel = 'En plazo';
+        }
+    }
 @endphp
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-5 py-3 border-b">
+<div class="h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-slate-50 border-gray-200' }} px-5 py-3 border-b">
         <h3 class="sr-card-title text-gray-800 flex items-center">
             <i class="fas fa-cogs {{ $isDead ? 'text-gray-500' : 'text-blue-600' }} mr-2"></i>
             Información del Servicio
         </h3>
     </div>
     <div class="p-5">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Espacio</label>
-                <p class="text-sm text-gray-900 font-medium">{{ $serviceRequest->company->name ?? 'N/A' }}</p>
+        @php
+            $familyName = $serviceRequest->subService?->service?->family?->name;
+            $serviceName = $serviceRequest->subService?->service?->name;
+            $subServiceName = $serviceRequest->subService?->name;
+            $serviceLabel = trim(collect([$familyName, $serviceName, $subServiceName])->filter()->join(' · '));
+            $contract = $serviceRequest->subService?->service?->family?->contract;
+            $contractLabel = $contract ? ($contract->name ?: $contract->number) : null;
+            $selectedOption = $selectedEntryChannel && isset($entryChannelOptions[$selectedEntryChannel])
+                ? $entryChannelOptions[$selectedEntryChannel]
+                : null;
+            $cuts = $serviceRequest->cuts ?? collect();
+        @endphp
+
+        <dl class="divide-y divide-gray-100">
+            <div class="pb-3">
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</dt>
+                <dd class="mt-1 text-sm text-gray-950 font-semibold leading-snug break-words">
+                    {{ $serviceLabel ?: 'N/A' }}
+                </dd>
             </div>
-            <div>
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Servicio</label>
-                @php
-                    $familyName = $serviceRequest->subService?->service?->family?->name;
-                    $serviceName = $serviceRequest->subService?->service?->name;
-                    $subServiceName = $serviceRequest->subService?->name;
-                    $serviceLabel = trim(collect([$familyName, $serviceName, $subServiceName])->filter()->join(' · '));
-                @endphp
-                <p class="text-sm text-gray-900 font-medium">{{ $serviceLabel ?: 'N/A' }}</p>
-            </div>
-            <div>
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Contrato</label>
-                @php
-                    $contract = $serviceRequest->subService?->service?->family?->contract;
-                    $contractLabel = $contract ? ($contract->name ?: $contract->number) : null;
-                @endphp
-                <p class="text-sm text-gray-900 font-medium">{{ $contractLabel ?? 'N/A' }}</p>
-            </div>
-            <div>
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Estado y creada</label>
-                <p class="text-sm text-gray-900 font-medium">
-                    {{ $serviceRequest->status }} · {{ $serviceRequest->criticality_level }}
-                </p>
-                <p class="text-xs text-gray-500">
-                    {{ $serviceRequest->created_at->format('d/m/Y') }} ({{ $serviceRequest->created_at->locale('es')->diffForHumans() }})
-                </p>
-            </div>
-            <div>
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Canal</label>
-                @if ($selectedEntryChannel && isset($entryChannelOptions[$selectedEntryChannel]))
-                    @php
-                        $selectedOption = $entryChannelOptions[$selectedEntryChannel];
-                    @endphp
-                    <p class="text-sm text-gray-900 font-medium">{{ $selectedOption['label'] }}</p>
-                @else
-                    <p class="text-sm text-gray-500">No registrado</p>
-                @endif
-            </div>
-            <div>
-                <div class="flex items-center gap-2 mb-1">
-                    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Corte</label>
-                    <button type="button" data-edit-cut
-                            class="inline-flex items-center justify-center h-6 px-2 rounded-md border border-indigo-200 bg-indigo-50 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 transition">
-                        <i class="fas fa-edit mr-1 text-[10px]"></i>
-                        {{ ($serviceRequest->cuts ?? collect())->isEmpty() ? 'Asignar' : 'Editar' }}
-                    </button>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 py-3">
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Espacio</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $serviceRequest->company->name ?? 'N/A' }}</dd>
                 </div>
-                @php
-                    $cuts = $serviceRequest->cuts ?? collect();
-                @endphp
-                <div id="cutAssociationContainer" class="mt-1">
-                    @if ($cuts->isEmpty())
-                        <p class="text-sm text-gray-500">Sin corte asociado</p>
-                    @else
-                        @foreach ($cuts as $cut)
-                            <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
-                                <i class="fas fa-cut"></i>
-                                <span class="truncate">{{ $cut->name }}</span>
-                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }}</span>
-                            </a>
-                        @endforeach
-                    @endif
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contrato</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $contractLabel ?? 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $serviceRequest->status }} · {{ $serviceRequest->criticality_level }}</dd>
+                    <dd class="text-xs text-gray-500">{{ $serviceRequest->created_at->format('d/m/Y') }} · {{ $serviceRequest->created_at->locale('es')->diffForHumans() }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Canal</dt>
+                    <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $selectedOption['label'] ?? 'No registrado' }}</dd>
                 </div>
             </div>
-        </div>
 
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 pt-3">
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencimiento</dt>
+                    <dd class="mt-1">
+                        @if ($hasDueDate)
+                            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md border {{ $dueTone }} text-xs font-semibold">
+                                <i class="fas fa-calendar-check"></i>
+                                <span>{{ $serviceRequest->due_date->format('d/m/Y') }}</span>
+                                <span>{{ $dueLabel }}</span>
+                            </div>
+                            @if (!$isDead && $dueDays !== null)
+                                <p class="mt-1 text-xs text-gray-500">
+                                    @if ($dueDays < 0)
+                                        {{ abs($dueDays) }} día(s) vencida.
+                                    @elseif ($dueDays === 0)
+                                        Requiere seguimiento hoy.
+                                    @else
+                                        Faltan {{ $dueDays }} día(s).
+                                    @endif
+                                </p>
+                            @endif
+                        @else
+                            <span class="text-sm text-gray-500">Sin fecha de vencimiento</span>
+                        @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Corte</dt>
+                    <dd id="cutAssociationContainer" class="mt-1">
+                        @if ($cuts->isEmpty())
+                            <p class="text-sm text-gray-500">Sin corte asociado</p>
+                            <p class="mt-1 text-xs text-gray-500">Se calcula con la fecha de creación.</p>
+                        @else
+                            @foreach ($cuts as $cut)
+                                <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex max-w-full items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
+                                    <i class="fas fa-cut shrink-0"></i>
+                                    <span class="truncate">{{ $cut->name }}</span>
+                                    <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }}</span>
+                                </a>
+                            @endforeach
+                            <p class="mt-1 text-xs text-gray-500">Automático por fecha de creación.</p>
+                        @endif
+                    </dd>
+                </div>
+            </div>
+        </dl>
     </div>
 </div>
-
-<!-- Modal para editar corte -->
-<div id="editCutModal" class="fixed inset-0 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true">
-    <div class="fixed inset-0 bg-black/50" id="editCutModalBackdrop"></div>
-    <div class="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm mx-4">
-        <!-- Cabecera del Modal -->
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-bold text-gray-800">Seleccionar Corte</h3>
-            <button type="button" id="closeEditCutModal" class="text-gray-400 hover:text-gray-600 transition">
-                <i class="fas fa-times text-lg"></i>
-            </button>
-        </div>
-
-        <!-- Cuerpo del Modal -->
-        <form id="editCutForm" class="p-6 space-y-4">
-            @csrf
-            <div>
-                <select id="cutSelect" name="cut_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
-                    <option value="">Sin corte</option>
-                    @php
-                        $contractId = $serviceRequest->subService?->service?->family?->contract_id;
-                    @endphp
-                    @forelse(\App\Models\Cut::query()->when($contractId, fn($q) => $q->where('contract_id', $contractId))->orderBy('start_date', 'desc')->get() as $cut)
-                        <option value="{{ $cut->id }}" {{ $cuts->contains($cut->id) ? 'selected' : '' }}>
-                            {{ $cut->name }} — {{ $cut->start_date->format('d/m/Y') }} a {{ $cut->end_date->format('d/m/Y') }}
-                        </option>
-                    @empty
-                        <option disabled>No hay cortes disponibles</option>
-                    @endforelse
-                </select>
-            </div>
-
-            <!-- Mensajes de estado -->
-            <div id="editCutMessage" class="hidden p-3 rounded-lg text-sm"></div>
-
-            <!-- Botones de acción -->
-            <div class="flex gap-2 justify-end pt-2">
-                <button type="button" id="cancelEditCutBtn" class="px-4 py-2 text-gray-700 hover:bg-gray-100 transition font-medium text-sm rounded-lg">
-                    Cancelar
-                </button>
-                <button type="submit" id="saveCutBtn" class="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 transition font-medium text-sm rounded-lg">
-                    Guardar
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const editCutButtons = document.querySelectorAll('[data-edit-cut]');
-    const editCutModal = document.getElementById('editCutModal');
-    const closeEditCutModal = document.getElementById('closeEditCutModal');
-    const cancelEditCutBtn = document.getElementById('cancelEditCutBtn');
-    const editCutModalBackdrop = document.getElementById('editCutModalBackdrop');
-    const editCutForm = document.getElementById('editCutForm');
-    const editCutMessage = document.getElementById('editCutMessage');
-    const saveCutBtn = document.getElementById('saveCutBtn');
-    const serviceRequestId = {{ $serviceRequest->id }};
-
-    // Abrir modal
-    editCutButtons.forEach((btn) => {
-        btn.addEventListener('click', function() {
-            editCutModal.classList.remove('hidden');
-        });
-    });
-
-    // Cerrar modal
-    const closeModal = () => {
-        editCutModal.classList.add('hidden');
-        editCutMessage.classList.add('hidden');
-    };
-
-    closeEditCutModal.addEventListener('click', closeModal);
-    cancelEditCutBtn.addEventListener('click', closeModal);
-    editCutModalBackdrop.addEventListener('click', closeModal);
-
-    // Enviar formulario
-    editCutForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        const cutId = document.getElementById('cutSelect').value;
-        saveCutBtn.disabled = true;
-        editCutMessage.classList.add('hidden');
-
-        try {
-            const response = await fetch(`/service-requests/${serviceRequestId}/update-cut`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                },
-                body: JSON.stringify({
-                    cut_id: cutId || null
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                editCutMessage.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
-                editCutMessage.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + data.message;
-                editCutMessage.classList.remove('hidden');
-
-                const container = document.getElementById('cutAssociationContainer');
-                if (container) {
-                    if (!data.cut) {
-                        container.innerHTML = '<p class="text-sm text-gray-500">Sin corte asociado.</p>';
-                    } else {
-                        const cut = data.cut;
-                        const editBtn = document.querySelector('[data-edit-cut]');
-                        if (editBtn) {
-                            editBtn.innerHTML = '<i class="fas fa-edit mr-1 text-[10px]"></i>Editar';
-                        }
-                        container.innerHTML = `
-                            <a href="/reports/cuts/${cut.id}" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
-                                <i class="fas fa-cut"></i>
-                                <span class="truncate">${cut.name}</span>
-                                <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">${cut.start_date} - ${cut.end_date}</span>
-                            </a>
-                        `;
-                    }
-                }
-            } else {
-                editCutMessage.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
-                editCutMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + (data.message || 'Error al actualizar');
-                editCutMessage.classList.remove('hidden');
-            }
-        } catch (error) {
-            editCutMessage.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
-            editCutMessage.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Error de conexión';
-            editCutMessage.classList.remove('hidden');
-        } finally {
-            saveCutBtn.disabled = false;
-        }
-    });
-});
-</script>

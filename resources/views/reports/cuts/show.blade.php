@@ -24,7 +24,7 @@
                     <p class="text-xs text-gray-500 mt-1">Contrato: {{ $cut->contract->number }}</p>
                 @endif
                 <p class="text-xs text-gray-500 mt-1">
-                    Criterio de asociación: solicitudes con actividad en el rango (creación o actualización de la solicitud/tareas, y creación de evidencias/historiales).
+                    Criterio de asociación: solicitudes cuya fecha de creación está dentro del rango del corte.
                 </p>
                 @if($cut->notes)
                     <p class="text-sm text-gray-700 mt-2">{{ $cut->notes }}</p>
@@ -39,15 +39,15 @@
                     <i class="fa-solid fa-pen-to-square"></i>
                     Editar corte
                 </a>
-                <a href="{{ route('reports.cuts.requests', $cut) }}" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                <a href="{{ route('reports.cuts.associated-requests', $cut) }}" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
                     <i class="fa-solid fa-list-check"></i>
-                    Gestionar solicitudes
+                    Ver solicitudes
                 </a>
                 <form method="POST" action="{{ route('reports.cuts.sync', $cut) }}">
                     @csrf
                     <button type="submit" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
                         <i class="fa-solid fa-rotate"></i>
-                        Actualizar
+                        Recalcular
                     </button>
                 </form>
             </div>

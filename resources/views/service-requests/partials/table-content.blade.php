@@ -1,8 +1,8 @@
-@if(($slaAlerts['overdue'] ?? 0) > 0 || ($slaAlerts['dueSoon'] ?? 0) > 0)
+@if(($slaAlerts['overdue'] ?? 0) > 0 || ($slaAlerts['dueSoon'] ?? 0) > 0 || ($dueAlerts['overdue'] ?? 0) > 0 || ($dueAlerts['dueSoon'] ?? 0) > 0)
     <div class="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-2 text-amber-800 text-sm font-semibold">
             <i class="fas fa-bell"></i>
-            Alertas SLA
+            Alertas
         </div>
         @if(($slaAlerts['overdue'] ?? 0) > 0)
             <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['open' => 1])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
@@ -14,6 +14,18 @@
             <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['open' => 1])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold">
                 <i class="fas fa-clock"></i>
                 {{ $slaAlerts['dueSoon'] }} por vencer (24h)
+            </a>
+        @endif
+        @if(($dueAlerts['overdue'] ?? 0) > 0)
+            <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['due_status' => 'overdue'])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                <i class="fas fa-calendar-times"></i>
+                {{ $dueAlerts['overdue'] }} vencimiento(s) vencido(s)
+            </a>
+        @endif
+        @if(($dueAlerts['dueSoon'] ?? 0) > 0)
+            <a href="{{ route('service-requests.index', array_merge(request()->except('page'), ['due_status' => 'due_soon'])) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                <i class="fas fa-calendar-day"></i>
+                {{ $dueAlerts['dueSoon'] }} vencimiento(s) próximos
             </a>
         @endif
     </div>

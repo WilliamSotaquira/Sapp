@@ -53,7 +53,7 @@ class ServiceRequestController extends Controller
 
         // Preparar filtros
         $sortBy = (string) $request->get('sort_by', 'recent');
-        $allowedSorts = ['recent', 'oldest', 'priority_high', 'priority_low', 'status_az', 'status_za'];
+        $allowedSorts = ['recent', 'oldest', 'priority_high', 'priority_low', 'status_az', 'status_za', 'due_date'];
         if (!in_array($sortBy, $allowedSorts, true)) {
             $sortBy = 'recent';
         }
@@ -62,6 +62,7 @@ class ServiceRequestController extends Controller
             'search' => $globalSearch,
             'status' => $request->get('status'),
             'criticality' => $request->get('criticality'),
+            'due_status' => $request->get('due_status'),
             'requester' => $request->get('requester'), // nombre o email parcial
             'service_id' => $request->get('service_id'),
             'company_id' => $request->get('company_id'),
@@ -73,6 +74,10 @@ class ServiceRequestController extends Controller
             'in_process' => $request->boolean('in_process'),
             'sort_by' => $sortBy,
         ];
+
+        if (!in_array($filters['due_status'], ['with_due', 'without_due', 'overdue', 'due_soon'], true)) {
+            $filters['due_status'] = null;
+        }
 
         // Validación ligera de fechas (formato YYYY-MM-DD)
         foreach (['start_date','end_date'] as $key) {
@@ -128,6 +133,19 @@ class ServiceRequestController extends Controller
                 ->count(),
         ];
 
+        $dueAlerts = [
+            'overdue' => ServiceRequest::query()
+                ->whereIn('status', $openStatuses)
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<', now()->toDateString())
+                ->count(),
+            'dueSoon' => ServiceRequest::query()
+                ->whereIn('status', $openStatuses)
+                ->whereNotNull('due_date')
+                ->whereBetween('due_date', [now()->toDateString(), now()->addDays(3)->toDateString()])
+                ->count(),
+        ];
+
         $inCourseCount = ServiceRequest::query()
             ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->whereNotNull('accepted_at')
@@ -140,7 +158,7 @@ class ServiceRequestController extends Controller
             ->count();
 
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'inCourseCount', 'inProcessCount'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount'),
             $stats
         );
 
@@ -179,6 +197,7 @@ class ServiceRequestController extends Controller
             'filters.search' => 'nullable|string|max:255',
             'filters.status' => 'nullable|string|max:40',
             'filters.criticality' => 'nullable|string|max:40',
+            'filters.due_status' => 'nullable|string|max:40',
             'filters.service_id' => 'nullable',
             'filters.requester' => 'nullable|string|max:255',
             'filters.start_date' => 'nullable|date',
@@ -190,7 +209,7 @@ class ServiceRequestController extends Controller
             'filters.sort_by' => 'nullable|string|max:40',
         ]);
 
-        $allowedKeys = ['search', 'status', 'criticality', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'in_process', 'sort_by'];
+        $allowedKeys = ['search', 'status', 'criticality', 'due_status', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'in_process', 'sort_by'];
         $filters = collect($validated['filters'])
             ->only($allowedKeys)
             ->map(function ($value) {
@@ -348,14 +367,10 @@ class ServiceRequestController extends Controller
 
         $selectedSubServiceId = $request->old('sub_service_id');
         $selectedSubServiceId = $selectedSubServiceId ? (int) $selectedSubServiceId : (int) $serviceRequest->sub_service_id;
-        $selectedCutId = $request->old('cut_id');
-        $selectedCutId = $selectedCutId !== null && $selectedCutId !== ''
-            ? (int) $selectedCutId
-            : (int) ($serviceRequest->cuts()->latest('cut_service_request.created_at')->value('cuts.id') ?? 0);
 
-        $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId, $selectedCutId ?: null);
+        $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId);
 
-        return view('service-requests.edit', compact('serviceRequest', 'selectedCutId') + $data);
+        return view('service-requests.edit', compact('serviceRequest') + $data);
     }
 
     /**
@@ -1394,7 +1409,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Actualizar el corte asociado a una solicitud (AJAX)
+     * Recalcular el corte asociado a una solicitud según su fecha de creación.
      */
     public function updateCut(Request $request, ServiceRequest $serviceRequest)
     {
@@ -1403,38 +1418,29 @@ class ServiceRequestController extends Controller
                 'cut_id' => 'nullable|exists:cuts,id',
             ]);
 
+            $resolvedCut = $this->serviceRequestService->resolveCutByCreationDate($serviceRequest);
+
             if (!empty($validated['cut_id'])) {
                 $cut = \App\Models\Cut::find($validated['cut_id']);
-                $cutContractId = $cut?->contract_id;
-                $familyContractId = $serviceRequest->subService?->service?->family?->contract_id;
-                if ($cutContractId && $familyContractId && (string) $cutContractId !== (string) $familyContractId) {
+                if (!$resolvedCut || !$cut || (int) $resolvedCut->id !== (int) $cut->id) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'El corte seleccionado no corresponde al contrato de la solicitud.',
+                        'message' => 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.',
                     ], 422);
                 }
 
             }
 
-            // Primero, desasociar todos los cortes actuales
-            $serviceRequest->cuts()->detach();
-
-            // Si se proporciona un cut_id, asociarlo
-            if (!empty($validated['cut_id'])) {
-                $serviceRequest->cuts()->attach($validated['cut_id']);
-            }
-
-            // Obtener el corte actualizado (si existe)
-            $cut = $serviceRequest->cuts()->first();
+            $this->serviceRequestService->syncCutAssociationByCreationDate($serviceRequest);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Corte actualizado exitosamente',
-                'cut' => $cut ? [
-                    'id' => $cut->id,
-                    'name' => $cut->name,
-                    'start_date' => $cut->start_date->format('d/m/Y'),
-                    'end_date' => $cut->end_date->format('d/m/Y'),
+                'message' => 'Corte recalculado por fecha de creación',
+                'cut' => $resolvedCut ? [
+                    'id' => $resolvedCut->id,
+                    'name' => $resolvedCut->name,
+                    'start_date' => $resolvedCut->start_date->format('d/m/Y'),
+                    'end_date' => $resolvedCut->end_date->format('d/m/Y'),
                 ] : null,
             ]);
         } catch (\Exception $e) {

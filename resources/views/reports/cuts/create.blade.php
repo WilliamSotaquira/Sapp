@@ -17,7 +17,7 @@
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
             <h2 class="text-xl font-bold text-gray-900">Crear corte</h2>
-            <p class="text-sm text-gray-600">Define el rango; el sistema asociará solicitudes con actividad en esas fechas.</p>
+            <p class="text-sm text-gray-600">Define el rango; el sistema asociará solicitudes creadas dentro de esas fechas.</p>
         </div>
 
         <form method="POST" action="{{ route('reports.cuts.store') }}" class="p-6 space-y-6">
@@ -65,7 +65,7 @@
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('reports.cuts.index') }}" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</a>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed" @if(!$activeContract) disabled @endif>
-                    Crear y asociar
+                    Crear y asociar por fecha
                 </button>
             </div>
         </form>

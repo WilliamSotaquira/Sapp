@@ -272,9 +272,11 @@ class CutController extends Controller
         }
 
         $search = trim((string) $request->get('q', ''));
+        [$start, $end] = $cut->getDateRangeForQuery();
 
         $serviceRequestsQuery = ServiceRequest::query()
             ->with(['requester'])
+            ->whereBetween('created_at', [$start, $end])
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
             $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
@@ -373,45 +375,9 @@ class CutController extends Controller
 
     public function updateRequests(Cut $cut, Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'service_request_ids' => ['nullable', 'array'],
-            'service_request_ids.*' => ['integer', 'exists:service_requests,id'],
-        ]);
+        $this->syncCutServiceRequests($cut);
 
-        $ids = $validated['service_request_ids'] ?? [];
-        if (!empty($ids) && $cut->contract_id) {
-            $validIds = ServiceRequest::query()
-                ->whereIn('id', $ids)
-                ->whereHas('subService.service.family', function ($q) use ($cut) {
-                    $q->where('contract_id', $cut->contract_id);
-                })
-                ->pluck('id')
-                ->all();
-            if (count($validIds) !== count($ids)) {
-                return back()->with('error', 'Algunas solicitudes no pertenecen al contrato de este corte.');
-            }
-        }
-
-        if (!empty($ids)) {
-            $outOfRangeIds = ServiceRequest::query()
-                ->whereIn('id', $ids)
-                ->get(['id', 'created_at'])
-                ->filter(fn($serviceRequest) => !$cut->containsDate($serviceRequest->created_at))
-                ->pluck('id')
-                ->values()
-                ->all();
-
-            if (!empty($outOfRangeIds)) {
-                return back()->with(
-                    'error',
-                    'Algunas solicitudes no pertenecen al rango de fechas del corte: ' . implode(', ', $outOfRangeIds)
-                );
-            }
-        }
-
-        $cut->serviceRequests()->sync($ids);
-
-        return back()->with('success', 'Solicitudes asociadas al corte actualizadas correctamente.');
+        return back()->with('success', 'Solicitudes recalculadas según la fecha de creación.');
     }
 
     public function addRequestByTicket(Cut $cut, Request $request): RedirectResponse
@@ -440,23 +406,24 @@ class CutController extends Controller
             return back()->with('error', 'La solicitud no pertenece al rango de fechas de este corte.');
         }
 
-        $cut->serviceRequests()->syncWithoutDetaching([$serviceRequest->id]);
+        $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Solicitud agregada al corte correctamente.');
+        return back()->with('success', 'La solicitud pertenece al rango del corte y la asociación fue recalculada.');
     }
 
     public function removeRequest(Cut $cut, ServiceRequest $serviceRequest): RedirectResponse
     {
-        $cut->serviceRequests()->detach($serviceRequest->id);
-
-        return back()->with('success', 'Solicitud removida del corte correctamente.');
+        return back()->with(
+            'error',
+            'La asociación del corte se calcula por fecha de creación. Ajusta la fecha de la solicitud o el rango del corte para removerla.'
+        );
     }
 
     public function sync(Cut $cut): RedirectResponse
     {
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Asociación actualizada según actividades del corte.');
+        return back()->with('success', 'Asociación actualizada según la fecha de creación de las solicitudes.');
     }
 
     public function export(Request $request, Cut $cut)
