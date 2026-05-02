@@ -272,7 +272,7 @@ class Task extends Model
 
     public function subtasks()
     {
-        return $this->hasMany(Subtask::class)->orderBy('order');
+        return $this->hasMany(Subtask::class)->orderBy('order')->orderBy('id');
     }
 
     public function checklists()

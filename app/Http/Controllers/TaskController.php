@@ -1892,6 +1892,47 @@ class TaskController extends Controller
         return back()->with('success', 'Subtarea creada');
     }
 
+    public function reorderSubtasks(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'subtask_ids' => 'required|array|min:1',
+            'subtask_ids.*' => 'integer|distinct|exists:subtasks,id',
+        ]);
+
+        $requestedIds = collect($validated['subtask_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $existingIds = $task->subtasks()
+            ->pluck('subtasks.id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $containsUnknownIds = $requestedIds->diff($existingIds)->isNotEmpty();
+        $isMissingExistingIds = $existingIds->diff($requestedIds)->isNotEmpty();
+
+        if ($containsUnknownIds || $isMissingExistingIds) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo validar el nuevo orden de las subtareas.',
+            ], 422);
+        }
+
+        \DB::transaction(function () use ($task, $requestedIds) {
+            foreach ($requestedIds as $index => $subtaskId) {
+                Subtask::query()
+                    ->where('task_id', $task->id)
+                    ->whereKey($subtaskId)
+                    ->update(['order' => $index + 1]);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Orden de subtareas actualizado.',
+        ]);
+    }
+
     public function updateSubtask(Request $request, Task $task, Subtask $subtask)
     {
         if ($subtask->task_id !== $task->id) {

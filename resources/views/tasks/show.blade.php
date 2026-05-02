@@ -209,7 +209,10 @@
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Subtareas</h3>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $completedSubtasks }} de {{ $totalSubtasks }} completadas</p>
+                        <p id="subtasksCounter" class="text-xs text-gray-500 mt-0.5">{{ $completedSubtasks }} de {{ $totalSubtasks }} completadas</p>
+                        @if($totalSubtasks > 1)
+                            <p class="text-xs text-gray-400 mt-1">Arrastra el icono de puntos para cambiar el orden.</p>
+                        @endif
                     </div>
                     <button onclick="toggleSubtaskForm()" 
                             class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
@@ -222,9 +225,9 @@
                 <div class="px-5 py-3 bg-gray-50 border-b border-gray-100">
                     <div class="flex items-center gap-3">
                         <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
+                            <div id="subtasksProgressBar" class="h-full bg-blue-600 rounded-full transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
                         </div>
-                        <span class="text-xs font-semibold text-gray-600 min-w-[2.5rem] text-right">{{ $progressPercent }}%</span>
+                        <span id="subtasksProgressPercent" class="text-xs font-semibold text-gray-600 min-w-[2.5rem] text-right">{{ $progressPercent }}%</span>
                     </div>
                 </div>
                 @endif
@@ -252,10 +255,21 @@
                 </div>
                 
                 <!-- Subtasks List -->
-                <div class="divide-y divide-gray-100">
+                <div id="subtasksList"
+                     class="divide-y divide-gray-100"
+                     data-reorder-url="{{ route('tasks.subtasks.reorder', $task) }}">
                     @forelse($task->subtasks as $subtask)
-                        <div class="group px-5 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3"
-                             id="subtask-item-{{ $subtask->id }}">
+                        <div class="group subtask-draggable px-5 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                             id="subtask-item-{{ $subtask->id }}"
+                             data-subtask-id="{{ $subtask->id }}">
+                            <button type="button"
+                                    class="subtask-drag-handle inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-300 hover:text-gray-500 transition"
+                                    draggable="true"
+                                    title="Arrastrar para reordenar"
+                                    aria-label="Arrastrar para reordenar la subtarea">
+                                <i class="fas fa-grip-vertical text-sm"></i>
+                            </button>
+
                             <button type="button"
                                     class="subtask-toggle w-5 h-5 rounded border-2 flex items-center justify-center transition-all {{ $subtask->isCompleted() ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 hover:border-blue-500' }}"
                                     data-task-id="{{ $task->id }}"
@@ -579,9 +593,23 @@
 .animate-fade-out {
     animation: fadeOut 0.3s ease-out forwards;
 }
+.subtask-drag-handle {
+    cursor: grab;
+}
+.subtask-drag-handle:active {
+    cursor: grabbing;
+}
+.subtask-draggable.dragging {
+    opacity: 0.45;
+    background-color: rgb(239 246 255);
+}
 </style>
 
 <script>
+let draggedSubtaskItem = null;
+let draggedSubtaskPreviousOrder = [];
+let isSavingSubtaskOrder = false;
+
 // Auto-hide flash messages after 5 seconds
 document.addEventListener('DOMContentLoaded', function() {
     const flashMessages = document.querySelectorAll('.animate-slide-in');
@@ -624,35 +652,174 @@ function hideBlockModal() {
 }
 
 function updateProgressBar() {
-    const allSubtasks = document.querySelectorAll('[id^="subtask-item-"]');
+    const allSubtasks = document.querySelectorAll('.subtask-draggable');
     const completedSubtasks = document.querySelectorAll('.subtask-toggle.bg-blue-600');
     const total = allSubtasks.length;
     const completed = completedSubtasks.length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
     
-    if (total > 0) {
-        const percent = Math.round((completed / total) * 100);
-        
-        // Actualizar barra de progreso
-        const progressBar = document.querySelector('.bg-blue-600.rounded-full.transition-all');
-        if (progressBar) {
-            progressBar.style.width = `${percent}%`;
+    // Actualizar barra de progreso
+    const progressBar = document.getElementById('subtasksProgressBar');
+    if (progressBar) {
+        progressBar.style.width = `${percent}%`;
+    }
+    
+    // Actualizar porcentaje
+    const percentText = document.getElementById('subtasksProgressPercent');
+    if (percentText) {
+        percentText.textContent = `${percent}%`;
+    }
+    
+    // Actualizar contador de subtareas
+    const subtaskCounter = document.getElementById('subtasksCounter');
+    if (subtaskCounter) {
+        subtaskCounter.textContent = `${completed} de ${total} completadas`;
+    }
+}
+
+function getCurrentSubtaskOrder() {
+    const list = document.getElementById('subtasksList');
+    if (!list) {
+        return [];
+    }
+
+    return Array.from(list.querySelectorAll('.subtask-draggable'))
+        .map(item => Number(item.dataset.subtaskId))
+        .filter(Number.isFinite);
+}
+
+function applySubtaskOrder(order) {
+    const list = document.getElementById('subtasksList');
+    if (!list) {
+        return;
+    }
+
+    order.forEach(subtaskId => {
+        const item = list.querySelector(`.subtask-draggable[data-subtask-id="${subtaskId}"]`);
+        if (item) {
+            list.appendChild(item);
         }
-        
-        // Actualizar porcentaje
-        const percentText = document.querySelector('.text-xs.font-semibold.text-gray-600.min-w-\\[2\\.5rem\\]');
-        if (percentText) {
-            percentText.textContent = `${percent}%`;
+    });
+}
+
+function getSubtaskDropTarget(container, y) {
+    const items = [...container.querySelectorAll('.subtask-draggable:not(.dragging)')];
+
+    return items.reduce((closest, item) => {
+        const box = item.getBoundingClientRect();
+        const offset = y - box.top - (box.height / 2);
+
+        if (offset < 0 && offset > closest.offset) {
+            return { offset, element: item };
         }
-        
-        // Actualizar contador de subtareas
-        const subtaskCounter = document.querySelector('h3.text-sm.font-semibold.text-gray-900.uppercase + p.text-xs.text-gray-500');
-        if (subtaskCounter) {
-            subtaskCounter.textContent = `${completed} de ${total} completadas`;
+
+        return closest;
+    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+}
+
+async function persistSubtaskOrder(nextOrder, previousOrder) {
+    const list = document.getElementById('subtasksList');
+    const url = list?.dataset.reorderUrl;
+
+    if (!list || !url || !nextOrder.length) {
+        return;
+    }
+
+    isSavingSubtaskOrder = true;
+    list.classList.add('pointer-events-none', 'opacity-75');
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ subtask_ids: nextOrder })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data?.message || 'No se pudo guardar el nuevo orden.');
         }
+    } catch (error) {
+        applySubtaskOrder(previousOrder);
+        showToast(error.message || 'No se pudo guardar el nuevo orden.', 'error');
+    } finally {
+        list.classList.remove('pointer-events-none', 'opacity-75');
+        isSavingSubtaskOrder = false;
     }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    const subtasksList = document.getElementById('subtasksList');
+
+    if (subtasksList) {
+        subtasksList.addEventListener('dragover', function(event) {
+            if (!draggedSubtaskItem || isSavingSubtaskOrder) {
+                return;
+            }
+
+            event.preventDefault();
+            const dropTarget = getSubtaskDropTarget(subtasksList, event.clientY);
+
+            if (!dropTarget) {
+                subtasksList.appendChild(draggedSubtaskItem);
+                return;
+            }
+
+            subtasksList.insertBefore(draggedSubtaskItem, dropTarget);
+        });
+
+        subtasksList.addEventListener('drop', function(event) {
+            if (draggedSubtaskItem) {
+                event.preventDefault();
+            }
+        });
+    }
+
+    document.querySelectorAll('.subtask-drag-handle').forEach(handle => {
+        handle.addEventListener('dragstart', function(event) {
+            if (isSavingSubtaskOrder) {
+                event.preventDefault();
+                return;
+            }
+
+            draggedSubtaskItem = this.closest('.subtask-draggable');
+            draggedSubtaskPreviousOrder = getCurrentSubtaskOrder();
+
+            if (!draggedSubtaskItem) {
+                event.preventDefault();
+                return;
+            }
+
+            draggedSubtaskItem.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggedSubtaskItem.dataset.subtaskId || '');
+        });
+
+        handle.addEventListener('dragend', function() {
+            if (!draggedSubtaskItem) {
+                return;
+            }
+
+            const nextOrder = getCurrentSubtaskOrder();
+            const previousOrder = [...draggedSubtaskPreviousOrder];
+
+            draggedSubtaskItem.classList.remove('dragging');
+            draggedSubtaskItem = null;
+            draggedSubtaskPreviousOrder = [];
+
+            if (JSON.stringify(nextOrder) === JSON.stringify(previousOrder)) {
+                return;
+            }
+
+            persistSubtaskOrder(nextOrder, previousOrder);
+        });
+    });
+
     // Toggle subtareas
     document.querySelectorAll('.subtask-toggle').forEach(button => {
         button.addEventListener('click', function() {
