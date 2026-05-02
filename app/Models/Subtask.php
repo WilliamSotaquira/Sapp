@@ -77,7 +77,7 @@ class Subtask extends Model
     // Scopes
     public function scopeOrdered($query)
     {
-        return $query->orderBy('order');
+        return $query->orderBy('order')->orderBy('id');
     }
 
     public function scopePending($query)

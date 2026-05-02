@@ -75,6 +75,7 @@ Route::prefix('tasks')->name('tasks.')->group(function () {
 
     // Subtareas
     Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');
+    Route::post('/{task}/subtasks/reorder', [TaskController::class, 'reorderSubtasks'])->name('subtasks.reorder');
     Route::put('/{task}/subtasks/{subtask}', [TaskController::class, 'updateSubtask'])->name('subtasks.update');
     Route::delete('/{task}/subtasks/{subtask}', [TaskController::class, 'destroySubtask'])->name('subtasks.destroy');
     Route::post('/{task}/subtasks/{subtask}/toggle', [TaskController::class, 'toggleSubtaskStatus'])->name('subtasks.toggle');
