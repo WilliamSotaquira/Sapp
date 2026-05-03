@@ -68,7 +68,6 @@
                 <div>
                     <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</dt>
                     <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $serviceRequest->status }} · {{ $serviceRequest->criticality_level }}</dd>
-                    <dd class="text-xs text-gray-500">{{ $serviceRequest->created_at->format('d/m/Y') }} · {{ $serviceRequest->created_at->locale('es')->diffForHumans() }}</dd>
                 </div>
                 <div>
                     <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Canal</dt>
@@ -83,7 +82,7 @@
                         @if ($hasDueDate)
                             <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md border {{ $dueTone }} text-xs font-semibold">
                                 <i class="fas fa-calendar-check"></i>
-                                <span>{{ $serviceRequest->due_date->format('d/m/Y') }}</span>
+                                <span>{{ ucfirst($serviceRequest->due_date->locale('es')->translatedFormat('j M Y')) }}</span>
                                 <span>{{ $dueLabel }}</span>
                             </div>
                             @if (!$isDead && $dueDays !== null)
@@ -107,16 +106,22 @@
                     <dd id="cutAssociationContainer" class="mt-1">
                         @if ($cuts->isEmpty())
                             <p class="text-sm text-gray-500">Sin corte asociado</p>
-                            <p class="mt-1 text-xs text-gray-500">Se calcula con la fecha de creación.</p>
+                            <p class="mt-1 text-xs text-gray-500">Se calcula con la fecha de la solicitud.</p>
                         @else
                             @foreach ($cuts as $cut)
-                                <a href="{{ route('reports.cuts.show', $cut) }}" class="inline-flex max-w-full items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium hover:bg-indigo-100 transition">
-                                    <i class="fas fa-cut shrink-0"></i>
-                                    <span class="truncate">{{ $cut->name }}</span>
-                                    <span class="text-[11px] text-indigo-500 font-medium whitespace-nowrap">{{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }}</span>
+                                <a href="{{ route('reports.cuts.show', $cut) }}" class="flex max-w-full flex-col items-start gap-1 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-indigo-700 transition hover:bg-indigo-100">
+                                    <span class="inline-flex items-center gap-2 text-xs font-semibold leading-tight">
+                                        <i class="fas fa-cut shrink-0"></i>
+                                        <span class="break-words">{{ $cut->name }}</span>
+                                    </span>
+                                    <span class="pl-5 text-[11px] font-medium leading-tight text-indigo-500">
+                                        {{ ucfirst($cut->start_date->locale('es')->translatedFormat('j M Y')) }}
+                                        <span class="text-indigo-300">al</span>
+                                        {{ ucfirst($cut->end_date->locale('es')->translatedFormat('j M Y')) }}
+                                    </span>
                                 </a>
                             @endforeach
-                            <p class="mt-1 text-xs text-gray-500">Automático por fecha de creación.</p>
+                            <p class="mt-1 text-xs text-gray-500">Automático por fecha de la solicitud.</p>
                         @endif
                     </dd>
                 </div>

@@ -179,6 +179,100 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
         $this->assertSame([$data['aprilCut']->id], $created->cuts()->pluck('cuts.id')->all());
     }
 
+    public function test_store_respects_manual_created_at_and_assigns_the_matching_cut(): void
+    {
+        $data = $this->seedContext();
+        Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
+
+        try {
+            $response = $this->actingAs($data['user'])
+                ->withSession(['current_company_id' => $data['company']->id])
+                ->post(route('service-requests.store'), [
+                    'company_id' => $data['company']->id,
+                    'requester_id' => $data['requester']->id,
+                    'title' => 'Solicitud con fecha manual',
+                    'description' => 'Solicitud de prueba con fecha ingresada manualmente.',
+                    'sub_service_id' => $data['subService']->id,
+                    'criticality_level' => 'MEDIA',
+                    'service_id' => $data['service']->id,
+                    'family_id' => $data['family']->id,
+                    'sla_id' => $data['sla']->id,
+                    'requested_by' => $data['user']->id,
+                    'entry_channel' => 'email_corporativo',
+                    'created_at' => '2026-03-20T14:45',
+                    'web_routes' => ['ruta-prueba'],
+                    'is_reportable' => true,
+                    'cut_id' => $data['aprilCut']->id,
+                    'tasks_template' => 'none',
+                    'tasks' => [
+                        [
+                            'title' => 'Publicar contenido con fecha manual',
+                            'priority' => 'medium',
+                            'type' => 'regular',
+                            'estimated_minutes' => 30,
+                        ],
+                    ],
+                ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $response->assertRedirect()->assertSessionHas('success');
+
+        $created = ServiceRequest::withoutGlobalScopes()
+            ->where('title', 'Solicitud con fecha manual')
+            ->firstOrFail();
+
+        $this->assertSame('2026-03-20 14:45:00', $created->created_at->format('Y-m-d H:i:s'));
+        $this->assertSame([$data['marchCut']->id], $created->cuts()->pluck('cuts.id')->all());
+    }
+
+    public function test_store_rejects_future_manual_created_at(): void
+    {
+        $data = $this->seedContext();
+        Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
+
+        try {
+            $response = $this->actingAs($data['user'])
+                ->withSession(['current_company_id' => $data['company']->id])
+                ->from(route('service-requests.create'))
+                ->post(route('service-requests.store'), [
+                    'company_id' => $data['company']->id,
+                    'requester_id' => $data['requester']->id,
+                    'title' => 'Solicitud con fecha futura',
+                    'description' => 'Solicitud de prueba con fecha futura.',
+                    'sub_service_id' => $data['subService']->id,
+                    'criticality_level' => 'MEDIA',
+                    'service_id' => $data['service']->id,
+                    'family_id' => $data['family']->id,
+                    'sla_id' => $data['sla']->id,
+                    'requested_by' => $data['user']->id,
+                    'entry_channel' => 'email_corporativo',
+                    'created_at' => '2026-04-11T10:00',
+                    'web_routes' => ['ruta-prueba'],
+                    'is_reportable' => true,
+                    'tasks_template' => 'none',
+                    'tasks' => [
+                        [
+                            'title' => 'Validar fecha futura',
+                            'priority' => 'medium',
+                            'type' => 'regular',
+                            'estimated_minutes' => 30,
+                        ],
+                    ],
+                ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $response->assertRedirect(route('service-requests.create'));
+        $response->assertSessionHasErrors('created_at');
+
+        $this->assertDatabaseMissing('service_requests', [
+            'title' => 'Solicitud con fecha futura',
+        ]);
+    }
+
     public function test_update_created_at_recalculates_cut_association(): void
     {
         $data = $this->seedContext();

@@ -35,6 +35,7 @@ class StoreServiceRequestRequest extends FormRequest
             'requested_by' => 'required|exists:users,id',
             'entry_channel' => 'required|in:' . implode(',', ServiceRequest::getEntryChannelValidationValues()),
             'due_date' => 'nullable|date',
+            'created_at' => 'nullable|date|before_or_equal:now',
             'web_routes' => 'required|string',
             'is_reportable' => 'sometimes|boolean',
 
@@ -87,6 +88,8 @@ class StoreServiceRequestRequest extends FormRequest
             'entry_channel.required' => 'Debe seleccionar un canal de entrada.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
             'due_date.date' => 'La fecha de vencimiento no tiene un formato válido.',
+            'created_at.date' => 'La fecha de la solicitud no tiene un formato válido.',
+            'created_at.before_or_equal' => 'La fecha de la solicitud no puede ser futura.',
             'web_routes.required' => 'Las rutas web son obligatorias.',
         ];
     }

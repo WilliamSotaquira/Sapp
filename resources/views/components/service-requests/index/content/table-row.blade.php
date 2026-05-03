@@ -178,10 +178,10 @@
         </div>
     </td>
 
-    <!-- Fecha con formato relativo -->
+    <!-- Fecha de la solicitud -->
     <td class="px-3 py-2.5 align-top whitespace-nowrap overflow-hidden">
-        <div class="text-xs font-semibold text-gray-900 truncate" title="{{ $request->created_at->format('d/m/Y H:i') }}">{{ $request->created_at->format('d/m/Y') }}</div>
-        <div class="text-[11px] text-gray-500 truncate" title="{{ $request->created_at->locale('es')->diffForHumans() }}">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
+        <div class="text-xs font-semibold text-gray-900 truncate" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">{{ $request->created_at->format('d/m/Y') }}</div>
+        <div class="text-[11px] text-gray-500 truncate" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
     </td>
 
     <!-- Acciones -->

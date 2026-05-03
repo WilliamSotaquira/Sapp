@@ -19,6 +19,10 @@
         $subServiceBorderClass = $errors->has('sub_service_id') ? 'border-red-500' : 'border-gray-300';
         $createdAtBorderClass = $errors->has('created_at') ? 'border-red-500' : 'border-gray-300';
         $dueDateBorderClass = $errors->has('due_date') ? 'border-red-500' : 'border-gray-300';
+        $createdAtValue = old(
+            'created_at',
+            optional($serviceRequest?->created_at)->format('Y-m-d\TH:i') ?? now()->format('Y-m-d\TH:i')
+        );
     @endphp
 
     <!-- CAMPOS OCULTOS REQUERIDOS - CON VALORES POR DEFECTO -->
@@ -91,28 +95,26 @@
         </div>
     </div>
 
-    @if(($mode ?? 'create') === 'edit')
-        <div>
-            <label for="created_at" class="block text-sm font-medium text-gray-700 mb-2">
-                Fecha de creación <span class="text-red-500">*</span>
-            </label>
-            <input
-                type="datetime-local"
-                name="created_at"
-                id="created_at"
-                value="{{ old('created_at', optional($serviceRequest?->created_at)->format('Y-m-d\TH:i')) }}"
-                max="{{ now()->format('Y-m-d\TH:i') }}"
-                class="w-full px-4 py-3 border {{ $createdAtBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                required
-            >
-            <p class="mt-1 text-xs text-gray-500">
-                El corte asociado se recalcula con esta fecha y el rango configurado en cortes.
-            </p>
-            @error('created_at')
-                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-            @enderror
-        </div>
-    @endif
+    <div>
+        <label for="created_at" class="block text-sm font-medium text-gray-700 mb-2">
+            Fecha y hora de la solicitud <span class="text-red-500">*</span>
+        </label>
+        <input
+            type="datetime-local"
+            name="created_at"
+            id="created_at"
+            value="{{ $createdAtValue }}"
+            max="{{ now()->format('Y-m-d\TH:i') }}"
+            class="w-full px-4 py-3 border {{ $createdAtBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+            required
+        >
+        <p class="mt-1 text-xs text-gray-500">
+            Registra cuándo ingresó realmente la solicitud. El corte asociado se recalcula con esta fecha.
+        </p>
+        @error('created_at')
+            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+        @enderror
+    </div>
 
     <div>
         <label for="due_date" class="block text-sm font-medium text-gray-700 mb-2">

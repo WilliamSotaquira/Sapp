@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { el: requester, ok: !!requester?.value, label: 'Solicitante' },
             { el: subService, ok: !!subService?.value, label: 'Subservicio' },
             { el: entryChannel, ok: !!entryChannel?.value, label: 'Canal de ingreso' },
-            { el: createdAt, ok: !!createdAt?.value, label: 'Fecha de creación' },
+            { el: createdAt, ok: !!createdAt?.value, label: 'Fecha y hora de la solicitud' },
         ];
 
         checks.forEach(({ el, ok }) => setFieldValidity(el, ok));
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function () {
             `- Solicitante: ${requesterText}`,
             `- Subservicio: ${subServiceText}`,
             `- Canal: ${channelText}`,
-            `- Fecha de creación: ${createdAt}`,
+            `- Fecha solicitud: ${createdAt.replace('T', ' ')}`,
             `- Vencimiento: ${dueDate}`,
             '',
             '¿Deseas actualizar la solicitud?'

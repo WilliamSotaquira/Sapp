@@ -15,7 +15,7 @@
     <div class="p-6">
         <div class="space-y-3 text-sm">
             <div class="flex items-center justify-between">
-                <span class="text-gray-500">Creada</span>
+                <span class="text-gray-500">Fecha de la solicitud</span>
                 <span class="font-medium text-gray-900">{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</span>
             </div>
             <div class="flex items-center justify-between">
