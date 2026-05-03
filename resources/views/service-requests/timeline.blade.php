@@ -493,7 +493,7 @@
                                 <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->sla->name ?? 'N/A' }}</dd>
                             </div>
                             <div class="flex justify-between py-2">
-                                <dt class="text-slate-500">Fecha creación</dt>
+                                <dt class="text-slate-500">Fecha de la solicitud</dt>
                                 <dd class="font-semibold text-slate-800 text-right">{{ $serviceRequest->created_at->format('d/m/Y H:i') }}</dd>
                             </div>
                         </dl>

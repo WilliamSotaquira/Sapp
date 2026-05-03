@@ -138,7 +138,7 @@ class UpdateServiceRequestRequest extends FormRequest
                         if ($timestamp && $createdAt->gt($timestamp)) {
                             $validator->errors()->add(
                                 'created_at',
-                                'La fecha de creación no puede ser posterior a fechas ya registradas en la solicitud.'
+                                'La fecha de la solicitud no puede ser posterior a fechas ya registradas en la solicitud.'
                             );
                             break;
                         }
@@ -166,9 +166,9 @@ class UpdateServiceRequestRequest extends FormRequest
             'entry_channel.required' => 'El canal de entrada es obligatorio.',
             'entry_channel.in' => 'El canal de entrada seleccionado no es válido.',
             'due_date.date' => 'La fecha de vencimiento no tiene un formato válido.',
-            'created_at.required' => 'La fecha de creación es obligatoria.',
-            'created_at.date' => 'La fecha de creación no tiene un formato válido.',
-            'created_at.before_or_equal' => 'La fecha de creación no puede ser futura.',
+            'created_at.required' => 'La fecha de la solicitud es obligatoria.',
+            'created_at.date' => 'La fecha de la solicitud no tiene un formato válido.',
+            'created_at.before_or_equal' => 'La fecha de la solicitud no puede ser futura.',
         ];
     }
 }

@@ -85,7 +85,7 @@
                                 "📋 *Ticket:* " . $serviceRequest->ticket_number . "\n" .
                                 "📊 *Estado:* " . $statusText . "\n" .
                                 "🔧 *Servicio:* " . ($serviceRequest->subService->service->name ?? 'No especificado') . "\n" .
-                                "📅 *Creada:* " . $serviceRequest->created_at->format('d/m/Y') . "\n\n" .
+                                "📅 *Fecha solicitud:* " . $serviceRequest->created_at->format('d/m/Y H:i') . "\n\n" .
                                 "🔗 *Consulta el estado aquí:*\n" . $publicUrl . "\n\n" .
                                 "✅ _Sin necesidad de iniciar sesión_\n" .
                                 "👤 _Acceso directo para cualquier persona_";
@@ -100,7 +100,7 @@
                             "📋 Ticket: " . $serviceRequest->ticket_number . "\n" .
                             "📊 Estado Actual: " . $statusText . "\n" .
                             "🔧 Servicio: " . ($serviceRequest->subService->service->name ?? 'No especificado') . "\n" .
-                            "📅 Fecha de Creación: " . $serviceRequest->created_at->format('d/m/Y H:i') . "\n" .
+                            "📅 Fecha de la solicitud: " . $serviceRequest->created_at->format('d/m/Y H:i') . "\n" .
                             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" .
                             "🔗 Enlace de consulta pública:\n" . $publicUrl . "\n\n" .
                             "✅ Este enlace NO requiere iniciar sesión\n" .

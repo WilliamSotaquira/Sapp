@@ -36,7 +36,7 @@
     }
     if ($startDate || $endDate) {
         $rangeLabel = trim(($startDate ?: '...') . ' a ' . ($endDate ?: '...'));
-        $activeFilters[] = ['label' => 'Fechas: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
+        $activeFilters[] = ['label' => 'Fecha solicitud: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
     }
     if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
     if ($excludeClosed) $activeFilters[] = ['label' => 'Sin cerradas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['exclude_closed' => true]))];
@@ -44,7 +44,7 @@
     if ($inProcess) $activeFilters[] = ['label' => 'En proceso', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_process' => true]))];
     if ($sortBy && $sortBy !== 'recent') {
         $sortLabels = [
-            'oldest' => 'Antiguedad (más antiguas)',
+            'oldest' => 'Fecha de solicitud más antigua',
             'priority_high' => 'Prioridad alta a baja',
             'priority_low' => 'Prioridad baja a alta',
             'status_az' => 'Estado A-Z',
@@ -351,9 +351,9 @@
                         <input id="requesterFilterAdv" name="requester" value="{{ request('requester') }}" type="text" placeholder="Nombre o email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
                     </div>
 
-                    <!-- Rango de Fechas -->
+                    <!-- Rango de fecha de la solicitud -->
                     <div class="space-y-3">
-                        <label class="block text-sm font-medium text-gray-700">Rango de Fechas</label>
+                        <label class="block text-sm font-medium text-gray-700">Rango de fecha de la solicitud</label>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="startDateFilterAdv" class="block text-xs text-gray-600 mb-1">Desde</label>
@@ -370,8 +370,8 @@
                     <div>
                         <label for="sortByFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Ordenar por</label>
                         <select id="sortByFilterAdv" name="sort_by" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="recent" {{ request('sort_by', 'recent') === 'recent' ? 'selected' : '' }}>Más recientes primero</option>
-                            <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>Antigüedad (más antiguas primero)</option>
+                            <option value="recent" {{ request('sort_by', 'recent') === 'recent' ? 'selected' : '' }}>Fecha de solicitud más reciente</option>
+                            <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>Fecha de solicitud más antigua</option>
                             <option value="priority_high" {{ request('sort_by') === 'priority_high' ? 'selected' : '' }}>Prioridad alta a baja</option>
                             <option value="priority_low" {{ request('sort_by') === 'priority_low' ? 'selected' : '' }}>Prioridad baja a alta</option>
                             <option value="due_date" {{ request('sort_by') === 'due_date' ? 'selected' : '' }}>Vencimiento más cercano</option>
@@ -432,7 +432,7 @@
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Prioridad</th>
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Estado</th>
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Solicitante</th>
-                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Creada</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Fecha solicitud</th>
                             <th class="px-3 py-2.5 text-right font-semibold tracking-wide">Acciones</th>
                         </tr>
                     </thead>
@@ -612,7 +612,9 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-xs font-medium text-gray-900 truncate">{{ $name }}</div>
-                                    <div class="text-xs text-gray-500">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
+                                    <div class="text-xs text-gray-500" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">
+                                        {{ $request->created_at->format('d/m/Y') }} · {{ $request->created_at->locale('es')->diffForHumans() }}
+                                    </div>
                                 </div>
                             </div>
                             

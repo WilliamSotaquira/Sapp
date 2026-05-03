@@ -244,6 +244,7 @@
             const requester = document.getElementById('requester_id');
             const subService = document.getElementById('sub_service_id');
             const entryChannel = document.getElementById('entry_channel');
+            const createdAt = document.getElementById('created_at');
 
             const checks = [
                 { el: title, ok: !!title?.value?.trim(), label: 'Título' },
@@ -251,6 +252,7 @@
                 { el: requester, ok: !!requester?.value, label: 'Solicitante' },
                 { el: subService, ok: !!subService?.value, label: 'Subservicio' },
                 { el: entryChannel, ok: !!entryChannel?.value, label: 'Canal de ingreso' },
+                { el: createdAt, ok: !!createdAt?.value, label: 'Fecha y hora de la solicitud' },
             ];
 
             checks.forEach(({ el, ok }) => setFieldValidity(el, ok));
@@ -263,6 +265,7 @@
             const requester = document.getElementById('requester_id');
             const subService = document.getElementById('sub_service_id');
             const channel = document.getElementById('entry_channel');
+            const createdAt = document.getElementById('created_at')?.value || 'Sin fecha';
             const dueDate = document.getElementById('due_date')?.value || 'Sin vencimiento';
             const tasksCount = document.querySelectorAll('#tasksList [data-task-row]').length;
 
@@ -276,6 +279,7 @@
                 `- Solicitante: ${requesterText}`,
                 `- Subservicio: ${subServiceText}`,
                 `- Canal: ${channelText}`,
+                `- Fecha solicitud: ${createdAt.replace('T', ' ')}`,
                 `- Vencimiento: ${dueDate}`,
                 `- Tareas: ${tasksCount}`,
                 '',
@@ -321,6 +325,7 @@
                 requester_id: document.getElementById('requester_id')?.value ?? '',
                 sub_service_id: document.getElementById('sub_service_id')?.value ?? '',
                 entry_channel: document.getElementById('entry_channel')?.value ?? '',
+                created_at: document.getElementById('created_at')?.value ?? '',
                 due_date: document.getElementById('due_date')?.value ?? '',
                 tasks_template: templateSelect?.value ?? 'none',
                 tasks: rows,
@@ -439,7 +444,7 @@
             isOpen() ? closeSection() : openSection();
         });
 
-        ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel', 'due_date'].forEach((id) => {
+        ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel', 'created_at', 'due_date'].forEach((id) => {
             const field = document.getElementById(id);
             if (!field) return;
             field.addEventListener('input', validateMainFields);
@@ -1406,6 +1411,7 @@
             setValue('requester_id', draft.requester_id);
             setValue('sub_service_id', draft.sub_service_id);
             setValue('entry_channel', draft.entry_channel);
+            setValue('created_at', draft.created_at);
             setValue('due_date', draft.due_date);
             setValue('tasks_template', draft.tasks_template || 'none');
 
