@@ -1409,7 +1409,7 @@ class ServiceRequestController extends Controller
     }
 
     /**
-     * Recalcular el corte asociado a una solicitud según su fecha de creación.
+     * Recalcular el corte asociado a una solicitud según la fecha de asignación aceptada del técnico.
      */
     public function updateCut(Request $request, ServiceRequest $serviceRequest)
     {
@@ -1418,24 +1418,24 @@ class ServiceRequestController extends Controller
                 'cut_id' => 'nullable|exists:cuts,id',
             ]);
 
-            $resolvedCut = $this->serviceRequestService->resolveCutByCreationDate($serviceRequest);
+            $resolvedCut = $this->serviceRequestService->resolveCutByTechnicianAssignmentDate($serviceRequest);
 
             if (!empty($validated['cut_id'])) {
                 $cut = \App\Models\Cut::find($validated['cut_id']);
                 if (!$resolvedCut || !$cut || (int) $resolvedCut->id !== (int) $cut->id) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.',
+                        'message' => 'El corte seleccionado no corresponde a la fecha de asignación aceptada del técnico.',
                     ], 422);
                 }
 
             }
 
-            $this->serviceRequestService->syncCutAssociationByCreationDate($serviceRequest);
+            $this->serviceRequestService->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Corte recalculado por fecha de creación',
+                'message' => 'Corte recalculado por fecha de asignación aceptada del técnico',
                 'cut' => $resolvedCut ? [
                     'id' => $resolvedCut->id,
                     'name' => $resolvedCut->name,

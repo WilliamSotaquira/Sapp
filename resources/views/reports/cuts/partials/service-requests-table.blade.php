@@ -25,7 +25,7 @@
     <div class="overflow-hidden rounded-lg border border-gray-200" role="region" aria-label="Tabla de solicitudes asociadas del corte">
         <table class="w-full table-fixed divide-y divide-gray-200">
             <caption class="sr-only">
-                Listado de solicitudes asociadas, ordenado por estado activo primero y luego por fecha de creación más reciente.
+                Listado de solicitudes asociadas, ordenado por estado activo primero y luego por fecha de asignación técnica más reciente.
             </caption>
             <thead class="bg-gray-50">
                 <tr>
@@ -33,7 +33,7 @@
                     <th scope="col" class="w-[36%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Título</th>
                     <th scope="col" class="w-[24%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Familia</th>
                     <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Estado</th>
-                    <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Creada</th>
+                    <th scope="col" class="w-[10%] px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Asignada</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 bg-white">
@@ -74,8 +74,8 @@
                             </span>
                         </td>
                         <td class="w-[10%] px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                            @if($sr->created_at)
-                                <time datetime="{{ $sr->created_at->toIso8601String() }}">{{ $sr->created_at->format('Y-m-d H:i') }}</time>
+                            @if($sr->technician_assigned_at)
+                                <time datetime="{{ $sr->technician_assigned_at->toIso8601String() }}">{{ $sr->technician_assigned_at->format('Y-m-d H:i') }}</time>
                             @else
                                 <span class="text-gray-400">Sin fecha</span>
                             @endif

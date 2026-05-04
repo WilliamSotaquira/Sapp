@@ -181,6 +181,7 @@ class CutController extends Controller
                     ELSE 9
                 END
             ")
+            ->orderByDesc('technician_assigned_at')
             ->orderByDesc('created_at')
             ->paginate(20)
             ->appends([
@@ -276,7 +277,9 @@ class CutController extends Controller
 
         $serviceRequestsQuery = ServiceRequest::query()
             ->with(['requester'])
-            ->whereBetween('created_at', [$start, $end])
+            ->eligibleForCutAssignment()
+            ->whereBetween('technician_assigned_at', [$start, $end])
+            ->orderByDesc('technician_assigned_at')
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
             $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
@@ -377,7 +380,7 @@ class CutController extends Controller
     {
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Solicitudes recalculadas según la fecha de creación.');
+        return back()->with('success', 'Solicitudes recalculadas según la fecha de asignación aceptada del técnico.');
     }
 
     public function addRequestByTicket(Cut $cut, Request $request): RedirectResponse
@@ -402,20 +405,23 @@ class CutController extends Controller
                 return back()->with('error', 'La solicitud no pertenece al contrato de este corte.');
             }
         }
-        if (!$cut->containsDate($serviceRequest->created_at)) {
-            return back()->with('error', 'La solicitud no pertenece al rango de fechas de este corte.');
+        if (!$serviceRequest->canBeAssociatedToCut()) {
+            return back()->with('error', 'La solicitud debe tener un técnico asignado y estar al menos aceptada para asociarse a un corte.');
+        }
+        if (!$cut->containsDate($serviceRequest->technician_assigned_at)) {
+            return back()->with('error', 'La solicitud no pertenece al rango operativo de este corte.');
         }
 
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'La solicitud pertenece al rango del corte y la asociación fue recalculada.');
+        return back()->with('success', 'La solicitud pertenece al rango operativo del corte y la asociación fue recalculada.');
     }
 
     public function removeRequest(Cut $cut, ServiceRequest $serviceRequest): RedirectResponse
     {
         return back()->with(
             'error',
-            'La asociación del corte se calcula por fecha de creación. Ajusta la fecha de la solicitud o el rango del corte para removerla.'
+            'La asociación del corte se calcula por la fecha de asignación aceptada del técnico. Ajusta esa asignación o el rango del corte para removerla.'
         );
     }
 
@@ -423,7 +429,7 @@ class CutController extends Controller
     {
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Asociación actualizada según la fecha de creación de las solicitudes.');
+        return back()->with('success', 'Asociación actualizada según la fecha de asignación aceptada del técnico.');
     }
 
     public function export(Request $request, Cut $cut)
@@ -481,22 +487,14 @@ class CutController extends Controller
             })
             ->values();
 
-        [$start, $end] = $cut->getDateRangeForQuery();
-
-        $serviceRequests = ServiceRequest::query()
+        $serviceRequests = $cut->serviceRequests()
             ->with(['subService.service.family.contract', 'requester', 'assignee', 'sla', 'tasks.subtasks', 'evidences.uploadedBy'])
-            ->when($currentCompanyId, fn($query) => $query->where('company_id', $currentCompanyId))
-            ->when($cut->contract_id, function ($query) use ($cut) {
-                $query->whereHas('subService.service.family', function ($q) use ($cut) {
-                    $q->where('contract_id', $cut->contract_id);
-                });
-            })
-            ->whereBetween('created_at', [$start, $end])
             ->when(!empty($selectedFamilyIds), function ($query) use ($selectedFamilyIds) {
                 $query->whereHas('subService.service.family', function ($q) use ($selectedFamilyIds) {
                     $q->whereIn('service_families.id', $selectedFamilyIds);
                 });
             })
+            ->orderByDesc('technician_assigned_at')
             ->orderByDesc('created_at')
             ->get();
 
@@ -577,14 +575,14 @@ class CutController extends Controller
         [$start, $end] = $cut->getDateRangeForQuery();
 
         $requestIds = ServiceRequest::query()
+            ->eligibleForCutAssignment()
             ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->when($cut->contract_id, function ($q) use ($cut) {
                 $q->whereHas('subService.service.family', function ($fq) use ($cut) {
                     $fq->where('contract_id', $cut->contract_id);
                 });
             })
-            // El corte debe ser exclusivo y basarse en la fecha de creación de la solicitud.
-            ->whereBetween('created_at', [$start, $end])
+            ->whereBetween('technician_assigned_at', [$start, $end])
             ->pluck('id')
             ->all();
 

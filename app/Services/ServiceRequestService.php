@@ -155,13 +155,14 @@ class ServiceRequestService
         return $cutId ? (int) $cutId : null;
     }
 
-    public function resolveCutByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    public function resolveCutByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
     {
-        $serviceRequest->loadMissing('subService.service.family.contract');
+        $serviceRequest->load('subService.service.family.contract');
 
-        $reference = $serviceRequest->created_at
-            ? Carbon::parse($serviceRequest->created_at)
-            : now();
+        $reference = $serviceRequest->getCutReferenceAt();
+        if (!$reference) {
+            return null;
+        }
 
         $contractId = (int) ($serviceRequest->subService?->service?->family?->contract_id ?? 0);
         $companyId = (int) ($serviceRequest->company_id ?? 0);
@@ -184,13 +185,23 @@ class ServiceRequestService
             ->first(['id', 'contract_id', 'name', 'start_date', 'end_date']);
     }
 
-    public function syncCutAssociationByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    public function syncCutAssociationByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
     {
-        $cut = $this->resolveCutByCreationDate($serviceRequest);
+        $cut = $this->resolveCutByTechnicianAssignmentDate($serviceRequest);
 
         $serviceRequest->cuts()->sync($cut ? [$cut->id] : []);
 
         return $cut;
+    }
+
+    public function resolveCutByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        return $this->resolveCutByTechnicianAssignmentDate($serviceRequest);
+    }
+
+    public function syncCutAssociationByCreationDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        return $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
     }
 
     private function applySorting($query, ?string $sortBy): void
@@ -501,7 +512,7 @@ class ServiceRequestService
             $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, &$resolvedCut) {
                 $serviceRequest = ServiceRequest::create($data);
 
-                $resolvedCut = $this->syncCutAssociationByCreationDate($serviceRequest);
+                $resolvedCut = $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
 
                 $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
 
@@ -956,7 +967,7 @@ class ServiceRequestService
 
             DB::transaction(function () use ($serviceRequest, $data) {
                 $serviceRequest->update($data);
-                $this->syncCutAssociationByCreationDate($serviceRequest->refresh());
+                $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest->refresh());
             });
 
             Log::info('✅ Solicitud actualizada exitosamente', [

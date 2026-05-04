@@ -106,7 +106,7 @@
                     <dd id="cutAssociationContainer" class="mt-1">
                         @if ($cuts->isEmpty())
                             <p class="text-sm text-gray-500">Sin corte asociado</p>
-                            <p class="mt-1 text-xs text-gray-500">Se calcula con la fecha de la solicitud.</p>
+                            <p class="mt-1 text-xs text-gray-500">Se calcula con la fecha de asignación aceptada del técnico.</p>
                         @else
                             @foreach ($cuts as $cut)
                                 <a href="{{ route('reports.cuts.show', $cut) }}" class="flex max-w-full flex-col items-start gap-1 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-indigo-700 transition hover:bg-indigo-100">
@@ -121,7 +121,7 @@
                                     </span>
                                 </a>
                             @endforeach
-                            <p class="mt-1 text-xs text-gray-500">Automático por fecha de la solicitud.</p>
+                            <p class="mt-1 text-xs text-gray-500">Automático por fecha de asignación aceptada del técnico.</p>
                         @endif
                     </dd>
                 </div>
