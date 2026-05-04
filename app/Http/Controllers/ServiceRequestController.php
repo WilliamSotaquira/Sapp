@@ -16,6 +16,7 @@ use App\Models\ServiceRequestEvidence;
 use App\Models\SavedFilter;
 use App\Models\Technician;
 use App\Services\ServiceRequestService;
+use App\Services\ServiceRequestPlainTextImportService;
 use App\Services\ServiceRequestWorkflowService;
 use App\Services\EvidenceService;
 use App\Models\Service;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -306,6 +308,79 @@ class ServiceRequestController extends Controller
         $data = $this->serviceRequestService->getCreateFormData($selectedSubServiceId);
 
         return view('service-requests.create', $data);
+    }
+
+    public function prefillFromPlainText(Request $request, ServiceRequestPlainTextImportService $plainTextImportService)
+    {
+        $validator = Validator::make($request->all(), [
+            'plain_text' => ['required', 'string', 'min:20'],
+        ], [
+            'plain_text.required' => 'Pega el texto que quieres interpretar.',
+            'plain_text.min' => 'El texto es demasiado corto para identificar una solicitud.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => (string) $request->input('plain_text', ''),
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', $validator->errors()->first('plain_text'));
+        }
+
+        $validated = $validator->validated();
+
+        $companyId = (int) session('current_company_id');
+        if ($companyId <= 0) {
+            return redirect()
+                ->route('service-requests.create')
+                ->with('error', 'No hay un espacio de trabajo activo para interpretar el texto pegado.');
+        }
+
+        try {
+            $result = $plainTextImportService->parseToFormData(
+                $validated['plain_text'],
+                $companyId,
+                auth()->id(),
+            );
+
+            $meta = $result['meta'];
+            $message = 'Texto interpretado. Revisa la solicitud antes de crearla.';
+            if (!empty($meta['requester_created'])) {
+                $message .= ' Se creó el solicitante "' . $meta['requester_name'] . '".';
+            }
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput($result['payload'])
+                ->with('success', $message);
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())
+                ->flatten()
+                ->filter()
+                ->first() ?: 'No se pudo interpretar el texto pegado.';
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', $message);
+        } catch (\Throwable $e) {
+            Log::error('Error interpretando texto plano para solicitud: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', 'No se pudo interpretar el texto pegado. Revisa el formato e intenta de nuevo.');
+        }
     }
 
     /**

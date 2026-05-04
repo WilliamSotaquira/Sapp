@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 // GESTIÓN DE SOLICITUDES DE SERVICIO - CRUD
 // =============================================================================
 
+Route::post('/service-requests/prefill-from-text', [ServiceRequestController::class, 'prefillFromPlainText'])
+    ->name('service-requests.prefill-from-text');
+
 Route::resource('service-requests', ServiceRequestController::class);
 
 Route::get('/service-requests/{service_request}/edit', [ServiceRequestController::class, 'edit'])->name('service-requests.edit');

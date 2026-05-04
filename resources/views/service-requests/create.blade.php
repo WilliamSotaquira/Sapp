@@ -60,6 +60,94 @@
         </div>
     @endif
 
+    @php
+        $plainTextImportValue = old('plain_text_import_text', '');
+        $shouldOpenPlainTextImport = (bool) old('__open_plain_text_import', false) || session()->has('plain_text_import_error');
+    @endphp
+
+    <div class="max-w-4xl mx-auto mb-6 flex justify-end">
+        <button
+            type="button"
+            id="openPlainTextImportModal"
+            class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+            <i class="fas fa-paste"></i>
+            Pegar texto plano
+        </button>
+    </div>
+
+    <div
+        id="plainTextImportModal"
+        class="fixed inset-0 z-50 {{ $shouldOpenPlainTextImport ? '' : 'hidden' }}"
+        aria-hidden="{{ $shouldOpenPlainTextImport ? 'false' : 'true' }}"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plainTextImportTitle"
+    >
+        <div class="absolute inset-0 bg-slate-950/50" data-plain-text-overlay></div>
+        <div class="relative flex min-h-screen items-center justify-center p-4">
+            <div class="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Precarga asistida</p>
+                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar desde texto plano</h3>
+                        <p class="mt-1 text-sm text-slate-600">Pega un bloque como el correo o requerimiento original y el formulario se llenará automáticamente para revisión.</p>
+                    </div>
+                    <button
+                        type="button"
+                        id="closePlainTextImportModal"
+                        class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Cerrar diálogo"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" class="px-6 py-5">
+                    @csrf
+
+                    @if (session('plain_text_import_error'))
+                        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {{ session('plain_text_import_error') }}
+                        </div>
+                    @endif
+
+                    <label for="plain_text" class="block text-sm font-medium text-slate-700 mb-2">
+                        Texto a interpretar
+                    </label>
+                    <textarea
+                        name="plain_text"
+                        id="plain_text"
+                        rows="14"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Pega aquí el correo, memorando o texto libre con la información de la solicitud..."
+                        required
+                    >{{ $plainTextImportValue }}</textarea>
+                    <p class="mt-2 text-xs text-slate-500">
+                        El sistema intentará identificar título, descripción, fecha, solicitante, subservicio, rutas web y tareas.
+                    </p>
+
+                    <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <button
+                            type="button"
+                            id="cancelPlainTextImport"
+                            class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                            <i class="fas fa-wand-magic-sparkles"></i>
+                            Interpretar texto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <form action="{{ route('service-requests.store') }}" method="POST">
         @csrf
 
@@ -170,6 +258,46 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const plainTextImportModal = document.getElementById('plainTextImportModal');
+        const openPlainTextImportModalBtn = document.getElementById('openPlainTextImportModal');
+        const closePlainTextImportModalBtn = document.getElementById('closePlainTextImportModal');
+        const cancelPlainTextImportBtn = document.getElementById('cancelPlainTextImport');
+        const plainTextInput = document.getElementById('plain_text');
+        const shouldOpenPlainTextImport = @json($shouldOpenPlainTextImport);
+
+        function openPlainTextImportModal() {
+            if (!plainTextImportModal) return;
+            plainTextImportModal.classList.remove('hidden');
+            plainTextImportModal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => plainTextInput?.focus(), 0);
+        }
+
+        function closePlainTextImportModal() {
+            if (!plainTextImportModal) return;
+            plainTextImportModal.classList.add('hidden');
+            plainTextImportModal.setAttribute('aria-hidden', 'true');
+        }
+
+        openPlainTextImportModalBtn?.addEventListener('click', openPlainTextImportModal);
+        closePlainTextImportModalBtn?.addEventListener('click', closePlainTextImportModal);
+        cancelPlainTextImportBtn?.addEventListener('click', closePlainTextImportModal);
+
+        plainTextImportModal?.addEventListener('click', function(e) {
+            if (e.target instanceof HTMLElement && e.target.hasAttribute('data-plain-text-overlay')) {
+                closePlainTextImportModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && plainTextImportModal && !plainTextImportModal.classList.contains('hidden')) {
+                closePlainTextImportModal();
+            }
+        });
+
+        if (shouldOpenPlainTextImport) {
+            openPlainTextImportModal();
+        }
+
         const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');
         const inlineErrorEl = document.getElementById('createFormInlineError');
         let createConfirmed = false;
