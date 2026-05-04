@@ -13,18 +13,20 @@ use App\Models\ServiceRequest;
 use App\Models\ServiceSubservice;
 use App\Models\SubService;
 use App\Models\User;
+use App\Services\ServiceRequestWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
-class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
+class ServiceRequestCutAssignmentByTechnicianAssignmentDateTest extends TestCase
 {
     use RefreshDatabase;
 
     private function seedContext(): array
     {
         $user = User::factory()->create();
+        $alternateTechnician = User::factory()->create();
 
         $company = Company::create([
             'name' => 'Empresa Cortes',
@@ -34,7 +36,7 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
         $contract = Contract::create([
             'company_id' => $company->id,
             'number' => 'C-CREA-001',
-            'name' => 'Contrato cortes por fecha',
+            'name' => 'Contrato cortes por asignacion',
             'description' => 'Contrato de prueba',
             'is_active' => true,
         ]);
@@ -54,6 +56,14 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
             'name' => 'Corte abril',
             'start_date' => '2026-04-01',
             'end_date' => '2026-04-30',
+            'created_by' => $user->id,
+        ]);
+
+        $mayCut = Cut::create([
+            'contract_id' => $contract->id,
+            'name' => 'Corte mayo',
+            'start_date' => '2026-05-01',
+            'end_date' => '2026-05-31',
             'created_by' => $user->id,
         ]);
 
@@ -120,6 +130,7 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
 
         return compact(
             'user',
+            'alternateTechnician',
             'company',
             'contract',
             'family',
@@ -129,102 +140,44 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
             'sla',
             'requester',
             'marchCut',
-            'aprilCut'
+            'aprilCut',
+            'mayCut'
         );
     }
 
-    public function test_store_assigns_cut_by_created_at_and_ignores_submitted_cut_id(): void
+    public function test_cut_is_assigned_only_after_acceptance_using_technician_assignment_date(): void
     {
         $data = $this->seedContext();
         Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
 
         try {
-            $response = $this->actingAs($data['user'])
-                ->withSession(['current_company_id' => $data['company']->id])
-                ->post(route('service-requests.store'), [
-                    'company_id' => $data['company']->id,
-                    'requester_id' => $data['requester']->id,
-                    'title' => 'Solicitud creada en abril',
-                    'description' => 'Solicitud de prueba para asociacion automatica.',
-                    'sub_service_id' => $data['subService']->id,
-                    'criticality_level' => 'MEDIA',
-                    'service_id' => $data['service']->id,
-                    'family_id' => $data['family']->id,
-                    'sla_id' => $data['sla']->id,
-                    'requested_by' => $data['user']->id,
-                    'entry_channel' => 'email_corporativo',
-                    'web_routes' => ['ruta-prueba'],
-                    'is_reportable' => true,
-                    'cut_id' => $data['marchCut']->id,
-                    'tasks_template' => 'none',
-                    'tasks' => [
-                        [
-                            'title' => 'Publicar contenido de prueba',
-                            'priority' => 'medium',
-                            'type' => 'regular',
-                            'estimated_minutes' => 30,
-                        ],
-                    ],
-                ]);
+            $serviceRequest = ServiceRequest::withoutGlobalScopes()->create([
+                'company_id' => $data['company']->id,
+                'requester_id' => $data['requester']->id,
+                'title' => 'Solicitud creada en marzo y asignada en abril',
+                'description' => 'Debe tomar el corte de la asignacion tecnica.',
+                'sub_service_id' => $data['subService']->id,
+                'sla_id' => $data['sla']->id,
+                'requested_by' => $data['user']->id,
+                'assigned_to' => $data['user']->id,
+                'entry_channel' => 'email_corporativo',
+                'criticality_level' => 'MEDIA',
+                'status' => 'PENDIENTE',
+                'created_at' => '2026-03-20 14:45:00',
+            ]);
+
+            $this->assertSame('2026-04-10 09:15:00', $serviceRequest->technician_assigned_at?->format('Y-m-d H:i:s'));
+            $this->assertSame([], $serviceRequest->cuts()->pluck('cuts.id')->all());
+
+            $result = $this->actingAs($data['user'])
+                ->app->make(ServiceRequestWorkflowService::class)
+                ->acceptRequest($serviceRequest);
         } finally {
             Carbon::setTestNow();
         }
 
-        $response->assertRedirect()->assertSessionHas('success');
-
-        $created = ServiceRequest::withoutGlobalScopes()
-            ->where('title', 'Solicitud creada en abril')
-            ->firstOrFail();
-
-        $this->assertSame([$data['aprilCut']->id], $created->cuts()->pluck('cuts.id')->all());
-    }
-
-    public function test_store_respects_manual_created_at_and_assigns_the_matching_cut(): void
-    {
-        $data = $this->seedContext();
-        Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
-
-        try {
-            $response = $this->actingAs($data['user'])
-                ->withSession(['current_company_id' => $data['company']->id])
-                ->post(route('service-requests.store'), [
-                    'company_id' => $data['company']->id,
-                    'requester_id' => $data['requester']->id,
-                    'title' => 'Solicitud con fecha manual',
-                    'description' => 'Solicitud de prueba con fecha ingresada manualmente.',
-                    'sub_service_id' => $data['subService']->id,
-                    'criticality_level' => 'MEDIA',
-                    'service_id' => $data['service']->id,
-                    'family_id' => $data['family']->id,
-                    'sla_id' => $data['sla']->id,
-                    'requested_by' => $data['user']->id,
-                    'entry_channel' => 'email_corporativo',
-                    'created_at' => '2026-03-20T14:45',
-                    'web_routes' => ['ruta-prueba'],
-                    'is_reportable' => true,
-                    'cut_id' => $data['aprilCut']->id,
-                    'tasks_template' => 'none',
-                    'tasks' => [
-                        [
-                            'title' => 'Publicar contenido con fecha manual',
-                            'priority' => 'medium',
-                            'type' => 'regular',
-                            'estimated_minutes' => 30,
-                        ],
-                    ],
-                ]);
-        } finally {
-            Carbon::setTestNow();
-        }
-
-        $response->assertRedirect()->assertSessionHas('success');
-
-        $created = ServiceRequest::withoutGlobalScopes()
-            ->where('title', 'Solicitud con fecha manual')
-            ->firstOrFail();
-
-        $this->assertSame('2026-03-20 14:45:00', $created->created_at->format('Y-m-d H:i:s'));
-        $this->assertSame([$data['marchCut']->id], $created->cuts()->pluck('cuts.id')->all());
+        $this->assertTrue($result['success']);
+        $this->assertSame([$data['aprilCut']->id], $serviceRequest->fresh()->cuts()->pluck('cuts.id')->all());
     }
 
     public function test_store_rejects_future_manual_created_at(): void
@@ -273,25 +226,31 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
         ]);
     }
 
-    public function test_update_created_at_recalculates_cut_association(): void
+    public function test_update_created_at_does_not_recalculate_cut_association(): void
     {
         $data = $this->seedContext();
+        Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
 
-        $serviceRequest = ServiceRequest::withoutGlobalScopes()->create([
-            'company_id' => $data['company']->id,
-            'requester_id' => $data['requester']->id,
-            'title' => 'Solicitud movible',
-            'description' => 'Solicitud para mover entre cortes.',
-            'sub_service_id' => $data['subService']->id,
-            'sla_id' => $data['sla']->id,
-            'requested_by' => $data['user']->id,
-            'entry_channel' => 'email_corporativo',
-            'criticality_level' => 'MEDIA',
-            'status' => 'PENDIENTE',
-            'created_at' => '2026-04-08 10:00:00',
-        ]);
+        try {
+            $serviceRequest = ServiceRequest::withoutGlobalScopes()->create([
+                'company_id' => $data['company']->id,
+                'requester_id' => $data['requester']->id,
+                'title' => 'Solicitud movible',
+                'description' => 'Solicitud para validar que created_at no mueve el corte.',
+                'sub_service_id' => $data['subService']->id,
+                'sla_id' => $data['sla']->id,
+                'requested_by' => $data['user']->id,
+                'assigned_to' => $data['user']->id,
+                'entry_channel' => 'email_corporativo',
+                'criticality_level' => 'MEDIA',
+                'status' => 'ACEPTADA',
+                'created_at' => '2026-03-20 10:00:00',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
 
-        $serviceRequest->cuts()->attach($data['aprilCut']->id);
+        $this->assertSame([$data['aprilCut']->id], $serviceRequest->cuts()->pluck('cuts.id')->all());
 
         $response = $this->actingAs($data['user'])
             ->withSession(['current_company_id' => $data['company']->id])
@@ -299,20 +258,62 @@ class ServiceRequestCutAssignmentByCreationDateTest extends TestCase
                 'company_id' => $data['company']->id,
                 'requester_id' => $data['requester']->id,
                 'title' => 'Solicitud movible',
-                'description' => 'Solicitud para mover entre cortes.',
+                'description' => 'Solicitud para validar que created_at no mueve el corte.',
                 'sub_service_id' => $data['subService']->id,
                 'sla_id' => $data['sla']->id,
                 'criticality_level' => 'MEDIA',
                 'entry_channel' => 'email_corporativo',
                 'is_reportable' => true,
-                'created_at' => '2026-03-15T08:30',
+                'created_at' => '2026-03-05T08:30',
             ]);
 
         $response->assertRedirect()->assertSessionHas('success');
 
         $fresh = $serviceRequest->fresh();
 
-        $this->assertSame('2026-03-15 08:30:00', $fresh->created_at->format('Y-m-d H:i:s'));
-        $this->assertSame([$data['marchCut']->id], $fresh->cuts()->pluck('cuts.id')->all());
+        $this->assertSame('2026-03-05 08:30:00', $fresh->created_at->format('Y-m-d H:i:s'));
+        $this->assertSame([$data['aprilCut']->id], $fresh->cuts()->pluck('cuts.id')->all());
+    }
+
+    public function test_reassigning_an_accepted_request_recalculates_cut_using_new_assignment_date(): void
+    {
+        $data = $this->seedContext();
+        Carbon::setTestNow(Carbon::parse('2026-04-10 09:15:00'));
+
+        try {
+            $serviceRequest = ServiceRequest::withoutGlobalScopes()->create([
+                'company_id' => $data['company']->id,
+                'requester_id' => $data['requester']->id,
+                'title' => 'Solicitud reasignable',
+                'description' => 'Solicitud para validar reasignacion de corte.',
+                'sub_service_id' => $data['subService']->id,
+                'sla_id' => $data['sla']->id,
+                'requested_by' => $data['user']->id,
+                'assigned_to' => $data['user']->id,
+                'entry_channel' => 'email_corporativo',
+                'criticality_level' => 'MEDIA',
+                'status' => 'ACEPTADA',
+                'created_at' => '2026-03-20 10:00:00',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertSame([$data['aprilCut']->id], $serviceRequest->cuts()->pluck('cuts.id')->all());
+
+        Carbon::setTestNow(Carbon::parse('2026-05-03 11:00:00'));
+
+        try {
+            $serviceRequest->update([
+                'assigned_to' => $data['alternateTechnician']->id,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $fresh = $serviceRequest->fresh();
+
+        $this->assertSame('2026-05-03 11:00:00', $fresh->technician_assigned_at?->format('Y-m-d H:i:s'));
+        $this->assertSame([$data['mayCut']->id], $fresh->cuts()->pluck('cuts.id')->all());
     }
 }

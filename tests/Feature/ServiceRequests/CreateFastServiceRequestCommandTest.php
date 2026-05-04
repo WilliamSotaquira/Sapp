@@ -340,7 +340,7 @@ class CreateFastServiceRequestCommandTest extends TestCase
         ])->assertExitCode(0);
     }
 
-    public function test_command_resolves_cut_by_source_date_instead_of_latest_cut(): void
+    public function test_command_creates_pending_requests_without_cut_until_the_assignment_is_accepted(): void
     {
         $data = $this->seedServiceTree();
 
@@ -372,10 +372,11 @@ class CreateFastServiceRequestCommandTest extends TestCase
 
         $created = ServiceRequest::withoutGlobalScopes()->first();
         $this->assertNotNull($created);
-        $this->assertSame([$aprilCut->id], $created->cuts()->pluck('cuts.id')->all());
+        $this->assertSame('2026-04-10 00:00:00', $created->created_at?->format('Y-m-d H:i:s'));
+        $this->assertSame([], $created->cuts()->pluck('cuts.id')->all());
     }
 
-    public function test_cut_sync_keeps_request_in_a_single_cut_based_on_creation_date(): void
+    public function test_cut_sync_keeps_request_in_a_single_cut_based_on_accepted_technician_assignment_date(): void
     {
         $data = $this->seedServiceTree();
 
@@ -392,20 +393,17 @@ class CreateFastServiceRequestCommandTest extends TestCase
             'company_id' => $data['company']->id,
             'requester_id' => Requester::withoutGlobalScopes()->where('company_id', $data['company']->id)->value('id'),
             'title' => 'Solicitud exclusiva abril',
-            'description' => 'Debe quedar solo en abril.',
+            'description' => 'Debe quedar solo en abril por asignacion tecnica.',
             'sub_service_id' => $data['subService']->id,
             'sla_id' => $data['sla']->id,
             'requested_by' => $data['user']->id,
             'assigned_to' => $data['user']->id,
+            'technician_assigned_at' => '2026-04-10 09:00:00',
             'entry_channel' => 'email_corporativo',
             'criticality_level' => 'MEDIA',
-            'status' => 'PENDIENTE',
+            'status' => 'ACEPTADA',
+            'created_at' => '2026-03-10 09:00:00',
         ]);
-
-        $serviceRequest->forceFill([
-            'created_at' => '2026-04-10 09:00:00',
-            'updated_at' => '2026-04-10 09:00:00',
-        ])->saveQuietly();
 
         $serviceRequest->cuts()->attach($marchCut->id);
 

@@ -85,7 +85,7 @@
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitante</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Asignado</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Estado</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Creada</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Asignada</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -124,7 +124,7 @@
                                         {{ $sr->status }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $sr->created_at?->format('Y-m-d H:i') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{{ $sr->technician_assigned_at?->format('Y-m-d H:i') ?? '-' }}</td>
                             </tr>
                         @empty
                             <tr>

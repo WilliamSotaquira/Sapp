@@ -24,7 +24,7 @@
                     <p class="text-xs text-gray-500 mt-1">Contrato: {{ $cut->contract->number }}</p>
                 @endif
                 <p class="text-xs text-gray-500 mt-1">
-                    Criterio de asociación: solicitudes cuya fecha de creación está dentro del rango del corte.
+                    Criterio de asociación: solicitudes cuya fecha de asignación aceptada del técnico está dentro del rango del corte.
                 </p>
                 @if($cut->notes)
                     <p class="text-sm text-gray-700 mt-2">{{ $cut->notes }}</p>

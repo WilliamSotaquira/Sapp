@@ -109,7 +109,7 @@
             required
         >
         <p class="mt-1 text-xs text-gray-500">
-            Registra cuándo ingresó realmente la solicitud. El corte asociado se recalcula con esta fecha.
+            Registra cuándo ingresó realmente la solicitud. Esta fecha sirve para trazabilidad; el corte se define con la asignación aceptada del técnico.
         </p>
         @error('created_at')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

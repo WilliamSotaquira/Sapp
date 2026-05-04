@@ -58,7 +58,7 @@ trait ServiceRequestTimelineManager
         if ($this->assigned_to) {
             $events[] = [
                 'event' => 'ASIGNADA A TÉCNICO',
-                'timestamp' => $this->updated_at,
+                'timestamp' => $this->technician_assigned_at ?? $this->updated_at,
                 'user' => $this->assignee,
                 'description' => 'Solicitud asignada al técnico responsable',
                 'status' => 'assigned',

@@ -125,7 +125,7 @@ class CutValidationTest extends TestCase
         ]);
     }
 
-    public function test_update_cut_endpoint_rejects_cut_outside_request_creation_date(): void
+    public function test_update_cut_endpoint_rejects_cut_outside_accepted_technician_assignment_date(): void
     {
         $data = $this->seedCutContext();
 
@@ -138,17 +138,12 @@ class CutValidationTest extends TestCase
             'sla_id' => $data['sla']->id,
             'requested_by' => $data['user']->id,
             'assigned_to' => $data['user']->id,
+            'technician_assigned_at' => '2026-03-15 10:00:00',
             'entry_channel' => 'email_corporativo',
             'criticality_level' => 'MEDIA',
-            'status' => 'PENDIENTE',
+            'status' => 'ACEPTADA',
+            'created_at' => '2026-04-15 10:00:00',
         ]);
-
-        $serviceRequest->forceFill([
-            'created_at' => '2026-03-15 10:00:00',
-            'updated_at' => '2026-03-15 10:00:00',
-        ])->saveQuietly();
-
-        $serviceRequest->cuts()->attach($data['marchCut']->id);
 
         $this->actingAs($data['user'])
             ->postJson(route('service-requests.update-cut', $serviceRequest), [
@@ -157,7 +152,7 @@ class CutValidationTest extends TestCase
             ->assertStatus(422)
             ->assertJson([
                 'success' => false,
-                'message' => 'El corte seleccionado no corresponde a la fecha de creación de la solicitud.',
+                'message' => 'El corte seleccionado no corresponde a la fecha de asignación aceptada del técnico.',
             ]);
 
         $this->assertSame([$data['marchCut']->id], $serviceRequest->fresh()->cuts()->pluck('cuts.id')->all());

@@ -12,7 +12,7 @@
             <li><span class="mx-2">/</span></li>
             <li><a href="{{ route('reports.cuts.show', $cut) }}" class="hover:text-blue-600">{{ $cut->name }}</a></li>
             <li><span class="mx-2">/</span></li>
-            <li class="text-gray-900 font-medium">Solicitudes por fecha</li>
+            <li class="text-gray-900 font-medium">Solicitudes por asignación técnica</li>
         </ol>
     </nav>
 
@@ -20,9 +20,9 @@
         <div class="px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
             <div>
                 <p class="text-xs uppercase tracking-wide text-gray-500">Corte #{{ $cut->id }}</p>
-                <h2 class="text-xl font-bold text-gray-900">Solicitudes por fecha de creación</h2>
+                <h2 class="text-xl font-bold text-gray-900">Solicitudes por asignación técnica aceptada</h2>
                 <p class="text-sm text-gray-600">{{ $cut->start_date->format('Y-m-d') }} → {{ $cut->end_date->format('Y-m-d') }}</p>
-                <p class="text-xs text-gray-500 mt-1">Puedes filtrar por ticket/título/email. La asociación se recalcula con la fecha de creación de cada solicitud.</p>
+                <p class="text-xs text-gray-500 mt-1">Puedes filtrar por ticket/título/email. La asociación se recalcula con la fecha de asignación aceptada del técnico.</p>
             </div>
 
             <div class="flex items-center gap-2">
@@ -67,7 +67,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Título</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitante</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Estado</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Creada</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Asignada</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -77,11 +77,11 @@
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->title }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->requester?->email ?? '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->status }}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->created_at?->format('Y-m-d H:i') }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-700">{{ $sr->technician_assigned_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="px-4 py-6 text-sm text-gray-500 text-center">No hay solicitudes creadas dentro del rango de este corte.</td>
+                                        <td colspan="5" class="px-4 py-6 text-sm text-gray-500 text-center">No hay solicitudes con asignación técnica aceptada dentro del rango de este corte.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -94,12 +94,12 @@
                 <div>
                     <div class="border border-gray-200 rounded-lg p-4">
                         <h3 class="text-base font-semibold text-gray-900 mb-2">Asociación automática</h3>
-                        <p class="text-xs text-gray-500 mb-3">Para cambiar una solicitud de corte, ajusta su fecha de creación o el rango del corte.</p>
+                        <p class="text-xs text-gray-500 mb-3">Para cambiar una solicitud de corte, ajusta la asignación aceptada del técnico o el rango del corte.</p>
                         <form method="POST" action="{{ route('reports.cuts.sync', $cut) }}">
                             @csrf
                             <button type="submit" class="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
                                 <i class="fa-solid fa-rotate"></i>
-                                Recalcular por fecha
+                                Recalcular por asignación
                             </button>
                         </form>
                     </div>

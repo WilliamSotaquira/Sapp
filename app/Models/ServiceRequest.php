@@ -11,7 +11,9 @@ use App\Models\Traits\ServiceRequestScopes;
 use App\Models\Traits\ServiceRequestWorkflow;
 use App\Models\Traits\ServiceRequestAccessors;
 use App\Models\Traits\ServiceRequestUtilities;
+use App\Services\ServiceRequestService;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Carbon;
 
 class ServiceRequest extends Model
 {
@@ -24,7 +26,7 @@ class ServiceRequest extends Model
     public const ENTRY_CHANNEL_PHONE = 'telefono';
     public const ENTRY_CHANNEL_MEETING = 'reunion';
 
-    protected $fillable = ['company_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id', 'created_at'];
+    protected $fillable = ['company_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id', 'created_at'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -48,6 +50,7 @@ class ServiceRequest extends Model
         'rejected_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'technician_assigned_at' => 'datetime',
     ];
 
     protected $appends = ['step_by_step_evidences', 'file_evidences', 'is_overdue', 'time_remaining', 'criticality_level_color', 'status_color'];
@@ -153,11 +156,26 @@ class ServiceRequest extends Model
         });
 
         static::saving(function ($model) {
+            if ($model->isDirty('assigned_to')) {
+                if (empty($model->assigned_to)) {
+                    $model->technician_assigned_at = null;
+                } elseif (!$model->isDirty('technician_assigned_at')) {
+                    $model->technician_assigned_at = now();
+                }
+            }
+
             $model->validateWorkflowRules();
         });
 
         static::saved(function ($model) {
             if (!$model->wasChanged('assigned_to') || empty($model->assigned_to)) {
+                if (
+                    $model->wasRecentlyCreated
+                    || $model->wasChanged(['technician_assigned_at', 'status', 'sub_service_id', 'company_id'])
+                ) {
+                    app(ServiceRequestService::class)->syncCutAssociationByTechnicianAssignmentDate($model);
+                }
+
                 return;
             }
 
@@ -174,14 +192,14 @@ class ServiceRequest extends Model
                 ]);
             }
 
-            if (!$technician) {
-                return;
+            if ($technician) {
+                // Solo asignar tareas aún sin técnico para no sobreescribir planificación existente.
+                $model->tasks()
+                    ->whereNull('technician_id')
+                    ->update(['technician_id' => $technician->id]);
             }
 
-            // Solo asignar tareas aún sin técnico para no sobreescribir planificación existente.
-            $model->tasks()
-                ->whereNull('technician_id')
-                ->update(['technician_id' => $technician->id]);
+            app(ServiceRequestService::class)->syncCutAssociationByTechnicianAssignmentDate($model);
         });
     }
 
@@ -269,6 +287,44 @@ class ServiceRequest extends Model
     {
         return $this->belongsToMany(Cut::class, 'cut_service_request')
             ->withTimestamps();
+    }
+
+    public static function getCutEligibleStatuses(): array
+    {
+        return [
+            self::STATUS_ACCEPTED,
+            self::STATUS_IN_PROGRESS,
+            self::STATUS_PAUSED,
+            self::STATUS_RESOLVED,
+            self::STATUS_CLOSED,
+            self::STATUS_REOPENED,
+        ];
+    }
+
+    public function scopeEligibleForCutAssignment($query)
+    {
+        return $query
+            ->whereNotNull('assigned_to')
+            ->whereNotNull('technician_assigned_at')
+            ->whereIn('status', self::getCutEligibleStatuses());
+    }
+
+    public function canBeAssociatedToCut(): bool
+    {
+        return !empty($this->assigned_to)
+            && !empty($this->technician_assigned_at)
+            && in_array((string) $this->status, self::getCutEligibleStatuses(), true);
+    }
+
+    public function getCutReferenceAt(): ?Carbon
+    {
+        if (!$this->canBeAssociatedToCut()) {
+            return null;
+        }
+
+        return $this->technician_assigned_at
+            ? Carbon::parse($this->technician_assigned_at)
+            : null;
     }
 
     /**
