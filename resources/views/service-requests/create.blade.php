@@ -72,7 +72,7 @@
             class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
             <i class="fas fa-paste"></i>
-            Pegar texto plano
+            Pegar texto estructurado
         </button>
     </div>
 
@@ -90,8 +90,8 @@
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Precarga asistida</p>
-                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar desde texto plano</h3>
-                        <p class="mt-1 text-sm text-slate-600">Pega un bloque como el correo o requerimiento original y el formulario se llenará automáticamente para revisión.</p>
+                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar texto estructurado</h3>
+                        <p class="mt-1 text-sm text-slate-600">Pega el texto estructurado con 19 líneas útiles, usando "No disponible" cuando falte un dato y acciones en viñetas; el formulario se llenará automáticamente para revisión.</p>
                     </div>
                     <button
                         type="button"
@@ -118,13 +118,13 @@
                     <textarea
                         name="plain_text"
                         id="plain_text"
-                        rows="14"
+                        rows="18"
                         class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Pega aquí el correo, memorando o texto libre con la información de la solicitud..."
+                        placeholder="Pega aquí el texto estructurado: asunto, descripción, fechas, solicitante, canal de ingreso, subservicio, enlaces, criticidad, actividad y acciones..."
                         required
                     >{{ $plainTextImportValue }}</textarea>
                     <p class="mt-2 text-xs text-slate-500">
-                        El sistema intentará identificar título, descripción, fecha, solicitante, subservicio, rutas web y tareas.
+                        El sistema intentará identificar asunto, descripción, fecha de la solicitud, fecha de vencimiento, solicitante, canal de ingreso, subservicio, enlaces, criticidad y acciones.
                     </p>
 
                     <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
