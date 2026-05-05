@@ -62,7 +62,7 @@ class ServiceRequestPlainTextImportService
             ]);
         }
 
-        $subService = $this->resolveSubService($parsed['sub_service_name'], $activeContractId);
+        $subService = $this->resolveBestSubService($parsed, $activeContractId, $text);
         if (!$subService) {
             throw ValidationException::withMessages([
                 'plain_text' => 'No se encontró un subservicio activo que coincida con "' . $parsed['sub_service_name'] . '".',
@@ -110,6 +110,7 @@ class ServiceRequestPlainTextImportService
                 'entry_channel' => $parsed['entry_channel'],
                 'criticality_level' => $criticalityLevel,
                 'created_at' => $createdAt,
+                'due_date' => $parsed['due_date'] ?? null,
                 'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
                 'is_reportable' => true,
                 'tasks_template' => 'none',
@@ -125,9 +126,101 @@ class ServiceRequestPlainTextImportService
         ];
     }
 
+    private function resolveBestSubService(array $parsed, int $contractId, string $plainText): ?SubService
+    {
+        $candidates = [];
+
+        $pushCandidate = function (?string $candidate) use (&$candidates): void {
+            $clean = trim((string) $candidate);
+            if ($clean === '' || $this->isUnavailableMarker($clean)) {
+                return;
+            }
+
+            $candidates[] = $clean;
+        };
+
+        $pushCandidate($parsed['sub_service_name'] ?? null);
+        $pushCandidate($parsed['title'] ?? null);
+        $pushCandidate($parsed['description'] ?? null);
+        $pushCandidate(trim(((string) ($parsed['title'] ?? '')) . ' ' . ((string) ($parsed['description'] ?? ''))));
+        $pushCandidate($this->inferFallbackSubServiceName($plainText, $parsed));
+        $pushCandidate('Solicitud de Apoyo General');
+        $pushCandidate('Acompañamiento actividades desarrollo externo');
+        $pushCandidate('Actualización de Sección de Transparencia');
+
+        foreach (array_values(array_unique($candidates)) as $candidate) {
+            $subService = $this->resolveSubService($candidate, $contractId);
+            if ($subService) {
+                return $subService;
+            }
+        }
+
+        return null;
+    }
+
+    private function inferFallbackSubServiceName(string $plainText, array $parsed): ?string
+    {
+        $haystack = $this->normalizeForComparison(
+            trim(implode(' ', [
+                (string) ($parsed['title'] ?? ''),
+                (string) ($parsed['description'] ?? ''),
+                $plainText,
+            ]))
+        );
+
+        if ($haystack === '') {
+            return null;
+        }
+
+        $keywordMap = [
+            'Actualización de Sección de Transparencia' => [
+                'transparencia',
+                'acceso a la informacion',
+                'ley de transparencia',
+                'mipg',
+            ],
+            'Acompañamiento actividades desarrollo externo' => [
+                'terceros',
+                'externo',
+                'desarrollo externo',
+                'acompanamiento',
+            ],
+            'Solicitud de Apoyo General' => [
+                'reunion',
+                'presentacion',
+                'presentación',
+                'convoc',
+                'coordinacion',
+                'coordinación',
+                'apoyo',
+                'mesa de trabajo',
+                'socializacion',
+                'socialización',
+                'participacion',
+                'participación',
+            ],
+        ];
+
+        foreach ($keywordMap as $candidate => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (str_contains($haystack, $this->normalizeForComparison($keyword))) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private function extractStructuredData(string $plainText): array
     {
         $normalizedText = str_replace(["\r\n", "\r"], "\n", $plainText);
+
+        $exactParsed = $this->extractStructuredDataByExactFormat($normalizedText);
+        if ($exactParsed !== null) {
+            return $exactParsed;
+        }
+
         $lines = $this->extractLines($normalizedText);
         $blocks = $this->extractBlocks($normalizedText);
 
@@ -145,6 +238,61 @@ class ServiceRequestPlainTextImportService
         }
 
         return $this->extractStructuredDataByHeuristics($normalizedText, $blocks, $createdAt);
+    }
+
+    private function extractStructuredDataByExactFormat(string $normalizedText): ?array
+    {
+        $lines = array_values(array_filter(
+            array_map(
+                fn ($line) => trim($this->normalizeMarkdownLinks((string) $line)),
+                $this->extractExactLines($normalizedText)
+            ),
+            fn (string $line) => $line !== ''
+        ));
+
+        if (!$this->looksLikeExactStructuredFormat($lines)) {
+            return null;
+        }
+
+        $subject = $this->normalizeUnavailableLine($this->cleanSubject((string) ($lines[0] ?? '')));
+        $description = $this->normalizeUnavailableLine(trim((string) ($lines[1] ?? '')));
+        $createdAt = $this->parseFlexibleDate((string) ($lines[2] ?? ''));
+        $dueDate = $this->parseFlexibleDate((string) ($lines[3] ?? ''));
+        $requesterName = $this->normalizeUnavailableLine($this->cleanPersonLine((string) ($lines[4] ?? '')));
+        $entryChannel = trim((string) ($lines[5] ?? ''));
+        $subServiceName = Str::limit($this->normalizeUnavailableLine(trim((string) ($lines[6] ?? ''))), 255, '');
+        $linksLine = $this->normalizeUnavailableLine(trim((string) ($lines[7] ?? '')));
+        $criticalityLevel = trim((string) ($lines[8] ?? ''));
+        $taskTitle = $this->normalizeUnavailableLine($this->cleanTaskTitle((string) ($lines[9] ?? '')));
+
+        // El bloque de acciones empieza después del título de actividad y puede contener varias viñetas.
+        $taskBlock = trim(implode("\n", array_slice($lines, 9)));
+        $tasks = $this->extractTasksFromBlocks([$taskBlock], 0, $taskTitle, $subject);
+
+        return [
+            'title' => $subject !== '' && !$this->isUnavailableMarker($subject)
+                ? $subject
+                : ($taskTitle !== '' && !$this->isUnavailableMarker($taskTitle)
+                    ? $taskTitle
+                    : Str::limit($description !== '' ? $description : 'Nueva solicitud', 255, '')),
+            'description' => $description,
+            'created_at' => $createdAt,
+            'due_date' => $dueDate?->format('Y-m-d'),
+            'requester_name' => $requesterName,
+            'requester_email' => $this->extractEmail($normalizedText),
+            'sub_service_name' => $subServiceName,
+            'entry_channel' => $this->normalizeEntryChannelLine($entryChannel, $normalizedText),
+            'criticality_level' => $this->normalizeCriticalityLine($criticalityLevel, $normalizedText),
+            'web_routes' => $linksLine !== '' && !$this->isUnavailableMarker($linksLine)
+                ? collect(preg_split('/\s*,\s*/u', $linksLine) ?: [])
+                    ->flatMap(fn (string $part) => $this->extractUrls($part))
+                    ->unique()
+                    ->slice(0, 8)
+                    ->values()
+                    ->all()
+                : [],
+            'tasks' => $tasks,
+        ];
     }
 
     private function extractStructuredDataByTemplate(string $normalizedText, array $blocks, ?Carbon $createdAt): array
@@ -518,6 +666,129 @@ class ServiceRequestPlainTextImportService
         );
     }
 
+    private function parseFlexibleDate(string $text): ?Carbon
+    {
+        $clean = trim($text);
+        if ($clean === '' || $this->isUnavailableMarker($clean)) {
+            return null;
+        }
+
+        $parsed = $this->parseSpanishDateTime($clean);
+        if ($parsed) {
+            return $parsed;
+        }
+
+        if (preg_match(
+            '/^(?:[[:alpha:]áéíóúñ]{2,}\s+)?(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\.?)?)?$/iu',
+            $clean,
+            $matches
+        )) {
+            $hour = isset($matches[4]) ? (int) $matches[4] : 0;
+            $minute = isset($matches[5]) ? (int) $matches[5] : 0;
+            $meridiem = isset($matches[6]) ? mb_strtolower($matches[6]) : null;
+
+            if ($meridiem === 'p' && $hour < 12) {
+                $hour += 12;
+            }
+            if ($meridiem === 'a' && $hour === 12) {
+                $hour = 0;
+            }
+
+            return Carbon::create(
+                (int) $matches[3],
+                (int) $matches[2],
+                (int) $matches[1],
+                $hour,
+                $minute,
+                0,
+                config('app.timezone')
+            );
+        }
+
+        $formats = [
+            'Y-m-d\TH:i',
+            'Y-m-d H:i',
+            'Y-m-d',
+            'd/m/Y H:i',
+            'd/m/Y',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                $carbon = Carbon::createFromFormat($format, $clean, config('app.timezone'));
+                if ($carbon !== false) {
+                    return $carbon;
+                }
+            } catch (\Throwable) {
+                // Intentar el siguiente formato.
+            }
+        }
+
+        return null;
+    }
+
+    private function isUnavailableMarker(string $text): bool
+    {
+        return $this->normalizeForComparison($text) === 'no disponible';
+    }
+
+    private function normalizeUnavailableLine(string $text): string
+    {
+        $clean = trim($text);
+        return $this->isUnavailableMarker($clean) ? 'No disponible' : $clean;
+    }
+
+    private function normalizeEntryChannelLine(string $text, string $fallbackText = ''): string
+    {
+        $clean = trim($text);
+        if ($clean === '' || $this->isUnavailableMarker($clean)) {
+            return $this->detectEntryChannel($fallbackText);
+        }
+
+        $normalized = $this->normalizeForComparison($clean);
+        if (str_contains($normalized, 'reunion')) {
+            return 'reunion';
+        }
+        if (str_contains($normalized, 'whatsapp') || str_contains($normalized, 'wasap')) {
+            return 'whatsapp';
+        }
+        if (str_contains($normalized, 'telefono') || str_contains($normalized, 'llamada') || str_contains($normalized, 'telefon')) {
+            return 'telefono';
+        }
+        if (str_contains($normalized, 'memorando') || str_contains($normalized, 'digital')) {
+            return 'email_digital';
+        }
+        if (str_contains($normalized, 'correo') || str_contains($normalized, 'email') || str_contains($normalized, 'corporativo')) {
+            return 'email_corporativo';
+        }
+
+        return $this->detectEntryChannel($clean ?: $fallbackText);
+    }
+
+    private function normalizeCriticalityLine(string $text, string $fallbackText = ''): string
+    {
+        $clean = trim($text);
+        if ($clean === '' || $this->isUnavailableMarker($clean)) {
+            return $this->detectCriticality($fallbackText);
+        }
+
+        $normalized = $this->normalizeForComparison($clean);
+        if (str_contains($normalized, 'critica')) {
+            return 'CRITICA';
+        }
+        if (str_contains($normalized, 'urgente')) {
+            return 'URGENTE';
+        }
+        if (str_contains($normalized, 'alta')) {
+            return 'ALTA';
+        }
+        if (str_contains($normalized, 'baja')) {
+            return 'BAJA';
+        }
+
+        return 'MEDIA';
+    }
+
     private function extractUrls(string $text): Collection
     {
         preg_match_all('/https?:\/\/[^\s)\]]+/iu', $this->normalizeMarkdownLinks($text), $matches);
@@ -542,6 +813,14 @@ class ServiceRequestPlainTextImportService
         )));
     }
 
+    private function extractExactLines(string $text): array
+    {
+        return array_map(
+            fn ($line) => trim($this->normalizeMarkdownLinks($line)),
+            preg_split('/\n/u', $text) ?: []
+        );
+    }
+
     private function extractBlocks(string $text): array
     {
         return array_values(array_filter(array_map(
@@ -556,6 +835,37 @@ class ServiceRequestPlainTextImportService
             fn ($line) => trim($line),
             preg_split('/\n+/', $block) ?: []
         )));
+    }
+
+    private function looksLikeExactStructuredFormat(array $lines): bool
+    {
+        if (count($lines) < 10) {
+            return false;
+        }
+
+        $line2 = trim((string) ($lines[2] ?? ''));
+        if (!$this->isUnavailableMarker($line2) && $this->parseFlexibleDate($line2) === null) {
+            return false;
+        }
+
+        $line3 = trim((string) ($lines[3] ?? ''));
+        if (!$this->isUnavailableMarker($line3) && $this->parseFlexibleDate($line3) === null) {
+            return false;
+        }
+
+        if (trim((string) ($lines[5] ?? '')) === '') {
+            return false;
+        }
+
+        if (trim((string) ($lines[6] ?? '')) === '') {
+            return false;
+        }
+
+        if (trim((string) ($lines[8] ?? '')) === '') {
+            return false;
+        }
+
+        return preg_match('/\bsubtareas?\b/iu', (string) ($lines[9] ?? '')) === 1;
     }
 
     private function looksLikeSubjectBlock(string $block): bool
