@@ -235,6 +235,22 @@ class ServiceRequestDueDateTest extends TestCase
         $this->assertSame(['Solicitud vencida abierta'], $titles);
     }
 
+    public function test_index_exposes_selected_date_view(): void
+    {
+        $data = $this->seedContext();
+
+        $this->createServiceRequest($data, [
+            'title' => 'Solicitud para alternar fecha',
+        ]);
+
+        $response = $this->actingAs($data['user'])
+            ->withSession(['current_company_id' => $data['company']->id])
+            ->get(route('service-requests.index', ['date_view' => 'resolved_at']));
+
+        $response->assertOk();
+        $response->assertViewHas('dateView', 'resolved_at');
+    }
+
     private function createServiceRequest(array $data, array $overrides = []): ServiceRequest
     {
         return ServiceRequest::withoutGlobalScopes()->create(array_merge([

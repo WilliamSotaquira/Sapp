@@ -83,7 +83,7 @@
         <!-- Filtros movidos dentro de la tabla -->
 
         <!-- Fila 3: Lista de Solicitudes -->
-        <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" :savedFilters="$savedFilters ?? collect()" />
+        <x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" :savedFilters="$savedFilters ?? collect()" :dateView="$dateView ?? 'created_at'" />
 
         <!-- Fila 4: Paginación -->
         @if ($serviceRequests->hasPages())
@@ -150,6 +150,7 @@
             startDateAdv: document.getElementById('startDateFilterAdv'),
             endDate: document.getElementById('endDateFilter'),
             endDateAdv: document.getElementById('endDateFilterAdv'),
+            dateView: document.getElementById('dateViewFilterAdv'),
             open: document.getElementById('openFilter'),
             suggestions: document.getElementById('requesterSuggestions'),
             badge: document.getElementById('filtersActiveBadge'),
@@ -321,12 +322,14 @@
         var requester = el.requesterAdv ? el.requesterAdv.value : (el.requester ? el.requester.value : '');
         var startDate = el.startDateAdv ? el.startDateAdv.value : (el.startDate ? el.startDate.value : '');
         var endDate = el.endDateAdv ? el.endDateAdv.value : (el.endDate ? el.endDate.value : '');
+        var dateView = el.dateView ? el.dateView.value : 'created_at';
         if (status) params.append('status', status);
         if (criticality) params.append('criticality', criticality);
         if (el.dueStatus && el.dueStatus.value) params.append('due_status', el.dueStatus.value);
         if (requester && requester.trim()) params.append('requester', requester.trim());
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
+        if (dateView) params.append('date_view', dateView);
         if (el.open && el.open.value) params.append('open', el.open.value);
         return params;
     }
@@ -364,7 +367,12 @@
 
     function clearFilters() {
         try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
-        fetch('{{ route("service-requests.index") }}', { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        var params = new URLSearchParams();
+        var currentDateView = document.getElementById('dateViewFilterAdv')?.value || 'created_at';
+        if (currentDateView) {
+            params.set('date_view', currentDateView);
+        }
+        fetch('{{ route("service-requests.index") }}' + (params.toString() ? '?' + params.toString() : ''), { headers: {'X-Requested-With': 'XMLHttpRequest'} })
             .then(r=>r.text())
             .then(html => {
                 resultsContainer.innerHTML = html;

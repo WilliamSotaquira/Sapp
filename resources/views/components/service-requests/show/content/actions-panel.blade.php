@@ -32,7 +32,7 @@
             @endif
 
             <!-- Eliminar -->
-            @if (in_array($serviceRequest->status, ['PENDIENTE', 'CANCELADA']))
+            @if ($serviceRequest->canBeDeleted())
                 <form action="{{ route('service-requests.destroy', $serviceRequest) }}" method="POST"
                     class="flex flex-col items-center p-3 bg-red-50 rounded-lg hover:bg-red-100 transition duration-150 text-center"
                     onsubmit="return confirm('¿Está seguro de que desea eliminar esta solicitud?')">

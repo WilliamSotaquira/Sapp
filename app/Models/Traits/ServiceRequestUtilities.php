@@ -119,6 +119,35 @@ trait ServiceRequestUtilities
         return $this->status === self::STATUS_CANCELLED;
     }
 
+    public static function getDeletableStatuses(): array
+    {
+        return [
+            self::STATUS_PENDING,
+            self::STATUS_IN_PROGRESS,
+            self::STATUS_CANCELLED,
+            self::STATUS_CLOSED,
+            'RECHAZADA',
+        ];
+    }
+
+    public function canBeDeleted(): bool
+    {
+        return in_array($this->status, self::getDeletableStatuses(), true);
+    }
+
+    public function getListDateValue(string $view = 'created_at')
+    {
+        return match ($view) {
+            'resolved_at' => $this->resolved_at ?: $this->closed_at,
+            default => $this->created_at,
+        };
+    }
+
+    public function getListDateLabel(string $view = 'created_at'): string
+    {
+        return $view === 'resolved_at' ? 'Fecha solución' : 'Fecha solicitud';
+    }
+
     public function isPaused()
     {
         return $this->is_paused === true;

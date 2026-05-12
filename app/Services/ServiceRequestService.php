@@ -223,36 +223,40 @@ class ServiceRequestService
         return $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
     }
 
-    private function applySorting($query, ?string $sortBy): void
+    private function applySorting($query, ?string $sortBy, string $dateView = 'created_at'): void
     {
+        $dateSortExpression = $dateView === 'resolved_at'
+            ? 'COALESCE(resolved_at, closed_at)'
+            : 'created_at';
+
         switch ($sortBy) {
             case 'oldest':
-                $query->orderBy('created_at', 'asc');
+                $query->orderByRaw($dateSortExpression . ' asc');
                 break;
             case 'priority_high':
                 $query->orderByRaw("FIELD(criticality_level, 'CRITICA','ALTA','MEDIA','BAJA') ASC")
-                    ->orderByDesc('created_at');
+                    ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'priority_low':
                 $query->orderByRaw("FIELD(criticality_level, 'BAJA','MEDIA','ALTA','CRITICA') ASC")
-                    ->orderByDesc('created_at');
+                    ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'status_az':
                 $query->orderBy('status', 'asc')
-                    ->orderByDesc('created_at');
+                    ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'status_za':
                 $query->orderBy('status', 'desc')
-                    ->orderByDesc('created_at');
+                    ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'due_date':
                 $query->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
                     ->orderBy('due_date', 'asc')
-                    ->orderByDesc('created_at');
+                    ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'recent':
             default:
-                $query->orderBy('created_at', 'desc');
+                $query->orderByRaw($dateSortExpression . ' desc');
                 break;
         }
     }
@@ -401,9 +405,11 @@ class ServiceRequestService
             $query->where('company_id', $companyId);
         }
 
-        // Rango de fechas (creación)
+        // Rango de fechas (solicitud o solución)
         $startDate = $filters['start_date'] ?? null;
         $endDate = $filters['end_date'] ?? null;
+        $dateView = $filters['date_view'] ?? 'created_at';
+        $dateColumn = $dateView === 'resolved_at' ? 'COALESCE(resolved_at, closed_at)' : 'created_at';
         if ($startDate || $endDate) {
             try {
                 $start = $startDate ? \Carbon\Carbon::parse($startDate)->startOfDay() : null;
@@ -413,11 +419,14 @@ class ServiceRequestService
             } catch (\Exception $e) { $end = null; }
 
             if ($start && $end) {
-                $query->whereBetween('created_at', [$start, $end]);
+                $query->whereRaw($dateColumn . ' BETWEEN ? AND ?', [
+                    $start->toDateTimeString(),
+                    $end->toDateTimeString(),
+                ]);
             } elseif ($start) {
-                $query->where('created_at', '>=', $start);
+                $query->whereRaw($dateColumn . ' >= ?', [$start->toDateTimeString()]);
             } elseif ($end) {
-                $query->where('created_at', '<=', $end);
+                $query->whereRaw($dateColumn . ' <= ?', [$end->toDateTimeString()]);
             }
         }
 
@@ -442,10 +451,10 @@ class ServiceRequestService
             ->select([
                 'id', 'company_id', 'ticket_number', 'title', 'description', 'status',
                 'criticality_level', 'requester_id', 'sub_service_id', 'sla_id',
-                'created_at', 'updated_at', 'due_date', 'accepted_at', 'response_deadline', 'responded_at'
+                'created_at', 'updated_at', 'due_date', 'accepted_at', 'response_deadline', 'responded_at', 'resolved_at', 'closed_at'
             ]);
 
-        $this->applySorting($query, $filters['sort_by'] ?? 'recent');
+        $this->applySorting($query, $filters['sort_by'] ?? 'recent', $filters['date_view'] ?? 'created_at');
 
         return $query->paginate($perPage);
     }

@@ -1,9 +1,13 @@
-@props(['request'])
+@props(['request', 'dateView' => 'created_at'])
 
 @php
     $isClosed = in_array(strtoupper((string) $request->status), ['CERRADA', 'RECHAZADA'], true);
     $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
     $isOpenRequest = in_array(strtoupper((string) $request->status), $openStatuses, true);
+    $dateLabel = $request->getListDateLabel($dateView);
+    $dateValue = $request->getListDateValue($dateView);
+    $dateDisplay = $dateValue ? $dateValue->format('d/m/Y') : ($dateView === 'resolved_at' ? 'Pendiente' : 'Sin fecha');
+    $dateRelative = $dateValue ? $dateValue->locale('es')->diffForHumans() : ($dateView === 'resolved_at' ? 'Aún no resuelta' : 'Sin fecha');
 
     $fallbackResponseMinutes = (int) ($request->sla->response_time_minutes ?? 0);
     $responseStartAt = $request->accepted_at;
@@ -178,10 +182,10 @@
         </div>
     </td>
 
-    <!-- Fecha de la solicitud -->
+    <!-- Fecha -->
     <td class="px-3 py-2.5 align-top whitespace-nowrap overflow-hidden">
-        <div class="text-xs font-semibold text-gray-900 truncate" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">{{ $request->created_at->format('d/m/Y') }}</div>
-        <div class="text-[11px] text-gray-500 truncate" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">{{ $request->created_at->locale('es')->diffForHumans() }}</div>
+        <div class="text-xs font-semibold text-gray-900 truncate" title="{{ $dateLabel }}: {{ $dateValue ? $dateValue->format('d/m/Y H:i') : $dateRelative }}">{{ $dateDisplay }}</div>
+        <div class="text-[11px] text-gray-500 truncate" title="{{ $dateLabel }}: {{ $dateValue ? $dateValue->format('d/m/Y H:i') : $dateRelative }}">{{ $dateRelative }}</div>
     </td>
 
     <!-- Acciones -->
