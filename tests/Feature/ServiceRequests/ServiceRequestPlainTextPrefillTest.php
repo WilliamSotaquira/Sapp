@@ -207,6 +207,36 @@ Reemplazo de imagen en landing Ley General de Cultura (3 subtareas)
 TEXT;
     }
 
+    private function sampleUrgentPublicationPlainText(): string
+    {
+        return <<<'TEXT'
+Conozca el cierre de un carril en la Av. Carrera 68 entre calles 49A y 52, sentido Sur - Norte
+
+Solicitud de publicación de comunicado informativo sobre el cierre de un carril en la Av. Carrera 68 entre calles 49A y 52, sentido Sur - Norte, incluyendo información del PMT, mapas adjuntos y recomendaciones de movilidad para la ciudadanía.
+
+11/05/2026 05:34 p. m.
+
+12/05/2026
+
+Heidy Katerin Sanchez Puentes
+
+Email corporativo
+
+Publicación de Noticia, PMT o Artículo
+
+Urgente
+
+No disponible
+
+Publicación de comunicado PMT Av. Carrera 68 (4 subtareas)
+
+* Revisar el contenido e imágenes adjuntas del comunicado para validar estructura y lineamientos de publicación. (15 min)
+* Publicar la noticia del PMT en el portal web institucional con el contenido suministrado por el solicitante. (20 min)
+* Validar la correcta visualización de mapas, imágenes y contenido publicado en el portal institucional. (10 min)
+* Confirmar con el solicitante el registro, publicación o cierre de la gestión. (10 min)
+TEXT;
+    }
+
     private function sampleExactStructuredPlainTextWithoutSubservice(): string
     {
         return <<<'TEXT'
@@ -492,6 +522,72 @@ TEXT;
 
             $webRoutes = json_decode((string) session('_old_input.web_routes'), true);
             $this->assertSame([], is_array($webRoutes) ? $webRoutes : []);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_plain_text_prefill_accepts_urgent_publication_text_with_critical_sla_fallback(): void
+    {
+        Carbon::setTestNow('2026-05-11 17:34:00');
+
+        try {
+            $data = $this->seedContext();
+
+            $requester = Requester::factory()->create([
+                'company_id' => $data['company']->id,
+                'name' => 'Heidy Katerin Sanchez Puentes',
+            ]);
+
+            $publicationSubService = SubService::create([
+                'service_id' => $data['service']->id,
+                'name' => 'Publicación de Noticia, PMT o Artículo',
+                'code' => 'PUB_NOTICIA_PMT',
+                'description' => 'Publicación de noticias, artículos o contenidos del PMT',
+                'is_active' => true,
+                'order' => 2,
+            ]);
+
+            $publicationSla = ServiceLevelAgreement::create([
+                'service_family_id' => $data['family']->id,
+                'name' => 'SLA CRITICA PUBLICACION PMT',
+                'criticality_level' => 'CRITICA',
+                'response_time_hours' => 1,
+                'resolution_time_hours' => 4,
+                'availability_percentage' => 99.90,
+                'acceptance_time_minutes' => 15,
+                'response_time_minutes' => 30,
+                'resolution_time_minutes' => 240,
+                'conditions' => 'SLA de prueba para publicaciones PMT',
+                'is_active' => true,
+            ]);
+
+            $response = $this->actingAs($data['user'])
+                ->withSession(['current_company_id' => $data['company']->id])
+                ->post(route('service-requests.prefill-from-text'), [
+                    'plain_text' => $this->sampleUrgentPublicationPlainText(),
+                ]);
+
+            $response->assertRedirect(route('service-requests.create'));
+            $response->assertSessionHas('success');
+            $response->assertSessionHas('_old_input.title', 'Conozca el cierre de un carril en la Av. Carrera 68 entre calles 49A y 52, sentido Sur - Norte');
+            $response->assertSessionHas('_old_input.requester_id', $requester->id);
+            $response->assertSessionHas('_old_input.sub_service_id', $publicationSubService->id);
+            $response->assertSessionHas('_old_input.entry_channel', 'email_corporativo');
+            $response->assertSessionHas('_old_input.criticality_level', 'URGENTE');
+            $response->assertSessionHas('_old_input.created_at', '2026-05-11T17:34');
+            $response->assertSessionHas('_old_input.due_date', '2026-05-12');
+            $response->assertSessionHas('_old_input.sla_id', $publicationSla->id);
+            $response->assertSessionHas('_old_input.tasks.0.title', 'Publicación de comunicado PMT Av. Carrera 68');
+            $response->assertSessionHas('_old_input.tasks.0.subtasks.0.estimated_minutes', 15);
+            $response->assertSessionHas('_old_input.tasks.0.subtasks.3.estimated_minutes', 10);
+
+            $webRoutes = json_decode((string) session('_old_input.web_routes'), true);
+            $this->assertSame([], is_array($webRoutes) ? $webRoutes : []);
+            $this->assertStringContainsString(
+                'Solicitud de publicación de comunicado informativo sobre el cierre de un carril',
+                (string) session('_old_input.description')
+            );
         } finally {
             Carbon::setTestNow();
         }
