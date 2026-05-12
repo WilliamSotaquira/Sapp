@@ -82,7 +82,7 @@ class ServiceRequestService
      */
     public function resolveCreationContext(int $companyId, int $subServiceId, string $criticality, string|\DateTimeInterface|null $referenceDate = null): array
     {
-        $criticality = mb_strtoupper(trim($criticality));
+        $criticality = $this->normalizeCriticalityForSlaResolution($criticality);
 
         $row = DB::table('sub_services as ss')
             ->join('services as s', 's.id', '=', 'ss.service_id')
@@ -136,6 +136,25 @@ class ServiceRequestService
             'sla_id' => (int) $row->sla_id,
             'cut_id' => $this->resolveCutIdForContractDate((int) $row->contract_id, $referenceDate),
         ];
+    }
+
+    private function normalizeCriticalityForSlaResolution(string $criticality): string
+    {
+        $normalized = Str::of($criticality)
+            ->lower()
+            ->ascii()
+            ->replaceMatches('/[^a-z0-9\s]/', ' ')
+            ->squish()
+            ->value();
+
+        return match ($normalized) {
+            'urgente', 'urgent' => 'CRITICA',
+            'critica', 'critico', 'critical' => 'CRITICA',
+            'alta' => 'ALTA',
+            'media' => 'MEDIA',
+            'baja' => 'BAJA',
+            default => mb_strtoupper(trim($criticality)),
+        };
     }
 
     private function resolveCutIdForContractDate(int $contractId, string|\DateTimeInterface|null $referenceDate = null): ?int
