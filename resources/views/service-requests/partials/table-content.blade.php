@@ -44,7 +44,7 @@
 <!-- Filtros eliminados: ahora integrados en la barra superior de la tabla para evitar duplicados -->
 
 <!-- Tabla -->
-<x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" :savedFilters="$savedFilters ?? collect()" />
+<x-service-requests.index.content.requests-table :serviceRequests="$serviceRequests" :services="$services ?? null" :savedFilters="$savedFilters ?? collect()" :dateView="$dateView ?? 'created_at'" />
 
 <!-- Paginación -->
 @if ($serviceRequests->hasPages())

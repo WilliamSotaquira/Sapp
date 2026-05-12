@@ -1,6 +1,13 @@
-@props(['serviceRequests', 'services' => null, 'savedFilters' => collect()])
+@props(['serviceRequests', 'services' => null, 'savedFilters' => collect(), 'dateView' => 'created_at'])
 
 @php
+    $dateView = in_array($dateView, ['created_at', 'resolved_at'], true) ? $dateView : 'created_at';
+    $dateLabel = $dateView === 'resolved_at' ? 'Fecha solución' : 'Fecha solicitud';
+    $sortDateLabel = $dateView === 'resolved_at' ? 'Fecha de solución' : 'Fecha de solicitud';
+    $toggleBaseParams = request()->except(['page', 'date_view']);
+    $requestDateUrl = route('service-requests.index', array_merge($toggleBaseParams, ['date_view' => 'created_at']));
+    $solutionDateUrl = route('service-requests.index', array_merge($toggleBaseParams, ['date_view' => 'resolved_at']));
+
     $activeFilters = [];
     $search = request('q', request('search'));
     $status = request('status');
@@ -36,7 +43,7 @@
     }
     if ($startDate || $endDate) {
         $rangeLabel = trim(($startDate ?: '...') . ' a ' . ($endDate ?: '...'));
-        $activeFilters[] = ['label' => 'Fecha solicitud: ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
+        $activeFilters[] = ['label' => $dateLabel . ': ' . $rangeLabel, 'remove' => route('service-requests.index', array_diff_key($baseParams, ['start_date' => true, 'end_date' => true]))];
     }
     if ($open) $activeFilters[] = ['label' => 'Solo abiertas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['open' => true]))];
     if ($excludeClosed) $activeFilters[] = ['label' => 'Sin cerradas', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['exclude_closed' => true]))];
@@ -44,7 +51,7 @@
     if ($inProcess) $activeFilters[] = ['label' => 'En proceso', 'remove' => route('service-requests.index', array_diff_key($baseParams, ['in_process' => true]))];
     if ($sortBy && $sortBy !== 'recent') {
         $sortLabels = [
-            'oldest' => 'Fecha de solicitud más antigua',
+            'oldest' => $sortDateLabel . ' más antigua',
             'priority_high' => 'Prioridad alta a baja',
             'priority_low' => 'Prioridad baja a alta',
             'status_az' => 'Estado A-Z',
@@ -178,6 +185,20 @@
                         <span>Tarjetas</span>
                     </button>
                 </div>
+                <div class="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg">
+                    <a href="{{ $requestDateUrl }}"
+                       class="px-2.5 py-1.5 text-xs rounded-md transition-colors {{ $dateView === 'created_at' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900' }}"
+                       aria-pressed="{{ $dateView === 'created_at' ? 'true' : 'false' }}">
+                        <i class="fas fa-calendar-alt mr-1"></i>
+                        <span>Fecha solicitud</span>
+                    </a>
+                    <a href="{{ $solutionDateUrl }}"
+                       class="px-2.5 py-1.5 text-xs rounded-md transition-colors {{ $dateView === 'resolved_at' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900' }}"
+                       aria-pressed="{{ $dateView === 'resolved_at' ? 'true' : 'false' }}">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        <span>Fecha solución</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -260,7 +281,7 @@
                         </a>
                     </span>
                 @endforeach
-                <a href="{{ route('service-requests.index') }}"
+                <a href="{{ route('service-requests.index', ['date_view' => $dateView]) }}"
                    class="text-xs font-semibold text-blue-700 hover:text-blue-900 ml-1">Limpiar filtros</a>
             </div>
         @endif
@@ -295,6 +316,7 @@
                     @if(request('in_process'))
                         <input type="hidden" id="inProcessFilter" name="in_process" value="1">
                     @endif
+                    <input type="hidden" id="dateViewFilterAdv" name="date_view" value="{{ $dateView }}">
 
                     <!-- Estado -->
                     <div>
@@ -370,8 +392,8 @@
                     <div>
                         <label for="sortByFilterAdv" class="block text-sm font-medium text-gray-700 mb-2">Ordenar por</label>
                         <select id="sortByFilterAdv" name="sort_by" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="recent" {{ request('sort_by', 'recent') === 'recent' ? 'selected' : '' }}>Fecha de solicitud más reciente</option>
-                            <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>Fecha de solicitud más antigua</option>
+                            <option value="recent" {{ request('sort_by', 'recent') === 'recent' ? 'selected' : '' }}>{{ $sortDateLabel }} más reciente</option>
+                            <option value="oldest" {{ request('sort_by') === 'oldest' ? 'selected' : '' }}>{{ $sortDateLabel }} más antigua</option>
                             <option value="priority_high" {{ request('sort_by') === 'priority_high' ? 'selected' : '' }}>Prioridad alta a baja</option>
                             <option value="priority_low" {{ request('sort_by') === 'priority_low' ? 'selected' : '' }}>Prioridad baja a alta</option>
                             <option value="due_date" {{ request('sort_by') === 'due_date' ? 'selected' : '' }}>Vencimiento más cercano</option>
@@ -432,14 +454,14 @@
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Prioridad</th>
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Estado</th>
                             <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Solicitante</th>
-                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">Fecha solicitud</th>
+                            <th class="px-3 py-2.5 text-left font-semibold tracking-wide">{{ $dateLabel }}</th>
                             <th class="px-3 py-2.5 text-right font-semibold tracking-wide">Acciones</th>
                         </tr>
                     </thead>
 
                     <tbody class="divide-y divide-gray-200">
                         @foreach ($serviceRequests as $request)
-                            <x-service-requests.index.content.table-row :request="$request" />
+                            <x-service-requests.index.content.table-row :request="$request" :dateView="$dateView" />
                         @endforeach
                     </tbody>
                 </table>
@@ -546,6 +568,13 @@
 
                             $responseDetail = $formatWindow($remainingWindowMinutes);
                         }
+
+                        $listDateValue = $request->getListDateValue($dateView);
+                        $listDateLabel = $request->getListDateLabel($dateView);
+                        $listDateDisplay = $listDateValue ? $listDateValue->format('d/m/Y') : ($dateView === 'resolved_at' ? 'Pendiente' : 'Sin fecha');
+                        $listDateRelative = $listDateValue
+                            ? $listDateValue->locale('es')->diffForHumans()
+                            : ($dateView === 'resolved_at' ? 'Aún no resuelta' : 'Sin fecha');
                     @endphp
                     
                     <div class="{{ $isClosedCard ? 'bg-gray-50 rounded-lg shadow-sm border border-gray-300 hover:shadow-sm transition-shadow overflow-hidden' : 'bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden' }}">
@@ -612,8 +641,8 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-xs font-medium text-gray-900 truncate">{{ $name }}</div>
-                                    <div class="text-xs text-gray-500" title="Fecha solicitud: {{ $request->created_at->format('d/m/Y H:i') }}">
-                                        {{ $request->created_at->format('d/m/Y') }} · {{ $request->created_at->locale('es')->diffForHumans() }}
+                                    <div class="text-xs text-gray-500" title="{{ $listDateLabel }}: {{ $listDateValue ? $listDateValue->format('d/m/Y H:i') : $listDateRelative }}">
+                                        {{ $listDateDisplay }} · {{ $listDateRelative }}
                                     </div>
                                 </div>
                             </div>
@@ -790,23 +819,37 @@ function renderSearchHistory() {
     ).join('');
 }
 
+function getCurrentDateView() {
+    return document.getElementById('dateViewFilterAdv')?.value || 'created_at';
+}
+
+function buildIndexUrl(params, preserveCurrentDateView = true) {
+    const finalParams = params instanceof URLSearchParams ? params : new URLSearchParams(params || {});
+    if (preserveCurrentDateView && !finalParams.has('date_view')) {
+        finalParams.set('date_view', getCurrentDateView());
+    }
+
+    const query = finalParams.toString();
+    return '{{ route("service-requests.index") }}' + (query ? '?' + query : '');
+}
+
 function applySearchFromHistory(term) {
     document.getElementById('searchFilter').value = term;
     document.getElementById('searchHistory').classList.add('hidden');
     const params = new URLSearchParams(window.location.search);
     params.set('search', term);
-    window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
+    window.location.href = buildIndexUrl(params);
 }
 
 // === Filtros Rápidos ===
 function applyQuickFilter(field, value) {
     if (field === 'all') {
-        window.location.href = '{{ route("service-requests.index") }}';
+        window.location.href = buildIndexUrl(new URLSearchParams(), true);
         return;
     }
     const params = new URLSearchParams();
     params.set(field, value);
-    window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
+    window.location.href = buildIndexUrl(params);
 }
 
 // === Sistema de Presets ===
@@ -859,7 +902,7 @@ function loadPresetById(id) {
             if (preset.filters[key]) params.set(key, preset.filters[key]);
         });
         
-        window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
+        window.location.href = buildIndexUrl(params);
 }
 
 function deletePresetById(id) {
@@ -929,6 +972,7 @@ function gatherFilters() {
         requester: document.getElementById('requesterFilterAdv')?.value || '',
         start_date: document.getElementById('startDateFilterAdv')?.value || '',
         end_date: document.getElementById('endDateFilterAdv')?.value || '',
+        date_view: document.getElementById('dateViewFilterAdv')?.value || 'created_at',
         open: document.getElementById('openFilter')?.value || '',
         in_course: document.getElementById('inCourseFilter')?.value || '',
         in_process: document.getElementById('inProcessFilter')?.value || '',
@@ -955,7 +999,7 @@ function clearAllFilters() {
     // Limpieza del estado persistido por el filtro AJAX (resources/views/service-requests/index.blade.php)
     // para que al recargar no se re-apliquen filtros antiguos desde localStorage.
     try { localStorage.removeItem('sr_filters_v1'); } catch(e) {}
-    window.location.href = '{{ route("service-requests.index") }}';
+    window.location.href = buildIndexUrl(new URLSearchParams(), true);
 }
 
 // === UI Helpers ===
@@ -975,7 +1019,7 @@ function showToast(message, type = 'success') {
 
 function updateActiveFiltersCount() {
     const params = new URLSearchParams(window.location.search);
-    const count = Array.from(params.keys()).filter(k => k !== 'page').length;
+    const count = Array.from(params.keys()).filter(k => !['page', 'date_view'].includes(k)).length;
     const badge = document.getElementById('activeFiltersCount');
     
     if (badge) {

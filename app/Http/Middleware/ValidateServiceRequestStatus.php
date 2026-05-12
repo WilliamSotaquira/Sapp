@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ServiceRequest;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +47,7 @@ class ValidateServiceRequestStatus
     {
         return match ($action) {
             'edit', 'update' => ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'],
-            'delete' => ['PENDIENTE', 'CANCELADA'],
+            'delete' => ServiceRequest::getDeletableStatuses(),
             'accept' => ['PENDIENTE'],
             'reject' => ['PENDIENTE'],
             'start' => ['ACEPTADA'],
@@ -69,7 +70,6 @@ class ValidateServiceRequestStatus
         $messages = [
             'edit' => 'No se pueden editar solicitudes en estado: ' . $currentStatus,
             'update' => 'No se pueden actualizar solicitudes en estado: ' . $currentStatus,
-            'delete' => 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA',
             'accept' => 'Esta solicitud ya no puede ser aceptada. Estado actual: ' . $currentStatus,
             'reject' => 'La solicitud debe estar en estado PENDIENTE para ser rechazada',
             'start' => 'La solicitud debe estar ACEPTADA para iniciar',
@@ -80,6 +80,7 @@ class ValidateServiceRequestStatus
             'reopen' => 'La solicitud no puede ser reabierta desde el estado actual',
             'cancel' => 'Solo se pueden cancelar solicitudes en estado PENDIENTE o ACEPTADA',
             'reassign' => 'No se puede reasignar una solicitud en estado: ' . $currentStatus,
+            'delete' => 'Solo se pueden eliminar solicitudes en estado PENDIENTE, EN PROCESO, CANCELADA, CERRADA o RECHAZADA',
         ];
 
         return $messages[$action] ?? 'Acción no permitida en el estado actual: ' . $currentStatus;

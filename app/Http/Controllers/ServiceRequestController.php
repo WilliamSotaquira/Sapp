@@ -60,6 +60,12 @@ class ServiceRequestController extends Controller
             $sortBy = 'recent';
         }
 
+        $dateView = (string) $request->get('date_view', 'created_at');
+        $allowedDateViews = ['created_at', 'resolved_at'];
+        if (!in_array($dateView, $allowedDateViews, true)) {
+            $dateView = 'created_at';
+        }
+
         $filters = [
             'search' => $globalSearch,
             'status' => $request->get('status'),
@@ -75,6 +81,7 @@ class ServiceRequestController extends Controller
             'in_course' => $request->boolean('in_course'),
             'in_process' => $request->boolean('in_process'),
             'sort_by' => $sortBy,
+            'date_view' => $dateView,
         ];
 
         if (!in_array($filters['due_status'], ['with_due', 'without_due', 'overdue', 'due_soon'], true)) {
@@ -160,7 +167,7 @@ class ServiceRequestController extends Controller
             ->count();
 
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount', 'dateView'),
             $stats
         );
 
@@ -204,6 +211,7 @@ class ServiceRequestController extends Controller
             'filters.requester' => 'nullable|string|max:255',
             'filters.start_date' => 'nullable|date',
             'filters.end_date' => 'nullable|date',
+            'filters.date_view' => 'nullable|in:created_at,resolved_at',
             'filters.open' => 'nullable',
             'filters.exclude_closed' => 'nullable',
             'filters.in_course' => 'nullable',
@@ -211,7 +219,7 @@ class ServiceRequestController extends Controller
             'filters.sort_by' => 'nullable|string|max:40',
         ]);
 
-        $allowedKeys = ['search', 'status', 'criticality', 'due_status', 'service_id', 'requester', 'start_date', 'end_date', 'open', 'exclude_closed', 'in_course', 'in_process', 'sort_by'];
+        $allowedKeys = ['search', 'status', 'criticality', 'due_status', 'service_id', 'requester', 'start_date', 'end_date', 'date_view', 'open', 'exclude_closed', 'in_course', 'in_process', 'sort_by'];
         $filters = collect($validated['filters'])
             ->only($allowedKeys)
             ->map(function ($value) {
@@ -488,10 +496,10 @@ class ServiceRequestController extends Controller
      */
     public function destroy(ServiceRequest $serviceRequest)
     {
-        if (!in_array($serviceRequest->status, ['PENDIENTE', 'CANCELADA'])) {
+        if (!$serviceRequest->canBeDeleted()) {
             return redirect()
                 ->route('service-requests.index')
-                ->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE o CANCELADA.');
+                ->with('error', 'Solo se pueden eliminar solicitudes en estado PENDIENTE, EN PROCESO, CANCELADA, CERRADA o RECHAZADA.');
         }
 
         try {
