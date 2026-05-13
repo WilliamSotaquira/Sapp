@@ -144,6 +144,7 @@ class ServiceRequestPlainTextImportService
         $pushCandidate($parsed['description'] ?? null);
         $pushCandidate(trim(((string) ($parsed['title'] ?? '')) . ' ' . ((string) ($parsed['description'] ?? ''))));
         $pushCandidate($this->inferFallbackSubServiceName($plainText, $parsed));
+        $pushCandidate('Reporte de Enlace Roto o Contenido Obsoleto');
         $pushCandidate('Solicitud de Apoyo General');
         $pushCandidate('Acompañamiento actividades desarrollo externo');
         $pushCandidate('Actualización de Sección de Transparencia');
@@ -173,6 +174,14 @@ class ServiceRequestPlainTextImportService
         }
 
         $keywordMap = [
+            'Reporte de Enlace Roto o Contenido Obsoleto' => [
+                'enlace roto',
+                'enlace anterior',
+                'portal antiguo',
+                'repositorio',
+                'contenido obsoleto',
+                'acceso al repositorio',
+            ],
             'Actualización de Sección de Transparencia' => [
                 'transparencia',
                 'acceso a la informacion',
@@ -219,6 +228,11 @@ class ServiceRequestPlainTextImportService
         $exactParsed = $this->extractStructuredDataByExactFormat($normalizedText);
         if ($exactParsed !== null) {
             return $exactParsed;
+        }
+
+        $emailThreadParsed = $this->extractStructuredDataFromEmailThread($normalizedText);
+        if ($emailThreadParsed !== null) {
+            return $emailThreadParsed;
         }
 
         $lines = $this->extractLines($normalizedText);
@@ -422,6 +436,93 @@ class ServiceRequestPlainTextImportService
             'web_routes' => $webRoutes,
             'tasks' => $tasks,
         ];
+    }
+
+    private function extractStructuredDataFromEmailThread(string $normalizedText): ?array
+    {
+        $lines = array_map(
+            fn ($line) => trim($this->normalizeMarkdownLinks((string) $line)),
+            preg_split('/\n/u', $normalizedText) ?: []
+        );
+
+        $lines = $this->stripWebmailChromeLines($lines);
+        if ($lines === []) {
+            return null;
+        }
+
+        foreach ($lines as $index => $line) {
+            if ($this->isQuotedReplyMarker($line)) {
+                $lines = array_slice($lines, 0, $index);
+                break;
+            }
+        }
+
+        $subjectIndex = $this->findFirstLineIndex(
+            $lines,
+            fn (string $line) => preg_match('/^(re|rv|fw|fwd)\s*:/iu', $line) === 1
+        );
+
+        if ($subjectIndex === null) {
+            return null;
+        }
+
+        $senderNameIndex = $this->nextNonEmptyLineIndex($lines, $subjectIndex + 1);
+        $dateIndex = $senderNameIndex !== null ? $this->nextNonEmptyLineIndex($lines, $senderNameIndex + 1) : null;
+        $recipientsIndex = $dateIndex !== null ? $this->nextNonEmptyLineIndex($lines, $dateIndex + 1) : null;
+
+        if ($senderNameIndex === null || $dateIndex === null || $recipientsIndex === null) {
+            return null;
+        }
+
+        $requesterName = $this->cleanPersonLine((string) ($lines[$senderNameIndex] ?? ''));
+        if ($requesterName === '') {
+            return null;
+        }
+
+        $recipientsLine = (string) ($lines[$recipientsIndex] ?? '');
+        if (!preg_match('/\b(?:para|to|cc|bcc)\b/iu', $recipientsLine)) {
+            return null;
+        }
+
+        $createdAt = $this->parseEmailHeaderDate((string) ($lines[$dateIndex] ?? ''))
+            ?? $this->parseFlexibleDate((string) ($lines[$dateIndex] ?? ''));
+
+        $bodyStartIndex = $this->nextNonEmptyLineIndex($lines, $recipientsIndex + 1);
+        if ($bodyStartIndex === null) {
+            return null;
+        }
+
+        $bodyLines = $this->trimEmptyEdges(array_slice($lines, $bodyStartIndex));
+        $bodyText = trim(implode("\n", $bodyLines));
+        if ($bodyText === '') {
+            return null;
+        }
+
+        $subject = $this->cleanSubject((string) ($lines[$subjectIndex] ?? ''));
+        $searchText = trim(implode("\n\n", array_filter([$subject, $bodyText])));
+        $parsed = [
+            'title' => $subject !== '' ? $subject : Str::limit($bodyText, 255, ''),
+            'description' => $bodyText,
+            'created_at' => $createdAt,
+            'requester_name' => $requesterName,
+            'requester_email' => $this->extractEmail(
+                implode("\n", array_filter([
+                    (string) ($lines[$senderNameIndex] ?? ''),
+                    (string) ($lines[$dateIndex] ?? ''),
+                    (string) ($lines[$recipientsIndex] ?? ''),
+                ]))
+            ),
+            'sub_service_name' => '',
+            'entry_channel' => $this->detectEntryChannel($searchText),
+            'criticality_level' => $this->detectCriticality($searchText),
+            'web_routes' => $this->extractUrls($bodyText)->slice(0, 8)->values()->all(),
+            'tasks' => [],
+        ];
+
+        $parsed['sub_service_name'] = $this->inferFallbackSubServiceName($searchText, $parsed)
+            ?? 'Solicitud de Apoyo General';
+
+        return $parsed;
     }
 
     private function emptyParsedData(?Carbon $createdAt): array
@@ -798,6 +899,177 @@ class ServiceRequestPlainTextImportService
             ->filter()
             ->unique()
             ->values();
+    }
+
+    private function stripWebmailChromeLines(array $lines): array
+    {
+        $filtered = [];
+        $started = false;
+
+        foreach ($lines as $line) {
+            $trimmed = trim((string) $line);
+
+            if (!$started) {
+                if ($trimmed === '' || $this->isWebmailChromeLine($trimmed)) {
+                    continue;
+                }
+
+                $started = true;
+            }
+
+            if ($this->isWebmailChromeLine($trimmed)) {
+                continue;
+            }
+
+            $filtered[] = $trimmed;
+        }
+
+        return $this->trimEmptyEdges($filtered);
+    }
+
+    private function trimEmptyEdges(array $lines): array
+    {
+        while ($lines !== [] && trim((string) $lines[0]) === '') {
+            array_shift($lines);
+        }
+
+        while ($lines !== [] && trim((string) $lines[array_key_last($lines)]) === '') {
+            array_pop($lines);
+        }
+
+        return array_values($lines);
+    }
+
+    private function isWebmailChromeLine(string $line): bool
+    {
+        $normalized = $this->normalizeForComparison($line);
+
+        if ($normalized === '') {
+            return true;
+        }
+
+        if (in_array($normalized, [
+            'ninguno seleccionado',
+            'ir al contenido',
+            'recibidos',
+            'vista creada con ia',
+        ], true)) {
+            return true;
+        }
+
+        if (preg_match('/^\d+\s+de\s+[\d.,]+$/u', $normalized) === 1) {
+            return true;
+        }
+
+        return str_contains($normalized, 'lectores de pantalla')
+            || str_contains($normalized, 'correo de bogota')
+            || str_contains($normalized, 'correo de bogotá');
+    }
+
+    private function isQuotedReplyMarker(string $line): bool
+    {
+        $normalized = $this->normalizeForComparison($line);
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        return preg_match('/^(?:el\s+)?(?:lun|mar|mie|mi[eé]|jue|vie|s[áa]b|sab|dom).+escribi[oó]\s*:?\s*$/iu', $line) === 1
+            || preg_match('/^on\s+.+\s+wrote$/iu', $normalized) === 1
+            || preg_match('/^(?:from|sent|subject)\s*:/iu', $line) === 1
+            || preg_match('/^-{2,}\s*original message\s*-{2,}$/iu', $normalized) === 1;
+    }
+
+    private function nextNonEmptyLineIndex(array $lines, int $startIndex): ?int
+    {
+        for ($i = $startIndex; $i < count($lines); $i++) {
+            if (trim((string) ($lines[$i] ?? '')) !== '') {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    private function findFirstLineIndex(array $lines, callable $predicate, int $startIndex = 0): ?int
+    {
+        for ($i = $startIndex; $i < count($lines); $i++) {
+            if ($predicate((string) ($lines[$i] ?? ''))) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    private function parseEmailHeaderDate(string $text): ?Carbon
+    {
+        $clean = trim($text);
+        if ($clean === '') {
+            return null;
+        }
+
+        if (!preg_match('/^(?:[[:alpha:]áéíóúñ]{3,},?\s*)?(\d{1,2})\s+([[:alpha:]áéíóúñ]{3,})(?:\s+de\s+(\d{4}))?(?:,\s*|\s+)(?:a\s+las\s+)?(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\.?)?(?:\s*\(.*\))?$/iu', $clean, $matches)) {
+            return null;
+        }
+
+        $monthName = $this->normalizeForComparison($matches[2]);
+        $months = [
+            'ene' => 1,
+            'enero' => 1,
+            'feb' => 2,
+            'febrero' => 2,
+            'mar' => 3,
+            'marzo' => 3,
+            'abr' => 4,
+            'abril' => 4,
+            'may' => 5,
+            'mayo' => 5,
+            'jun' => 6,
+            'junio' => 6,
+            'jul' => 7,
+            'julio' => 7,
+            'ago' => 8,
+            'agosto' => 8,
+            'sep' => 9,
+            'sept' => 9,
+            'septiembre' => 9,
+            'setiembre' => 9,
+            'oct' => 10,
+            'octubre' => 10,
+            'nov' => 11,
+            'noviembre' => 11,
+            'dic' => 12,
+            'diciembre' => 12,
+        ];
+
+        $month = $months[$monthName] ?? $months[substr($monthName, 0, 3)] ?? null;
+        if (!$month) {
+            return null;
+        }
+
+        $year = isset($matches[3]) && $matches[3] !== '' ? (int) $matches[3] : (int) now()->year;
+        $hour = (int) $matches[4];
+        $minute = (int) $matches[5];
+        $meridiem = isset($matches[6]) ? mb_strtolower($matches[6]) : null;
+
+        if ($meridiem === 'p' && $hour < 12) {
+            $hour += 12;
+        }
+
+        if ($meridiem === 'a' && $hour === 12) {
+            $hour = 0;
+        }
+
+        return Carbon::create(
+            $year,
+            $month,
+            (int) $matches[1],
+            $hour,
+            $minute,
+            0,
+            config('app.timezone')
+        );
     }
 
     private function normalizeMarkdownLinks(string $text): string
