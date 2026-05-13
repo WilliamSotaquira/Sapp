@@ -72,7 +72,7 @@
             class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
             <i class="fas fa-paste"></i>
-            Pegar texto estructurado
+            Pegar e interpretar
         </button>
     </div>
 
@@ -134,6 +134,14 @@
                             class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                         >
                             Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            id="clearPlainTextImport"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
+                        >
+                            <i class="fas fa-eraser"></i>
+                            Limpiar
                         </button>
                         <button
                             type="submit"
@@ -262,7 +270,9 @@
         const openPlainTextImportModalBtn = document.getElementById('openPlainTextImportModal');
         const closePlainTextImportModalBtn = document.getElementById('closePlainTextImportModal');
         const cancelPlainTextImportBtn = document.getElementById('cancelPlainTextImport');
+        const clearPlainTextImportBtn = document.getElementById('clearPlainTextImport');
         const plainTextInput = document.getElementById('plain_text');
+        const plainTextImportForm = plainTextInput?.closest('form');
         const shouldOpenPlainTextImport = @json($shouldOpenPlainTextImport);
 
         function openPlainTextImportModal() {
@@ -278,9 +288,54 @@
             plainTextImportModal.setAttribute('aria-hidden', 'true');
         }
 
-        openPlainTextImportModalBtn?.addEventListener('click', openPlainTextImportModal);
+        async function importPlainTextFromClipboard() {
+            if (!plainTextInput || !plainTextImportForm) return;
+
+            if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function' || !window.isSecureContext) {
+                openPlainTextImportModal();
+                return;
+            }
+
+            if (openPlainTextImportModalBtn) {
+                openPlainTextImportModalBtn.disabled = true;
+                openPlainTextImportModalBtn.setAttribute('aria-busy', 'true');
+                openPlainTextImportModalBtn.classList.add('cursor-wait', 'opacity-80');
+            }
+
+            try {
+                const clipboardText = await navigator.clipboard.readText();
+
+                if (!clipboardText || !clipboardText.trim()) {
+                    openPlainTextImportModal();
+                    return;
+                }
+
+                plainTextInput.value = clipboardText.replace(/\r\n/g, '\n');
+
+                if (typeof plainTextImportForm.requestSubmit === 'function') {
+                    plainTextImportForm.requestSubmit();
+                } else {
+                    plainTextImportForm.submit();
+                }
+            } catch (error) {
+                openPlainTextImportModal();
+            } finally {
+                if (openPlainTextImportModalBtn) {
+                    openPlainTextImportModalBtn.disabled = false;
+                    openPlainTextImportModalBtn.removeAttribute('aria-busy');
+                    openPlainTextImportModalBtn.classList.remove('cursor-wait', 'opacity-80');
+                }
+            }
+        }
+
+        openPlainTextImportModalBtn?.addEventListener('click', importPlainTextFromClipboard);
         closePlainTextImportModalBtn?.addEventListener('click', closePlainTextImportModal);
         cancelPlainTextImportBtn?.addEventListener('click', closePlainTextImportModal);
+        clearPlainTextImportBtn?.addEventListener('click', function() {
+            if (!plainTextInput) return;
+            plainTextInput.value = '';
+            plainTextInput.focus();
+        });
 
         plainTextImportModal?.addEventListener('click', function(e) {
             if (e.target instanceof HTMLElement && e.target.hasAttribute('data-plain-text-overlay')) {

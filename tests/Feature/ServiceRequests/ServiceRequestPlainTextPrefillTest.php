@@ -142,6 +142,142 @@ Confirmar implementación con el solicitante y validar correcta visualización (
 TEXT;
     }
 
+    private function sampleEmailThreadPlainText(): string
+    {
+        return <<<'TEXT'
+Ninguno seleccionado
+
+Ir al contenido
+
+Uso de Correo de Bogotá es TIC con lectores de pantalla
+
+7 de 4.957
+
+Re: SOLICITUD HABILITAR LINK PORTAL WEB ANTIGUO MOVILIDAD
+Recibidos
+Vista creada con IA
+
+Hernan Sebastian Cortés Osorio
+vie, 8 may, 14:40 (hace 5 días)
+para Edgar, Mesa, Ingryd, Gustavo, Camilo, mí, Tatiana
+
+Respetado Ingeniero Edgar, cordial saludo.
+
+En atención a la necesidad operativa derivada de la consulta y gestión de los procesos de cobro coactivo, me permito solicitar muy respetuosamente la habilitación del enlace anterior de la página de Movilidad o, en su defecto, acceso al
+
+repositorio donde podamos encontrar las siguientes publicaciones:
+
+• Traslado de liquidación del crédito – Procesos de cobro coactivo
+
+• Notificaciones del proceso de cobro coactivo
+
+• Notificación de incumplimiento de facilidades de pago
+
+• Notificaciones de mandamientos de pago web
+
+La presente solicitud se fundamenta en que, actualmente el repositorio disponible únicamente permite la consulta de información publicada desde noviembre de 2025 en adelante. Adicionalmente, desde el mes de marzo se viene adelantando la
+
+tarea de migración de esta información al nuevo portal web; sin embargo, se nos ha informado que dicho proceso aún no ha finalizado en su totalidad.
+
+Esta situación está generando retrasos en nuestras actividades diarias, particularmente en las labores de verificación, consulta y soporte de las actuaciones administrativas adelantadas por esta dependencia dentro de los procesos de cobro
+
+coactivo, toda vez que dicha información constituye evidencia fundamental de las gestiones realizadas para el cobro de las obligaciones a favor de la entidad.
+
+Agradecemos de antemano su colaboración y pronta gestión, teniendo en cuenta la relevancia de esta información para el adecuado desarrollo de las actuaciones propias del área.
+
+Cordialmente
+
+El vie, 8 may 2026 a las 12:01, Edgar Eduardo Romero Bohorquez (<eromero@movilidadbogota.gov.co>) escribió:
+Buen dia.
+Por favor validar la solicitud con el jefe de cobro, Hernan Sebastiabn, y una vez se tenga esta sustentación yo lo verifico.
+
+Saludos
+
+
+
+EDGAR EDUARDO ROMERO BOHÓRQUEZ
+JEFE OFICINA DE TECNOLOGIAS DE LA INFORMACION Y LAS COMUNICACIONES
+Secretaría Distrital de Movilidad
+Calle 13 # 37 - 35
+(601) 3649400
+
+
+
+
+El vie, 8 may 2026 a las 11:52, Mesa de Servicio (<mesadeservicios@movilidadbogota.gov.co>) escribió:
+Cordial saludo, Ingeniero Edgar
+
+De acuerdo con las validaciones realizadas en conjunto con el Ingeniero Gustavo Medina, se genera escalamiento para revisión de la solicitud notificada por la funcionaria, relacionada con la habilitación del enlace del portal web antiguo de movilidad, teniendo en cuenta que actualmente el portal se encuentra en proceso de migración y las razones expuestas en el requerimiento realizado.
+
+Quedamos atentos a sus comentarios y validación correspondiente.
+
+Cordialmente,
+
+MESA DE SERVICIOS
+
+Contrato 2025-3208
+
+Secretaría Distrital de Movilidad
+
+mesadeservicios@movilidadbogota.gov.co
+
+Calle 13 # 37 - 35
+
+(571) 3649400 Ext. 4600
+
+www.movilidadbogota.gov.co
+
+
+
+
+El vie, 8 may 2026 a las 10:01, Ingryd Catalina Preciado Lopez (<cpreciado@movilidadbogota.gov.co>) escribió:
+Buenos días, señores de la Mesa de Servicios:
+
+Respetuosamente, solicito su apoyo con la habilitación del enlace de acceso al portal antiguo de movilidad, con el fin de poder realizar las consultas necesarias relacionadas con los siguientes procesos:
+
+Liquidación del crédito
+Procesos de cobro coactivo
+Notificaciones del proceso de cobro coactivo
+Notificación de incumplimiento de facilidades de pago
+Lo anterior, teniendo en cuenta que actualmente la información se encuentra en proceso de migración al nuevo portal, lo cual limita la consulta de estos trámites.
+
+Quedo atenta a solicitudes adicionales
+
+Gracias
+
+INGRYD CATALINA PRECIADO LÓPEZ
+Contratista
+Dirección de Gestión de Cobro
+Secretaría Distrital de Movilidad
+Carrera 28A # 17A - 20
+www.movilidadbogota.gov.co
+
+--
+
+Sebastian Cortés Osorio
+
+Director de Gestión de Cobro
+
+Dirección de Gestión de Cobro - SDM
+
+Edgar Eduardo Romero Bohorquez
+mar, 12 may, 17:09 (hace 1 día)
+para Miguel, Hernan, Mesa, Ingryd, Gustavo, Camilo, mí, Tatiana
+
+Sebastian, buen dia.
+
+Referente a su solicitud le informo que:
+1. La informacion del portal anterior se encuentra almacenada y custodiada por la OTIC, nada de lo que había antes se ha perdido.
+2. No es posible habilitar el acceso al portal antiguo a la ciudadanía dado que hay temas de vulnerabilidades de seguridad de la informacion y obsolecencia tecnológica, razón por la cual la SDM realizó el desarrollo de un nuevo portal.
+3. La oficina de Comunicaciones gestionó con las áreas funcionales el detalle de la migración que cada una requería, por lo cual se sugiere verificar con ellos directamente.
+4. La opción que se planteo es habilitar el acceso a la información en la intranet a la persona que indiques, para que ella haga la extracción del portal antiguo y la publicacion en el nuevo.
+
+Esta oficina queda atenta para lo que se requiera.
+
+Saludos
+TEXT;
+    }
+
     private function sampleStructuredPlainTextWithoutLinks(): string
     {
         return <<<'TEXT'
@@ -323,6 +459,90 @@ TEXT;
 
         $this->assertNotNull($createdRequester);
         $response->assertSessionHas('_old_input.requester_id', $createdRequester->id);
+    }
+
+    public function test_plain_text_prefill_parses_email_thread_from_webmail_copy(): void
+    {
+        Carbon::setTestNow('2026-05-13 10:00:00');
+
+        try {
+            $data = $this->seedContext();
+
+            $requester = Requester::factory()->create([
+                'company_id' => $data['company']->id,
+                'name' => 'Hernan Sebastian Cortés Osorio',
+            ]);
+
+            $supportService = Service::create([
+                'service_family_id' => $data['family']->id,
+                'name' => 'Validación y Monitoreo de Contenidos Web',
+                'code' => 'VAL_MON_CONT_WEB',
+                'description' => 'Validación y monitoreo de contenidos web',
+                'is_active' => true,
+                'order' => 99,
+            ]);
+
+            $supportSubService = SubService::create([
+                'service_id' => $supportService->id,
+                'name' => 'Reporte de Enlace Roto o Contenido Obsoleto',
+                'code' => 'ENLACE_ROTO_OBSOLETO',
+                'description' => 'Reporte de enlaces rotos o contenidos obsoletos en portales web',
+                'is_active' => true,
+                'order' => 1,
+            ]);
+
+            $serviceSubservice = ServiceSubservice::create([
+                'service_family_id' => $data['family']->id,
+                'service_id' => $supportService->id,
+                'sub_service_id' => $supportSubService->id,
+                'name' => 'Reporte de Enlace Roto o Contenido Obsoleto',
+                'description' => 'Relación activa',
+                'is_active' => true,
+            ]);
+
+            ServiceLevelAgreement::create([
+                'service_subservice_id' => $serviceSubservice->id,
+                'service_family_id' => $data['family']->id,
+                'name' => 'SLA MEDIA ENLACE',
+                'criticality_level' => 'MEDIA',
+                'response_time_hours' => 1,
+                'resolution_time_hours' => 8,
+                'availability_percentage' => 99.90,
+                'acceptance_time_minutes' => 30,
+                'response_time_minutes' => 60,
+                'resolution_time_minutes' => 480,
+                'conditions' => null,
+                'is_active' => true,
+            ]);
+
+            $response = $this->actingAs($data['user'])
+                ->withSession(['current_company_id' => $data['company']->id])
+                ->post(route('service-requests.prefill-from-text'), [
+                    'plain_text' => $this->sampleEmailThreadPlainText(),
+                ]);
+
+            $response->assertRedirect(route('service-requests.create'));
+            $response->assertSessionHas('success');
+            $response->assertSessionHas('_old_input.title', 'SOLICITUD HABILITAR LINK PORTAL WEB ANTIGUO MOVILIDAD');
+            $response->assertSessionHas('_old_input.requester_id', $requester->id);
+            $response->assertSessionHas('_old_input.sub_service_id', $supportSubService->id);
+            $response->assertSessionHas('_old_input.entry_channel', 'email_corporativo');
+            $response->assertSessionHas('_old_input.criticality_level', 'MEDIA');
+            $response->assertSessionHas('_old_input.created_at', '2026-05-08T14:40');
+            $this->assertStringContainsString(
+                'habilitación del enlace anterior de la página de Movilidad',
+                (string) session('_old_input.description')
+            );
+            $this->assertStringNotContainsString(
+                'EDGAR EDUARDO ROMERO BOHÓRQUEZ',
+                (string) session('_old_input.description')
+            );
+
+            $webRoutes = json_decode((string) session('_old_input.web_routes'), true);
+            $this->assertSame([], is_array($webRoutes) ? $webRoutes : []);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_plain_text_prefill_handles_text_without_date_and_without_bullets(): void
