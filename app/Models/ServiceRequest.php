@@ -485,15 +485,22 @@ class ServiceRequest extends Model
         $familyPrefix = self::generateFamilyCode($subService->service->family);
         $subServicePrefix = self::generateServiceCode($subService);
         $criticalityCode = self::getCriticalityCode($criticalityLevel);
-        $datePart = date('ymd');
+        $datePart = now()->format('ymd');
 
         $baseTicketNumber = "{$familyPrefix}-{$subServicePrefix}-{$criticalityCode}-{$datePart}-";
 
-        $lastTicket = self::where('ticket_number', 'like', $baseTicketNumber . '%')
-            ->orderBy('id', 'desc')
-            ->first();
+        $lastSequence = self::withoutGlobalScope('workspace')
+            ->withTrashed()
+            ->where('ticket_number', 'like', $baseTicketNumber . '%')
+            ->pluck('ticket_number')
+            ->map(function ($ticketNumber) use ($baseTicketNumber) {
+                $sequence = substr((string) $ticketNumber, strlen($baseTicketNumber));
 
-        $nextNumber = $lastTicket ? ((int) substr($lastTicket->ticket_number, -3)) + 1 : 1;
+                return ctype_digit($sequence) ? (int) $sequence : 0;
+            })
+            ->max();
+
+        $nextNumber = ((int) $lastSequence) + 1;
         $sequentialNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
         return $baseTicketNumber . $sequentialNumber;

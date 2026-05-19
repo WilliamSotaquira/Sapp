@@ -159,4 +159,43 @@ class ServiceRequestViewService
             'total' => $request->evidences_count ?? 0
         ];
     }
+
+    /**
+     * Verifica si al menos una subtarea de la solicitud tiene is_completed = true.
+     * Independiente del estado de la tarea padre.
+     * Si no existen subtareas, retorna true (la validación no aplica).
+     */
+    public function hasCompletedSubtask(ServiceRequest $serviceRequest): bool
+    {
+        $tasks = $serviceRequest->relationLoaded('tasks')
+            ? $serviceRequest->tasks
+            : $serviceRequest->tasks()->with('subtasks')->get();
+
+        // Si no hay tareas, la validación no aplica
+        if ($tasks->isEmpty()) {
+            return true;
+        }
+
+        $hasAnySubtask = false;
+
+        foreach ($tasks as $task) {
+            $subtasks = $task->relationLoaded('subtasks')
+                ? $task->subtasks
+                : $task->subtasks()->get();
+
+            foreach ($subtasks as $subtask) {
+                $hasAnySubtask = true;
+                if ($subtask->is_completed) {
+                    return true;
+                }
+            }
+        }
+
+        // Si no hay subtareas en ninguna tarea, la validación no aplica
+        if (!$hasAnySubtask) {
+            return true;
+        }
+
+        return false;
+    }
 }

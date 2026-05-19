@@ -8,6 +8,7 @@
 
 @php
     $viewService = app(\App\Services\ServiceRequestViewService::class);
+    $hasCompletedSubtask = $viewService->hasCompletedSubtask($serviceRequest);
     $canResolveByEvidence = ($serviceRequest->is_reportable === false)
         || $viewService->getResolvableEvidenceCount($serviceRequest) > 0;
 
@@ -75,7 +76,7 @@
                 'icon' => 'check-circle',
                 'method' => 'MODAL',
                 'label' => 'Resolver Solicitud',
-                'condition' => $canResolveByEvidence,
+                'condition' => $canResolveByEvidence && $hasCompletedSubtask,
                 'appearance' => 'primary',
                 'modal_id' => 'resolve-modal-' . $serviceRequest->id,
             ],
@@ -160,10 +161,10 @@
 
     $currentStatus = $serviceRequest->status;
     $actions = $workflowConfig[$currentStatus] ?? [];
-    
+
     // Contar botones activos para distribuir dinámicamente
     $activeActions = collect($actions)->filter(fn($action) => $action['condition'])->count();
-    
+
     // Determinar clases de grid según cantidad de botones
     $gridClasses = match(true) {
         $activeActions === 1 => 'grid-cols-1',
@@ -241,15 +242,44 @@
                 </div>
             @else
                 <div class="flex">
-                    <button type="button" disabled
-                        class="flex items-center justify-center w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl font-semibold text-slate-400 text-sm cursor-not-allowed opacity-80 min-h-[3rem]"
-                        title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}"
-                        aria-label="{{ $actionItem['label'] }} (deshabilitado)">
-                        <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
-                        @if ($showLabels)
-                            {{ $actionItem['label'] }}
-                        @endif
-                    </button>
+                    @if ($actionItem['action'] === 'resolve' && $canResolveByEvidence && !$hasCompletedSubtask)
+                        {{-- Anchor button to tasks section when evidence is met but subtask validation fails --}}
+                        <a href="#tasks-panel-{{ $serviceRequest->id }}"
+                           onclick="event.preventDefault(); document.getElementById('tasks-panel-{{ $serviceRequest->id }}').scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                           class="{{ $resolveActionClasses(['appearance' => 'primary']) }}"
+                           aria-label="Ir a Tareas Asociadas"
+                           data-header-subtask-anchor="{{ $serviceRequest->id }}">
+                            <i class="fas fa-arrow-down mr-2 flex-shrink-0 text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
+                            @if ($showLabels)
+                                <span class="line-clamp-2 text-center leading-tight">Completar Tareas</span>
+                            @endif
+                        </a>
+                        {{-- Hidden resolve button that appears when subtask is completed --}}
+                        <button type="button"
+                            data-service-request-id="{{ $serviceRequest->id }}"
+                            data-workflow-action="resolve"
+                            data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
+                            data-header-resolve-button="{{ $serviceRequest->id }}"
+                            onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
+                            class="{{ $resolveActionClasses(['appearance' => 'primary']) }} hidden"
+                            aria-label="Resolver Solicitud">
+                            <i class="fas fa-check-circle mr-2 flex-shrink-0 text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
+                            @if ($showLabels)
+                                <span class="line-clamp-2 text-center leading-tight">Resolver Solicitud</span>
+                            @endif
+                        </button>
+                    @else
+                        {{-- Default disabled button --}}
+                        <button type="button" disabled
+                            class="flex items-center justify-center w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl font-semibold text-slate-400 text-sm cursor-not-allowed opacity-80 min-h-[3rem]"
+                            title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}"
+                            aria-label="{{ $actionItem['label'] }} (deshabilitado)">
+                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
+                            @if ($showLabels)
+                                {{ $actionItem['label'] }}
+                            @endif
+                        </button>
+                    @endif
                 </div>
             @endif
         @endforeach

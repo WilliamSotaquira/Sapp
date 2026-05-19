@@ -28,6 +28,8 @@
             : 'La solicitud no tiene técnico asignado. Abre el selector para asignarlo.');
     $canResolveByEvidence = ($serviceRequest->is_reportable === false)
         || $viewService->getResolvableEvidenceCount($serviceRequest) > 0;
+    $hasCompletedSubtask = $viewService->hasCompletedSubtask($serviceRequest);
+    $canResolveInTasksPanel = $isInProgress && $canResolveByEvidence && $hasCompletedSubtask;
     $completedTasksCount = $tasks->filter(fn($task) => strtolower((string) $task->status) === 'completed')->count();
     $allTasksCompleted = $tasks->isNotEmpty() && $completedTasksCount === $tasks->count();
 @endphp
@@ -52,7 +54,7 @@
                 @if($isInProgress && $canResolveByEvidence)
                     <div id="tasks-resolve-action-{{ $serviceRequest->id }}"
                          data-tasks-resolve-action
-                         class="{{ $allTasksCompleted ? '' : 'hidden' }}">
+                         class="{{ ($canResolveInTasksPanel && $allTasksCompleted) ? '' : 'hidden' }}">
                         <button type="button"
                                 data-service-request-id="{{ $serviceRequest->id }}"
                                 data-workflow-action="resolve"
@@ -233,7 +235,10 @@ function updateResolveActionVisibility(serviceRequestId) {
     const resolveActionWrapper = tasksPanel.querySelector('[data-tasks-resolve-action]');
     if (!resolveActionWrapper) return;
 
-    const shouldShow = areAllTasksCompleted(tasksPanel);
+    // El botón de resolver en el tasks-panel requiere: todas las tareas completadas Y al menos una subtarea completada
+    const allCompleted = areAllTasksCompleted(tasksPanel);
+    const hasSubtask = hasAnyCompletedSubtask(serviceRequestId);
+    const shouldShow = allCompleted && hasSubtask;
     resolveActionWrapper.classList.toggle('hidden', !shouldShow);
     resolveActionWrapper.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
 }
@@ -245,6 +250,41 @@ function refreshCurrentPanelResolveAction(taskId) {
     if (!serviceRequestId) return;
 
     updateResolveActionVisibility(serviceRequestId);
+    updateHeaderResolveAction(serviceRequestId);
+}
+
+/**
+ * Verifica si al menos una subtarea está completada en el panel de tareas
+ * y actualiza dinámicamente el botón de resolver en el header (workflow-actions).
+ */
+function hasAnyCompletedSubtask(serviceRequestId) {
+    const tasksPanel = document.querySelector(`div[data-service-request-id="${serviceRequestId}"][data-tasks-panel="1"]`);
+    if (!tasksPanel) return false;
+
+    const subtaskCheckboxes = tasksPanel.querySelectorAll('input[id^="subtask-"]');
+    if (!subtaskCheckboxes.length) return true; // Sin subtareas = validación no aplica
+
+    for (const checkbox of subtaskCheckboxes) {
+        if (checkbox.checked) return true;
+        const row = checkbox.closest('[data-subtask-completed]');
+        if (row && row.dataset.subtaskCompleted === '1') return true;
+    }
+    return false;
+}
+
+/**
+ * Actualiza el header workflow-actions: muestra el botón "Resolver Solicitud"
+ * u oculta el anchor "Completar Tareas" según si hay subtareas completadas.
+ */
+function updateHeaderResolveAction(serviceRequestId) {
+    const anchor = document.querySelector(`[data-header-subtask-anchor="${serviceRequestId}"]`);
+    const resolveBtn = document.querySelector(`[data-header-resolve-button="${serviceRequestId}"]`);
+    if (!anchor && !resolveBtn) return;
+
+    const hasCompleted = hasAnyCompletedSubtask(serviceRequestId);
+
+    if (anchor) anchor.classList.toggle('hidden', hasCompleted);
+    if (resolveBtn) resolveBtn.classList.toggle('hidden', !hasCompleted);
 }
 
 function toggleTaskStatus(taskId, isChecked) {
