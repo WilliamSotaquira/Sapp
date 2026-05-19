@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Cut;
 use App\Models\Requester;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -536,31 +537,62 @@ class ServiceRequestService
                     : $data['web_routes'];
             }
 
-            $resolvedCut = null;
-            $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, &$resolvedCut) {
-                $serviceRequest = ServiceRequest::create($data);
+            $maxAttempts = empty($data['ticket_number']) ? 3 : 1;
 
-                $resolvedCut = $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                try {
+                    $resolvedCut = null;
+                    $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, &$resolvedCut) {
+                        $serviceRequest = ServiceRequest::create($data);
 
-                $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
+                        $resolvedCut = $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
 
-                return $serviceRequest;
-            });
+                        $this->createOptionalTasksForRequest($serviceRequest, $tasks, $tasksTemplate);
 
-            Log::info('✅ Solicitud creada exitosamente', [
-                'id' => $serviceRequest->id,
-                'ticket_number' => $serviceRequest->ticket_number,
-                'requester_id' => $serviceRequest->requester_id,
-                'cut_id' => $resolvedCut?->id,
-            ]);
+                        return $serviceRequest;
+                    });
 
-            return $serviceRequest;
+                    Log::info('✅ Solicitud creada exitosamente', [
+                        'id' => $serviceRequest->id,
+                        'ticket_number' => $serviceRequest->ticket_number,
+                        'requester_id' => $serviceRequest->requester_id,
+                        'cut_id' => $resolvedCut?->id,
+                        'attempt' => $attempt,
+                    ]);
+
+                    return $serviceRequest;
+                } catch (QueryException $e) {
+                    if ($attempt < $maxAttempts && $this->shouldRetryTicketNumberCreation($e)) {
+                        Log::warning('Colisión de ticket_number al crear la solicitud; reintentando.', [
+                            'attempt' => $attempt,
+                            'max_attempts' => $maxAttempts,
+                            'title' => $data['title'] ?? null,
+                            'sub_service_id' => $data['sub_service_id'] ?? null,
+                        ]);
+
+                        continue;
+                    }
+
+                    throw $e;
+                }
+            }
+
+            throw new \RuntimeException('No se pudo crear la solicitud después de varios intentos.');
         } catch (\Exception $e) {
             Log::error('❌ Error al crear solicitud: ' . $e->getMessage(), [
                 'exception' => $e,
             ]);
             throw $e;
         }
+    }
+
+    private function shouldRetryTicketNumberCreation(QueryException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'service_requests_ticket_number_unique')
+            || (str_contains($message, 'Duplicate entry') && str_contains($message, 'ticket_number'))
+            || (str_contains($message, 'UNIQUE constraint failed') && str_contains($message, 'service_requests.ticket_number'));
     }
 
     /**
