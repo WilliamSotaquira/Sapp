@@ -52,23 +52,23 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Fecha inicio</label>
+                    <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Fecha y hora inicio</label>
                     <input
-                        type="date"
+                        type="datetime-local"
                         id="start_date"
                         name="start_date"
-                        value="{{ old('start_date', optional($cut->start_date)->format('Y-m-d')) }}"
+                        value="{{ old('start_date', optional($cut->start_date)->format('Y-m-d\TH:i')) }}"
                         required
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                 </div>
                 <div>
-                    <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">Fecha fin</label>
+                    <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">Fecha y hora fin</label>
                     <input
-                        type="date"
+                        type="datetime-local"
                         id="end_date"
                         name="end_date"
-                        value="{{ old('end_date', optional($cut->end_date)->format('Y-m-d')) }}"
+                        value="{{ old('end_date', optional($cut->end_date)->format('Y-m-d\TH:i')) }}"
                         required
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                     >

@@ -20,8 +20,8 @@ class Cut extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
     ];
 
     public function serviceRequests()
@@ -42,8 +42,8 @@ class Cut extends Model
 
     public function getDateRangeForQuery(): array
     {
-        $start = Carbon::parse($this->start_date)->startOfDay();
-        $end = Carbon::parse($this->end_date)->endOfDay();
+        $start = Carbon::parse($this->start_date);
+        $end = Carbon::parse($this->end_date);
 
         return [$start, $end];
     }
@@ -64,8 +64,8 @@ class Cut extends Model
     {
         $query = static::query()
             ->where('contract_id', $this->contract_id)
-            ->whereDate('start_date', '<=', Carbon::parse($endDate)->toDateString())
-            ->whereDate('end_date', '>=', Carbon::parse($startDate)->toDateString());
+            ->where('start_date', '<=', Carbon::parse($endDate))
+            ->where('end_date', '>=', Carbon::parse($startDate));
 
         if ($ignoreCutId) {
             $query->where('id', '!=', $ignoreCutId);

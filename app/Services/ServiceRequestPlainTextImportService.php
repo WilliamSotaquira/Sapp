@@ -96,29 +96,38 @@ class ServiceRequestPlainTextImportService
             ];
         }
 
+        $payload = [
+            'company_id' => $companyId,
+            'requester_id' => $requesterResult['id'],
+            'title' => Str::limit($parsed['title'] ?: $parsed['sub_service_name'], 255, ''),
+            'description' => $parsed['description'] !== '' ? $parsed['description'] : $parsed['title'],
+            'sub_service_id' => (int) $subService->id,
+            'service_id' => (int) $context['service_id'],
+            'family_id' => (int) $context['family_id'],
+            'sla_id' => (int) $context['sla_id'],
+            'requested_by' => $requestedBy,
+            'entry_channel' => $parsed['entry_channel'],
+            'criticality_level' => $criticalityLevel,
+            'created_at' => $createdAt,
+            'due_date' => $parsed['due_date'] ?? null,
+            'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
+            'is_reportable' => true,
+            'tasks_template' => 'none',
+            'tasks' => $tasks,
+        ];
+
+        // Si el solicitante no existe, pasar datos pendientes para creación diferida
+        if (!empty($requesterResult['pending'])) {
+            $payload['__pending_requester_name'] = $requesterResult['name'];
+            $payload['__pending_requester_email'] = $requesterResult['email'] ?? '';
+        }
+
         return [
-            'payload' => [
-                'company_id' => $companyId,
-                'requester_id' => $requesterResult['id'],
-                'title' => Str::limit($parsed['title'] ?: $parsed['sub_service_name'], 255, ''),
-                'description' => $parsed['description'] !== '' ? $parsed['description'] : $parsed['title'],
-                'sub_service_id' => (int) $subService->id,
-                'service_id' => (int) $context['service_id'],
-                'family_id' => (int) $context['family_id'],
-                'sla_id' => (int) $context['sla_id'],
-                'requested_by' => $requestedBy,
-                'entry_channel' => $parsed['entry_channel'],
-                'criticality_level' => $criticalityLevel,
-                'created_at' => $createdAt,
-                'due_date' => $parsed['due_date'] ?? null,
-                'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
-                'is_reportable' => true,
-                'tasks_template' => 'none',
-                'tasks' => $tasks,
-            ],
+            'payload' => $payload,
             'meta' => [
                 'requester_name' => $requesterResult['name'],
-                'requester_created' => $requesterResult['created'],
+                'requester_created' => false,
+                'requester_pending' => !empty($requesterResult['pending']),
                 'sub_service_name' => $subService->name,
                 'task_count' => count($tasks),
                 'web_route_count' => count($parsed['web_routes']),
@@ -321,14 +330,23 @@ class ServiceRequestPlainTextImportService
         $cursor = 2;
         $templateCreatedAt = $createdAt;
         if (isset($blocks[$cursor])) {
-            $blockDate = $this->parseSpanishDateTime($blocks[$cursor]);
+            $blockDate = $this->parseFlexibleDate($blocks[$cursor]);
             if ($blockDate) {
                 $templateCreatedAt = $blockDate;
                 $cursor++;
             }
         }
 
+        // Saltar bloques "No disponible" antes del solicitante (ej: fecha de vencimiento)
+        if (isset($blocks[$cursor]) && $this->isUnavailableMarker(trim($blocks[$cursor]))) {
+            $cursor++;
+        }
+
         $requesterName = isset($blocks[$cursor]) ? $this->cleanPersonLine($blocks[$cursor]) : '';
+        // Si el solicitante es "No disponible", dejarlo vacío
+        if ($this->isUnavailableMarker($requesterName)) {
+            $requesterName = '';
+        }
         $cursor++;
 
         $subServiceName = isset($blocks[$cursor]) ? Str::limit(trim($blocks[$cursor]), 255, '') : '';
@@ -564,16 +582,13 @@ class ServiceRequestPlainTextImportService
             ];
         }
 
-        $createdId = $this->serviceRequestService->findOrCreateRequesterForCompany(
-            $companyId,
-            $name,
-            $email,
-        );
-
+        // No crear automáticamente — devolver datos pendientes para que el usuario confirme
         return [
-            'id' => $createdId,
+            'id' => null,
             'name' => $name,
-            'created' => true,
+            'created' => false,
+            'pending' => true,
+            'email' => $email,
         ];
     }
 
@@ -777,6 +792,37 @@ class ServiceRequestPlainTextImportService
         $parsed = $this->parseSpanishDateTime($clean);
         if ($parsed) {
             return $parsed;
+        }
+
+        // Formato corto: "16 may", "16 mayo", "16 may 2025", "16 mayo 2025"
+        $shortMonths = [
+            'ene' => 1, 'enero' => 1,
+            'feb' => 2, 'febrero' => 2,
+            'mar' => 3, 'marzo' => 3,
+            'abr' => 4, 'abril' => 4,
+            'may' => 5, 'mayo' => 5,
+            'jun' => 6, 'junio' => 6,
+            'jul' => 7, 'julio' => 7,
+            'ago' => 8, 'agosto' => 8,
+            'sep' => 9, 'sept' => 9, 'septiembre' => 9, 'setiembre' => 9,
+            'oct' => 10, 'octubre' => 10,
+            'nov' => 11, 'noviembre' => 11,
+            'dic' => 12, 'diciembre' => 12,
+        ];
+
+        if (preg_match('/^(\d{1,2})\s+([[:alpha:]áéíóúñ]+)(?:\s+(\d{4}))?$/iu', $clean, $shortMatch)) {
+            $monthKey = $this->normalizeForComparison($shortMatch[2]);
+            $month = $shortMonths[$monthKey] ?? null;
+            if ($month) {
+                $year = !empty($shortMatch[3]) ? (int) $shortMatch[3] : (int) now()->year;
+                return Carbon::create(
+                    $year,
+                    $month,
+                    (int) $shortMatch[1],
+                    0, 0, 0,
+                    config('app.timezone')
+                );
+            }
         }
 
         if (preg_match(

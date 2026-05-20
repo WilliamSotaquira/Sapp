@@ -355,8 +355,8 @@ class ServiceRequestController extends Controller
 
             $meta = $result['meta'];
             $message = 'Texto interpretado. Revisa la solicitud antes de crearla.';
-            if (!empty($meta['requester_created'])) {
-                $message .= ' Se creó el solicitante "' . $meta['requester_name'] . '".';
+            if (!empty($meta['requester_pending'])) {
+                $message .= ' Solicitante "' . $meta['requester_name'] . '" no encontrado — se creará al enviar el formulario.';
             }
 
             return redirect()
