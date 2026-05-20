@@ -452,13 +452,17 @@ TEXT;
 
         $response->assertRedirect(route('service-requests.create'));
 
+        // El solicitante NO se crea durante la interpretación (creación diferida)
         $createdRequester = Requester::withoutGlobalScopes()
             ->where('company_id', $data['company']->id)
             ->where('name', 'Laura Camila Ceron Bonell')
             ->first();
 
-        $this->assertNotNull($createdRequester);
-        $response->assertSessionHas('_old_input.requester_id', $createdRequester->id);
+        $this->assertNull($createdRequester);
+
+        // En su lugar, se pasan los datos pendientes para creación al enviar el formulario
+        $response->assertSessionHas('_old_input.__pending_requester_name', 'Laura Camila Ceron Bonell');
+        $this->assertNull(session('_old_input.requester_id'));
     }
 
     public function test_plain_text_prefill_parses_email_thread_from_webmail_copy(): void

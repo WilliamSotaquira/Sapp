@@ -63,6 +63,8 @@
     @php
         $plainTextImportValue = old('plain_text_import_text', '');
         $shouldOpenPlainTextImport = (bool) old('__open_plain_text_import', false) || session()->has('plain_text_import_error');
+        $pendingRequesterName = old('__pending_requester_name', '');
+        $pendingRequesterEmail = old('__pending_requester_email', '');
     @endphp
 
     <div class="max-w-4xl mx-auto mb-6 flex justify-end">
@@ -351,6 +353,55 @@
 
         if (shouldOpenPlainTextImport) {
             openPlainTextImportModal();
+        }
+
+        // Auto-crear solicitante pendiente (diferido desde interpretación de texto)
+        const pendingRequesterName = @json($pendingRequesterName);
+        const pendingRequesterEmail = @json($pendingRequesterEmail);
+
+        if (pendingRequesterName) {
+            (async function createPendingRequester() {
+                const url = @json(route('api.requesters.quick-create'));
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const companyId = (document.getElementById('company_id')?.value || '').trim();
+
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                        },
+                        body: JSON.stringify({
+                            name: pendingRequesterName,
+                            email: pendingRequesterEmail || null,
+                            company_id: companyId || null,
+                        }),
+                    });
+
+                    const data = await res.json();
+                    if (res.ok && data?.id) {
+                        const select = document.getElementById('requester_id');
+                        if (select) {
+                            const display = data.display || pendingRequesterName;
+                            const newOption = new Option(display, String(data.id), true, true);
+                            if (companyId) {
+                                newOption.setAttribute('data-company-id', companyId);
+                            }
+                            if (window.jQuery && window.jQuery.fn?.select2 && window.jQuery(select).data('select2')) {
+                                window.jQuery(select).append(newOption).trigger('change');
+                            } else {
+                                select.appendChild(newOption);
+                                select.value = String(data.id);
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('No se pudo crear el solicitante pendiente:', e);
+                }
+            })();
         }
 
         const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');
