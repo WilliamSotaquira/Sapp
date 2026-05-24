@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Reports\ReportController as ReportsController;
-use App\Http\Controllers\Reports\TimelineReportController;
 use App\Http\Controllers\Reports\TimeRangeReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,30 +23,26 @@ Route::prefix('reports')->name('reports.')->group(function () {
     });
 
     // =========================================================================
-    // LÍNEA DE TIEMPO - RUTAS CORREGIDAS
+    // LÍNEA DE TIEMPO - Migrada a UnifiedTimelineController en web.php
+    // Se mantiene solo la ruta de download-by-ticket para compatibilidad
     // =========================================================================
     Route::prefix('timeline')->name('timeline.')->group(function () {
-        // Listado de solicitudes por rango de fechas
-        Route::get('/', [TimelineReportController::class, 'requestTimeline'])->name('index');
-
-        // Detalle de timeline de una solicitud específica
-        Route::get('/detail/{id}', [TimelineReportController::class, 'showTimeline'])->name('detail');
-
-        // Exportar timeline de una solicitud específica
-        Route::get('/export/{id}/{format}', [TimelineReportController::class, 'exportTimeline'])->name('export');
-
-        // Búsqueda por ticket number - CORREGIDO
-        Route::get('/by-ticket', [TimelineReportController::class, 'timelineByTicket'])->name('by-ticket');
-
         // Manejar acceso GET a download-by-ticket (redireccionar al formulario)
         Route::get('/download-by-ticket', function() {
-            return redirect()->route('reports.timeline.by-ticket')
+            return redirect()->route('reports.timeline.index')
                 ->with('info', 'Por favor usa el formulario para buscar y descargar el timeline de una solicitud.');
         });
 
-        // Procesar búsqueda por ticket - CORREGIDO (usar POST)
-        Route::post('/download-by-ticket', [TimelineReportController::class, 'downloadTimelineByTicket'])
-            ->name('download-by-ticket');
+        // Procesar búsqueda por ticket - legacy route, redirect to new search
+        Route::post('/download-by-ticket', function(\Illuminate\Http\Request $request) {
+            return redirect()->route('reports.timeline.index')
+                ->with('info', 'Use la nueva funcionalidad de búsqueda en la página de Línea de Tiempo.');
+        })->name('download-by-ticket');
+
+        // Legacy route: by-ticket redirects to unified timeline
+        Route::get('/by-ticket', function() {
+            return redirect()->route('reports.timeline.index');
+        })->name('by-ticket');
     });
 
     // =========================================================================

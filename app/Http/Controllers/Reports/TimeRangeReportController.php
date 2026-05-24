@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
+use App\Models\Contract;
+use App\Models\Cut;
 use App\Models\ServiceRequest;
 use App\Models\ServiceFamily;
 use App\Models\ServiceRequestEvidence;
@@ -34,7 +36,23 @@ class TimeRangeReportController extends Controller
             ->ordered()
             ->get();
 
-        return view('reports.time-range.index', compact('families'));
+        // Load available cuts from the current workspace's active contract
+        $cuts = collect();
+        if ($currentCompanyId) {
+            $activeContract = Contract::where('company_id', $currentCompanyId)
+                ->where('is_active', true)
+                ->first();
+
+            if ($activeContract) {
+                $cuts = Cut::query()
+                    ->where('contract_id', $activeContract->id)
+                    ->withCount('serviceRequests')
+                    ->orderByDesc('start_date')
+                    ->get();
+            }
+        }
+
+        return view('reports.time-range.index', compact('families', 'cuts'));
     }
 
     /**
@@ -42,35 +60,88 @@ class TimeRangeReportController extends Controller
      */
     public function generate(Request $request)
     {
-        $request->validate([
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'format' => 'required|in:pdf,excel,zip',
-            'families' => 'nullable|array',
-            'families.*' => 'exists:service_families,id'
-        ]);
+        // Determine if using cut-based or manual date range (mutually exclusive)
+        $useCut = $request->filled('cut_id');
+
+        if ($useCut) {
+            $request->validate([
+                'cut_id' => 'required|integer|exists:cuts,id',
+                'format' => 'required|in:pdf,excel,zip',
+                'families' => 'nullable|array',
+                'families.*' => 'exists:service_families,id'
+            ]);
+        } else {
+            $request->validate([
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'format' => 'required|in:pdf,excel,zip',
+                'families' => 'nullable|array',
+                'families.*' => 'exists:service_families,id'
+            ]);
+        }
 
         try {
-            $uiTimezone = config('app.ui_timezone', config('app.timezone'));
-            $appTimezone = config('app.timezone');
+            $cut = null;
 
-            // Interpretar fechas en la zona horaria de la interfaz
-            $start = Carbon::parse($request->start_date, $uiTimezone)->startOfDay();
-            $end = Carbon::parse($request->end_date, $uiTimezone)->endOfDay();
+            if ($useCut) {
+                $currentCompanyId = (int) session('current_company_id');
+                $activeContract = $currentCompanyId
+                    ? Contract::where('company_id', $currentCompanyId)->where('is_active', true)->first()
+                    : null;
 
-            // Ajuste horario: si el rango es de un solo día,
-            // incluir también la madrugada del día siguiente (hasta las 06:00)
-            if ($start->isSameDay($end)) {
-                $end = (clone $end)->addHours(6);
+                $cut = Cut::query()
+                    ->where('id', $request->cut_id)
+                    ->when($activeContract, function ($q) use ($activeContract) {
+                        $q->where('contract_id', $activeContract->id);
+                    })
+                    ->when($currentCompanyId && !$activeContract, function ($q) use ($currentCompanyId) {
+                        $q->whereHas('contract', function ($cq) use ($currentCompanyId) {
+                            $cq->where('company_id', $currentCompanyId);
+                        });
+                    })
+                    ->first();
+
+                if (!$cut) {
+                    return back()->with('error', 'El corte seleccionado no pertenece al contrato activo.');
+                }
+
+                // Validate that the cut has associated service requests
+                if ($cut->serviceRequests()->count() === 0) {
+                    return back()->with('error', 'El corte seleccionado no tiene solicitudes de servicio asociadas. No se puede generar el reporte.');
+                }
+
+                $uiTimezone = config('app.ui_timezone', config('app.timezone'));
+                $appTimezone = config('app.timezone');
+
+                $start = Carbon::parse($cut->start_date)->startOfDay();
+                $end = Carbon::parse($cut->end_date)->endOfDay();
+
+                $dateRange = [
+                    'start' => $start,
+                    'end' => $end,
+                ];
+            } else {
+                $uiTimezone = config('app.ui_timezone', config('app.timezone'));
+                $appTimezone = config('app.timezone');
+
+                // Interpretar fechas en la zona horaria de la interfaz
+                $start = Carbon::parse($request->start_date, $uiTimezone)->startOfDay();
+                $end = Carbon::parse($request->end_date, $uiTimezone)->endOfDay();
+
+                // Ajuste horario: si el rango es de un solo día,
+                // incluir también la madrugada del día siguiente (hasta las 06:00)
+                if ($start->isSameDay($end)) {
+                    $end = (clone $end)->addHours(6);
+                }
+
+                $dateRange = [
+                    'start' => $start->setTimezone($appTimezone),
+                    'end' => $end->setTimezone($appTimezone),
+                ];
             }
 
-            $dateRange = [
-                'start' => $start->setTimezone($appTimezone),
-                'end' => $end->setTimezone($appTimezone),
-            ];
-
             $serviceFamilyIds = $request->input('families', []);
-            $reportData = $this->getReportData($dateRange, $serviceFamilyIds);
+            $reportData = $this->getReportData($dateRange, $serviceFamilyIds, $cut);
 
             $timestamp = now()->format('Y-m-d_His');
             $filename = "reporte-tiempo-{$timestamp}";
@@ -102,19 +173,34 @@ class TimeRangeReportController extends Controller
     /**
      * Obtener datos del reporte
      */
-    private function getReportData($dateRange, $serviceFamilyIds = [])
+    private function getReportData($dateRange, $serviceFamilyIds = [], ?Cut $cut = null)
     {
-        $query = ServiceRequest::with([
-            'subService.service.family.contract',
-            'requester',
-            'assignee',
-            'evidences.uploadedBy',
-            'tasks',
-            'sla'
-        ])
-        ->reportable()
-        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
-        ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        if ($cut) {
+            // When using a cut, filter via the cut_service_request relationship
+            $query = $cut->serviceRequests()
+                ->with([
+                    'subService.service.family.contract',
+                    'requester',
+                    'assignee',
+                    'evidences.uploadedBy',
+                    'tasks',
+                    'sla'
+                ])
+                ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')));
+        } else {
+            // Manual date range: filter by created_at
+            $query = ServiceRequest::with([
+                'subService.service.family.contract',
+                'requester',
+                'assignee',
+                'evidences.uploadedBy',
+                'tasks',
+                'sla'
+            ])
+            ->reportable()
+            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
+            ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
+        }
 
         // Filtrar por familias de servicios si se especifican
         if (!empty($serviceFamilyIds)) {
@@ -143,7 +229,8 @@ class TimeRangeReportController extends Controller
             'statistics' => $statistics,
             'evidences' => $evidences,
             'dateRange' => $dateRange,
-            'serviceFamilyIds' => $serviceFamilyIds
+            'serviceFamilyIds' => $serviceFamilyIds,
+            'cut' => $cut,
         ];
     }
 
