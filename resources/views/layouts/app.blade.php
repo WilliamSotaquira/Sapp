@@ -360,34 +360,16 @@
                         'match' => ['reports.obligaciones.*'],
                     ],
                     [
-                        'route' => 'reports.sla-compliance',
-                        'label' => 'Cumplimiento SLA',
-                        'icon' => 'fas fa-check-circle',
-                        'match' => ['reports.sla-compliance'],
-                    ],
-                    [
-                        'route' => 'reports.requests-by-status',
-                        'label' => 'Solicitudes por Estado',
-                        'icon' => 'fas fa-list-check',
-                        'match' => ['reports.requests-by-status'],
-                    ],
-                    [
-                        'route' => 'reports.criticality-levels',
-                        'label' => 'Niveles de Criticidad',
-                        'icon' => 'fas fa-triangle-exclamation',
-                        'match' => ['reports.criticality-levels'],
-                    ],
-                    [
-                        'route' => 'reports.service-performance',
-                        'label' => 'Rendimiento por Servicio',
-                        'icon' => 'fas fa-gauge-high',
-                        'match' => ['reports.service-performance'],
-                    ],
-                    [
-                        'route' => 'reports.monthly-trends',
-                        'label' => 'Tendencias Mensuales',
+                        'route' => 'reports.services-sla.index',
+                        'label' => 'Servicios y SLA',
                         'icon' => 'fas fa-chart-line',
-                        'match' => ['reports.monthly-trends'],
+                        'match' => ['reports.services-sla.*'],
+                    ],
+                    [
+                        'route' => 'reports.operational-overview.index',
+                        'label' => 'Panorama Operativo',
+                        'icon' => 'fas fa-chart-pie',
+                        'match' => ['reports.operational-overview.*'],
                     ],
                     [
                         'route' => 'reports.timeline.index',
@@ -396,10 +378,10 @@
                         'match' => ['reports.timeline.*'],
                     ],
                     [
-                        'route' => 'reports.timeline.by-ticket',
-                        'label' => 'Timeline por Ticket',
-                        'icon' => 'fas fa-ticket',
-                        'match' => ['reports.timeline.by-ticket'],
+                        'route' => 'reports.search-analysis.index',
+                        'label' => 'Búsqueda y Análisis',
+                        'icon' => 'fas fa-search',
+                        'match' => ['reports.search-analysis.*'],
                     ],
                     [
                         'route' => 'reports.time-range.index',

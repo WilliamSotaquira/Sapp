@@ -39,7 +39,61 @@
                     </h4>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @if(isset($cuts) && $cuts->count() > 0)
+                <!-- Cut selector - shown only when cuts exist for the active contract -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-4 mb-3">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="date_source" value="manual" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300" id="dateSourceManual" checked>
+                            <span class="ml-2 text-sm font-medium text-gray-700">Rango manual</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="date_source" value="cut" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300" id="dateSourceCut">
+                            <span class="ml-2 text-sm font-medium text-gray-700">Seleccionar corte</span>
+                        </label>
+                    </div>
+
+                    <!-- Cut selector dropdown -->
+                    <div id="cutSelectorContainer" class="hidden mb-4">
+                        <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
+                            Corte <span class="text-red-500">*</span>
+                        </label>
+                        <select
+                            id="cut_id"
+                            name="cut_id"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            aria-describedby="cut_id_help"
+                        >
+                            <option value="">-- Seleccione un corte --</option>
+                            @foreach($cuts as $cut)
+                                <option
+                                    value="{{ $cut->id }}"
+                                    data-start-date="{{ $cut->start_date->format('Y-m-d') }}"
+                                    data-end-date="{{ $cut->end_date->format('Y-m-d') }}"
+                                    data-requests-count="{{ $cut->service_requests_count }}"
+                                    {{ old('cut_id') == $cut->id ? 'selected' : '' }}
+                                >
+                                    {{ $cut->name }} ({{ $cut->start_date->format('d/m/Y') }} - {{ $cut->end_date->format('d/m/Y') }}) — {{ $cut->service_requests_count }} solicitud{{ $cut->service_requests_count !== 1 ? 'es' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('cut_id')
+                            <p class="mt-1 text-sm text-red-600" role="alert">{{ $message }}</p>
+                        @enderror
+                        <p id="cut_id_help" class="mt-1 text-xs text-gray-500">Las fechas se tomarán del corte seleccionado y se filtrarán solo las solicitudes asociadas al corte.</p>
+
+                        <!-- Cut with no requests warning -->
+                        <div id="cutNoRequestsAlert" class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg hidden" role="alert">
+                            <div class="flex items-start">
+                                <i class="fa-solid fa-triangle-exclamation text-yellow-600 mr-2 mt-0.5" aria-hidden="true"></i>
+                                <p class="text-sm text-yellow-700">El corte seleccionado no tiene solicitudes de servicio asociadas. No se puede generar el reporte.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                <div id="manualDateContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Start Date -->
                     <div>
                         <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">
@@ -52,7 +106,6 @@
                             name="start_date"
                             value="{{ old('start_date', request('start_date')) }}"
                             max="{{ date('Y-m-d') }}"
-                            required
                             aria-required="true"
                             aria-describedby="start_date_help"
                         >
@@ -74,7 +127,6 @@
                             name="end_date"
                             value="{{ old('end_date', request('end_date')) }}"
                             max="{{ date('Y-m-d') }}"
-                            required
                             aria-required="true"
                             aria-describedby="end_date_help"
                         >
@@ -279,8 +331,103 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateAlertMessage = document.getElementById('dateAlertMessage');
     const generateBtn = document.getElementById('generateBtn');
 
+    // Cut selector elements
+    const dateSourceManual = document.getElementById('dateSourceManual');
+    const dateSourceCut = document.getElementById('dateSourceCut');
+    const cutSelectorContainer = document.getElementById('cutSelectorContainer');
+    const manualDateContainer = document.getElementById('manualDateContainer');
+    const cutSelect = document.getElementById('cut_id');
+    const cutNoRequestsAlert = document.getElementById('cutNoRequestsAlert');
+
+    let usingCut = false;
+
+    // Toggle between manual and cut-based date selection
+    function toggleDateSource(source) {
+        usingCut = (source === 'cut');
+
+        if (usingCut && cutSelectorContainer) {
+            cutSelectorContainer.classList.remove('hidden');
+            manualDateContainer.classList.add('opacity-50', 'pointer-events-none');
+            startDateInput.removeAttribute('required');
+            endDateInput.removeAttribute('required');
+            startDateInput.disabled = true;
+            endDateInput.disabled = true;
+
+            // Populate dates from selected cut
+            updateDatesFromCut();
+        } else {
+            if (cutSelectorContainer) {
+                cutSelectorContainer.classList.add('hidden');
+            }
+            manualDateContainer.classList.remove('opacity-50', 'pointer-events-none');
+            startDateInput.setAttribute('required', 'required');
+            endDateInput.setAttribute('required', 'required');
+            startDateInput.disabled = false;
+            endDateInput.disabled = false;
+
+            // Clear cut_id
+            if (cutSelect) {
+                cutSelect.value = '';
+            }
+            if (cutNoRequestsAlert) {
+                cutNoRequestsAlert.classList.add('hidden');
+            }
+        }
+
+        validateForm();
+    }
+
+    // Update date fields from selected cut
+    function updateDatesFromCut() {
+        if (!cutSelect || !cutSelect.value) {
+            startDateInput.value = '';
+            endDateInput.value = '';
+            if (cutNoRequestsAlert) {
+                cutNoRequestsAlert.classList.add('hidden');
+            }
+            validateForm();
+            return;
+        }
+
+        const selectedOption = cutSelect.options[cutSelect.selectedIndex];
+        const startDate = selectedOption.getAttribute('data-start-date');
+        const endDate = selectedOption.getAttribute('data-end-date');
+        const requestsCount = parseInt(selectedOption.getAttribute('data-requests-count') || '0', 10);
+
+        if (startDate) startDateInput.value = startDate;
+        if (endDate) endDateInput.value = endDate;
+
+        // Show warning if cut has no requests
+        if (cutNoRequestsAlert) {
+            if (requestsCount === 0) {
+                cutNoRequestsAlert.classList.remove('hidden');
+            } else {
+                cutNoRequestsAlert.classList.add('hidden');
+            }
+        }
+
+        validateForm();
+    }
+
+    // Attach cut selector event listeners
+    if (dateSourceManual) {
+        dateSourceManual.addEventListener('change', function() {
+            toggleDateSource('manual');
+        });
+    }
+    if (dateSourceCut) {
+        dateSourceCut.addEventListener('change', function() {
+            toggleDateSource('cut');
+        });
+    }
+    if (cutSelect) {
+        cutSelect.addEventListener('change', updateDatesFromCut);
+    }
+
     // Validate date range
     function validateDateRange() {
+        if (usingCut) return true;
+
         const startDate = new Date(startDateInput.value);
         const endDate = new Date(endDateInput.value);
         const today = new Date();
@@ -311,7 +458,6 @@ document.addEventListener('DOMContentLoaded', function() {
             endDateInput.classList.add('border-red-500');
         } else {
             dateAlert.classList.add('hidden');
-            generateBtn.disabled = {{ $families->count() === 0 ? 'true' : 'false' }};
             startDateInput.classList.remove('border-red-500');
             endDateInput.classList.remove('border-red-500');
         }
@@ -319,9 +465,41 @@ document.addEventListener('DOMContentLoaded', function() {
         return isValid;
     }
 
+    // Validate form state
+    function validateForm() {
+        let canGenerate = true;
+
+        if (usingCut) {
+            // Must have a cut selected with requests
+            if (!cutSelect || !cutSelect.value) {
+                canGenerate = false;
+            } else {
+                const selectedOption = cutSelect.options[cutSelect.selectedIndex];
+                const requestsCount = parseInt(selectedOption.getAttribute('data-requests-count') || '0', 10);
+                if (requestsCount === 0) {
+                    canGenerate = false;
+                }
+            }
+        } else {
+            canGenerate = validateDateRange();
+        }
+
+        if ({{ $families->count() === 0 ? 'true' : 'false' }}) {
+            canGenerate = false;
+        }
+
+        generateBtn.disabled = !canGenerate;
+    }
+
     // Attach event listeners
-    startDateInput.addEventListener('change', validateDateRange);
-    endDateInput.addEventListener('change', validateDateRange);
+    startDateInput.addEventListener('change', function() {
+        validateDateRange();
+        validateForm();
+    });
+    endDateInput.addEventListener('change', function() {
+        validateDateRange();
+        validateForm();
+    });
 
     // Select All Families functionality
     const selectAllBtn = document.getElementById('selectAllFamilies');
@@ -345,23 +523,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.setAttribute('aria-label', 'Seleccionar todas las familias');
             }
         });
-    }    // Form submission validation
+    }
+
+    // Form submission validation
     const reportForm = document.getElementById('reportForm');
-    let downloadCheckInterval;
 
     reportForm.addEventListener('submit', function(e) {
-        if (!validateDateRange()) {
-            e.preventDefault();
-            dateAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return false;
-        }
+        if (usingCut) {
+            // Validate cut selection
+            if (!cutSelect || !cutSelect.value) {
+                e.preventDefault();
+                alert('Por favor, seleccione un corte.');
+                return false;
+            }
+            const selectedOption = cutSelect.options[cutSelect.selectedIndex];
+            const requestsCount = parseInt(selectedOption.getAttribute('data-requests-count') || '0', 10);
+            if (requestsCount === 0) {
+                e.preventDefault();
+                alert('El corte seleccionado no tiene solicitudes asociadas.');
+                return false;
+            }
+            // Re-enable date fields so they are not submitted as disabled
+            // (cut_id will be used instead)
+            startDateInput.disabled = false;
+            endDateInput.disabled = false;
+            startDateInput.removeAttribute('required');
+            endDateInput.removeAttribute('required');
+        } else {
+            if (!validateDateRange()) {
+                e.preventDefault();
+                dateAlert.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
 
-        // Check if at least one family is selected
-        const checkedFamilies = document.querySelectorAll('input[name="families[]"]:checked');
-        if (checkedFamilies.length === 0) {
-            e.preventDefault();
-            alert('Por favor, seleccione al menos una familia de servicios.');
-            return false;
+            // Check if at least one family is selected
+            const checkedFamilies = document.querySelectorAll('input[name="families[]"]:checked');
+            if (checkedFamilies.length === 0) {
+                e.preventDefault();
+                alert('Por favor, seleccione al menos una familia de servicios.');
+                return false;
+            }
         }
 
         // Show loading state
@@ -379,6 +580,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startDateInput.value && endDateInput.value) {
         validateDateRange();
     }
+
+    // Handle old('cut_id') - if cut was previously selected, restore state
+    @if(old('cut_id'))
+    if (dateSourceCut) {
+        dateSourceCut.checked = true;
+        toggleDateSource('cut');
+    }
+    @endif
 
     // Accessibility: Enter key support for custom buttons
     selectAllBtn?.addEventListener('keypress', function(e) {
