@@ -210,14 +210,14 @@
             <div class="flex-1 relative">
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input id="searchFilter" 
-                           name="search" 
-                           value="{{ request('q', request('search')) }}" 
-                           type="text" 
-                           placeholder="Búsqueda global: ticket, título, solicitante, servicio, familia o contrato..." 
+                    <input id="searchFilter"
+                           name="search"
+                           value="{{ request('q', request('search')) }}"
+                           type="text"
+                           placeholder="Búsqueda global: ticket, título, solicitante, servicio, familia o contrato..."
                            class="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                            autocomplete="off">
-                    <button type="button" 
+                    <button type="button"
                             id="clearSearchBtn"
                             class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
                         <i class="fas fa-times-circle"></i>
@@ -234,7 +234,7 @@
             </div>
 
             <!-- Botón Filtros Avanzados -->
-            <button type="button" 
+            <button type="button"
                     id="toggleFiltersSidebar"
                     class="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center justify-center gap-2 text-sm font-medium shadow-sm">
                 <i class="fas fa-filter"></i>
@@ -476,7 +476,7 @@
                         $colors = ['from-purple-500 to-pink-500', 'from-blue-500 to-cyan-500', 'from-green-500 to-emerald-500', 'from-orange-500 to-red-500', 'from-indigo-500 to-purple-500'];
                         $colorIndex = ord(substr($name, 0, 1)) % count($colors);
                         $isClosedCard = strtoupper((string) $request->status) === 'CERRADA';
-                        
+
                         $statusColors = [
                             'PENDIENTE' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
                             'ACEPTADA' => 'bg-blue-100 text-blue-800 border-blue-200',
@@ -486,7 +486,7 @@
                             'CERRADA' => 'bg-gray-100 text-gray-800 border-gray-200',
                             'CANCELADA' => 'bg-red-100 text-red-800 border-red-200'
                         ];
-                        
+
                         $criticalityColors = [
                             'CRITICA' => 'bg-red-600 text-white',
                             'ALTA' => 'bg-orange-500 text-white',
@@ -576,12 +576,12 @@
                             ? $listDateValue->locale('es')->diffForHumans()
                             : ($dateView === 'resolved_at' ? 'Aún no resuelta' : 'Sin fecha');
                     @endphp
-                    
+
                     <div class="{{ $isClosedCard ? 'bg-gray-50 rounded-lg shadow-sm border border-gray-300 hover:shadow-sm transition-shadow overflow-hidden' : 'bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden' }}">
                         <!-- Header de la tarjeta -->
                         <div class="p-4 border-b border-gray-100">
                             <div class="flex items-start justify-between mb-2">
-                                <a href="{{ route('service-requests.show', $request) }}" 
+                                <a href="{{ route('service-requests.show', $request) }}"
                                    class="font-mono {{ $isClosedCard ? 'text-gray-700 hover:text-gray-900' : 'text-blue-600 hover:text-blue-800' }} hover:underline font-bold text-sm">
                                     {{ $request->ticket_number }}
                                 </a>
@@ -596,7 +596,7 @@
                                 {{ $request->description }}
                             </p>
                         </div>
-                        
+
                         <!-- Body de la tarjeta -->
                         <div class="p-4 space-y-3">
                             <!-- Servicio -->
@@ -633,7 +633,7 @@
                                 </div>
                             </div>
 
-                            
+
                             <!-- Solicitante -->
                             <div class="flex items-center gap-2">
                                 <div class="w-8 h-8 {{ $isClosedCard ? 'bg-gray-400 text-white' : 'bg-gradient-to-br ' . $colors[$colorIndex] . ' text-white' }} rounded-full flex items-center justify-center text-xs font-bold shadow-sm flex-shrink-0">
@@ -646,20 +646,20 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Estado -->
                             <div class="flex items-center justify-between pt-2 border-t border-gray-100">
                                 <span class="px-3 py-1 text-xs font-semibold rounded border {{ $statusColors[$request->status] ?? 'bg-gray-100 text-gray-800 border-gray-200' }}">
                                     {{ ucfirst(strtolower(str_replace('_', ' ', $request->status))) }}
                                 </span>
                                 <div class="flex gap-2">
-                                    <a href="{{ route('service-requests.show', $request) }}" 
-                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-blue-600 hover:text-blue-800' }} transition-colors" 
+                                    <a href="{{ route('service-requests.show', $request) }}"
+                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-blue-600 hover:text-blue-800' }} transition-colors"
                                        title="Ver detalles">
                                         <i class="fas fa-eye text-sm"></i>
                                     </a>
-                                    <a href="{{ route('service-requests.edit', $request) }}" 
-                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-yellow-600 hover:text-yellow-800' }} transition-colors" 
+                                    <a href="{{ route('service-requests.edit', $request) }}"
+                                       class="{{ $isClosedCard ? 'text-gray-500 hover:text-gray-700' : 'text-yellow-600 hover:text-yellow-800' }} transition-colors"
                                        title="Editar">
                                         <i class="fas fa-edit text-sm"></i>
                                     </a>
@@ -722,7 +722,7 @@ function toggleView(view) {
     const tableBtn = document.getElementById('viewToggleTable');
     const cardsBtn = document.getElementById('viewToggleCards');
     if (!tableView || !cardsView || !tableBtn || !cardsBtn) return;
-    
+
     if (view === 'table') {
         tableView.classList.remove('hidden');
         cardsView.classList.add('hidden');
@@ -738,7 +738,7 @@ function toggleView(view) {
         tableBtn.classList.remove('bg-slate-900', 'text-white', 'shadow-sm');
         tableBtn.classList.add('text-slate-600', 'hover:text-slate-900');
     }
-    
+
     // Guardar preferencia en localStorage
     try {
         localStorage.setItem('sr_view_preference', view);
@@ -802,16 +802,16 @@ function renderSearchHistory() {
     const history = loadSearchHistory();
     const list = document.getElementById('searchHistoryList');
     const container = document.getElementById('searchHistory');
-    
+
     if (!list || !container) return;
-    
+
     if (history.length === 0) {
         container.classList.add('hidden');
         return;
     }
-    
-    list.innerHTML = history.map(term => 
-        `<li class="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 flex items-center gap-2" 
+
+    list.innerHTML = history.map(term =>
+        `<li class="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm text-gray-700 flex items-center gap-2"
             onclick="applySearchFromHistory('${term.replace(/'/g, "\\'")}')">
             <i class="fas fa-history text-gray-400 text-xs"></i>
             ${term}
@@ -834,11 +834,11 @@ function buildIndexUrl(params, preserveCurrentDateView = true) {
 }
 
 function applySearchFromHistory(term) {
-    document.getElementById('searchFilter').value = term;
+    var searchInput = document.getElementById('searchFilter');
+    searchInput.value = term;
     document.getElementById('searchHistory').classList.add('hidden');
-    const params = new URLSearchParams(window.location.search);
-    params.set('search', term);
-    window.location.href = buildIndexUrl(params);
+    // Disparar Enter para ejecutar la búsqueda inmediatamente vía AJAX
+    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 }
 
 // === Filtros Rápidos ===
@@ -856,7 +856,7 @@ function applyQuickFilter(field, value) {
 function savePreset() {
     const name = prompt('Nombre del preset:');
     if (!name) return;
-    
+
     const filters = gatherFilters();
     const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
     fetch(SAVED_FILTERS_API.store, {
@@ -896,12 +896,12 @@ function savePreset() {
 function loadPresetById(id) {
     const preset = savedPresetsCache.find((item) => Number(item.id) === Number(id));
     if (!preset || !preset.filters) return;
-        
+
         const params = new URLSearchParams();
         Object.keys(preset.filters).forEach(key => {
             if (preset.filters[key]) params.set(key, preset.filters[key]);
         });
-        
+
         window.location.href = buildIndexUrl(params);
 }
 
@@ -909,7 +909,7 @@ function deletePresetById(id) {
     const preset = savedPresetsCache.find((item) => Number(item.id) === Number(id));
     if (!preset) return;
     if (!confirm(`¿Eliminar preset \"${preset.name}\"?`)) return;
-    
+
     const token = document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content');
     const url = SAVED_FILTERS_API.destroyBase.replace('__ID__', String(id));
     fetch(url, {
@@ -940,14 +940,14 @@ function deletePresetById(id) {
 function renderPresets() {
     const container = document.getElementById('presetsContainer');
     if (!container) return;
-    
+
     const presets = Array.isArray(savedPresetsCache) ? savedPresetsCache : [];
     if (presets.length === 0) {
         container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay presets guardados</p>';
         return;
     }
 
-    container.innerHTML = presets.map(preset => 
+    container.innerHTML = presets.map(preset =>
         `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <button type="button" onclick="loadPresetById(${Number(preset.id)})"
                         class="flex-1 text-left text-sm font-medium text-gray-700" title="Aplicar preset">
@@ -982,16 +982,16 @@ function gatherFilters() {
 
 function applyFilters() {
     const filters = gatherFilters();
-    
+
     if (filters.search) {
         saveSearchHistory(filters.search);
     }
-    
+
     const params = new URLSearchParams();
     Object.keys(filters).forEach(key => {
         if (filters[key]) params.append(key, filters[key]);
     });
-    
+
     window.location.href = '{{ route("service-requests.index") }}?' + params.toString();
 }
 
@@ -1010,7 +1010,7 @@ function showToast(message, type = 'success') {
     }`;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
@@ -1021,7 +1021,7 @@ function updateActiveFiltersCount() {
     const params = new URLSearchParams(window.location.search);
     const count = Array.from(params.keys()).filter(k => !['page', 'date_view'].includes(k)).length;
     const badge = document.getElementById('activeFiltersCount');
-    
+
     if (badge) {
         if (count > 0) {
             badge.textContent = count;
@@ -1042,7 +1042,7 @@ if (searchInput) {
             clearSearchBtn.classList.toggle('hidden', !this.value);
         }
     });
-    
+
     searchInput.addEventListener('focus', function() {
         renderSearchHistory();
         if (loadSearchHistory().length > 0) {
@@ -1050,14 +1050,14 @@ if (searchInput) {
             if (hist) hist.classList.remove('hidden');
         }
     });
-    
+
     searchInput.addEventListener('blur', function() {
         setTimeout(() => {
             const hist = document.getElementById('searchHistory');
             if (hist) hist.classList.add('hidden');
         }, 200);
     });
-    
+
     searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             const params = new URLSearchParams(window.location.search);
