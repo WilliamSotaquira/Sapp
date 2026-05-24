@@ -269,7 +269,6 @@
     function persistState() {
         var el = getFilterElements();
         var state = {
-            search: el.search ? el.search.value : '',
             status: el.statusAdv ? el.statusAdv.value : (el.status ? el.status.value : ''),
             criticality: el.criticalityAdv ? el.criticalityAdv.value : (el.criticality ? el.criticality.value : ''),
             due_status: el.dueStatus ? el.dueStatus.value : '',
@@ -287,7 +286,6 @@
             var raw = localStorage.getItem(STORAGE_KEY);
             if(!raw) return;
             var state = JSON.parse(raw);
-            if(el.search && !el.search.value) el.search.value = state.search || '';
             if(el.status && !el.status.value) el.status.value = state.status || '';
             if(el.statusAdv && !el.statusAdv.value) el.statusAdv.value = state.status || '';
             if(el.criticality && !el.criticality.value) el.criticality.value = state.criticality || '';
@@ -671,7 +669,40 @@
         }
     });
 
-    function initialLoad(){ restoreState(); updateBadge(); }
+    function initialLoad(){
+        // Al cargar/refrescar la página, limpiar el campo de búsqueda y la URL
+        var el = getFilterElements();
+        var hadSearch = false;
+        if (el.search && el.search.value) {
+            el.search.value = '';
+            hadSearch = true;
+        }
+        // Limpiar parámetro search de la URL sin recargar
+        var currentParams = new URLSearchParams(window.location.search);
+        if (currentParams.has('search') || currentParams.has('q')) {
+            currentParams.delete('search');
+            currentParams.delete('q');
+            hadSearch = true;
+            var newUrl = window.location.pathname + (currentParams.toString() ? '?' + currentParams.toString() : '');
+            window.history.replaceState({}, document.title, newUrl);
+        }
+        // Limpiar búsqueda del localStorage
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                var state = JSON.parse(raw);
+                if (state.search) {
+                    delete state.search;
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                }
+            }
+        } catch(e) {}
+        restoreState(); updateBadge();
+        // Si había búsqueda activa, recargar resultados sin ella
+        if (hadSearch) {
+            updateResults();
+        }
+    }
     initialLoad();
 })();
 </script>
