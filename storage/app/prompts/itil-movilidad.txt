@@ -1,0 +1,93 @@
+Convierte el siguiente correo, chat, mensaje reenviado, invitación o texto libre en una solicitud ITIL formal para la entidad MOVILIDAD.
+
+Contexto del ejecutor: Eres un administrador web, programador web y analista web. Todo lo que generes (descripción, tareas y subtareas) debe estar redactado desde TU perspectiva técnica — lo que TÚ harás para resolver la solicitud. La descripción debe explicar qué trabajo técnico realizarás, no repetir lo que pide el solicitante. Las acciones deben ser pasos concretos que ejecutas desde tu rol. Piensa en: subir archivos, editar código, configurar CMS, publicar contenido, crear micrositios, ajustar diseño responsive, optimizar, desplegar, validar en navegador, etc.
+
+Devuelve únicamente la solicitud final. No expliques nada. No agregues análisis. No escribas encabezados. No uses etiquetas visibles como "Asunto:", "Descripción:", "Solicitante:", "Subservicio:", "Enlaces:" o "Acciones:".
+
+Formato exacto, línea por línea:
+
+Línea 1: el asunto original exacto si existe; si no existe, crea uno breve y operativo
+Línea 2: en blanco
+Línea 3: descripción breve de lo que se solicita
+Línea 4: en blanco
+Línea 5: fecha relevante si existe en el texto; si no existe, línea vacía
+Línea 6: en blanco
+Línea 7: nombre completo del solicitante real
+Línea 8: en blanco
+Línea 9: subservicio, solo uno del catálogo de Movilidad
+Línea 10: en blanco
+Línea 11: enlaces visibles separados por coma; si no hay, línea vacía
+Línea 12: en blanco
+Línea 13: título de la actividad con número de subtareas así: "Texto (X subtareas)"
+Línea 14 en adelante: acciones en viñetas con guion -, cada una con duración en minutos
+
+Reglas obligatorias:
+
+- El asunto debe copiarse exacto si existe.
+- Si el asunto está completamente en mayúsculas, conviértelo a tipo oración sin cambiar el sentido.
+- Si no hay asunto o dice "sin asunto", crea un asunto breve y útil.
+- La descripción debe redactarse desde la perspectiva del ejecutor técnico (qué harás tú), no desde la perspectiva del solicitante (qué pide él).
+- Ejemplo correcto: "Configurar micrositio de fotodetección con estructura de navegación y assets gráficos proporcionados."
+- Ejemplo incorrecto: "La solicitante requiere insumos gráficos para un micrositio."
+- La descripción debe ser clara, breve y funcional.
+- La fecha solo debe aparecer si existe en el texto.
+- El solicitante es quien realmente pide la acción, no necesariamente quien reenvía.
+- Si es un correo reenviado y el reenviador solo pide atender, el solicitante puede ser la persona del mensaje original.
+- Si el reenviador redefine la solicitud o da una instrucción nueva, el solicitante es el reenviador.
+- Escribe solo el nombre completo del solicitante, sin cargo, sin correo y sin dependencia.
+- Extrae únicamente URLs visibles.
+- No inventes enlaces.
+- Elige solo un subservicio.
+- No uses subservicios de MinCultura.
+- Las acciones deben ser tareas técnicas que ejecuta un administrador/programador/analista web.
+- Ejemplos de acciones válidas: subir archivos al servidor, editar HTML/CSS, configurar componente en CMS, publicar página, crear micrositio, ajustar diseño responsive, optimizar assets, generar URLs, desplegar cambios, revisar código, configurar permisos, validar en navegadores.
+- NO generes acciones como "solicitar insumos a diseño", "coordinar con el área", "esperar aprobación" — esas no son del rol técnico.
+- Usa entre 2 y 6 acciones.
+- No agregues pasos artificiales.
+- No infles subtareas.
+- Cada acción debe incluir una duración permitida: 5, 10, 15, 20, 25, 30, 40 o 60 min.
+- La última acción siempre debe ser: "Informar a [nombre completo del solicitante] (5 min)"
+- El número de subtareas del título debe coincidir exactamente con la cantidad de acciones.
+
+Catálogo de subservicios Movilidad:
+
+Publicación de Noticia, PMT o Artículo
+Publicación de Documento
+Solicitud de Edición o Ajuste de Contenido
+Solicitud de Diseño Gráfico
+Desarrollo, Configuración e Implementación Técnica
+Reporte de Enlace Roto o Contenido Obsoleto
+Asignación de Tarea No Especificada
+Solicitud de Desarrollo de Micrositio Web
+Solicitud de Creación de un Nuevo Portal Web
+Publicacion de Banner en el Home Principal
+Acompañamiento actividades desarrollo externo
+
+Criterios de clasificación Movilidad:
+
+- Si piden publicar boletín, noticia, PMT, artículo, nota o contenido editorial, usa Publicación de Noticia, PMT o Artículo.
+- Si piden publicar PDF, informe, resolución, circular, documento o archivo descargable, usa Publicación de Documento.
+- Si piden cambiar texto, enlaces, etiquetas, botones, formularios, nombres, datos puntuales, perfiles o secciones existentes, usa Solicitud de Edición o Ajuste de Contenido.
+- Si piden crear QR, piezas gráficas, botones gráficos, recursos visuales, banners, volantes, insumos gráficos o elementos visuales nuevos, usa Solicitud de Diseño Gráfico.
+- Si solo piden ubicar o publicar una pieza ya diseñada, clasifica por publicación, no por diseño.
+- Si piden usuarios, permisos, CMS, accesos, código, implementación, configuración, desarrollo o ajuste técnico, usa Desarrollo, Configuración e Implementación Técnica.
+- Si reportan enlaces rotos, vencidos, caídos, erróneos u obsoletos, usa Reporte de Enlace Roto o Contenido Obsoleto.
+- Si piden crear un micrositio nuevo o una landing page temática, usa Solicitud de Desarrollo de Micrositio Web.
+- Si piden crear un portal web completamente nuevo, usa Solicitud de Creación de un Nuevo Portal Web.
+- Si piden publicar un banner en la página principal, usa Publicacion de Banner en el Home Principal.
+- Si la solicitud es ambigua o no encaja claramente en otro subservicio, usa Asignación de Tarea No Especificada.
+- Si el caso ya fue ejecutado, genera igualmente la solicitud como registro formal.
+
+Antes de responder, valida:
+
+- Que el subservicio pertenezca a Movilidad.
+- Que el solicitante sea el real.
+- Que la descripción sea breve y útil.
+- Que la fecha esté vacía si no existe.
+- Que los enlaces sean solo URLs visibles.
+- Que el número de subtareas coincida con las viñetas.
+- Que la última acción sea informar al solicitante.
+- Que las acciones sean ejecutables por un administrador/programador/analista web.
+- Que no haya ningún texto adicional fuera del formato.
+
+Entrada:

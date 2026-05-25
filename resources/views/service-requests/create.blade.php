@@ -35,6 +35,41 @@
         transform: translateY(6px);
         transition: opacity 0.16s ease, transform 0.16s ease;
     }
+    /* Parser pre-filled field highlighting */
+    .parser-prefilled {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
+        background-color: rgba(238, 242, 255, 0.5);
+    }
+    .parser-prefilled-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        background-color: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #4338ca;
+        font-size: 0.625rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    .parser-prefilled-badge i {
+        font-size: 0.5rem;
+    }
+    .pending-requester-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.5rem;
+        background-color: #fef3c7;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
 </style>
 
     @if ($errors->any())
@@ -65,6 +100,17 @@
         $shouldOpenPlainTextImport = (bool) old('__open_plain_text_import', false) || session()->has('plain_text_import_error');
         $pendingRequesterName = old('__pending_requester_name', '');
         $pendingRequesterEmail = old('__pending_requester_email', '');
+
+        // Determine which fields were pre-filled by the parser (have old() values from redirect withInput)
+        $parserPrefilledFields = [];
+        if (session('success') && str_contains(session('success') ?? '', 'Texto interpretado')) {
+            $checkFields = ['title', 'description', 'entry_channel', 'sub_service_id', 'requester_id', 'created_at', 'due_date', 'criticality_level', 'web_routes'];
+            foreach ($checkFields as $field) {
+                if (old($field) !== null && old($field) !== '') {
+                    $parserPrefilledFields[] = $field;
+                }
+            }
+        }
     @endphp
 
     <div class="max-w-4xl mx-auto mb-6 flex justify-end">
@@ -92,8 +138,8 @@
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Precarga asistida</p>
-                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar texto estructurado</h3>
-                        <p class="mt-1 text-sm text-slate-600">Pega el texto estructurado con 19 líneas útiles, usando "No disponible" cuando falte un dato y acciones en viñetas; el formulario se llenará automáticamente para revisión.</p>
+                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar texto</h3>
+                        <p class="mt-1 text-sm text-slate-600">Pega el texto de un correo electrónico o mensaje de WhatsApp. El sistema interpretará automáticamente los datos para pre-llenar el formulario.</p>
                     </div>
                     <button
                         type="button"
@@ -105,12 +151,15 @@
                     </button>
                 </div>
 
-                <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" class="px-6 py-5">
+                <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" id="plainTextImportForm" class="px-6 py-5">
                     @csrf
 
                     @if (session('plain_text_import_error'))
-                        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            {{ session('plain_text_import_error') }}
+                        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" id="plainTextImportError">
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-exclamation-circle mt-0.5 text-red-500"></i>
+                                <span>{{ session('plain_text_import_error') }}</span>
+                            </div>
                         </div>
                     @endif
 
@@ -122,12 +171,23 @@
                         id="plain_text"
                         rows="18"
                         class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Pega aquí el texto estructurado: asunto, descripción, fechas, solicitante, canal de ingreso, subservicio, enlaces, criticidad, actividad y acciones..."
+                        placeholder="Pega aquí el texto de un correo electrónico o mensaje de WhatsApp..."
                         required
                     >{{ $plainTextImportValue }}</textarea>
-                    <p class="mt-2 text-xs text-slate-500">
-                        El sistema intentará identificar asunto, descripción, fecha de la solicitud, fecha de vencimiento, solicitante, canal de ingreso, subservicio, enlaces, criticidad y acciones.
-                    </p>
+
+                    <div class="mt-2 flex items-center justify-between">
+                        <p class="text-xs text-slate-500">
+                            El sistema interpretará: solicitante, título, descripción, fechas, subservicio, canal, criticidad, URLs y tareas.
+                        </p>
+                        <span id="plainTextCharCount" class="text-xs font-medium tabular-nums" aria-live="polite">
+                            <span id="plainTextCharCountValue">{{ mb_strlen($plainTextImportValue) }}</span> caracteres
+                        </span>
+                    </div>
+
+                    <div id="plainTextMinLengthWarning" class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 {{ mb_strlen($plainTextImportValue) >= 20 ? 'hidden' : '' }}">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Se requieren al menos 20 caracteres para interpretar el texto.
+                    </div>
 
                     <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <button
@@ -147,10 +207,17 @@
                         </button>
                         <button
                             type="submit"
-                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                            id="interpretTextBtn"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-opacity"
+                            {{ mb_strlen($plainTextImportValue) < 20 ? 'disabled' : '' }}
                         >
-                            <i class="fas fa-wand-magic-sparkles"></i>
-                            Interpretar texto
+                            <i class="fas fa-wand-magic-sparkles" id="interpretTextIcon"></i>
+                            <svg id="interpretTextSpinner" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span id="interpretTextLabel">Interpretar</span>
+                            <kbd class="ml-1.5 hidden sm:inline-flex items-center gap-0.5 rounded border border-blue-400/50 bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-100">Ctrl+↵</kbd>
                         </button>
                     </div>
                 </form>
@@ -274,14 +341,90 @@
         const cancelPlainTextImportBtn = document.getElementById('cancelPlainTextImport');
         const clearPlainTextImportBtn = document.getElementById('clearPlainTextImport');
         const plainTextInput = document.getElementById('plain_text');
-        const plainTextImportForm = plainTextInput?.closest('form');
+        const plainTextImportForm = document.getElementById('plainTextImportForm');
+        const interpretTextBtn = document.getElementById('interpretTextBtn');
+        const interpretTextIcon = document.getElementById('interpretTextIcon');
+        const interpretTextSpinner = document.getElementById('interpretTextSpinner');
+        const interpretTextLabel = document.getElementById('interpretTextLabel');
+        const charCountValue = document.getElementById('plainTextCharCountValue');
+        const charCountEl = document.getElementById('plainTextCharCount');
+        const minLengthWarning = document.getElementById('plainTextMinLengthWarning');
         const shouldOpenPlainTextImport = @json($shouldOpenPlainTextImport);
+        const MIN_CHARS = 20;
+
+        // --- Character count and button enable/disable ---
+        function updateCharCount() {
+            if (!plainTextInput || !charCountValue) return;
+            const len = plainTextInput.value.length;
+            charCountValue.textContent = len;
+
+            // Update color based on minimum
+            if (len < MIN_CHARS) {
+                charCountEl?.classList.remove('text-green-600');
+                charCountEl?.classList.add('text-amber-600');
+                minLengthWarning?.classList.remove('hidden');
+            } else {
+                charCountEl?.classList.remove('text-amber-600');
+                charCountEl?.classList.add('text-green-600');
+                minLengthWarning?.classList.add('hidden');
+            }
+
+            // Enable/disable interpret button
+            if (interpretTextBtn) {
+                interpretTextBtn.disabled = len < MIN_CHARS;
+            }
+        }
+
+        plainTextInput?.addEventListener('input', updateCharCount);
+        plainTextInput?.addEventListener('paste', function() {
+            setTimeout(updateCharCount, 0);
+        });
+
+        // Initial state
+        updateCharCount();
+
+        // --- Loading spinner on form submit ---
+        function showLoadingState() {
+            if (!interpretTextBtn) return;
+            interpretTextBtn.disabled = true;
+            interpretTextIcon?.classList.add('hidden');
+            interpretTextSpinner?.classList.remove('hidden');
+            if (interpretTextLabel) interpretTextLabel.textContent = 'Interpretando...';
+        }
+
+        plainTextImportForm?.addEventListener('submit', function(e) {
+            const len = plainTextInput?.value?.length || 0;
+            if (len < MIN_CHARS) {
+                e.preventDefault();
+                return;
+            }
+            showLoadingState();
+        });
+
+        // Ctrl+Enter or Cmd+Enter to submit the interpretation form
+        plainTextInput?.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const len = plainTextInput.value.length;
+                if (len >= MIN_CHARS && plainTextImportForm) {
+                    showLoadingState();
+                    if (typeof plainTextImportForm.requestSubmit === 'function') {
+                        plainTextImportForm.requestSubmit();
+                    } else {
+                        plainTextImportForm.submit();
+                    }
+                }
+            }
+        });
 
         function openPlainTextImportModal() {
             if (!plainTextImportModal) return;
             plainTextImportModal.classList.remove('hidden');
             plainTextImportModal.setAttribute('aria-hidden', 'false');
-            setTimeout(() => plainTextInput?.focus(), 0);
+            setTimeout(() => {
+                plainTextInput?.focus();
+                updateCharCount();
+            }, 0);
         }
 
         function closePlainTextImportModal() {
@@ -313,11 +456,18 @@
                 }
 
                 plainTextInput.value = clipboardText.replace(/\r\n/g, '\n');
+                updateCharCount();
 
-                if (typeof plainTextImportForm.requestSubmit === 'function') {
-                    plainTextImportForm.requestSubmit();
+                // Only auto-submit if text meets minimum length
+                if (plainTextInput.value.length >= MIN_CHARS) {
+                    showLoadingState();
+                    if (typeof plainTextImportForm.requestSubmit === 'function') {
+                        plainTextImportForm.requestSubmit();
+                    } else {
+                        plainTextImportForm.submit();
+                    }
                 } else {
-                    plainTextImportForm.submit();
+                    openPlainTextImportModal();
                 }
             } catch (error) {
                 openPlainTextImportModal();
@@ -337,6 +487,7 @@
             if (!plainTextInput) return;
             plainTextInput.value = '';
             plainTextInput.focus();
+            updateCharCount();
         });
 
         plainTextImportModal?.addEventListener('click', function(e) {
@@ -402,6 +553,78 @@
                     console.warn('No se pudo crear el solicitante pendiente:', e);
                 }
             })();
+        }
+
+        // --- Parser pre-filled field highlighting ---
+        const parserPrefilledFields = @json($parserPrefilledFields);
+
+        if (parserPrefilledFields && parserPrefilledFields.length > 0) {
+            const fieldIdMap = {
+                'title': 'title',
+                'description': 'description',
+                'entry_channel': 'entry_channel',
+                'sub_service_id': 'sub_service_id',
+                'requester_id': 'requester_id',
+                'created_at': 'created_at',
+                'due_date': 'due_date',
+                'criticality_level': 'criticality-level-container',
+                'web_routes': null, // handled separately via class selector
+            };
+
+            parserPrefilledFields.forEach(function(fieldName) {
+                const elementId = fieldIdMap[fieldName];
+
+                let el = null;
+                if (fieldName === 'web_routes') {
+                    el = document.querySelector('.web-route-input');
+                } else if (elementId) {
+                    el = document.getElementById(elementId);
+                }
+
+                if (!el) return;
+
+                // Add highlight class to the input/select/textarea
+                if (fieldName === 'criticality_level') {
+                    // For criticality, highlight the container
+                    el.classList.add('parser-prefilled');
+                    el.style.padding = '0.5rem';
+                    el.style.borderRadius = '0.5rem';
+                } else {
+                    el.classList.add('parser-prefilled');
+                }
+
+                // Add badge next to the label
+                const fieldContainer = el.closest('div');
+                if (fieldContainer) {
+                    const label = fieldContainer.querySelector('label');
+                    if (label && !label.querySelector('.parser-prefilled-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'parser-prefilled-badge ml-2';
+                        badge.innerHTML = '<i class="fas fa-magic"></i> Auto';
+                        label.appendChild(badge);
+                    }
+                }
+            });
+        }
+
+        // --- Pending requester warning badge ---
+        if (pendingRequesterName) {
+            const requesterContainer = document.getElementById('requester_id')?.closest('div');
+            if (requesterContainer) {
+                const existingBadge = requesterContainer.querySelector('.pending-requester-badge');
+                if (!existingBadge) {
+                    const warningBadge = document.createElement('div');
+                    warningBadge.className = 'pending-requester-badge mt-2';
+                    warningBadge.innerHTML = '<i class="fas fa-user-clock"></i> <span>Solicitante "<strong>' +
+                        pendingRequesterName.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                        '</strong>" pendiente de creación — se creará al enviar el formulario.</span>';
+                    // Insert after the select element
+                    const selectEl = document.getElementById('requester_id');
+                    if (selectEl) {
+                        selectEl.parentNode.insertBefore(warningBadge, selectEl.nextSibling);
+                    }
+                }
+            }
         }
 
         const formEl = document.querySelector('form[action="{{ route('service-requests.store') }}"]');

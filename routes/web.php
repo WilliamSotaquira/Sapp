@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 use App\Http\Controllers\PublicTrackingController;
+use App\Services\OpenRouterService;
 
 // =============================================================================
 // RUTAS PÚBLICAS
@@ -11,15 +13,39 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Prueba de OpenRouter con DeepSeek
+Route::get('/probar-openrouter', function (OpenRouterService $openRouter) {
+    $respuesta = $openRouter->chat(
+        'Responde solo: Sí, estoy funcionando desde Laravel usando OpenRouter y DeepSeek.'
+    );
+
+    return response()->json([
+        'respuesta' => $respuesta
+    ]);
+});
+
+// Chat dinámico con OpenRouter y DeepSeek
+Route::post('/chat-openrouter', function (Request $request, OpenRouterService $openRouter) {
+    $request->validate([
+        'message' => ['required', 'string', 'max:5000'],
+    ]);
+
+    $respuesta = $openRouter->chat($request->message);
+
+    return response()->json([
+        'respuesta' => $respuesta
+    ]);
+});
+
 // Consulta pública de solicitudes (sin autenticación)
 Route::prefix('consultar')
     ->name('public.tracking.')
     ->middleware('throttle:30,1')
     ->group(function () {
-    Route::get('/', [PublicTrackingController::class, 'index'])->name('index');
-    Route::post('/search', [PublicTrackingController::class, 'search'])->name('search');
-    Route::get('/{ticketNumber}', [PublicTrackingController::class, 'show'])->name('show');
-});
+        Route::get('/', [PublicTrackingController::class, 'index'])->name('index');
+        Route::post('/search', [PublicTrackingController::class, 'search'])->name('search');
+        Route::get('/{ticketNumber}', [PublicTrackingController::class, 'show'])->name('show');
+    });
 
 // =============================================================================
 // RUTAS AUTENTICADAS
@@ -29,6 +55,7 @@ Route::middleware('auth')->group(function () {
     // Selección de espacio de trabajo
     Route::get('/workspaces/select', [App\Http\Controllers\WorkspaceController::class, 'select'])
         ->name('workspaces.select');
+
     Route::post('/workspaces/switch', [App\Http\Controllers\WorkspaceController::class, 'switch'])
         ->name('workspaces.switch');
 
@@ -77,17 +104,22 @@ Route::middleware('auth')->group(function () {
     Route::resource('standard-tasks', App\Http\Controllers\StandardTaskController::class);
 
     // Rutas para toggle de tareas y subtareas
-    Route::post('tasks/{task}/toggle-status', [App\Http\Controllers\TaskController::class, 'toggleStatus'])->name('tasks.toggle-status');
-    Route::post('tasks/{task}/subtasks/{subtask}/toggle', [App\Http\Controllers\TaskController::class, 'toggleSubtask'])->name('tasks.subtasks.toggle');
+    Route::post('tasks/{task}/toggle-status', [App\Http\Controllers\TaskController::class, 'toggleStatus'])
+        ->name('tasks.toggle-status');
+
+    Route::post('tasks/{task}/subtasks/{subtask}/toggle', [App\Http\Controllers\TaskController::class, 'toggleSubtask'])
+        ->name('tasks.subtasks.toggle');
 
     // =========================================================================
     // APIS PARA FORMULARIOS WEB
     // =========================================================================
+
     require __DIR__ . '/web-api.php';
 
     // =========================================================================
     // REQUIREMENTS
     // =========================================================================
+
     require __DIR__ . '/requirements.php';
 });
 

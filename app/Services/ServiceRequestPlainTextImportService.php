@@ -6,6 +6,9 @@ use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Requester;
 use App\Models\SubService;
+use App\Services\SmartParser\LlmTextInterpreter;
+use App\Services\SmartParser\SmartParserPipeline;
+use App\Services\SmartParser\StructuredFormatDetector;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -15,6 +18,8 @@ class ServiceRequestPlainTextImportService
 {
     public function __construct(
         private readonly ServiceRequestService $serviceRequestService,
+        private readonly SmartParserPipeline $smartPipeline,
+        private readonly StructuredFormatDetector $formatDetector,
     ) {
     }
 
@@ -24,6 +29,20 @@ class ServiceRequestPlainTextImportService
         if ($text === '') {
             throw ValidationException::withMessages([
                 'plain_text' => 'Pega un texto para poder interpretarlo.',
+            ]);
+        }
+
+        // Validación de longitud mínima
+        if (mb_strlen($text) < 20) {
+            throw ValidationException::withMessages([
+                'plain_text' => 'El texto es demasiado corto para identificar una solicitud.',
+            ]);
+        }
+
+        // Validación de longitud máxima
+        if (mb_strlen($text) > 50000) {
+            throw ValidationException::withMessages([
+                'plain_text' => 'El texto excede el límite máximo permitido (50000 caracteres).',
             ]);
         }
 
@@ -48,6 +67,19 @@ class ServiceRequestPlainTextImportService
             ]);
         }
 
+        // Detectar si el texto sigue el formato estructurado
+        if (!$this->formatDetector->isStructuredFormat($text)) {
+            // Try LLM interpretation first (if enabled)
+            $llmResult = $this->tryLlmInterpretation($text, $company, $requestedBy);
+            if ($llmResult !== null) {
+                return $llmResult;
+            }
+
+            // Fallback: formato libre con SmartParserPipeline heurístico
+            return $this->parseWithSmartPipeline($text, $companyId, $requestedBy);
+        }
+
+        // Formato estructurado: usar algoritmo original
         $parsed = $this->extractStructuredData($text);
 
         if ($parsed['requester_name'] === '') {
@@ -133,6 +165,646 @@ class ServiceRequestPlainTextImportService
                 'web_route_count' => count($parsed['web_routes']),
             ],
         ];
+    }
+
+    /**
+     * Maximum allowed time in seconds for the smart pipeline execution.
+     */
+    private const PIPELINE_TIMEOUT_SECONDS = 30;
+
+    /**
+     * Attempts to interpret the text using an LLM with ITIL prompts.
+     * If the LLM returns valid structured text, parses it with the existing algorithm.
+     * Returns null if LLM is unavailable, disabled, or returns invalid output.
+     */
+    private function tryLlmInterpretation(string $text, Company $company, ?int $requestedBy = null): ?array
+    {
+        if (! config('services.llm.enabled', false)) {
+            return null;
+        }
+
+        try {
+            $interpreter = app(LlmTextInterpreter::class);
+            $workspaceName = $company->name ?? '';
+
+            // Validate workspace-entity consistency BEFORE calling the LLM
+            $this->validateTextBelongsToWorkspace($text, $workspaceName);
+
+            // Validate that the workspace has a matching ITIL prompt
+            if (!$interpreter->hasPromptForWorkspace($workspaceName)) {
+                throw ValidationException::withMessages([
+                    'plain_text' => "El espacio de trabajo \"{$workspaceName}\" no tiene un prompt ITIL configurado. Configura el archivo de prompt correspondiente en storage/app/prompts/.",
+                ]);
+            }
+
+            $structuredText = $interpreter->interpret($text, $workspaceName);
+
+            if ($structuredText === null) {
+                return null;
+            }
+
+            // Validate workspace-entity consistency: check if the LLM response
+            // contains a sub-service that belongs to a different entity's catalog
+            $this->validateWorkspaceConsistency($structuredText, $workspaceName);
+
+            // First try: check if LLM output passes the strict structured format detector
+            if ($this->formatDetector->isStructuredFormat($structuredText)) {
+                return $this->parseToFormData($structuredText, (int) $company->id, $requestedBy);
+            }
+
+            // Second try: parse the LLM ITIL output directly (more flexible)
+            $parsed = $this->parseLlmItilOutput($structuredText, $company, $requestedBy);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+
+            \Illuminate\Support\Facades\Log::info('LlmTextInterpreter: Could not parse LLM output');
+
+            return null;
+        } catch (ValidationException $e) {
+            throw $e; // Re-throw validation exceptions to show to user
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::info('LlmTextInterpreter: Structured parse of LLM output failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Validates that the interpreted text is consistent with the active workspace.
+     * Throws a ValidationException if the content appears to belong to a different entity.
+     */
+    private function validateWorkspaceConsistency(string $llmOutput, string $workspaceName): void
+    {
+        // This method validates the LLM output (kept as secondary check)
+        $normalizedWorkspace = mb_strtolower(trim($workspaceName));
+        $normalizedOutput = mb_strtolower($llmOutput);
+
+        $minCulturaSubServices = [
+            'ejecución de envío de comunicaciones masivas',
+            'actualización de contenidos en portal principal',
+            'gestión de secciones especiales',
+            'desarrollo de nuevas funcionalidades web',
+            'mantenimiento de páginas y micrositios',
+            'gestión técnica de aplicativos web',
+            'ejecución de tareas técnicas o digitales específicas',
+            'coordinación de actualizaciones por área',
+        ];
+
+        $movilidadSubServices = [
+            'publicación de noticia pmt o artículo',
+            'publicación de documento',
+            'solicitud de edición o ajuste de contenido',
+            'solicitud de diseño gráfico',
+            'desarrollo configuración e implementación técnica',
+            'reporte de enlace roto o contenido obsoleto',
+            'asignación de tarea no especificada',
+        ];
+
+        $isWorkspaceCultura = str_contains($normalizedWorkspace, 'cultura');
+        $isWorkspaceMovilidad = str_contains($normalizedWorkspace, 'movilidad');
+
+        if ($isWorkspaceCultura) {
+            foreach ($movilidadSubServices as $ss) {
+                if (str_contains($normalizedOutput, $ss)) {
+                    throw ValidationException::withMessages([
+                        'plain_text' => 'La solicitud parece pertenecer a Movilidad, pero el espacio de trabajo activo es Cultura. Cambia al espacio de trabajo correcto antes de interpretar esta solicitud.',
+                    ]);
+                }
+            }
+        } elseif ($isWorkspaceMovilidad) {
+            foreach ($minCulturaSubServices as $ss) {
+                if (str_contains($normalizedOutput, $ss)) {
+                    throw ValidationException::withMessages([
+                        'plain_text' => 'La solicitud parece pertenecer a MinCultura, pero el espacio de trabajo activo es Movilidad. Cambia al espacio de trabajo correcto antes de interpretar esta solicitud.',
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Validates that the raw text belongs to the active workspace.
+     *
+     * Strategy (in order):
+     * 1. Extract the requester name from the text (email sender or WhatsApp contact)
+     * 2. Check if that requester exists in the active workspace
+     * 3. If not found in active workspace but found in another → reject
+     * 4. Check email domains as additional signal
+     * 5. Check entity mentions in signatures/text
+     */
+    private function validateTextBelongsToWorkspace(string $text, string $workspaceName): void
+    {
+        $normalizedWorkspace = mb_strtolower(trim($workspaceName));
+        $normalizedText = mb_strtolower($text);
+
+        $isWorkspaceCultura = str_contains($normalizedWorkspace, 'cultura');
+        $isWorkspaceMovilidad = str_contains($normalizedWorkspace, 'movilidad');
+
+        if (!$isWorkspaceCultura && !$isWorkspaceMovilidad) {
+            return;
+        }
+
+        $activeCompanyId = (int) session('current_company_id', 0);
+        if ($activeCompanyId <= 0) {
+            return;
+        }
+
+        // Step 1: Extract requester name from text
+        $requesterName = $this->extractRequesterNameFromRawText($text);
+
+        // Step 2: If we found a name, check if it exists in the active workspace
+        if ($requesterName !== null && mb_strlen($requesterName) >= 3) {
+            // Normalize: remove accents, lowercase, collapse spaces
+            $normalizedName = $this->normalizeNameForSearch($requesterName);
+
+            // Split into individual words for matching (at least 2 words needed)
+            $nameWords = array_filter(explode(' ', $normalizedName), fn($w) => mb_strlen($w) >= 3);
+
+            if (count($nameWords) >= 2) {
+                // Build a query that matches ALL significant words of the name
+                $existsInActiveWorkspace = \App\Models\Requester::withoutGlobalScopes()
+                    ->where('company_id', $activeCompanyId)
+                    ->where('is_active', true)
+                    ->where(function ($q) use ($nameWords) {
+                        foreach ($nameWords as $word) {
+                            $q->whereRaw('LOWER(name) LIKE ?', ["%{$word}%"]);
+                        }
+                    })
+                    ->exists();
+
+                if (!$existsInActiveWorkspace) {
+                    // Check if the requester exists in ANY other workspace
+                    $existsInOtherWorkspace = \App\Models\Requester::withoutGlobalScopes()
+                        ->where('company_id', '!=', $activeCompanyId)
+                        ->where('is_active', true)
+                        ->where(function ($q) use ($nameWords) {
+                            foreach ($nameWords as $word) {
+                                $q->whereRaw('LOWER(name) LIKE ?', ["%{$word}%"]);
+                            }
+                        })
+                        ->first();
+
+                    if ($existsInOtherWorkspace) {
+                        $otherCompany = \App\Models\Company::find($existsInOtherWorkspace->company_id);
+                        $otherName = $otherCompany?->name ?? 'otro espacio';
+                        throw ValidationException::withMessages([
+                            'plain_text' => "El solicitante \"{$requesterName}\" no pertenece al espacio de trabajo activo ({$workspaceName}). Se encontró en \"{$otherName}\". Cambia al espacio de trabajo correcto antes de interpretar esta solicitud.",
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // Step 3: Check email domains
+        preg_match_all('/[\w.+-]+@([\w-]+\.[\w.-]+)/i', $text, $emailMatches);
+        $foundDomains = array_unique(array_map('strtolower', $emailMatches[1] ?? []));
+
+        $culturaDomains = ['mincultura.gov.co'];
+        $movilidadDomains = ['movilidadbogota.gov.co', 'transmilenio.gov.co', 'sdm.gov.co'];
+
+        if (!empty($foundDomains)) {
+            if ($isWorkspaceMovilidad) {
+                foreach ($foundDomains as $domain) {
+                    if (in_array($domain, $culturaDomains)) {
+                        throw ValidationException::withMessages([
+                            'plain_text' => 'Esta solicitud contiene correos de @mincultura.gov.co pero el espacio de trabajo activo es Movilidad. Cambia al espacio de trabajo "Cultura" para interpretar esta solicitud.',
+                        ]);
+                    }
+                }
+            } elseif ($isWorkspaceCultura) {
+                foreach ($foundDomains as $domain) {
+                    if (in_array($domain, $movilidadDomains)) {
+                        throw ValidationException::withMessages([
+                            'plain_text' => 'Esta solicitud contiene correos de @' . $domain . ' pero el espacio de trabajo activo es Cultura. Cambia al espacio de trabajo "Movilidad" para interpretar esta solicitud.',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // Step 4: Check entity mentions in signatures/text (flexible matching)
+        if ($isWorkspaceCultura) {
+            // Movilidad indicators - check for any of these patterns
+            $movilidadPatterns = [
+                'secretaría distrital de movilidad',
+                'secretaria distrital de movilidad',
+                'secretaría de movilidad',
+                'secretaria de movilidad',
+                'cultura para la movilidad',
+                'movilidadtel:',
+                'movilidad bogota',
+                'movilidad bogotá',
+            ];
+            foreach ($movilidadPatterns as $pattern) {
+                if (str_contains($normalizedText, $pattern)) {
+                    throw ValidationException::withMessages([
+                        'plain_text' => 'Esta solicitud pertenece a Movilidad (se detectó "' . $pattern . '"). El espacio de trabajo activo es Cultura. Cambia al espacio de trabajo "Movilidad" para interpretar esta solicitud.',
+                    ]);
+                }
+            }
+            // Also check if "movilidad" appears near "secretar" (handles broken line breaks)
+            if (str_contains($normalizedText, 'movilidad') && str_contains($normalizedText, 'secretar')) {
+                throw ValidationException::withMessages([
+                    'plain_text' => 'Esta solicitud parece pertenecer a la Secretaría de Movilidad. El espacio de trabajo activo es Cultura. Cambia al espacio de trabajo "Movilidad" para interpretar esta solicitud.',
+                ]);
+            }
+        } elseif ($isWorkspaceMovilidad) {
+            $culturaPatterns = [
+                'ministerio de las culturas',
+                'ministerio de cultura',
+                'mincultura.gov.co',
+                'ministerio de las culturas, las artes',
+            ];
+            foreach ($culturaPatterns as $pattern) {
+                if (str_contains($normalizedText, $pattern)) {
+                    throw ValidationException::withMessages([
+                        'plain_text' => 'Esta solicitud pertenece a MinCultura (se detectó "' . $pattern . '"). El espacio de trabajo activo es Movilidad. Cambia al espacio de trabajo "Cultura" para interpretar esta solicitud.',
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Extracts the requester name from raw text.
+     * Looks for email sender, WhatsApp contact, or first name-like line.
+     */
+    private function extractRequesterNameFromRawText(string $text): ?string
+    {
+        // Try email "De:" or "From:" header
+        if (preg_match('/^(?:De|From)\s*:\s*(.+?)(?:\s*<[^>]+>)?$/mi', $text, $match)) {
+            $name = trim($match[1]);
+            if (mb_strlen($name) >= 3 && !str_contains($name, '@')) {
+                return $name;
+            }
+        }
+
+        // Try "Nombre Apellido <email>" pattern
+        if (preg_match('/^([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,50})\s*<[^>]+@/m', $text, $match)) {
+            return trim($match[1]);
+        }
+
+        // Try WhatsApp format: "[fecha, hora] Nombre:"
+        if (preg_match('/\[\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4},?\s+\d{1,2}:\d{2}\]\s*([^:]+):/m', $text, $match)) {
+            return trim($match[1]);
+        }
+
+        // Try WhatsApp format: "hora - Nombre:"
+        if (preg_match('/\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?,?\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\s*-\s*([^:]+):/m', $text, $match)) {
+            return trim($match[1]);
+        }
+
+        // Try: first line that looks like a person's name (Gmail paste format)
+        $lines = preg_split('/\n/', $text);
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if (mb_strlen($trimmed) < 5 || mb_strlen($trimmed) > 60) continue;
+            if (preg_match('/[@<>\d:\/\\\\]/', $trimmed)) continue;
+            if (preg_match('/^[\p{L}\s]+$/u', $trimmed) && str_word_count($trimmed) >= 2) {
+                return $trimmed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalizes a name for database search: removes accents, lowercases, collapses spaces.
+     */
+    private function normalizeNameForSearch(string $name): string
+    {
+        $name = mb_strtolower(trim($name));
+        // Remove common accents
+        $name = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'],
+            ['a', 'e', 'i', 'o', 'u', 'n', 'u'],
+            $name
+        );
+        // Collapse multiple spaces
+        $name = preg_replace('/\s+/', ' ', $name);
+        return trim($name);
+    }
+
+    /**
+     * Parses the LLM ITIL output format directly.
+     * The format is:
+     *   Line 1: Title/Subject
+     *   Line 2: Description
+     *   Line 3: Date (or empty)
+     *   Line 4: Requester name
+     *   Line 5: Sub-service name
+     *   Line 6: URLs (comma-separated, or empty)
+     *   Line 7: Task title with "(X subtareas)"
+     *   Lines 8+: Subtasks with "- action (XX min)"
+     *
+     * Lines are separated by blank lines between each field.
+     */
+    private function parseLlmItilOutput(string $llmOutput, Company $company, ?int $requestedBy): ?array
+    {
+        // Split by blank lines to get logical blocks
+        $blocks = preg_split('/\n\s*\n/', trim($llmOutput));
+        $blocks = array_values(array_filter(array_map('trim', $blocks), fn ($b) => $b !== ''));
+
+        if (count($blocks) < 3) {
+            // Fallback: split into non-empty lines
+            $blocks = array_values(array_filter(
+                array_map('trim', preg_split('/\n/', $llmOutput)),
+                fn (string $line) => $line !== ''
+            ));
+        }
+
+        if (count($blocks) < 3) {
+            return null;
+        }
+
+        $knownSubServices = [
+            // MinCultura
+            'Ejecución de envío de comunicaciones masivas',
+            'Actualización de Contenidos en Portal Principal',
+            'Gestión de Secciones Especiales',
+            'Desarrollo de Nuevas Funcionalidades Web',
+            'Mantenimiento de Páginas y Micrositios',
+            'Gestión Técnica de Aplicativos Web',
+            'Ejecución de Tareas Técnicas o Digitales Específicas',
+            'Coordinación de Actualizaciones por Área',
+            // Movilidad
+            'Publicación de Noticia, PMT o Artículo',
+            'Publicación de Documento',
+            'Solicitud de Edición o Ajuste de Contenido',
+            'Solicitud de Diseño Gráfico',
+            'Desarrollo, Configuración e Implementación Técnica',
+            'Reporte de Enlace Roto o Contenido Obsoleto',
+            'Asignación de Tarea No Especificada',
+            'Solicitud de Desarrollo de Micrositio Web',
+            'Solicitud de Creación de un Nuevo Portal Web',
+            'Publicacion de Banner en el Home Principal',
+            'Acompañamiento actividades desarrollo externo',
+        ];
+
+        // Parse each block by its semantic role
+        $title = '';
+        $description = '';
+        $requesterName = '';
+        $subServiceName = '';
+        $dateStr = '';
+        $urls = [];
+        $taskTitleLine = '';
+        $taskLines = [];
+
+        foreach ($blocks as $block) {
+            $blockLines = array_filter(array_map('trim', explode("\n", $block)), fn ($l) => $l !== '');
+
+            // Check if this block contains task lines (starts with -)
+            $hasTaskLines = false;
+            foreach ($blockLines as $bl) {
+                if (str_starts_with($bl, '- ') || str_starts_with($bl, '-')) {
+                    $hasTaskLines = true;
+                    break;
+                }
+            }
+
+            if ($hasTaskLines) {
+                foreach ($blockLines as $bl) {
+                    if (str_starts_with($bl, '- ') || str_starts_with($bl, '-')) {
+                        $taskLines[] = $bl;
+                    } elseif (preg_match('/\(\d+\s*subtareas?\)/iu', $bl)) {
+                        $taskTitleLine = $bl;
+                    }
+                }
+                continue;
+            }
+
+            // Single-line block analysis
+            $singleLine = implode(' ', $blockLines);
+
+            // Check if it's a task title (contains "subtareas")
+            if (preg_match('/\(\d+\s*subtareas?\)/iu', $singleLine)) {
+                $taskTitleLine = $singleLine;
+                continue;
+            }
+
+            // Check if it's a sub-service
+            $isSubService = false;
+            foreach ($knownSubServices as $ss) {
+                if (mb_strtolower(trim($singleLine)) === mb_strtolower($ss)) {
+                    $subServiceName = $ss;
+                    $isSubService = true;
+                    break;
+                }
+            }
+            if ($isSubService) continue;
+
+            // Check if it contains URLs
+            if (preg_match('/https?:\/\//', $singleLine)) {
+                preg_match_all('/https?:\/\/[^\s,]+/', $singleLine, $urlMatches);
+                $urls = array_merge($urls, $urlMatches[0] ?? []);
+                continue;
+            }
+
+            // Check if it's a date
+            if (preg_match('/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/', $singleLine) ||
+                preg_match('/\d{1,2}\s+de\s+\w+\s+de\s+\d{4}/iu', $singleLine)) {
+                $dateStr = $singleLine;
+                continue;
+            }
+
+            // Assign to title, description, or requester based on order
+            if ($title === '') {
+                $title = $singleLine;
+            } elseif ($description === '') {
+                $description = $singleLine;
+            } elseif ($requesterName === '' && preg_match('/^[\p{L}\s]+$/u', $singleLine) && mb_strlen($singleLine) <= 80) {
+                $requesterName = $singleLine;
+            }
+        }
+
+        if (empty($title)) {
+            return null;
+        }
+
+        if (empty($description)) {
+            $description = $title;
+        }
+
+        // Resolve requester
+        $requesterId = $requestedBy;
+        $requesterPending = false;
+        if ($requesterName !== '') {
+            $resolver = app(\App\Services\SmartParser\Resolvers\RequesterResolver::class);
+            $resolved = $resolver->resolve((int) $company->id, $requesterName, null);
+            $requesterId = $resolved['id'] ?? $requestedBy;
+            $requesterPending = $resolved['pending'] ?? false;
+        }
+
+        // Resolve sub-service
+        $subServiceId = null;
+        $serviceId = null;
+        $familyId = null;
+        $slaId = null;
+        if ($subServiceName !== '') {
+            $subService = SubService::query()
+                ->where('is_active', true)
+                ->where(function ($q) use ($subServiceName) {
+                    $lower = mb_strtolower($subServiceName);
+                    $q->whereRaw('LOWER(name) = ?', [$lower])
+                      ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                })
+                ->first();
+
+            if ($subService) {
+                $subServiceId = $subService->id;
+                $serviceId = $subService->service_id;
+                $familyId = $subService->service?->service_family_id;
+
+                $sla = \App\Models\ServiceLevelAgreement::query()
+                    ->where('is_active', true)
+                    ->whereHas('serviceSubservice', function ($q) use ($subServiceId) {
+                        $q->where('sub_service_id', $subServiceId);
+                    })
+                    ->first();
+                $slaId = $sla?->id;
+            }
+        }
+
+        // Parse tasks
+        $tasks = $this->parseLlmTasks($taskTitleLine, $taskLines, $title);
+
+        // Parse date
+        $createdAt = now();
+        if ($dateStr !== '') {
+            try {
+                $createdAt = \Carbon\Carbon::parse($dateStr);
+            } catch (\Exception $e) {
+                // Keep current date
+            }
+        }
+
+        // Determine entry channel from original text
+        $channel = 'email_corporativo';
+        if (preg_match('/\[\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4},?\s+\d{1,2}:\d{2}/', $text ?? '') ||
+            preg_match('/\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?,?\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/', $text ?? '')) {
+            $channel = 'whatsapp';
+        }
+
+        // Determine criticality
+        $criticality = 'MEDIA';
+
+        // Deduplicate URLs
+        $urls = array_values(array_unique($urls));
+
+        return [
+            'payload' => [
+                'company_id' => (int) $company->id,
+                'requester_id' => $requesterId,
+                'title' => mb_substr($title, 0, 255),
+                'description' => mb_substr($description, 0, 5000),
+                'sub_service_id' => $subServiceId,
+                'service_id' => $serviceId,
+                'family_id' => $familyId,
+                'sla_id' => $slaId,
+                'requested_by' => $requestedBy,
+                'entry_channel' => $channel,
+                'criticality_level' => $criticality,
+                'created_at' => $createdAt->format('Y-m-d\TH:i'),
+                'due_date' => null,
+                'web_routes' => json_encode(array_slice($urls, 0, 8)),
+                'is_reportable' => true,
+                'tasks_template' => 'none',
+                'tasks' => $tasks,
+                '__pending_requester_name' => $requesterPending ? $requesterName : null,
+                '__pending_requester_email' => null,
+            ],
+            'meta' => [
+                'requester_name' => $requesterName,
+                'requester_created' => false,
+                'requester_pending' => $requesterPending,
+                'sub_service_name' => $subServiceName ?: null,
+                'task_count' => count($tasks),
+                'web_route_count' => count($urls),
+                'confidences' => ['llm' => 90],
+            ],
+        ];
+    }
+
+    /**
+     * Parses task lines from LLM ITIL output.
+     */
+    private function parseLlmTasks(string $taskTitleLine, array $taskLines, string $fallbackTitle): array
+    {
+        $subtasks = [];
+
+        foreach ($taskLines as $line) {
+            $cleanLine = preg_replace('/^\s*-\s*/', '', $line);
+            $estimatedMinutes = 25;
+
+            // Extract duration: (XX min), (X h), (XX minutos)
+            if (preg_match('/\((\d+)\s*(?:min(?:utos?)?|m)\)/iu', $cleanLine, $match)) {
+                $estimatedMinutes = max(5, min(480, (int) $match[1]));
+                $cleanLine = trim(preg_replace('/\(\d+\s*(?:min(?:utos?)?|m)\)/iu', '', $cleanLine));
+            } elseif (preg_match('/\((\d+)\s*(?:horas?|hrs?|h)\)/iu', $cleanLine, $match)) {
+                $estimatedMinutes = max(5, min(480, (int) $match[1] * 60));
+                $cleanLine = trim(preg_replace('/\(\d+\s*(?:horas?|hrs?|h)\)/iu', '', $cleanLine));
+            }
+
+            if (mb_strlen($cleanLine) >= 3 && mb_strlen($cleanLine) <= 255) {
+                $subtasks[] = [
+                    'title' => $cleanLine,
+                    'priority' => 'medium',
+                    'estimated_minutes' => $estimatedMinutes,
+                ];
+            }
+        }
+
+        $taskTitle = $taskTitleLine ?: $fallbackTitle;
+        // Remove the "(X subtareas)" suffix from task title
+        $taskTitle = trim(preg_replace('/\(\d+\s*subtareas?\)/iu', '', $taskTitle));
+
+        $totalMinutes = array_sum(array_column($subtasks, 'estimated_minutes'));
+
+        return [
+            [
+                'title' => mb_substr($taskTitle, 0, 255),
+                'description' => null,
+                'type' => 'regular',
+                'priority' => 'medium',
+                'estimated_minutes' => $totalMinutes ?: 25,
+                'estimated_hours' => $totalMinutes > 0 ? round($totalMinutes / 60, 2) : 0.42,
+                'subtasks' => array_slice($subtasks, 0, 20),
+            ],
+        ];
+    }
+
+    /**
+     * Extracts URLs from a line of text.
+     */
+    private function extractUrlsFromLine(string $line): array
+    {
+        preg_match_all('/https?:\/\/[^\s,]+/', $line, $matches);
+        return $matches[0] ?? [];
+    }
+
+    /**
+     * Procesa texto en formato libre usando el SmartParserPipeline.
+     *
+     * @return array{payload: array, meta: array}
+     *
+     * @throws \App\Services\SmartParser\Exceptions\ParsingTimeoutException
+     */
+    private function parseWithSmartPipeline(string $text, int $companyId, ?int $requestedBy): array
+    {
+        $startTime = microtime(true);
+
+        $parsedResult = $this->smartPipeline->parse($text, $companyId);
+
+        $elapsed = microtime(true) - $startTime;
+        if ($elapsed > self::PIPELINE_TIMEOUT_SECONDS) {
+            throw new \App\Services\SmartParser\Exceptions\ParsingTimeoutException(self::PIPELINE_TIMEOUT_SECONDS);
+        }
+
+        return $parsedResult->toPayload($companyId, $requestedBy);
     }
 
     private function resolveBestSubService(array $parsed, int $contractId, string $plainText): ?SubService

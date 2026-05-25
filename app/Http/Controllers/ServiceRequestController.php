@@ -376,9 +376,10 @@ class ServiceRequestController extends Controller
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', $message);
-        } catch (\Throwable $e) {
-            Log::error('Error interpretando texto plano para solicitud: ' . $e->getMessage(), [
-                'exception' => $e,
+        } catch (\App\Services\SmartParser\Exceptions\ParsingTimeoutException $e) {
+            Log::warning('Timeout interpretando texto plano para solicitud', [
+                'workspace_id' => $companyId,
+                'text_length' => mb_strlen($validated['plain_text']),
             ]);
 
             return redirect()
@@ -387,7 +388,22 @@ class ServiceRequestController extends Controller
                     'plain_text_import_text' => $validated['plain_text'],
                     '__open_plain_text_import' => '1',
                 ])
-                ->with('plain_text_import_error', 'No se pudo interpretar el texto pegado. Revisa el formato e intenta de nuevo.');
+                ->with('plain_text_import_error', 'La interpretación excedió el tiempo límite permitido. Intenta con un texto más corto.');
+        } catch (\Throwable $e) {
+            Log::error('Error inesperado interpretando texto plano para solicitud', [
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'workspace_id' => $companyId,
+                'text_length' => mb_strlen($validated['plain_text']),
+            ]);
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', 'Ocurrió un problema durante la interpretación del texto. Intenta de nuevo más tarde.');
         }
     }
 
