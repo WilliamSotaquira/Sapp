@@ -703,6 +703,13 @@ class TechnicianScheduleController extends Controller
             default => 40,
         };
 
+        // Usar puntaje de prioridad calculado si está disponible
+        $srPriorityScore = (int) optional($task->serviceRequest)->priority_score;
+        if ($srPriorityScore > 0) {
+            // Escalar el puntaje de prioridad (0-100) al rango de criticidad (30-220)
+            $criticalityScore = (int) (30 + ($srPriorityScore / 100) * 190);
+        }
+
         $serviceLabel = strtolower(trim(
             (string) optional(optional(optional($task->serviceRequest)->subService)->service)->name . ' ' .
             (string) optional(optional($task->serviceRequest)->subService)->name

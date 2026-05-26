@@ -23,6 +23,9 @@ Route::prefix('service-requests')
         // ✅ CORREGIDO: Ruta para resolver solicitud
         Route::patch('/{service_request}/resolve', [ServiceRequestController::class, 'resolve'])->name('resolve');
 
+        // Generar descripción de resolución con IA
+        Route::post('/{service_request}/generate-resolution', [ServiceRequestController::class, 'generateResolution'])->name('generate-resolution');
+
         // Mostrar formulario de resolución
         Route::get('/{service_request}/resolve-form', [ServiceRequestController::class, 'showResolveForm'])->name('resolve-form');
 

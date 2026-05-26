@@ -453,7 +453,7 @@
         </div>
     </div>
 
-    <!-- Nivel de Criticidad - Agregar CRITICA como opción -->
+    <!-- Nivel de Criticidad -->
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">
             Nivel de Criticidad <span class="text-red-500">*</span>
@@ -463,43 +463,30 @@
             $currentCriticality = old('criticality_level', $serviceRequest->criticality_level ?? 'MEDIA');
         @endphp
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4" id="criticality-level-container">
-            @foreach (['BAJA', 'MEDIA', 'ALTA', 'URGENTE', 'CRITICA'] as $level)
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="criticality-level-container">
+            @foreach (['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] as $level)
                 <label class="relative flex cursor-pointer criticality-level-option">
                     <input type="radio" name="criticality_level" value="{{ $level }}"
                         {{ $currentCriticality == $level ? 'checked' : '' }} class="sr-only peer" required tabindex="-1">
                     <div
-                        class="w-full p-4 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:shadow-md">
-                        <div class="flex flex-col items-center space-y-2">
+                        class="w-full px-3 py-3 border-2 border-gray-200 rounded-lg text-center transition-all duration-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:shadow-md hover:border-gray-300">
+                        <div class="flex items-center justify-center gap-2">
                             @switch($level)
                                 @case('BAJA')
-                                    <i class="fas fa-arrow-down text-green-500 text-lg"></i>
-                                    <span class="font-medium text-gray-700">Baja</span>
-                                    <span class="text-xs text-gray-500">Impacto mínimo</span>
+                                    <i class="fas fa-arrow-down text-green-500"></i>
+                                    <span class="font-medium text-gray-700 text-sm">Baja</span>
                                 @break
-
                                 @case('MEDIA')
-                                    <i class="fas fa-minus text-yellow-500 text-lg"></i>
-                                    <span class="font-medium text-gray-700">Media</span>
-                                    <span class="text-xs text-gray-500">Impacto moderado</span>
+                                    <i class="fas fa-minus text-yellow-500"></i>
+                                    <span class="font-medium text-gray-700 text-sm">Media</span>
                                 @break
-
                                 @case('ALTA')
-                                    <i class="fas fa-arrow-up text-orange-500 text-lg"></i>
-                                    <span class="font-medium text-gray-700">Alta</span>
-                                    <span class="text-xs text-gray-500">Impacto significativo</span>
+                                    <i class="fas fa-arrow-up text-orange-500"></i>
+                                    <span class="font-medium text-gray-700 text-sm">Alta</span>
                                 @break
-
-                                @case('URGENTE')
-                                    <i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>
-                                    <span class="font-medium text-gray-700">Urgente</span>
-                                    <span class="text-xs text-gray-500">Impacto crítico</span>
-                                @break
-
                                 @case('CRITICA')
-                                    <i class="fas fa-skull-crossbones text-red-700 text-lg"></i>
-                                    <span class="font-medium text-gray-700">Crítica</span>
-                                    <span class="text-xs text-gray-500">Impacto extremo</span>
+                                    <i class="fas fa-skull-crossbones text-red-600"></i>
+                                    <span class="font-medium text-gray-700 text-sm">Crítica</span>
                                 @break
                             @endswitch
                         </div>
@@ -1462,11 +1449,11 @@
 @endonce
 
 <style>
-    /* Asegurar que los estilos de Tailwind se apliquen a los radios seleccionados */
+    /* Estilos para radios de criticidad seleccionados */
     input[name="criticality_level"]:checked+div {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-color: #10b981;
+        background-color: #ecfdf5;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     }
 
     /* Estilos para elementos destacados en la búsqueda */
@@ -1584,6 +1571,10 @@
 
     function setCriticalityLevel(level) {
         console.log('🎯 Configurando criticidad:', level);
+        // Mapear URGENTE a CRITICA (ya no existe como opción separada)
+        if (level === 'URGENTE') {
+            level = 'CRITICA';
+        }
         const radio = document.querySelector(`input[name="criticality_level"][value="${level}"]`);
         if (radio) {
             radio.checked = true;

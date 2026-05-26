@@ -47,18 +47,28 @@
 
             <div class="space-y-4">
                 <div>
-                    <label for="resolution_description_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
-                        Descripción de acciones realizadas *
-                    </label>
+                    <div class="flex items-center justify-between mb-1">
+                        <label for="resolution_description_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700">
+                            Descripción de acciones realizadas *
+                        </label>
+                        <button type="button"
+                                id="btn-generate-resolution-{{ $serviceRequest->id }}"
+                                class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors duration-200"
+                                onclick="generateResolutionWithAI('{{ $serviceRequest->id }}')"
+                                title="Analizar tareas completadas y generar descripción automáticamente">
+                            <i class="fas fa-magic mr-1"></i>
+                            Generar con IA
+                        </button>
+                    </div>
                     <textarea
                         name="resolution_description"
                         id="resolution_description_{{ $serviceRequest->id }}"
-                        rows="4"
+                        rows="5"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                        placeholder="Describe detalladamente las acciones realizadas para resolver la solicitud..."
+                        placeholder="Describe las acciones realizadas o usa 'Generar con IA' para crear automáticamente..."
                         required
                         minlength="10">{{ old('resolution_description') }}</textarea>
-                    <p class="mt-1 text-xs text-gray-500">Mínimo 10 caracteres.</p>
+                    <p class="mt-1 text-xs text-gray-500" id="resolution-hint-{{ $serviceRequest->id }}">Mínimo 10 caracteres. Puedes generar automáticamente con IA.</p>
                 </div>
 
                 <div>
@@ -68,11 +78,10 @@
                     <textarea
                         name="resolution_notes"
                         id="resolution_notes_{{ $serviceRequest->id }}"
-                        rows="3"
+                        rows="2"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                        placeholder="Agrega información adicional relevante para dejar documentada la resolución...">{{ old('resolution_notes') }}</textarea>
+                        placeholder="Observaciones o información adicional...">{{ old('resolution_notes') }}</textarea>
                 </div>
-
             </div>
 
             <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
@@ -81,20 +90,13 @@
                     <div>
                         <p class="text-sm font-medium text-green-800">Proceso de Resolución</p>
                         <p class="text-xs text-green-700 mt-1">
-                            Al resolver, la solicitud cambiará a estado <strong>RESUELTA</strong>. El cierre final debe hacerse manualmente y no se ejecuta automáticamente.
+                            Al resolver, la solicitud cambiará a estado <strong>RESUELTA</strong>. El tiempo de resolución se calcula automáticamente.
                         </p>
                     </div>
                 </div>
             </div>
 
             <div class="flex justify-end space-x-3 mt-6">
-                <button type="button"
-                        class="copy-completed-tasks px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                        data-service-request-id="{{ $serviceRequest->id }}"
-                        title="Copiar tareas y subtareas completas">
-                    <i class="fas fa-copy mr-2"></i>
-                    Copiar Completas
-                </button>
                 <button type="button"
                         onclick="closeModal('resolve-modal-{{ $serviceRequest->id }}')"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200">
@@ -106,14 +108,64 @@
                     Confirmar Resolución
                 </button>
             </div>
-
-            <div class="mt-3 flex justify-start">
-                <a href="https://chat.deepseek.com/a/chat/s/b7462bd2-f93f-4913-bca4-5c249eee8ec8"
-                   target="deepseek_window"
-                   class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                    <i class="fas fa-external-link-alt mr-1"></i>Abrir Deepseek
-                </a>
-            </div>
         </form>
     </div>
 </div>
+
+<script>
+function generateResolutionWithAI(serviceRequestId) {
+    const btn = document.getElementById(`btn-generate-resolution-${serviceRequestId}`);
+    const textarea = document.getElementById(`resolution_description_${serviceRequestId}`);
+    const hint = document.getElementById(`resolution-hint-${serviceRequestId}`);
+
+    if (!btn || !textarea) return;
+
+    // Estado de carga
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Analizando...';
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'cursor-not-allowed');
+    hint.textContent = 'Analizando tareas y subtareas completadas...';
+    hint.classList.add('text-purple-600');
+
+    fetch(`/service-requests/${serviceRequestId}/generate-resolution`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value,
+            'Accept': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.resolution_text) {
+            textarea.value = data.resolution_text;
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+
+            const stats = [];
+            if (data.tasks_analyzed) stats.push(`${data.tasks_analyzed} tareas analizadas`);
+            if (data.completed_count) stats.push(`${data.completed_count} completadas`);
+
+            hint.textContent = `✅ Generado automáticamente. ${stats.join(', ')}. Revisa y ajusta si es necesario.`;
+            hint.classList.remove('text-purple-600');
+            hint.classList.add('text-green-600');
+        } else {
+            hint.textContent = `⚠️ ${data.message || 'No se pudo generar. Escribe manualmente.'}`;
+            hint.classList.remove('text-purple-600');
+            hint.classList.add('text-amber-600');
+        }
+    })
+    .catch(error => {
+        console.error('Error generating resolution:', error);
+        hint.textContent = '⚠️ Error de conexión. Escribe la descripción manualmente.';
+        hint.classList.remove('text-purple-600');
+        hint.classList.add('text-red-600');
+    })
+    .finally(() => {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    });
+}
+</script>

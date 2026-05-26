@@ -355,6 +355,16 @@ class ServiceRequestService
             $query->where('criticality_level', $filters['criticality']);
         }
 
+        // Nivel de prioridad (P0-P4)
+        if (!empty($filters['priority_level'])) {
+            $query->where('priority_level', $filters['priority_level']);
+        }
+
+        // Antigüedad
+        if (!empty($filters['antiquity_class'])) {
+            $query->where('antiquity_class', $filters['antiquity_class']);
+        }
+
         if (!empty($filters['due_status'])) {
             $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
 
@@ -544,6 +554,9 @@ class ServiceRequestService
                     $resolvedCut = null;
                     $serviceRequest = DB::transaction(function () use ($data, $tasks, $tasksTemplate, &$resolvedCut) {
                         $serviceRequest = ServiceRequest::create($data);
+
+                        // Calcular y persistir puntaje de prioridad
+                        app(\App\Services\PriorityScoringService::class)->calculateAndSave($serviceRequest);
 
                         $resolvedCut = $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
 
@@ -939,7 +952,12 @@ class ServiceRequestService
                 ->get(['id', 'name', 'email', 'department', 'company_id']),
             'companies' => \App\Models\Company::orderBy('name')->get(),
             'currentCompany' => $currentCompany,
-            'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'URGENTE']
+            'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'],
+            'complexityLevels' => ['BAJA', 'MEDIA', 'ALTA'],
+            'priorityLevels' => \App\Services\PriorityScoringService::getPriorityOptions(),
+            'antiquityOptions' => \App\Services\PriorityScoringService::getAntiquityOptions(),
+            'criticalityDescriptions' => \App\Services\PriorityScoringService::getCriticalityDescriptions(),
+            'complexityDescriptions' => \App\Services\PriorityScoringService::getComplexityDescriptions(),
         ];
     }
 

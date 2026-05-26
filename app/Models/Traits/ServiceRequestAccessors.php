@@ -56,4 +56,42 @@ trait ServiceRequestAccessors
 
         return $options[$this->entry_channel]['label'] ?? null;
     }
+
+    public function getPriorityLevelColorAttribute(): string
+    {
+        $colors = [
+            self::PRIORITY_P0 => 'danger',
+            self::PRIORITY_P1 => 'orange',
+            self::PRIORITY_P2 => 'warning',
+            self::PRIORITY_P3 => 'info',
+            self::PRIORITY_P4 => 'secondary',
+        ];
+
+        return $colors[$this->priority_level] ?? 'secondary';
+    }
+
+    public function getPriorityLevelLabelAttribute(): string
+    {
+        $labels = \App\Services\PriorityScoringService::PRIORITY_LABELS;
+
+        return $labels[$this->priority_level] ?? $this->priority_level;
+    }
+
+    public function getComplexityLevelColorAttribute(): string
+    {
+        $colors = [
+            self::COMPLEXITY_LOW => 'success',
+            self::COMPLEXITY_MEDIUM => 'warning',
+            self::COMPLEXITY_HIGH => 'orange',
+        ];
+
+        return $colors[$this->complexity_level] ?? 'secondary';
+    }
+
+    public function getAntiquityClassLabelAttribute(): ?string
+    {
+        $labels = \App\Services\PriorityScoringService::ANTIQUITY_LABELS;
+
+        return $labels[$this->antiquity_class] ?? $this->antiquity_class;
+    }
 }
