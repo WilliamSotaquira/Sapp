@@ -712,6 +712,7 @@ class ServiceRequestController extends Controller
         $prompt .= "- Enfócate SOLO en las tareas y subtareas completadas.\n";
         $prompt .= "- Sé conciso pero completo. Máximo 4-6 oraciones.\n";
         $prompt .= "- No incluyas tareas pendientes o canceladas en la descripción.\n";
+        $prompt .= "- NUNCA incluyas frases sobre informar, notificar o comunicar al solicitante, usuario o responsable sobre la finalización. Eso es un paso operativo implícito que no se documenta.\n";
         $prompt .= "- Formato: texto plano, sin markdown ni viñetas.\n";
         $prompt .= "- Idioma: español.\n";
 
