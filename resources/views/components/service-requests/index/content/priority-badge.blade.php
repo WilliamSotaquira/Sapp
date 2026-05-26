@@ -25,7 +25,7 @@
 @endphp
 
 <span class="{{ $sizeClass }} inline-flex items-center gap-1 font-semibold rounded-full {{ $config['class'] }}"
-      title="Prioridad: {{ ucfirst(strtolower($priority)) }}">
+      title="Criticidad: {{ ucfirst(strtolower($priority)) }}">
     <i class="fas {{ $config['icon'] }} text-[10px]"></i>
     {{ $priority }}
 </span>

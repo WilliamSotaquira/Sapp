@@ -1,5 +1,5 @@
 {{-- resources/views/components/service-requests/list/filters.blade.php --}}
-@props(['statuses' => [], 'criticalityLevels' => [], 'services' => [], 'technicians' => [], 'filters' => []])
+@props(['statuses' => [], 'criticalityLevels' => [], 'services' => [], 'technicians' => [], 'filters' => [], 'priorityLevels' => [], 'antiquityOptions' => []])
 
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
     <!-- Header de Filtros -->
@@ -76,6 +76,44 @@
                     <option value="{{ $level }}"
                         {{ request('criticality_level') == $level ? 'selected' : '' }}>
                         {{ $level }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Nivel de Prioridad (P0-P4) -->
+            <div>
+                <label for="priority_level" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-fire mr-1"></i>Prioridad
+                </label>
+                <select
+                    name="priority_level"
+                    id="priority_level"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <option value="">Todas las prioridades</option>
+                    @foreach($priorityLevels as $key => $label)
+                    <option value="{{ $key }}"
+                        {{ request('priority_level') == $key ? 'selected' : '' }}>
+                        {{ $key }} - {{ $label }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Antigüedad -->
+            <div>
+                <label for="antiquity_class" class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-clock mr-1"></i>Antigüedad
+                </label>
+                <select
+                    name="antiquity_class"
+                    id="antiquity_class"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <option value="">Todas</option>
+                    @foreach($antiquityOptions as $key => $label)
+                    <option value="{{ $key }}"
+                        {{ request('antiquity_class') == $key ? 'selected' : '' }}>
+                        {{ $label }}
                     </option>
                     @endforeach
                 </select>
@@ -169,6 +207,12 @@
                     <option value="criticality_level" {{ request('sort_by') == 'criticality_level' ? 'selected' : '' }}>
                         Nivel de criticidad
                     </option>
+                    <option value="priority_score" {{ request('sort_by') == 'priority_score' ? 'selected' : '' }}>
+                        Puntaje de prioridad
+                    </option>
+                    <option value="priority_level" {{ request('sort_by') == 'priority_level' ? 'selected' : '' }}>
+                        Nivel de prioridad (P0-P4)
+                    </option>
                 </select>
             </div>
 
@@ -204,6 +248,10 @@
                     <a href="{{ route('service-requests.index', ['criticality_level' => 'ALTA']) }}"
                         class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 transition">
                         Alta Criticidad
+                    </a>
+                    <a href="{{ route('service-requests.index', ['priority_level' => 'P0']) }}"
+                        class="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition">
+                        P0 - Atender hoy
                     </a>
                     <a href="{{ route('service-requests.index', ['assignee_id' => 'unassigned']) }}"
                         class="text-xs px-2 py-1 bg-gray-100 text-gray-800 rounded hover:bg-gray-200 transition">
@@ -262,7 +310,7 @@
 
     // Auto-submit al cambiar algunos filtros
     document.addEventListener('DOMContentLoaded', function() {
-        const autoSubmitElements = ['status', 'criticality_level', 'service_id', 'assignee_id', 'sort_by', 'sort_order'];
+        const autoSubmitElements = ['status', 'criticality_level', 'priority_level', 'antiquity_class', 'service_id', 'assignee_id', 'sort_by', 'sort_order'];
 
         autoSubmitElements.forEach(function(elementId) {
             const element = document.getElementById(elementId);

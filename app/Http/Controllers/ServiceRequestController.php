@@ -70,6 +70,8 @@ class ServiceRequestController extends Controller
             'search' => $globalSearch,
             'status' => $request->get('status'),
             'criticality' => $request->get('criticality'),
+            'priority_level' => $request->get('priority_level'),
+            'antiquity_class' => $request->get('antiquity_class'),
             'due_status' => $request->get('due_status'),
             'requester' => $request->get('requester'), // nombre o email parcial
             'service_id' => $request->get('service_id'),
@@ -647,6 +649,132 @@ class ServiceRequestController extends Controller
         return redirect()
             ->route('service-requests.show', $serviceRequest)
             ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * Generar descripción de resolución usando IA (OpenRouter API).
+     * Analiza las tareas/subtareas completadas y genera un resumen profesional.
+     */
+    public function generateResolution(Request $request, ServiceRequest $serviceRequest)
+    {
+        if (!config('services.llm.enabled', false) && !config('services.openrouter.key')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio de IA no está configurado.',
+            ], 503);
+        }
+
+        $tasks = $serviceRequest->tasks()->with('subtasks')->get();
+
+        if ($tasks->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay tareas asociadas a esta solicitud.',
+            ], 422);
+        }
+
+        // Construir contexto de tareas para el LLM
+        $tasksSummary = $tasks->map(function ($task) {
+            $status = strtolower($task->status);
+            $statusLabel = match ($status) {
+                'completed' => '✅ Completada',
+                'in_progress' => '🔄 En progreso',
+                'pending' => '⏳ Pendiente',
+                'cancelled' => '❌ Cancelada',
+                default => ucfirst($status),
+            };
+
+            $subtaskLines = '';
+            if ($task->subtasks && $task->subtasks->isNotEmpty()) {
+                $subtaskLines = $task->subtasks->map(function ($sub) {
+                    $done = $sub->is_completed ? '✅' : '⬜';
+                    return "    {$done} {$sub->title}";
+                })->implode("\n");
+            }
+
+            $line = "- [{$statusLabel}] {$task->title}";
+            if ($task->description) {
+                $line .= "\n  Descripción: " . Str::limit($task->description, 150);
+            }
+            if ($subtaskLines) {
+                $line .= "\n  Subtareas:\n{$subtaskLines}";
+            }
+
+            return $line;
+        })->implode("\n\n");
+
+        $prompt = "Eres un analista de soporte técnico. Genera una descripción profesional y concisa de las acciones realizadas para resolver la siguiente solicitud de servicio.\n\n";
+        $prompt .= "SOLICITUD: {$serviceRequest->title}\n";
+        $prompt .= "DESCRIPCIÓN ORIGINAL: " . Str::limit($serviceRequest->description, 300) . "\n\n";
+        $prompt .= "TAREAS Y SUBTAREAS:\n{$tasksSummary}\n\n";
+        $prompt .= "INSTRUCCIONES:\n";
+        $prompt .= "- Redacta en primera persona del plural (nosotros/se realizó).\n";
+        $prompt .= "- Enfócate SOLO en las tareas y subtareas completadas.\n";
+        $prompt .= "- Sé conciso pero completo. Máximo 4-6 oraciones.\n";
+        $prompt .= "- No incluyas tareas pendientes o canceladas en la descripción.\n";
+        $prompt .= "- Formato: texto plano, sin markdown ni viñetas.\n";
+        $prompt .= "- Idioma: español.\n";
+
+        try {
+            $apiKey = config('services.openrouter.key') ?: config('services.llm.api_key');
+            $model = config('services.llm.model', config('services.openrouter.model', 'deepseek/deepseek-chat-v3-0324'));
+            $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
+
+            $response = \Illuminate\Support\Facades\Http::timeout(45)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type' => 'application/json',
+                    'HTTP-Referer' => config('app.url'),
+                    'X-OpenRouter-Title' => config('services.openrouter.app_name', config('app.name', 'SAPP')),
+                ])
+                ->post("{$baseUrl}/chat/completions", [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $prompt],
+                        ['role' => 'user', 'content' => 'Genera la descripción de resolución.'],
+                    ],
+                    'temperature' => 0.3,
+                    'max_tokens' => 800,
+                ]);
+
+            if (!$response->successful()) {
+                Log::warning('generateResolution: API request failed', [
+                    'status' => $response->status(),
+                    'service_request_id' => $serviceRequest->id,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al comunicarse con el servicio de IA.',
+                ], 502);
+            }
+
+            $content = data_get($response->json(), 'choices.0.message.content', '');
+
+            if (empty(trim($content))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La IA no generó una respuesta válida.',
+                ], 502);
+            }
+
+            return response()->json([
+                'success' => true,
+                'resolution_text' => trim($content),
+                'tasks_analyzed' => $tasks->count(),
+                'completed_count' => $tasks->where('status', 'completed')->count(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('generateResolution: Exception', [
+                'message' => $e->getMessage(),
+                'service_request_id' => $serviceRequest->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error interno al generar la resolución.',
+            ], 500);
+        }
     }
 
     /**

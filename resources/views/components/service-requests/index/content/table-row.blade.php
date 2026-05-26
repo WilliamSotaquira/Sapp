@@ -140,6 +140,11 @@
     <!-- Prioridad -->
     <td class="px-3 py-2.5 align-top whitespace-nowrap">
         <x-service-requests.index.content.priority-badge :priority="$request->criticality_level" compact />
+        @if($request->priority_level)
+            <div class="mt-1">
+                <x-service-requests.index.content.priority-level-badge :level="$request->priority_level" :score="$request->priority_score" compact />
+            </div>
+        @endif
     </td>
 
     <!-- Estado -->
