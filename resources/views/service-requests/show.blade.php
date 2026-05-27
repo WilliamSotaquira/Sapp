@@ -829,5 +829,42 @@
                 fallbackCopy();
             }
         }
+
+        // Función para generar notas de resolución en tercera persona
+        function generateThirdPersonNotes(serviceRequestId) {
+            const textarea = document.querySelector('#resolution_notes_' + serviceRequestId);
+            if (!textarea) {
+                alert('No se encontró el campo de notas de resolución.');
+                return;
+            }
+
+            textarea.value = 'Generando...';
+            textarea.disabled = true;
+
+            fetch('/service-requests/' + serviceRequestId + '/generate-resolution-third-person', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    textarea.value = data.resolution_text;
+                    alert('Observaciones generadas exitosamente.');
+                } else {
+                    textarea.value = '';
+                    textarea.disabled = false;
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                textarea.value = '';
+                textarea.disabled = false;
+                alert('Error de conexión. Intente nuevamente.');
+                console.error('Error:', error);
+            });
+        }
     </script>
 @endpush

@@ -279,6 +279,138 @@ class ServiceRequestController extends Controller
     }
 
     /**
+     * Generar descripción de resolución usando IA (OpenRouter API) - TERCERA PERSONA.
+     * Analiza las tareas/subtareas completadas y genera un resumen profesional en tercera persona.
+     */
+    public function generateResolutionThirdPerson(ServiceRequest $serviceRequest)
+    {
+        if (!config('services.openrouter.key')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El servicio de IA no está configurado.',
+            ]);
+        }
+
+        $tasks = $serviceRequest->tasks()->with('subtasks')->get();
+
+        if ($tasks->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay tareas asociadas a esta solicitud.',
+            ]);
+        }
+
+        // Construir contexto de tareas para el LLM
+        $tasksSummary = $tasks->map(function ($task) {
+            $status = strtolower($task->status);
+            $statusLabel = match ($status) {
+                'completed' => '✅ Completada',
+                'in_progress' => '🔄 En progreso',
+                'pending' => '⏳ Pendiente',
+                'cancelled' => '❌ Cancelada',
+                default => ucfirst($status),
+            };
+
+            $subtaskLines = '';
+            if ($task->subtasks && $task->subtasks->isNotEmpty()) {
+                $subtaskLines = $task->subtasks->map(function ($sub) {
+                    $done = $sub->is_completed ? '✅' : '⬜';
+                    return "    {$done} {$sub->title}";
+                })->implode("\n");
+            }
+
+            $line = "- [{$statusLabel}] {$task->title}";
+            if ($task->description) {
+                $line .= "\n  Descripción: " . Str::limit($task->description, 150);
+            }
+            if ($subtaskLines) {
+                $line .= "\n  Subtareas:\n{$subtaskLines}";
+            }
+
+            return $line;
+        })->implode("\n\n");
+
+        $prompt = "Eres el redactor de respuestas al cliente de un equipo de soporte técnico. Escribe un párrafo breve que informe al usuario que su solicitud fue atendida.\n\n";
+        $prompt .= "SOLICITUD: {$serviceRequest->title}\n";
+        $prompt .= "DESCRIPCIÓN ORIGINAL: " . Str::limit($serviceRequest->description, 200) . "\n\n";
+        $prompt .= "TAREAS REALIZADAS:\n{$tasksSummary}\n\n";
+        $prompt .= "INSTRUCCIONES:\n";
+        $prompt .= "- Usa modo indicativo, pretérito perfecto simple (indefinido): verbos como realizó, verificó, instaló, configuró, resolvió, actualizó.\n";
+        $prompt .= "- Redacta en tercera persona impersonal o del equipo (ej: 'Se realizó...', 'El equipo instaló...', 'Se verificó...').\n";
+        $prompt .= "- Usa lenguaje sencillo y claro, sin términos técnicos ni jerga interna.\n";
+        $prompt .= "- Describe solo las acciones completadas; omite tareas pendientes o canceladas.\n";
+        $prompt .= "- Sé breve: máximo 3-4 oraciones.\n";
+        $prompt .= "- NUNCA uses futuro ni condicional (no: 'se informará', 'se procederá', 'se recomienda').\n";
+        $prompt .= "- El texto describe ÚNICAMENTE las acciones técnicas o de servicio realizadas (reparaciones, instalaciones, configuraciones, revisiones, etc.).\n";
+        $prompt .= "- PROHIBIDO incluir cualquier frase relacionada con: confirmar la solicitud, registrar la solicitud, cerrar la solicitud, gestionar el ticket, o cualquier paso administrativo interno. Ejemplos prohibidos: 'Se confirmó el registro de la solicitud', 'Se procedió a su cierre', 'Se confirmó con el solicitante', 'Se registró el cierre', 'Se gestionó el ticket'. Esas acciones son implícitas y no se mencionan.\n";
+        $prompt .= "- No uses saludos, despedidas ni frases de cierre.\n";
+        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown.\n";
+        $prompt .= "- Idioma: español.";
+
+
+        try {
+            $apiKey = config('services.openrouter.key');
+            $model = config('services.llm.model', config('services.openrouter.model', 'deepseek/deepseek-chat-v3-0324'));
+            $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
+
+            $response = \Illuminate\Support\Facades\Http::timeout(45)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type' => 'application/json',
+                    'HTTP-Referer' => config('app.url'),
+                    'X-OpenRouter-Title' => config('services.openrouter.app_name', config('app.name', 'SAPP')),
+                ])
+                ->post("{$baseUrl}/chat/completions", [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $prompt],
+                        ['role' => 'user', 'content' => 'Genera la descripción de resolución en tercera persona.'],
+                    ],
+                    'temperature' => 0.3,
+                    'max_tokens' => 800,
+                ]);
+
+            if (!$response->successful()) {
+                Log::warning('generateResolutionThirdPerson: API request failed', [
+                    'status' => $response->status(),
+                    'service_request_id' => $serviceRequest->id,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al comunicarse con el servicio de IA.',
+                ]);
+            }
+
+            $content = data_get($response->json(), 'choices.0.message.content', '');
+
+            if (empty(trim($content))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La IA no generó una respuesta válida.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'resolution_text' => trim($content),
+                'tasks_analyzed' => $tasks->count(),
+                'completed_count' => $tasks->where('status', 'completed')->count(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('generateResolutionThirdPerson: Exception', [
+                'message' => $e->getMessage(),
+                'service_request_id' => $serviceRequest->id,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error interno al generar la resolución.',
+            ]);
+        }
+    }
+
+    /**
      * Sugerencias de solicitantes para autocompletar.
      */
     public function suggestRequesters(Request $request)
