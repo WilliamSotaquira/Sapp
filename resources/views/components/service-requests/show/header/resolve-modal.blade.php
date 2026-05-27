@@ -71,16 +71,46 @@
                     <p class="mt-1 text-xs text-gray-500" id="resolution-hint-{{ $serviceRequest->id }}">Mínimo 10 caracteres. Puedes generar automáticamente con IA.</p>
                 </div>
 
+                <!-- Respuesta para correo (generada por IA) -->
                 <div>
-                    <label for="resolution_notes_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700 mb-1">
-                        Notas adicionales (opcional)
-                    </label>
-                    <textarea
-                        name="resolution_notes"
-                        id="resolution_notes_{{ $serviceRequest->id }}"
-                        rows="2"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                        placeholder="Observaciones o información adicional...">{{ old('resolution_notes') }}</textarea>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-medium text-gray-700">
+                            Respuesta para correo
+                            <span class="ml-1 text-xs font-normal text-gray-400">(opcional)</span>
+                        </label>
+                        <button type="button"
+                                id="btn-generate-email-reply-{{ $serviceRequest->id }}"
+                                class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                                onclick="generateEmailReply('{{ $serviceRequest->id }}')"
+                                title="Generar respuesta breve no técnica para enviar por correo">
+                            <i class="fas fa-envelope-open-text mr-1"></i>
+                            Generar respuesta
+                        </button>
+                    </div>
+
+                    <!-- Área de resultado: oculta hasta que se genere -->
+                    <div id="email-reply-box-{{ $serviceRequest->id }}" class="hidden">
+                        <div class="relative">
+                            <div id="email-reply-text-{{ $serviceRequest->id }}"
+                                 class="w-full px-3 py-2 border border-blue-200 rounded-md text-gray-800 bg-blue-50 text-sm leading-relaxed whitespace-pre-wrap min-h-[60px]"></div>
+                            <button type="button"
+                                    id="btn-copy-email-reply-{{ $serviceRequest->id }}"
+                                    onclick="copyEmailReply('{{ $serviceRequest->id }}')"
+                                    class="absolute top-2 right-2 inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors duration-200"
+                                    title="Copiar texto al portapapeles">
+                                <i class="fas fa-copy mr-1"></i>
+                                Copiar
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400" id="email-reply-hint-{{ $serviceRequest->id }}">
+                            Texto listo para pegar en tu correo. Puedes editarlo antes de enviar.
+                        </p>
+                    </div>
+
+                    <!-- Mensaje de estado mientras carga -->
+                    <p class="text-xs text-gray-400 hidden" id="email-reply-loading-{{ $serviceRequest->id }}">
+                        <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta...
+                    </p>
                 </div>
             </div>
 
@@ -113,6 +143,90 @@
 </div>
 
 <script>
+function generateEmailReply(serviceRequestId) {
+    const btn      = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
+    const box      = document.getElementById(`email-reply-box-${serviceRequestId}`);
+    const textEl   = document.getElementById(`email-reply-text-${serviceRequestId}`);
+    const hint     = document.getElementById(`email-reply-hint-${serviceRequestId}`);
+    const loading  = document.getElementById(`email-reply-loading-${serviceRequestId}`);
+
+    if (!btn || !textEl) return;
+
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Generando...';
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'cursor-not-allowed');
+    box.classList.add('hidden');
+    loading.classList.remove('hidden');
+
+    fetch(`/service-requests/${serviceRequestId}/generate-email-reply`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value,
+            'Accept': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        loading.classList.add('hidden');
+        if (data.success && data.resolution_text) {
+            textEl.textContent = data.resolution_text;
+            box.classList.remove('hidden');
+            hint.textContent = 'Texto listo para pegar en tu correo. Puedes editarlo antes de enviar.';
+            hint.className = 'mt-1 text-xs text-gray-400';
+        } else {
+            loading.classList.add('hidden');
+            const msg = document.createElement('p');
+            msg.className = 'mt-1 text-xs text-amber-600';
+            msg.textContent = '⚠️ ' + (data.message || 'No se pudo generar. Intenta de nuevo.');
+            btn.parentElement.parentElement.appendChild(msg);
+            setTimeout(() => msg.remove(), 5000);
+        }
+    })
+    .catch(() => {
+        loading.classList.add('hidden');
+        const msg = document.createElement('p');
+        msg.className = 'mt-1 text-xs text-red-600';
+        msg.textContent = '⚠️ Error de conexión. Intenta de nuevo.';
+        btn.parentElement.parentElement.appendChild(msg);
+        setTimeout(() => msg.remove(), 5000);
+    })
+    .finally(() => {
+        btn.innerHTML = '<i class="fas fa-envelope-open-text mr-1"></i> Regenerar';
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    });
+}
+
+function copyEmailReply(serviceRequestId) {
+    const textEl  = document.getElementById(`email-reply-text-${serviceRequestId}`);
+    const copyBtn = document.getElementById(`btn-copy-email-reply-${serviceRequestId}`);
+    if (!textEl) return;
+
+    navigator.clipboard.writeText(textEl.textContent).then(() => {
+        const original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado';
+        copyBtn.classList.add('text-green-600', 'border-green-300');
+        setTimeout(() => {
+            copyBtn.innerHTML = original;
+            copyBtn.classList.remove('text-green-600', 'border-green-300');
+        }, 2000);
+    }).catch(() => {
+        // fallback para navegadores sin clipboard API
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+
+        const original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado';
+        setTimeout(() => { copyBtn.innerHTML = original; }, 2000);
+    });
+}
+
 function generateResolutionWithAI(serviceRequestId) {
     const btn = document.getElementById(`btn-generate-resolution-${serviceRequestId}`);
     const textarea = document.getElementById(`resolution_description_${serviceRequestId}`);

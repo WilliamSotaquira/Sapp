@@ -26,6 +26,9 @@ Route::prefix('service-requests')
         // Generar descripción de resolución con IA
         Route::post('/{service_request}/generate-resolution', [ServiceRequestController::class, 'generateResolution'])->name('generate-resolution');
 
+        // Generar respuesta para correo con IA (tercera persona)
+        Route::post('/{service_request}/generate-email-reply', [ServiceRequestController::class, 'generateResolutionThirdPerson'])->name('generate-email-reply');
+
         // Mostrar formulario de resolución
         Route::get('/{service_request}/resolve-form', [ServiceRequestController::class, 'showResolveForm'])->name('resolve-form');
 
