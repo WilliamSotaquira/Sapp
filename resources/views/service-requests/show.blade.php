@@ -244,6 +244,22 @@
         if (!modal) return;
         bindModal(modal);
         returnFocus.set(modalId, triggerEl || document.activeElement);
+
+        // Para el modal de resolución: generar contenido primero, mostrar después
+        if (modalId.startsWith('resolve-modal-') && typeof initResolveModal === 'function') {
+            var srId = modalId.replace('resolve-modal-', '');
+            showResolveLoader(srId);
+            initResolveModal(srId, function() {
+                hideResolveLoader(srId);
+                revealModal(modal, modalId);
+            });
+            return;
+        }
+
+        revealModal(modal, modalId);
+    };
+
+    function revealModal(modal, modalId) {
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
@@ -251,12 +267,41 @@
         modal.setAttribute('aria-modal', 'true');
         document.body.classList.add('overflow-hidden');
 
+        // Auto-resize textareas que fueron llenadas mientras el modal estaba oculto
+        modal.querySelectorAll('textarea').forEach(function(ta) {
+            if (ta.value) {
+                ta.style.height = 'auto';
+                ta.style.height = ta.scrollHeight + 'px';
+            }
+        });
+
         var focusables = getFocusable(modal);
         setTimeout(function(){
             if (focusables.length > 0) focusables[0].focus();
             else modal.focus();
         }, 0);
-    };
+    }
+
+    function showResolveLoader(srId) {
+        var existing = document.getElementById('resolve-loader-' + srId);
+        if (existing) { existing.classList.remove('hidden'); return; }
+
+        var loader = document.createElement('div');
+        loader.id = 'resolve-loader-' + srId;
+        loader.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50';
+        loader.innerHTML = '<div class="bg-white rounded-lg shadow-xl px-8 py-6 flex flex-col items-center gap-3">'
+            + '<i class="fas fa-spinner fa-spin text-2xl text-green-600"></i>'
+            + '<p class="text-sm font-medium text-gray-700">Preparando resolución...</p>'
+            + '<p class="text-xs text-gray-400">Generando descripción y respuesta de correo</p>'
+            + '</div>';
+        document.body.appendChild(loader);
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function hideResolveLoader(srId) {
+        var loader = document.getElementById('resolve-loader-' + srId);
+        if (loader) loader.remove();
+    }
 
     window.closeModal = function(modalId) {
         var modal = document.getElementById(modalId);
