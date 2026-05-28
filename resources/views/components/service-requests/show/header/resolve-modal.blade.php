@@ -46,18 +46,20 @@
             @method('PATCH')
 
             <div class="space-y-4">
+                <!-- Descripción de acciones realizadas -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <label for="resolution_description_{{ $serviceRequest->id }}" class="block text-sm font-medium text-gray-700">
                             Descripción de acciones realizadas *
                         </label>
+                        <!-- Botón regenerar: oculto hasta primera generación -->
                         <button type="button"
                                 id="btn-generate-resolution-{{ $serviceRequest->id }}"
-                                class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors duration-200"
+                                class="hidden inline-flex items-center px-2.5 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors duration-200"
                                 onclick="generateResolutionWithAI('{{ $serviceRequest->id }}')"
-                                title="Analizar tareas completadas y generar descripción automáticamente">
-                            <i class="fas fa-magic mr-1"></i>
-                            Generar con IA
+                                title="Regenerar descripción automáticamente">
+                            <i class="fas fa-redo mr-1"></i>
+                            Regenerar
                         </button>
                     </div>
                     <textarea
@@ -65,26 +67,26 @@
                         id="resolution_description_{{ $serviceRequest->id }}"
                         rows="5"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-green-500 focus:border-green-500"
-                        placeholder="Describe las acciones realizadas o usa 'Generar con IA' para crear automáticamente..."
+                        placeholder="Generando descripción automáticamente..."
                         required
                         minlength="10">{{ old('resolution_description') }}</textarea>
-                    <p class="mt-1 text-xs text-gray-500" id="resolution-hint-{{ $serviceRequest->id }}">Mínimo 10 caracteres. Puedes generar automáticamente con IA.</p>
+                    <p class="mt-1 text-xs text-gray-500" id="resolution-hint-{{ $serviceRequest->id }}">Mínimo 10 caracteres.</p>
                 </div>
 
-                <!-- Respuesta para correo (generada por IA) -->
+                <!-- Respuesta para correo -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-sm font-medium text-gray-700">
                             Respuesta para correo
-                            <span class="ml-1 text-xs font-normal text-gray-400">(opcional)</span>
                         </label>
+                        <!-- Botón regenerar: oculto hasta primera generación -->
                         <button type="button"
                                 id="btn-generate-email-reply-{{ $serviceRequest->id }}"
-                                class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                                class="hidden inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
                                 onclick="generateEmailReply('{{ $serviceRequest->id }}')"
-                                title="Generar respuesta breve no técnica para enviar por correo">
-                            <i class="fas fa-envelope-open-text mr-1"></i>
-                            Generar respuesta
+                                title="Regenerar respuesta para correo">
+                            <i class="fas fa-redo mr-1"></i>
+                            Regenerar
                         </button>
                     </div>
 
@@ -109,7 +111,7 @@
 
                     <!-- Mensaje de estado mientras carga -->
                     <p class="text-xs text-gray-400 hidden" id="email-reply-loading-{{ $serviceRequest->id }}">
-                        <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta...
+                        <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta para correo...
                     </p>
                 </div>
             </div>
@@ -143,104 +145,48 @@
 </div>
 
 <script>
-function generateEmailReply(serviceRequestId) {
-    const btn      = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
-    const box      = document.getElementById(`email-reply-box-${serviceRequestId}`);
-    const textEl   = document.getElementById(`email-reply-text-${serviceRequestId}`);
-    const hint     = document.getElementById(`email-reply-hint-${serviceRequestId}`);
-    const loading  = document.getElementById(`email-reply-loading-${serviceRequestId}`);
+/**
+ * Auto-genera ambas respuestas al abrir el modal.
+ * Primero genera la descripción técnica, luego la respuesta de correo.
+ * Llama a onComplete cuando ambas terminan.
+ */
+function initResolveModal(serviceRequestId, onComplete) {
+    const textarea = document.getElementById(`resolution_description_${serviceRequestId}`);
 
-    if (!btn || !textEl) return;
-
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Generando...';
-    btn.disabled = true;
-    btn.classList.add('opacity-60', 'cursor-not-allowed');
-    box.classList.add('hidden');
-    loading.classList.remove('hidden');
-
-    fetch(`/service-requests/${serviceRequestId}/generate-email-reply`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value,
-            'Accept': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        loading.classList.add('hidden');
-        if (data.success && data.resolution_text) {
-            textEl.textContent = data.resolution_text;
-            box.classList.remove('hidden');
-            hint.textContent = 'Texto listo para pegar en tu correo. Puedes editarlo antes de enviar.';
-            hint.className = 'mt-1 text-xs text-gray-400';
-        } else {
-            loading.classList.add('hidden');
-            const msg = document.createElement('p');
-            msg.className = 'mt-1 text-xs text-amber-600';
-            msg.textContent = '⚠️ ' + (data.message || 'No se pudo generar. Intenta de nuevo.');
-            btn.parentElement.parentElement.appendChild(msg);
-            setTimeout(() => msg.remove(), 5000);
-        }
-    })
-    .catch(() => {
-        loading.classList.add('hidden');
-        const msg = document.createElement('p');
-        msg.className = 'mt-1 text-xs text-red-600';
-        msg.textContent = '⚠️ Error de conexión. Intenta de nuevo.';
-        btn.parentElement.parentElement.appendChild(msg);
-        setTimeout(() => msg.remove(), 5000);
-    })
-    .finally(() => {
-        btn.innerHTML = '<i class="fas fa-envelope-open-text mr-1"></i> Regenerar';
-        btn.disabled = false;
-        btn.classList.remove('opacity-60', 'cursor-not-allowed');
-    });
+    // Solo auto-generar si el textarea está vacío (no hay old() input)
+    if (textarea && !textarea.value.trim()) {
+        generateResolutionWithAI(serviceRequestId, true, function() {
+            generateEmailReply(serviceRequestId, true, onComplete);
+        });
+    } else {
+        // Si ya hay texto (old input), mostrar botones de regenerar directamente
+        const btnRes = document.getElementById(`btn-generate-resolution-${serviceRequestId}`);
+        const btnEmail = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
+        const hint = document.getElementById(`resolution-hint-${serviceRequestId}`);
+        const emailLoading = document.getElementById(`email-reply-loading-${serviceRequestId}`);
+        if (btnRes) btnRes.classList.remove('hidden');
+        if (btnEmail) btnEmail.classList.remove('hidden');
+        if (hint) { hint.textContent = 'Mínimo 10 caracteres.'; hint.className = 'mt-1 text-xs text-gray-500'; }
+        if (emailLoading) emailLoading.classList.add('hidden');
+        // Generar solo el correo automáticamente
+        generateEmailReply(serviceRequestId, true, onComplete);
+    }
 }
 
-function copyEmailReply(serviceRequestId) {
-    const textEl  = document.getElementById(`email-reply-text-${serviceRequestId}`);
-    const copyBtn = document.getElementById(`btn-copy-email-reply-${serviceRequestId}`);
-    if (!textEl) return;
-
-    navigator.clipboard.writeText(textEl.textContent).then(() => {
-        const original = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado';
-        copyBtn.classList.add('text-green-600', 'border-green-300');
-        setTimeout(() => {
-            copyBtn.innerHTML = original;
-            copyBtn.classList.remove('text-green-600', 'border-green-300');
-        }, 2000);
-    }).catch(() => {
-        // fallback para navegadores sin clipboard API
-        const range = document.createRange();
-        range.selectNodeContents(textEl);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
-        document.execCommand('copy');
-        window.getSelection().removeAllRanges();
-
-        const original = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado';
-        setTimeout(() => { copyBtn.innerHTML = original; }, 2000);
-    });
-}
-
-function generateResolutionWithAI(serviceRequestId) {
+function generateResolutionWithAI(serviceRequestId, isAutoGeneration = false, onDone = null) {
     const btn = document.getElementById(`btn-generate-resolution-${serviceRequestId}`);
     const textarea = document.getElementById(`resolution_description_${serviceRequestId}`);
     const hint = document.getElementById(`resolution-hint-${serviceRequestId}`);
 
-    if (!btn || !textarea) return;
+    if (!textarea) { if (onDone) onDone(); return; }
 
     // Estado de carga
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Analizando...';
-    btn.disabled = true;
-    btn.classList.add('opacity-60', 'cursor-not-allowed');
-    hint.textContent = 'Analizando tareas y subtareas completadas...';
-    hint.classList.add('text-purple-600');
+    if (btn && !isAutoGeneration) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+    hint.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Analizando tareas completadas...';
+    hint.className = 'mt-1 text-xs text-purple-600';
 
     fetch(`/service-requests/${serviceRequestId}/generate-resolution`, {
         method: 'POST',
@@ -261,25 +207,128 @@ function generateResolutionWithAI(serviceRequestId) {
             if (data.tasks_analyzed) stats.push(`${data.tasks_analyzed} tareas analizadas`);
             if (data.completed_count) stats.push(`${data.completed_count} completadas`);
 
-            hint.textContent = `✅ Generado automáticamente. ${stats.join(', ')}. Revisa y ajusta si es necesario.`;
-            hint.classList.remove('text-purple-600');
-            hint.classList.add('text-green-600');
+            hint.textContent = `✅ Generado. ${stats.join(', ')}. Revisa y ajusta si es necesario.`;
+            hint.className = 'mt-1 text-xs text-green-600';
         } else {
             hint.textContent = `⚠️ ${data.message || 'No se pudo generar. Escribe manualmente.'}`;
-            hint.classList.remove('text-purple-600');
-            hint.classList.add('text-amber-600');
+            hint.className = 'mt-1 text-xs text-amber-600';
         }
     })
     .catch(error => {
         console.error('Error generating resolution:', error);
         hint.textContent = '⚠️ Error de conexión. Escribe la descripción manualmente.';
-        hint.classList.remove('text-purple-600');
-        hint.classList.add('text-red-600');
+        hint.className = 'mt-1 text-xs text-red-600';
     })
     .finally(() => {
-        btn.innerHTML = originalContent;
-        btn.disabled = false;
-        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        // Mostrar botón de regenerar
+        if (btn) {
+            btn.classList.remove('hidden', 'opacity-60', 'cursor-not-allowed');
+            btn.disabled = false;
+        }
+        if (onDone) onDone();
     });
+}
+
+function generateEmailReply(serviceRequestId, isAutoGeneration = false, onDone = null) {
+    const btn      = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
+    const box      = document.getElementById(`email-reply-box-${serviceRequestId}`);
+    const textEl   = document.getElementById(`email-reply-text-${serviceRequestId}`);
+    const hint     = document.getElementById(`email-reply-hint-${serviceRequestId}`);
+    const loading  = document.getElementById(`email-reply-loading-${serviceRequestId}`);
+
+    if (!textEl) { if (onDone) onDone(); return; }
+
+    if (btn && !isAutoGeneration) {
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+    box.classList.add('hidden');
+    loading.classList.remove('hidden');
+
+    fetch(`/service-requests/${serviceRequestId}/generate-email-reply`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="_token"]')?.value,
+            'Accept': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        loading.classList.add('hidden');
+        if (data.success && data.resolution_text) {
+            textEl.textContent = data.resolution_text;
+            box.classList.remove('hidden');
+            if (hint) {
+                hint.textContent = 'Texto listo para pegar en tu correo. Puedes editarlo antes de enviar.';
+                hint.className = 'mt-1 text-xs text-gray-400';
+            }
+        } else {
+            const msg = document.createElement('p');
+            msg.className = 'mt-1 text-xs text-amber-600';
+            msg.textContent = '⚠️ ' + (data.message || 'No se pudo generar. Intenta de nuevo.');
+            loading.parentElement.appendChild(msg);
+            setTimeout(() => msg.remove(), 5000);
+        }
+    })
+    .catch(() => {
+        loading.classList.add('hidden');
+        const msg = document.createElement('p');
+        msg.className = 'mt-1 text-xs text-red-600';
+        msg.textContent = '⚠️ Error de conexión. Intenta de nuevo.';
+        loading.parentElement.appendChild(msg);
+        setTimeout(() => msg.remove(), 5000);
+    })
+    .finally(() => {
+        // Mostrar botón de regenerar
+        if (btn) {
+            btn.classList.remove('hidden', 'opacity-60', 'cursor-not-allowed');
+            btn.disabled = false;
+        }
+        if (onDone) onDone();
+    });
+}
+
+function copyEmailReply(serviceRequestId) {
+    const textEl  = document.getElementById(`email-reply-text-${serviceRequestId}`);
+    const copyBtn = document.getElementById(`btn-copy-email-reply-${serviceRequestId}`);
+    if (!textEl || !copyBtn) return;
+
+    const textToCopy = textEl.innerText || textEl.textContent;
+
+    function onSuccess() {
+        const original = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado';
+        copyBtn.classList.add('text-green-600', 'border-green-300');
+        setTimeout(() => {
+            copyBtn.innerHTML = original;
+            copyBtn.classList.remove('text-green-600', 'border-green-300');
+        }, 2000);
+    }
+
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '-9999px';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            onSuccess();
+        } catch (err) {
+            console.error('Fallback copy failed:', err);
+        }
+        document.body.removeChild(textarea);
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy).then(onSuccess).catch(() => fallbackCopy(textToCopy));
+    } else {
+        fallbackCopy(textToCopy);
+    }
 }
 </script>

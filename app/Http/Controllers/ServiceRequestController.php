@@ -330,22 +330,25 @@ class ServiceRequestController extends Controller
             return $line;
         })->implode("\n\n");
 
-        $prompt = "Eres el redactor de respuestas al cliente de un equipo de soporte técnico. Escribe un párrafo breve que informe al usuario que su solicitud fue atendida.\n\n";
+        $prompt = "Eres un asistente que redacta el cuerpo de un correo electrónico para informar al usuario que su solicitud fue resuelta. El texto será copiado y pegado directamente en un correo, así que debe sonar natural y humano.\n\n";
         $prompt .= "SOLICITUD: {$serviceRequest->title}\n";
         $prompt .= "DESCRIPCIÓN ORIGINAL: " . Str::limit($serviceRequest->description, 200) . "\n\n";
-        $prompt .= "TAREAS REALIZADAS:\n{$tasksSummary}\n\n";
-        $prompt .= "INSTRUCCIONES:\n";
-        $prompt .= "- Usa modo indicativo, pretérito perfecto simple (indefinido): verbos como realizó, verificó, instaló, configuró, resolvió, actualizó.\n";
-        $prompt .= "- Redacta en tercera persona impersonal o del equipo (ej: 'Se realizó...', 'El equipo instaló...', 'Se verificó...').\n";
-        $prompt .= "- Usa lenguaje sencillo y claro, sin términos técnicos ni jerga interna.\n";
-        $prompt .= "- Describe solo las acciones completadas; omite tareas pendientes o canceladas.\n";
-        $prompt .= "- Sé breve: máximo 3-4 oraciones.\n";
-        $prompt .= "- NUNCA uses futuro ni condicional (no: 'se informará', 'se procederá', 'se recomienda').\n";
-        $prompt .= "- El texto describe ÚNICAMENTE las acciones técnicas o de servicio realizadas (reparaciones, instalaciones, configuraciones, revisiones, etc.).\n";
-        $prompt .= "- PROHIBIDO incluir cualquier frase relacionada con: confirmar la solicitud, registrar la solicitud, cerrar la solicitud, gestionar el ticket, o cualquier paso administrativo interno. Ejemplos prohibidos: 'Se confirmó el registro de la solicitud', 'Se procedió a su cierre', 'Se confirmó con el solicitante', 'Se registró el cierre', 'Se gestionó el ticket'. Esas acciones son implícitas y no se mencionan.\n";
-        $prompt .= "- No uses saludos, despedidas ni frases de cierre.\n";
-        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown.\n";
-        $prompt .= "- Idioma: español.";
+        $prompt .= "TAREAS REALIZADAS (contexto interno, NO copiar literalmente):\n{$tasksSummary}\n\n";
+        $prompt .= "INSTRUCCIONES ESTRICTAS:\n";
+        $prompt .= "- Escribe como si le hablaras directamente al usuario que reportó el problema. Usa un tono cordial, breve y claro.\n";
+        $prompt .= "- Explica QUÉ se hizo para resolver su solicitud, de forma sencilla y sin tecnicismos.\n";
+        $prompt .= "- Usa verbos en pasado (se revisó, se corrigió, se instaló, quedó funcionando, etc.).\n";
+        $prompt .= "- Máximo 3-4 oraciones cortas.\n";
+        $prompt .= "- PROHIBIDO mencionar nombres de personas del equipo técnico o del solicitante.\n";
+        $prompt .= "- PROHIBIDO incluir frases administrativas internas como: 'Se informó a...', 'Se registró el cierre', 'Se confirmó con el solicitante', 'Se gestionó el ticket', 'Se procedió a cerrar'.\n";
+        $prompt .= "- PROHIBIDO mencionar el sistema de tickets, estados internos, o procesos administrativos.\n";
+        $prompt .= "- NO incluyas saludos (Hola, Estimado), despedidas (Saludos, Atentamente) ni frases de cierre (Quedamos atentos, No dude en contactarnos).\n";
+        $prompt .= "- Solo describe las acciones completadas. Ignora tareas pendientes o canceladas.\n";
+        $prompt .= "- Formato: texto plano corrido, sin viñetas, sin Markdown, sin numeración.\n";
+        $prompt .= "- Idioma: español.\n\n";
+        $prompt .= "EJEMPLO DE TONO CORRECTO:\n";
+        $prompt .= "\"Se revisó el equipo y se encontró que el cable de red estaba dañado. Se reemplazó el cable y se verificó que la conexión quedó estable.\"";
+
 
 
         try {
@@ -364,7 +367,7 @@ class ServiceRequestController extends Controller
                     'model' => $model,
                     'messages' => [
                         ['role' => 'system', 'content' => $prompt],
-                        ['role' => 'user', 'content' => 'Genera la descripción de resolución en tercera persona.'],
+                        ['role' => 'user', 'content' => 'Redacta el cuerpo del correo explicando qué se hizo para resolver la solicitud.'],
                     ],
                     'temperature' => 0.3,
                     'max_tokens' => 800,
