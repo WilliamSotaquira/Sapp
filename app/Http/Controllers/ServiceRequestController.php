@@ -330,24 +330,27 @@ class ServiceRequestController extends Controller
             return $line;
         })->implode("\n\n");
 
-        $prompt = "Eres un asistente que redacta el cuerpo de un correo electrónico para informar al usuario que su solicitud fue resuelta. El texto será copiado y pegado directamente en un correo, así que debe sonar natural y humano.\n\n";
-        $prompt .= "SOLICITUD: {$serviceRequest->title}\n";
-        $prompt .= "DESCRIPCIÓN ORIGINAL: " . Str::limit($serviceRequest->description, 200) . "\n\n";
-        $prompt .= "TAREAS REALIZADAS (contexto interno, NO copiar literalmente):\n{$tasksSummary}\n\n";
-        $prompt .= "INSTRUCCIONES ESTRICTAS:\n";
-        $prompt .= "- Escribe como si le hablaras directamente al usuario que reportó el problema. Usa un tono cordial, breve y claro.\n";
-        $prompt .= "- Explica QUÉ se hizo para resolver su solicitud, de forma sencilla y sin tecnicismos.\n";
-        $prompt .= "- Usa verbos en pasado (se revisó, se corrigió, se instaló, quedó funcionando, etc.).\n";
-        $prompt .= "- Máximo 3-4 oraciones cortas.\n";
-        $prompt .= "- PROHIBIDO mencionar nombres de personas del equipo técnico o del solicitante.\n";
-        $prompt .= "- PROHIBIDO incluir frases administrativas internas como: 'Se informó a...', 'Se registró el cierre', 'Se confirmó con el solicitante', 'Se gestionó el ticket', 'Se procedió a cerrar'.\n";
-        $prompt .= "- PROHIBIDO mencionar el sistema de tickets, estados internos, o procesos administrativos.\n";
-        $prompt .= "- NO incluyas saludos (Hola, Estimado), despedidas (Saludos, Atentamente) ni frases de cierre (Quedamos atentos, No dude en contactarnos).\n";
-        $prompt .= "- Solo describe las acciones completadas. Ignora tareas pendientes o canceladas.\n";
-        $prompt .= "- Formato: texto plano corrido, sin viñetas, sin Markdown, sin numeración.\n";
+        $prompt = "Redacta un mensaje breve para responder por correo a la persona que hizo esta solicitud. El texto se copiará y pegará directamente en un correo electrónico.\n\n";
+        $prompt .= "LO QUE EL USUARIO PIDIÓ:\n";
+        $prompt .= "- {$serviceRequest->title}\n";
+        $prompt .= "- " . Str::limit($serviceRequest->description, 200) . "\n\n";
+        $prompt .= "LO QUE SE HIZO (información interna de tareas, NO copiar textualmente):\n{$tasksSummary}\n\n";
+        $prompt .= "INSTRUCCIONES:\n";
+        $prompt .= "- Escribe en un tono conversacional y amable, como un compañero de trabajo que le cuenta al usuario qué se hizo.\n";
+        $prompt .= "- Enfócate en el RESULTADO para el usuario: qué quedó listo, qué cambió, qué ya puede usar.\n";
+        $prompt .= "- NO repitas la solicitud original. El usuario ya sabe qué pidió.\n";
+        $prompt .= "- Usa lenguaje cotidiano, nada técnico. Si una tarea dice 'Configurar DNS', di algo como 'se ajustó la configuración para que el sitio cargue correctamente'.\n";
+        $prompt .= "- Máximo 2-3 oraciones. Que sea fácil de leer en 5 segundos.\n";
+        $prompt .= "- Usa verbos en pasado: quedó listo, se ajustó, ya está funcionando, se actualizó.\n";
+        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica, mencionar tickets/sistemas internos, frases como 'se informó a...', 'se procedió a...'.\n";
+        $prompt .= "- NO incluyas saludos, despedidas ni frases de cortesía.\n";
+        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown.\n";
         $prompt .= "- Idioma: español.\n\n";
-        $prompt .= "EJEMPLO DE TONO CORRECTO:\n";
-        $prompt .= "\"Se revisó el equipo y se encontró que el cable de red estaba dañado. Se reemplazó el cable y se verificó que la conexión quedó estable.\"";
+        $prompt .= "EJEMPLOS DE TONO CORRECTO:\n";
+        $prompt .= "- \"Ya quedó montada la landing con los contenidos y enlaces actualizados. Puedes revisarla en el CMS.\"\n";
+        $prompt .= "- \"Se corrigió el problema con el acceso. Ya deberías poder ingresar sin inconvenientes.\"\n";
+        $prompt .= "- \"Quedó lista la campaña de mailing con el diseño y la base de datos que nos indicaste.\"";
+
 
 
 
@@ -838,18 +841,29 @@ class ServiceRequestController extends Controller
             return $line;
         })->implode("\n\n");
 
-        $prompt = "Eres un analista de soporte técnico. Genera una descripción profesional y concisa de las acciones realizadas para resolver la siguiente solicitud de servicio.\n\n";
-        $prompt .= "SOLICITUD: {$serviceRequest->title}\n";
-        $prompt .= "DESCRIPCIÓN ORIGINAL: " . Str::limit($serviceRequest->description, 300) . "\n\n";
-        $prompt .= "TAREAS Y SUBTAREAS:\n{$tasksSummary}\n\n";
-        $prompt .= "INSTRUCCIONES:\n";
-        $prompt .= "- Redacta en primera persona del plural (nosotros/se realizó).\n";
-        $prompt .= "- Enfócate SOLO en las tareas y subtareas completadas.\n";
-        $prompt .= "- Sé conciso pero completo. Máximo 4-6 oraciones.\n";
-        $prompt .= "- No incluyas tareas pendientes o canceladas en la descripción.\n";
-        $prompt .= "- NUNCA incluyas frases sobre informar, notificar o comunicar al solicitante, usuario o responsable sobre la finalización. Eso es un paso operativo implícito que no se documenta.\n";
-        $prompt .= "- Formato: texto plano, sin markdown ni viñetas.\n";
-        $prompt .= "- Idioma: español.\n";
+        $prompt = "Tu trabajo es documentar las acciones técnicas que se ejecutaron para resolver una solicitud de servicio.\n\n";
+        $prompt .= "CONTEXTO DE LA SOLICITUD (solo para referencia, NO repetir ni parafrasear):\n";
+        $prompt .= "- Título: {$serviceRequest->title}\n";
+        $prompt .= "- Descripción original: " . Str::limit($serviceRequest->description, 200) . "\n\n";
+        $prompt .= "TAREAS COMPLETADAS (esta es tu fuente principal):\n{$tasksSummary}\n\n";
+        $prompt .= "INSTRUCCIONES ESTRICTAS:\n";
+        $prompt .= "- Tu respuesta debe describir PASO A PASO lo que se hizo, basándote en las tareas y subtareas completadas.\n";
+        $prompt .= "- NO repitas ni parafrasees la descripción original de la solicitud. Eso es lo que el usuario pidió, no lo que se hizo.\n";
+        $prompt .= "- Cada oración debe corresponder a una acción concreta ejecutada (revisé, ajusté, monté, configuré, corregí, etc.).\n";
+        $prompt .= "- Usa verbos en pasado, tercera persona impersonal (se revisó, se ajustó, se montó).\n";
+        $prompt .= "- Si una subtarea tiene un nombre descriptivo, úsalo como base para la oración.\n";
+        $prompt .= "- Sé específico: menciona qué se tocó, qué se cambió, qué herramienta o sistema se usó si la tarea lo indica.\n";
+        $prompt .= "- Máximo 4-6 oraciones. Una por cada acción relevante.\n";
+        $prompt .= "- NUNCA incluyas frases sobre informar, notificar o comunicar al solicitante.\n";
+        $prompt .= "- NUNCA incluyas frases sobre registrar, cerrar o gestionar el ticket.\n";
+        $prompt .= "- Formato: texto plano, sin markdown, sin viñetas, sin numeración.\n";
+        $prompt .= "- Idioma: español.\n\n";
+        $prompt .= "EJEMPLO:\n";
+        $prompt .= "Solicitud: 'Configurar acceso VPN para nuevo empleado'\n";
+        $prompt .= "Tareas: [Crear cuenta en servidor VPN ✅] [Configurar permisos de red ✅] [Enviar credenciales ✅]\n";
+        $prompt .= "CORRECTO: 'Se creó la cuenta VPN en el servidor corporativo. Se configuraron los permisos de acceso a las subredes requeridas. Se generaron las credenciales y se enviaron al correo del empleado.'\n";
+        $prompt .= "INCORRECTO: 'Se configuró el acceso VPN para el nuevo empleado según lo solicitado.' (esto solo repite la solicitud)";
+
 
         try {
             $apiKey = config('services.openrouter.key') ?: config('services.llm.api_key');
@@ -1177,16 +1191,12 @@ class ServiceRequestController extends Controller
 
             if ($isVencimiento) {
                 $closureDetails = "\n\n=== CIERRE POR VENCIMIENTO ===\n"
-                    . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n"
-                    . 'Usuario: ID ' . auth()->id() . "\n"
                     . 'Motivo: ' . $request->closure_reason;
             } else {
-                $closureDetails = "\n\n=== CIERRE NORMAL ===\n"
-                    . 'Fecha/Hora: ' . now()->format('d/m/Y H:i:s') . "\n"
-                    . 'Usuario: ID ' . auth()->id();
+                $closureDetails = '';
 
                 if ($request->resolution_description) {
-                    $closureDetails .= "\nDescripción: " . $request->resolution_description;
+                    $closureDetails = "\n\nObservaciones de cierre:\n" . $request->resolution_description;
                 }
             }
 
