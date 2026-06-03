@@ -23,7 +23,8 @@ Línea 14 en adelante: acciones en viñetas con guion -, cada una con duración 
 
 Reglas obligatorias:
 
-- El asunto debe copiarse exacto si existe.
+- REGLA CRÍTICA DE TÍTULO: Si el texto proviene de un correo electrónico (tiene asunto/subject), la Línea 1 DEBE ser el asunto EXACTO del correo, copiado textualmente. NO lo parafrasees, NO lo resumas, NO lo mejores. Copia el asunto tal cual aparece. Esta regla garantiza la integridad de los datos y facilita la búsqueda.
+- EXCEPCIÓN: Si el texto proviene de un mensaje de WhatsApp o de una reunión (no tiene asunto de correo), entonces SÍ crea un título breve y operativo.
 - Si el asunto está completamente en mayúsculas, conviértelo a tipo oración sin cambiar el sentido.
 - Si no hay asunto o dice "sin asunto", crea un asunto breve y útil.
 - La descripción debe redactarse desde la perspectiva del ejecutor técnico (qué harás tú), no desde la perspectiva del solicitante (qué pide él).
