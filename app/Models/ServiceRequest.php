@@ -26,7 +26,7 @@ class ServiceRequest extends Model
     public const ENTRY_CHANNEL_PHONE = 'telefono';
     public const ENTRY_CHANNEL_MEETING = 'reunion';
 
-    protected $fillable = ['company_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id', 'created_at'];
+    protected $fillable = ['company_id', 'request_type_id', 'service_request_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id', 'created_at'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -165,6 +165,14 @@ class ServiceRequest extends Model
         });
 
         static::saving(function ($model) {
+            // Type immutability guard: prevent request_type_id changes after initial creation
+            if (!$model->wasRecentlyCreated && $model->exists && $model->isDirty('request_type_id')) {
+                $originalValue = $model->getOriginal('request_type_id');
+                if (!is_null($originalValue)) {
+                    throw new \Exception('No se puede cambiar el tipo de una solicitud después de su creación.');
+                }
+            }
+
             if ($model->isDirty('assigned_to')) {
                 if (empty($model->assigned_to)) {
                     $model->technician_assigned_at = null;
@@ -273,6 +281,22 @@ class ServiceRequest extends Model
     {
         return $this->belongsTo(ServiceRequest::class, 'service_request_id');
     }
+
+    public function requestType()
+    {
+        return $this->belongsTo(RequestType::class, 'request_type_id');
+    }
+
+    public function meetingDetail()
+    {
+        return $this->hasOne(MeetingDetail::class, 'service_request_id');
+    }
+
+    public function assignmentHistories()
+    {
+        return $this->hasMany(ServiceRequestAssignmentHistory::class, 'service_request_id');
+    }
+
     public function rejectedByUser()
     {
         return $this->belongsTo(User::class, 'rejected_by');

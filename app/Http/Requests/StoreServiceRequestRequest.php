@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\RequestType;
 use App\Models\ServiceRequest;
 use App\Models\ServiceLevelAgreement;
 use App\Models\StandardTask;
@@ -41,6 +42,17 @@ class StoreServiceRequestRequest extends FormRequest
             'created_at' => 'nullable|date|before_or_equal:now',
             'web_routes' => 'required|string',
             'is_reportable' => 'sometimes|boolean',
+
+            // Tipo de solicitud y solicitud padre (opcional)
+            'request_type_id' => 'nullable|integer|exists:request_types,id',
+            'service_request_id' => 'nullable|integer|exists:service_requests,id',
+
+            // Campos de reunión (condicionalmente requeridos en withValidator)
+            'scheduled_date' => 'nullable|date|after_or_equal:today',
+            'start_time' => 'nullable|date_format:H:i',
+            'expected_duration_minutes' => 'nullable|integer|min:5|max:480',
+            'location' => 'nullable|string|max:255',
+            'virtual_meeting_url' => 'nullable|string|max:2048',
 
             // Tareas (opcional)
             'tasks_template' => 'nullable|in:none,subservice_standard',
@@ -94,12 +106,61 @@ class StoreServiceRequestRequest extends FormRequest
             'created_at.date' => 'La fecha de la solicitud no tiene un formato válido.',
             'created_at.before_or_equal' => 'La fecha de la solicitud no puede ser futura.',
             'web_routes.required' => 'Las rutas web son obligatorias.',
+
+            // Tipo de solicitud
+            'request_type_id.integer' => 'El tipo de solicitud debe ser un número entero.',
+            'request_type_id.exists' => 'El tipo de solicitud seleccionado no es válido.',
+
+            // Solicitud padre
+            'service_request_id.integer' => 'La solicitud padre debe ser un número entero.',
+            'service_request_id.exists' => 'La solicitud padre especificada no es válida.',
+
+            // Campos de reunión
+            'scheduled_date.date' => 'La fecha programada no tiene un formato válido.',
+            'scheduled_date.after_or_equal' => 'La fecha programada no puede ser anterior a hoy.',
+            'start_time.date_format' => 'La hora de inicio debe tener el formato HH:MM.',
+            'expected_duration_minutes.integer' => 'La duración esperada debe ser un número entero.',
+            'expected_duration_minutes.min' => 'La duración esperada debe ser al menos 5 minutos.',
+            'expected_duration_minutes.max' => 'La duración esperada no puede exceder 480 minutos.',
+            'location.max' => 'La ubicación no debe exceder los 255 caracteres.',
+            'virtual_meeting_url.max' => 'La URL de reunión virtual no debe exceder los 2048 caracteres.',
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            // Validate request_type_id references an active type
+            $requestTypeId = $this->input('request_type_id');
+            if ($requestTypeId) {
+                $requestType = RequestType::find($requestTypeId);
+                if ($requestType && !$requestType->is_active) {
+                    $validator->errors()->add('request_type_id', 'El tipo de solicitud seleccionado no está disponible.');
+                }
+
+                // Conditional meeting fields: when type slug = "reunion", require scheduling fields
+                if ($requestType && $requestType->slug === 'reunion') {
+                    if (empty($this->input('scheduled_date'))) {
+                        $validator->errors()->add('scheduled_date', 'La fecha programada es obligatoria para reuniones.');
+                    }
+                    if (empty($this->input('start_time'))) {
+                        $validator->errors()->add('start_time', 'La hora de inicio es obligatoria para reuniones.');
+                    }
+                    if (empty($this->input('expected_duration_minutes')) && $this->input('expected_duration_minutes') !== 0 && $this->input('expected_duration_minutes') !== '0') {
+                        $validator->errors()->add('expected_duration_minutes', 'La duración esperada es obligatoria para reuniones.');
+                    }
+                }
+            }
+
+            // Validate service_request_id references a non-soft-deleted request
+            $serviceRequestId = $this->input('service_request_id');
+            if ($serviceRequestId) {
+                $parentExists = ServiceRequest::where('id', $serviceRequestId)->whereNull('deleted_at')->exists();
+                if (!$parentExists) {
+                    $validator->errors()->add('service_request_id', 'La solicitud padre especificada no existe o ha sido eliminada.');
+                }
+            }
+
             $subServiceId = $this->input('sub_service_id');
             $familyId = $this->input('family_id');
             $companyId = $this->input('company_id') ?: session('current_company_id');

@@ -82,6 +82,21 @@
         <!-- Header Principal con botón de edición -->
         <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
 
+        <!-- Parent Request Link (if this is a derived request) -->
+        @if($parentRequest)
+            <div class="flex items-center gap-2 px-4 py-3 bg-violet-50 border border-violet-200 rounded-lg text-sm">
+                <i class="fas fa-level-up-alt text-violet-500 text-xs"></i>
+                <span class="text-gray-600">Solicitud padre:</span>
+                <a href="{{ route('service-requests.show', $parentRequest->id) }}"
+                   class="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                    {{ $parentRequest->ticket_number }}
+                </a>
+                @if($parentRequest->title)
+                    <span class="text-gray-500">— {{ Str::limit($parentRequest->title, 50) }}</span>
+                @endif
+            </div>
+        @endif
+
         <!-- Descripción del Problema (Lo más importante primero) -->
         <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
 
@@ -102,6 +117,28 @@
 
         <!-- Tareas Asociadas -->
         <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
+
+        <!-- Meeting Sections (only for type "reunion") -->
+        @if($serviceRequest->requestType && $serviceRequest->requestType->slug === 'reunion' && $meetingDetail)
+            @include('service-requests.partials._meeting-details-show')
+            @include('service-requests.partials._meeting-participants')
+            @include('service-requests.partials._meeting-commitments')
+        @endif
+
+        <!-- Traceability Chain (if request has parent or children) -->
+        @if($traceabilityChain)
+            @include('service-requests.partials._traceability-chain')
+        @endif
+
+        <!-- Derived Requests (child requests) -->
+        @if($childRequests->isNotEmpty() || ($serviceRequest->requestType && $serviceRequest->requestType->slug !== null))
+            @include('service-requests.partials._derive-request')
+        @endif
+
+        <!-- Assignment History -->
+        @if($assignmentHistory->isNotEmpty())
+            @include('service-requests.partials._assignment-history')
+        @endif
 
         <!-- Panel de Rutas Web (solo si existen) -->
         @if ($serviceRequest->hasWebRoutes())

@@ -17,7 +17,7 @@ class EvidenceService
     /**
      * Subir múltiples archivos como evidencias
      */
-    public function uploadEvidences(ServiceRequest $serviceRequest, array $files): array
+    public function uploadEvidences(ServiceRequest $serviceRequest, array $files, string $evidenceType = 'ARCHIVO'): array
     {
         Log::info('=== INICIANDO SUBIDA DE EVIDENCIAS ===');
 
@@ -26,13 +26,13 @@ class EvidenceService
 
         // Contador para generar sufijos alfabéticos por ticket
         $baseCount = $serviceRequest->evidences()
-            ->where('evidence_type', 'ARCHIVO')
+            ->where('evidence_type', $evidenceType)
             ->count();
 
         foreach ($files as $index => $file) {
             try {
                 $sequenceNumber = $baseCount + $index + 1;
-                $evidence = $this->uploadSingleEvidence($serviceRequest, $file, $sequenceNumber);
+                $evidence = $this->uploadSingleEvidence($serviceRequest, $file, $sequenceNumber, $evidenceType);
                 if ($evidence) {
                     $uploadedFiles[] = $evidence;
                 }
@@ -59,7 +59,7 @@ class EvidenceService
     /**
      * Subir un archivo individual
      */
-    private function uploadSingleEvidence(ServiceRequest $serviceRequest, UploadedFile $file, int $sequenceNumber): ?ServiceRequestEvidence
+    private function uploadSingleEvidence(ServiceRequest $serviceRequest, UploadedFile $file, int $sequenceNumber, string $evidenceType = 'ARCHIVO'): ?ServiceRequestEvidence
     {
         Log::info('Procesando archivo:', [
             'name' => $file->getClientOriginalName(),
@@ -92,7 +92,7 @@ class EvidenceService
         $this->verifyStoredFile($filePath, $file->getSize());
 
         // Crear registro en base de datos
-        return $this->createEvidenceRecord($serviceRequest, $file, $filePath, $fileName);
+        return $this->createEvidenceRecord($serviceRequest, $file, $filePath, $fileName, $evidenceType);
     }
 
     /**
@@ -149,13 +149,14 @@ class EvidenceService
         ServiceRequest $serviceRequest,
         UploadedFile $file,
         string $filePath,
-        string $fileName
+        string $fileName,
+        string $evidenceType = 'ARCHIVO'
     ): ServiceRequestEvidence {
         $evidenceData = [
             'service_request_id' => $serviceRequest->id,
             'title' => $fileName,
             'description' => 'Archivo subido: ' . $file->getClientOriginalName(),
-            'evidence_type' => 'ARCHIVO',
+            'evidence_type' => $evidenceType,
             'file_path' => $filePath,
             'file_original_name' => $file->getClientOriginalName(),
             'file_mime_type' => $file->getMimeType(),

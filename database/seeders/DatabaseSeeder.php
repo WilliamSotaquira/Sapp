@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
             SubServiceSeeder::class,
             ServiceSubserviceSeeder::class,
             SLASeeder::class,
-
+            RequestTypeSeeder::class,
         ]);
 
         User::factory()->create([
