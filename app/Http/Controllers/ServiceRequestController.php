@@ -356,7 +356,7 @@ class ServiceRequestController extends Controller
 
         try {
             $apiKey = config('services.openrouter.key');
-            $model = config('services.llm.model', config('services.openrouter.model', 'deepseek/deepseek-chat-v3-0324'));
+            $model = config('services.llm.description_model', config('services.llm.model', 'deepseek/deepseek-chat-v3-0324'));
             $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
 
             $response = \Illuminate\Support\Facades\Http::timeout(45)
@@ -867,7 +867,7 @@ class ServiceRequestController extends Controller
 
         try {
             $apiKey = config('services.openrouter.key') ?: config('services.llm.api_key');
-            $model = config('services.llm.model', config('services.openrouter.model', 'deepseek/deepseek-chat-v3-0324'));
+            $model = config('services.llm.description_model', config('services.llm.model', 'deepseek/deepseek-chat-v3-0324'));
             $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
 
             $response = \Illuminate\Support\Facades\Http::timeout(45)

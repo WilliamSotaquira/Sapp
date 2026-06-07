@@ -45,6 +45,12 @@ class WorkspaceController extends Controller
 
         $request->session()->put('current_company_id', $companyId);
 
+        // Si viene un redirect_to específico (ej: desde el intérprete de texto), usarlo
+        $redirectTo = $request->input('redirect_to');
+        if ($redirectTo && (str_starts_with($redirectTo, url('/')) || str_starts_with($redirectTo, '/'))) {
+            return redirect($redirectTo)->with('success', 'Espacio de trabajo cambiado. Pega el texto de nuevo para interpretarlo.');
+        }
+
         return redirect()->intended(route('dashboard'))->with('success', 'Entidad activa actualizada.');
     }
 }

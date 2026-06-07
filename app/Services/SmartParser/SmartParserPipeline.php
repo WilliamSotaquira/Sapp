@@ -221,9 +221,13 @@ class SmartParserPipeline
         // Requester
         $requesterName = '';
         $requesterEmail = null;
+        $requesterId = null;
+        $requesterPending = false;
         if ($resolvedRequester !== null) {
             $requesterName = $resolvedRequester['name'] ?? '';
             $requesterEmail = $resolvedRequester['email'] ?? null;
+            $requesterId = $resolvedRequester['id'] ?? null;
+            $requesterPending = $resolvedRequester['pending'] ?? false;
         }
 
         // SubService
@@ -272,6 +276,8 @@ class SmartParserPipeline
             channel: $channel,
             requesterName: $requesterName,
             requesterEmail: $requesterEmail,
+            requesterId: $requesterId,
+            requesterPending: $requesterPending,
             subServiceId: $subServiceId,
             serviceId: $serviceId,
             familyId: $familyId,

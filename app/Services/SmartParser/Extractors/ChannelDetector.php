@@ -44,9 +44,10 @@ class ChannelDetector implements FieldExtractorInterface
 
         $emailMatchCount = $this->countEmailMatches($text);
         $whatsappMatchCount = $this->countWhatsAppMatches($text);
+        $reunionDetected = $this->detectReunionChannel($text);
 
         // Determinar canal según reglas de negocio
-        $channel = $this->resolveChannel($emailMatchCount, $whatsappMatchCount);
+        $channel = $this->resolveChannel($emailMatchCount, $whatsappMatchCount, $reunionDetected);
         $confidence = $this->calculateConfidence($emailMatchCount, $whatsappMatchCount, $channel);
 
         // Enriquecer el contexto para extractores posteriores
@@ -92,20 +93,58 @@ class ChannelDetector implements FieldExtractorInterface
     }
 
     /**
+     * Detecta si el texto indica que el canal de entrada es una reunión.
+     * Busca una línea aislada que contenga solo "Reunión" o variantes,
+     * o indicadores fuertes como "Reunión de Microsoft Teams" o "Google Meet".
+     */
+    private function detectReunionChannel(string $text): bool
+    {
+        $lines = preg_split('/\r?\n/', $text);
+        $normalizedFull = mb_strtolower($text);
+
+        // Strong indicators: Teams or Meet meeting links/headers
+        if (str_contains($normalizedFull, 'reunión de microsoft teams')
+            || str_contains($normalizedFull, 'reunion de microsoft teams')
+            || str_contains($normalizedFull, 'teams.microsoft.com/meet')
+            || str_contains($normalizedFull, 'meet.google.com/')
+            || str_contains($normalizedFull, 'unirme con google meet')
+            || str_contains($normalizedFull, 'unirse con google meet')) {
+            return true;
+        }
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            $normalized = mb_strtolower($trimmed);
+            // Match standalone "Reunión", "Reunion", "Teams", "Meet", "Videollamada" as channel indicators
+            if (in_array($normalized, ['reunión', 'reunion', 'teams', 'meet', 'videollamada'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Resuelve el canal según las reglas de negocio:
+     * - Reunión detectada → reunion
      * - 2+ encabezados de email → email_corporativo
      * - Patrones WhatsApp → whatsapp
      * - Ambos presentes → el que tenga más coincidencias
      * - Sin coincidencias → email_corporativo (por defecto)
      */
-    private function resolveChannel(int $emailMatchCount, int $whatsappMatchCount): string
+    private function resolveChannel(int $emailMatchCount, int $whatsappMatchCount, bool $reunionDetected): string
     {
+        // Si se detectó reunión explícitamente y no hay señales fuertes de email/whatsapp
+        if ($reunionDetected && $emailMatchCount < 2 && $whatsappMatchCount === 0) {
+            return 'reunion';
+        }
+
         $isEmail = $emailMatchCount >= 2;
         $isWhatsApp = $whatsappMatchCount > 0;
 
-        // Sin coincidencias: valor por defecto
+        // Sin coincidencias: si hay reunión, usarla
         if (! $isEmail && ! $isWhatsApp) {
-            return 'email_corporativo';
+            return $reunionDetected ? 'reunion' : 'email_corporativo';
         }
 
         // Solo email

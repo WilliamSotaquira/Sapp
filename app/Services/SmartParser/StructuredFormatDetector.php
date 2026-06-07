@@ -129,8 +129,8 @@ class StructuredFormatDetector
             }
         }
 
-        // Formato numérico: dd/mm/yyyy, dd-mm-yyyy, dd/mm/yy
-        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/u', $clean, $matches)) {
+        // Formato numérico: dd/mm/yyyy, dd-mm-yyyy, dd/mm/yy (with optional day prefix and time suffix)
+        if (preg_match('/(?:^|[[:alpha:]áéíóúñ]+\s+)(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/u', $clean, $matches)) {
             $month = (int) $matches[2];
             $day = (int) $matches[1];
 

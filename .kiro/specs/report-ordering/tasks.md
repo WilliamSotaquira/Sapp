@@ -62,7 +62,7 @@ Reorganización del módulo de Informes de SAPP: consolidar 10+ tarjetas en 7, u
     - **Property 3: Cut-based and family filtering constrains results**
     - **Validates: Requirements 3.4, 3.7**
 
-- [~] 3. Checkpoint - Ensure controllers and routes work
+- [ ] 3. Checkpoint - Ensure controllers and routes work
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 4. Create Blade views for unified reports
@@ -104,7 +104,7 @@ Reorganización del módulo de Informes de SAPP: consolidar 10+ tarjetas en 7, u
     - Verify each card has unique border color
     - _Requirements: 7.1, 7.3, 7.4_
 
-- [~] 6. Checkpoint - Ensure views render correctly
+- [ ] 6. Checkpoint - Ensure views render correctly
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 7. Implement export functionality for new controllers
@@ -123,43 +123,43 @@ Reorganización del módulo de Informes de SAPP: consolidar 10+ tarjetas en 7, u
     - _Requirements: 4.5, 5.8, 6.9_
 
 - [ ] 8. Implement property-based tests
-  - [-] 8.1 Write property test for ticket search partial match (Property 1)
+  - [ ] 8.1 Write property test for ticket search partial match (Property 1)
     - **Property 1: Ticket search partial match**
     - **Validates: Requirements 2.2**
 
-  - [-] 8.2 Write property test for timeline pagination (Property 2)
+  - [ ] 8.2 Write property test for timeline pagination (Property 2)
     - **Property 2: Timeline pagination respects page size and date range**
     - **Validates: Requirements 2.3**
 
-  - [-] 8.3 Write property test for SLA compliance metrics (Property 4)
+  - [ ] 8.3 Write property test for SLA compliance metrics (Property 4)
     - **Property 4: SLA compliance and performance metrics correctness**
     - **Validates: Requirements 4.2, 4.3**
 
-  - [-] 8.4 Write property test for Services and SLA filter application (Property 5)
+  - [ ] 8.4 Write property test for Services and SLA filter application (Property 5)
     - **Property 5: Filter application constrains results in Services and SLA report**
     - **Validates: Requirements 4.4**
 
-  - [-] 8.5 Write property test for status and criticality percentages (Property 6)
+  - [ ] 8.5 Write property test for status and criticality percentages (Property 6)
     - **Property 6: Status and criticality percentage calculations**
     - **Validates: Requirements 5.2, 5.3, 5.4**
 
-  - [-] 8.6 Write property test for search input validation (Property 7)
+  - [ ] 8.6 Write property test for search input validation (Property 7)
     - **Property 7: Search input validation**
     - **Validates: Requirements 6.2**
 
-  - [-] 8.7 Write property test for search results matching (Property 8)
+  - [ ] 8.7 Write property test for search results matching (Property 8)
     - **Property 8: Search results contain matching terms**
     - **Validates: Requirements 6.4, 6.6**
 
-  - [-] 8.8 Write property test for multi-term OR logic (Property 9)
+  - [ ] 8.8 Write property test for multi-term OR logic (Property 9)
     - **Property 9: Multi-term OR logic produces union**
     - **Validates: Requirements 6.5**
 
-  - [-] 8.9 Write property test for combined search filters (Property 10)
+  - [ ] 8.9 Write property test for combined search filters (Property 10)
     - **Property 10: Combined search filters produce intersection**
     - **Validates: Requirements 6.8**
 
-  - [-] 8.10 Write property test for search pagination and ordering (Property 11)
+  - [ ] 8.10 Write property test for search pagination and ordering (Property 11)
     - **Property 11: Search pagination and ordering**
     - **Validates: Requirements 6.7**
 

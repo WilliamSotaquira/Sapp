@@ -49,8 +49,16 @@ class RequesterExtractor implements FieldExtractorInterface
     {
         $channel = $context->detectedChannel;
 
+        // For meetings (Teams/Meet), try to find the organizer first
+        if ($channel === 'reunion') {
+            $meetingResult = $this->extractFromMeetingInvite($context);
+            if ($meetingResult->extracted) {
+                return $meetingResult;
+            }
+        }
+
         // Decide extraction strategy based on detected channel
-        if ($channel === 'email_corporativo') {
+        if ($channel === 'email_corporativo' || $channel === 'reunion') {
             return $this->extractFromEmail($context);
         }
 
@@ -60,6 +68,67 @@ class RequesterExtractor implements FieldExtractorInterface
 
         // Unknown channel: try heuristic extraction
         return $this->extractHeuristic($context);
+    }
+
+    /**
+     * Extrae el nombre del organizador desde una invitación de reunión (Teams/Meet).
+     * Busca patrones como:
+     * - "Nombre<email>" (Outlook Teams invite)
+     * - "Nombre - Organizador" (Google Calendar)
+     * - "le ha invitado" preceded by "Nombre<email>"
+     */
+    private function extractFromMeetingInvite(ParsingContext $context): ExtractionResult
+    {
+        $text = $context->normalizedText;
+        $lines = explode("\n", $text);
+
+        // Strategy 1: Look for "Nombre<email>\nle ha invitado" (Outlook Teams format)
+        for ($i = 0; $i < count($lines) - 1; $i++) {
+            $currentLine = trim($lines[$i]);
+            $nextLine = isset($lines[$i + 1]) ? trim($lines[$i + 1]) : '';
+
+            if (preg_match('/le\s+ha\s+invitado/i', $nextLine)) {
+                // The line before "le ha invitado" is the organizer
+                if (preg_match('/^([\p{L}\p{M}\s.\'-]+?)\s*<([\w.\-+]+@[\w.\-]+\.\w+)>$/u', $currentLine, $matches)) {
+                    return new ExtractionResult(
+                        fieldName: 'requester',
+                        value: ['name' => trim($matches[1]), 'email' => $matches[2]],
+                        confidence: 90,
+                    );
+                }
+            }
+        }
+
+        // Strategy 2: Look for "Nombre - Organizador" (Google Calendar)
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if (preg_match('/^([\p{L}\p{M}\s.\'-]+?)\s*-\s*[Oo]rganizador[a]?$/u', $trimmed, $matches)) {
+                return new ExtractionResult(
+                    fieldName: 'requester',
+                    value: ['name' => trim($matches[1]), 'email' => null],
+                    confidence: 85,
+                );
+            }
+        }
+
+        // Strategy 3: Look for Google Calendar sender format "Nombre <email>\njue, 4 jun, 14:02"
+        for ($i = 0; $i < count($lines) - 1; $i++) {
+            $currentLine = trim($lines[$i]);
+            $nextLine = isset($lines[$i + 1]) ? trim($lines[$i + 1]) : '';
+
+            if (preg_match('/^([\p{L}\p{M}\s.\'-]+?)\s*<([\w.\-+]+@[\w.\-]+\.\w+)>$/u', $currentLine, $matches)) {
+                // Check if next line looks like a date (Gmail thread header format)
+                if (preg_match('/^(?:lun|mar|mi[eé]|jue|vie|s[aá]b|dom)[,.]\s+\d{1,2}\s+\w+/iu', $nextLine)) {
+                    return new ExtractionResult(
+                        fieldName: 'requester',
+                        value: ['name' => trim($matches[1]), 'email' => $matches[2]],
+                        confidence: 80,
+                    );
+                }
+            }
+        }
+
+        return ExtractionResult::empty('requester');
     }
 
     /**
@@ -119,8 +188,8 @@ class RequesterExtractor implements FieldExtractorInterface
             );
         }
 
-        // No requester found - leave empty per requirement 2.6
-        return ExtractionResult::empty('requester');
+        // Last resort: try heuristic extraction (works for plain text without email headers)
+        return $this->extractHeuristic($context);
     }
 
     /**

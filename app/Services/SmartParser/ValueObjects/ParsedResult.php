@@ -12,6 +12,8 @@ class ParsedResult
         public readonly string $channel,
         public readonly string $requesterName,
         public readonly ?string $requesterEmail,
+        public readonly ?int $requesterId,
+        public readonly bool $requesterPending,
         public readonly ?int $subServiceId,
         public readonly ?int $serviceId,
         public readonly ?int $familyId,
@@ -31,12 +33,10 @@ class ParsedResult
      */
     public function toPayload(int $companyId, ?int $requestedBy): array
     {
-        $requesterPending = empty($requestedBy) && !empty($this->requesterName);
-
         return [
             'payload' => [
                 'company_id' => $companyId,
-                'requester_id' => $requestedBy,
+                'requester_id' => $this->requesterPending ? null : ($this->requesterId ?? $requestedBy),
                 'title' => mb_substr($this->title, 0, 255),
                 'description' => mb_substr($this->description, 0, 5000),
                 'sub_service_id' => $this->subServiceId,
@@ -54,13 +54,13 @@ class ParsedResult
                 'is_reportable' => true,
                 'tasks_template' => 'none',
                 'tasks' => $this->tasks,
-                '__pending_requester_name' => $requesterPending ? $this->requesterName : null,
-                '__pending_requester_email' => $requesterPending ? $this->requesterEmail : null,
+                '__pending_requester_name' => $this->requesterPending ? $this->requesterName : null,
+                '__pending_requester_email' => $this->requesterPending ? $this->requesterEmail : null,
             ],
             'meta' => [
                 'requester_name' => $this->requesterName,
                 'requester_created' => false,
-                'requester_pending' => $requesterPending,
+                'requester_pending' => $this->requesterPending,
                 'sub_service_name' => null,
                 'task_count' => count($this->tasks),
                 'web_route_count' => count($this->webRoutes),

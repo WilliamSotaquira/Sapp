@@ -49,6 +49,7 @@ return [
         'enabled' => env('LLM_ENABLED', false),
         'api_key' => env('LLM_API_KEY', env('OPENROUTER_API_KEY')),
         'model' => env('LLM_MODEL', 'deepseek/deepseek-chat-v3-0324'),
+        'description_model' => env('LLM_DESCRIPTION_MODEL', 'deepseek/deepseek-chat-v3-0324'),
         'endpoint' => env('LLM_ENDPOINT', 'https://openrouter.ai/api/v1/chat/completions'),
     ],
 
