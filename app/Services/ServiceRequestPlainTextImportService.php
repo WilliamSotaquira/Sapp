@@ -6,6 +6,8 @@ use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Requester;
 use App\Models\SubService;
+use App\Services\SmartParser\LlmDescriptionGenerator;
+use App\Services\SmartParser\LlmTaskGenerator;
 use App\Services\SmartParser\LlmTextInterpreter;
 use App\Services\SmartParser\SmartParserPipeline;
 use App\Services\SmartParser\StructuredFormatDetector;
@@ -20,6 +22,8 @@ class ServiceRequestPlainTextImportService
         private readonly ServiceRequestService $serviceRequestService,
         private readonly SmartParserPipeline $smartPipeline,
         private readonly StructuredFormatDetector $formatDetector,
+        private readonly LlmDescriptionGenerator $descriptionGenerator,
+        private readonly LlmTaskGenerator $taskGenerator,
     ) {
     }
 
@@ -72,11 +76,22 @@ class ServiceRequestPlainTextImportService
             // Try LLM interpretation first (if enabled)
             $llmResult = $this->tryLlmInterpretation($text, $company, $requestedBy);
             if ($llmResult !== null) {
-                return $llmResult;
+                return $this->enrichDescriptionWithAI($llmResult, $text);
+            }
+
+            // Try email thread parsing (webmail copy with Re: subject, sender, date, recipients)
+            $emailThreadParsed = $this->extractStructuredDataFromEmailThread(
+                str_replace(["\r\n", "\r"], "\n", $text)
+            );
+            if ($emailThreadParsed !== null) {
+                // Route through the structured data resolution path
+                $result = $this->resolveStructuredParsedData($emailThreadParsed, $companyId, $activeContractId, $text, $requestedBy);
+                return $this->enrichDescriptionWithAI($result, $text);
             }
 
             // Fallback: formato libre con SmartParserPipeline heurístico
-            return $this->parseWithSmartPipeline($text, $companyId, $requestedBy);
+            $result = $this->parseWithSmartPipeline($text, $companyId, $requestedBy);
+            return $this->enrichDescriptionWithAI($result, $text);
         }
 
         // Formato estructurado: usar algoritmo original
@@ -89,9 +104,15 @@ class ServiceRequestPlainTextImportService
         }
 
         if ($parsed['sub_service_name'] === '') {
-            throw ValidationException::withMessages([
-                'plain_text' => 'No se pudo identificar el subservicio en el texto pegado.',
-            ]);
+            // Intentar inferir un subservicio basándose en el contenido del texto
+            $inferredName = $this->inferFallbackSubServiceName($text, $parsed);
+            if ($inferredName !== null) {
+                $parsed['sub_service_name'] = $inferredName;
+            } else {
+                throw ValidationException::withMessages([
+                    'plain_text' => 'No se pudo identificar el subservicio en el texto pegado.',
+                ]);
+            }
         }
 
         $subService = $this->resolveBestSubService($parsed, $activeContractId, $text);
@@ -154,6 +175,475 @@ class ServiceRequestPlainTextImportService
             $payload['__pending_requester_email'] = $requesterResult['email'] ?? '';
         }
 
+        return $this->enrichDescriptionWithAI([
+            'payload' => $payload,
+            'meta' => [
+                'requester_name' => $requesterResult['name'],
+                'requester_created' => false,
+                'requester_pending' => !empty($requesterResult['pending']),
+                'sub_service_name' => $subService->name,
+                'task_count' => count($tasks),
+                'web_route_count' => count($parsed['web_routes']),
+            ],
+        ], $text);
+    }
+
+    /**
+     * Enriquece la descripción y tareas del resultado usando IA.
+     * También verifica que el solicitante sea el remitente real del correo.
+     * Valida que el dominio del correo corresponda al workspace activo.
+     * Si la IA no está disponible o falla, mantiene los valores existentes.
+     */
+    private function enrichDescriptionWithAI(array $result, string $originalText): array
+    {
+        $title = $result['payload']['title'] ?? '';
+        $currentDescription = $result['payload']['description'] ?? '';
+
+        // Verificar/corregir el solicitante usando detección heurística del remitente
+        // (esto también valida el dominio del email vs workspace activo)
+        $result = $this->verifyRequesterFromSender($result, $originalText);
+
+        // Si no se detectó Gmail sender, igual validar dominios de email en el texto
+        $this->validateSenderDomainFromText($originalText, (int) ($result['payload']['company_id'] ?? 0));
+
+        // Generar descripción ITIL por IA
+        $aiDescription = $this->descriptionGenerator->generate($title, $originalText);
+        if ($aiDescription !== null && mb_strlen($aiDescription) >= 10) {
+            $result['payload']['description'] = $aiDescription;
+        }
+
+        // Si no se resolvió subservicio, intentar por IA usando el catálogo del workspace
+        if (empty($result['payload']['sub_service_id'])) {
+            $result = $this->resolveSubServiceWithAI($result, $originalText);
+        }
+
+        // Generar tareas ITIL por IA (siempre que el LLM esté disponible)
+        // Las tareas generadas heurísticamente suelen ser de baja calidad
+        $descForTasks = $aiDescription ?? $currentDescription;
+        $aiTasks = $this->taskGenerator->generate($title, $descForTasks);
+        if ($aiTasks !== null && !empty($aiTasks)) {
+            $result['payload']['tasks'] = $aiTasks;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Valida los dominios de email del remitente encontrados en el texto.
+     * Si el primer email detectado (que es típicamente el sender) pertenece a otra entidad,
+     * lanza error para que el operador cambie de workspace.
+     */
+    private function validateSenderDomainFromText(string $text, int $companyId): void
+    {
+        if ($companyId <= 0) {
+            return;
+        }
+
+        // Buscar el primer email que aparece con formato "Nombre <email>" (remitente)
+        if (preg_match('/[\p{L}\p{M}\s.\'-]+\s*<([\w.\-+]+@[\w.\-]+\.\w+)>/u', $text, $match)) {
+            $this->validateEmailDomainMatchesWorkspace($match[1], $companyId);
+            return;
+        }
+
+        // Buscar header "De: ... <email>"
+        if (preg_match('/^(?:De|From)\s*:.*<([\w.\-+]+@[\w.\-]+\.\w+)>/mi', $text, $match)) {
+            $this->validateEmailDomainMatchesWorkspace($match[1], $companyId);
+        }
+    }
+
+    /**
+     * Intenta resolver el subservicio usando IA cuando la clasificación heurística falla.
+     * Le pide al LLM que elija el subservicio más apropiado del catálogo del workspace.
+     */
+    private function resolveSubServiceWithAI(array $result, string $originalText): array
+    {
+        if (! config('services.llm.enabled', false)) {
+            return $result;
+        }
+
+        $companyId = (int) ($result['payload']['company_id'] ?? 0);
+        if ($companyId <= 0) {
+            return $result;
+        }
+
+        $company = \App\Models\Company::find($companyId);
+        $contractId = (int) ($company?->active_contract_id ?? 0);
+        if ($contractId <= 0) {
+            return $result;
+        }
+
+        // Obtener el catálogo de subservicios activos del contrato
+        $subServices = SubService::query()
+            ->where('is_active', true)
+            ->whereHas('service.family', function ($q) use ($contractId) {
+                $q->where('contract_id', $contractId)->where('is_active', true);
+            })
+            ->whereHas('service', fn($q) => $q->where('is_active', true))
+            ->with(['service.family'])
+            ->get(['id', 'name', 'service_id']);
+
+        if ($subServices->isEmpty()) {
+            return $result;
+        }
+
+        // Construir lista de opciones para el LLM
+        $options = $subServices->map(fn($ss) => $ss->id . ': ' . $ss->name)->implode("\n");
+
+        $title = $result['payload']['title'] ?? '';
+        $description = $result['payload']['description'] ?? '';
+
+        $apiKey = config('services.openrouter.key') ?: config('services.llm.api_key');
+        if (empty($apiKey)) {
+            return $result;
+        }
+
+        $model = config('services.llm.description_model', 'deepseek/deepseek-chat-v3-0324');
+        $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(20)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type' => 'application/json',
+                    'HTTP-Referer' => config('app.url', 'http://localhost'),
+                ])
+                ->post("{$baseUrl}/chat/completions", [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => "Eres un clasificador ITIL. Dada una solicitud de servicio, elige el subservicio más apropiado del catálogo. Responde SOLO con el número ID, nada más."],
+                        ['role' => 'user', 'content' => "Solicitud: {$title}\nDescripción: {$description}\n\nCatálogo de subservicios:\n{$options}\n\nResponde solo el ID numérico del subservicio más apropiado:"],
+                    ],
+                    'temperature' => 0.1,
+                    'max_tokens' => 10,
+                ]);
+
+            if (!$response->successful()) {
+                return $result;
+            }
+
+            $content = trim($response->json('choices.0.message.content') ?? '');
+            $selectedId = (int) preg_replace('/\D/', '', $content);
+
+            if ($selectedId <= 0) {
+                return $result;
+            }
+
+            // Verificar que el ID existe en el catálogo
+            $selectedSubService = $subServices->firstWhere('id', $selectedId);
+            if ($selectedSubService === null) {
+                return $result;
+            }
+
+            // Resolver contexto completo (servicio, familia, SLA)
+            $context = $this->serviceRequestService->resolveCreationContext(
+                $companyId,
+                $selectedId,
+                $result['payload']['criticality_level'] ?? 'MEDIA',
+                null,
+            );
+
+            $result['payload']['sub_service_id'] = $selectedId;
+            $result['payload']['service_id'] = (int) $context['service_id'];
+            $result['payload']['family_id'] = (int) $context['family_id'];
+            $result['payload']['sla_id'] = (int) $context['sla_id'];
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::info('resolveSubServiceWithAI: failed', ['error' => $e->getMessage()]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Verifica que el solicitante detectado corresponda al remitente real del correo.
+     * Solo aplica para formatos de Gmail paste simple (Nombre + timestamp "hace X horas").
+     * Usa el email/dominio detectado para resolver al solicitante correcto del workspace.
+     * Si el dominio del correo no corresponde al workspace activo, lanza error.
+     */
+    private function verifyRequesterFromSender(array $result, string $originalText): array
+    {
+        // Solo verificar si el texto tiene el patrón de Gmail sender (Nombre\nTimestamp\npara mí)
+        $senderData = $this->detectGmailSender($originalText);
+
+        if ($senderData === null) {
+            return $result;
+        }
+
+        $senderName = $senderData['name'];
+        $senderEmail = $senderData['email'];
+
+        $companyId = (int) ($result['payload']['company_id'] ?? 0);
+        if ($companyId <= 0) {
+            return $result;
+        }
+
+        // Validar que el dominio del email corresponda al workspace activo
+        if ($senderEmail !== null) {
+            $this->validateEmailDomainMatchesWorkspace($senderEmail, $companyId);
+        }
+
+        // Resolver el requester usando nombre Y email (el email da prioridad)
+        $resolvedSender = $this->resolveRequester($companyId, $senderName, $senderEmail);
+
+        // Si el sender resuelto existe en DB, usarlo
+        if ($resolvedSender['id'] !== null) {
+            $result['payload']['requester_id'] = $resolvedSender['id'];
+            unset($result['payload']['__pending_requester_name']);
+            unset($result['payload']['__pending_requester_email']);
+            if (isset($result['meta'])) {
+                $result['meta']['requester_name'] = $resolvedSender['name'];
+                $result['meta']['requester_pending'] = false;
+            }
+        } elseif (!empty($resolvedSender['pending'])) {
+            // El sender no existe en DB → marcar como pendiente con email para creación
+            $result['payload']['requester_id'] = null;
+            $result['payload']['__pending_requester_name'] = $resolvedSender['name'];
+            $result['payload']['__pending_requester_email'] = $senderEmail ?? '';
+            if (isset($result['meta'])) {
+                $result['meta']['requester_name'] = $resolvedSender['name'];
+                $result['meta']['requester_pending'] = true;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Valida que el dominio del email del remitente corresponda al workspace activo.
+     * Si el email pertenece a otra entidad, lanza un ValidationException con instrucciones
+     * para cambiar al workspace correcto.
+     */
+    private function validateEmailDomainMatchesWorkspace(string $email, int $companyId): void
+    {
+        $domain = mb_strtolower(explode('@', $email)[1] ?? '');
+        if ($domain === '') {
+            return;
+        }
+
+        $company = \App\Models\Company::find($companyId);
+        if ($company === null) {
+            return;
+        }
+
+        $workspaceName = mb_strtolower($company->name ?? '');
+        $isWorkspaceCultura = str_contains($workspaceName, 'cultura');
+        $isWorkspaceMovilidad = str_contains($workspaceName, 'movilidad');
+
+        // Si no es un workspace conocido, no validar
+        if (!$isWorkspaceCultura && !$isWorkspaceMovilidad) {
+            return;
+        }
+
+        $culturaDomains = ['mincultura.gov.co'];
+        $movilidadDomains = ['movilidadbogota.gov.co', 'transmilenio.gov.co', 'sdm.gov.co'];
+
+        $suggestedWorkspace = null;
+
+        if ($isWorkspaceMovilidad && in_array($domain, $culturaDomains, true)) {
+            $suggestedWorkspace = 'cultura';
+        } elseif ($isWorkspaceCultura && in_array($domain, $movilidadDomains, true)) {
+            $suggestedWorkspace = 'movilidad';
+        }
+
+        if ($suggestedWorkspace !== null) {
+            // Buscar el ID del workspace sugerido
+            $suggestedCompany = \App\Models\Company::query()
+                ->where('status', 'active')
+                ->whereRaw('LOWER(name) LIKE ?', ["%{$suggestedWorkspace}%"])
+                ->first();
+
+            $suggestedId = $suggestedCompany?->id;
+            $suggestedName = $suggestedCompany?->name ?? ucfirst($suggestedWorkspace);
+
+            // Guardar en sesión para que la vista pueda mostrar el botón de cambio
+            session()->flash('plain_text_import_suggested_workspace_id', $suggestedId);
+            session()->flash('plain_text_import_suggested_workspace_name', $suggestedName);
+
+            throw ValidationException::withMessages([
+                'plain_text' => "El correo del solicitante (@{$domain}) pertenece a {$suggestedName}, pero el espacio de trabajo activo es {$company->name}.",
+            ]);
+        }
+    }
+
+    /**
+     * Detecta el nombre del remitente en formato Gmail paste simple:
+     * "Nombre Apellido\nHH:MM (hace X horas/días)\npara mí, ..."
+     * También intenta capturar el email si aparece como "Nombre <email>" o cercano.
+     * Retorna [name, email] solo si se confirma el patrón completo.
+     */
+    private function detectGmailSender(string $text): ?array
+    {
+        $lines = preg_split('/\n/', $text);
+        if ($lines === false) {
+            return null;
+        }
+
+        $nonEmptyLines = [];
+        $allLines = [];
+        foreach ($lines as $line) {
+            $allLines[] = trim($line);
+            $trimmed = trim($line);
+            if ($trimmed !== '') {
+                $nonEmptyLines[] = $trimmed;
+            }
+            if (count($nonEmptyLines) >= 15) {
+                break;
+            }
+        }
+
+        // Look for the pattern: PersonName -> Timestamp(hace X) -> "para mí,..."
+        for ($i = 0; $i < count($nonEmptyLines) - 1; $i++) {
+            $line = $nonEmptyLines[$i];
+
+            // Check if it's "Name <email>" format first
+            if (preg_match('/^([\p{L}\p{M}\s.\'-]+?)\s*<([\w.\-+]+@[\w.\-]+\.\w+)>$/u', $line, $emailMatch)) {
+                // Next line must be timestamp
+                $nextLine = $nonEmptyLines[$i + 1] ?? '';
+                if (preg_match('/\d{1,2}:\d{2}\s*\(hace\s+\d+/iu', $nextLine)) {
+                    return ['name' => trim($emailMatch[1]), 'email' => $emailMatch[2]];
+                }
+            }
+
+            // Must look like a person name (2-5 capitalized words, no special chars)
+            if (mb_strlen($line) < 5 || mb_strlen($line) > 60) {
+                continue;
+            }
+            if (preg_match('/[<>@\[\]{}|\\\\\/;:!?()0-9]/', $line)) {
+                continue;
+            }
+            if (!preg_match('/^[\p{Lu}][\p{L}\p{M}]+(?:\s+[\p{Lu}][\p{L}\p{M}]+){0,4}$/u', $line)) {
+                continue;
+            }
+
+            // Next non-empty line must be a Gmail timestamp
+            $nextLine = $nonEmptyLines[$i + 1] ?? '';
+            if (preg_match('/\d{1,2}:\d{2}\s*\(hace\s+\d+/iu', $nextLine)) {
+                // Try to find email in nearby lines (sender email often appears in text)
+                $senderEmail = $this->findSenderEmailInText($line, $text);
+                return ['name' => $line, 'email' => $senderEmail];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Intenta encontrar el email del sender en el texto.
+     * Busca patrones como "nombre <email>", o emails que contengan partes del nombre.
+     */
+    private function findSenderEmailInText(string $senderName, string $text): ?string
+    {
+        // Buscar "Nombre <email>" en todo el texto
+        $nameParts = explode(' ', mb_strtolower($senderName));
+        $firstNameLower = $nameParts[0] ?? '';
+
+        // Buscar todos los emails en el texto
+        preg_match_all('/[\w.\-+]+@[\w.\-]+\.\w+/i', $text, $emailMatches);
+        $emails = array_unique($emailMatches[0] ?? []);
+
+        foreach ($emails as $email) {
+            $localPart = mb_strtolower(explode('@', $email)[0] ?? '');
+            // Si el local part contiene el primer nombre o apellido del sender
+            foreach ($nameParts as $part) {
+                if (mb_strlen($part) >= 3 && str_contains($localPart, $part)) {
+                    return $email;
+                }
+            }
+        }
+
+        // Buscar patrón "Nombre <email>" explícito
+        $escapedName = preg_quote($senderName, '/');
+        if (preg_match('/' . $escapedName . '\s*<([\w.\-+]+@[\w.\-]+\.\w+)>/iu', $text, $match)) {
+            return $match[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves a parsed data array (from email thread or structured extraction) into a full payload.
+     * Handles requester resolution, subservice fallback, SLA context, and task generation.
+     *
+     * @return array{payload: array, meta: array}
+     */
+    private function resolveStructuredParsedData(array $parsed, int $companyId, int $activeContractId, string $text, ?int $requestedBy): array
+    {
+        if ($parsed['requester_name'] === '') {
+            throw ValidationException::withMessages([
+                'plain_text' => 'No se pudo identificar el nombre del solicitante en el texto pegado.',
+            ]);
+        }
+
+        if ($parsed['sub_service_name'] === '') {
+            $inferredName = $this->inferFallbackSubServiceName($text, $parsed);
+            if ($inferredName !== null) {
+                $parsed['sub_service_name'] = $inferredName;
+            } else {
+                throw ValidationException::withMessages([
+                    'plain_text' => 'No se pudo identificar el subservicio en el texto pegado.',
+                ]);
+            }
+        }
+
+        $subService = $this->resolveBestSubService($parsed, $activeContractId, $text);
+        if (!$subService) {
+            throw ValidationException::withMessages([
+                'plain_text' => 'No se encontró un subservicio activo que coincida con "' . $parsed['sub_service_name'] . '".',
+            ]);
+        }
+
+        $requesterResult = $this->resolveRequester(
+            $companyId,
+            $parsed['requester_name'],
+            $parsed['requester_email'],
+        );
+
+        $createdAt = $parsed['created_at']?->format('Y-m-d\TH:i') ?? now()->format('Y-m-d\TH:i');
+        $criticalityLevel = $parsed['criticality_level'] ?: 'MEDIA';
+
+        $context = $this->serviceRequestService->resolveCreationContext(
+            $companyId,
+            (int) $subService->id,
+            $criticalityLevel,
+            $parsed['created_at'],
+        );
+
+        $tasks = $parsed['tasks'];
+        if ($tasks === []) {
+            $tasks[] = [
+                'title' => Str::limit($parsed['title'] ?: $parsed['sub_service_name'], 255, ''),
+                'description' => Str::limit($parsed['description'], 500, ''),
+                'type' => 'regular',
+                'priority' => 'medium',
+                'estimated_minutes' => 30,
+            ];
+        }
+
+        $payload = [
+            'company_id' => $companyId,
+            'requester_id' => $requesterResult['id'],
+            'title' => Str::limit($parsed['title'] ?: $parsed['sub_service_name'], 255, ''),
+            'description' => $parsed['description'] !== '' ? $parsed['description'] : $parsed['title'],
+            'sub_service_id' => (int) $subService->id,
+            'service_id' => (int) $context['service_id'],
+            'family_id' => (int) $context['family_id'],
+            'sla_id' => (int) $context['sla_id'],
+            'requested_by' => $requestedBy,
+            'entry_channel' => $parsed['entry_channel'],
+            'criticality_level' => $criticalityLevel,
+            'created_at' => $createdAt,
+            'due_date' => $parsed['due_date'] ?? null,
+            'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
+            'is_reportable' => true,
+            'tasks_template' => 'none',
+            'tasks' => $tasks,
+        ];
+
+        if (!empty($requesterResult['pending'])) {
+            $payload['__pending_requester_name'] = $requesterResult['name'];
+            $payload['__pending_requester_email'] = $requesterResult['email'] ?? '';
+        }
+
         return [
             'payload' => $payload,
             'meta' => [
@@ -186,9 +676,6 @@ class ServiceRequestPlainTextImportService
         try {
             $interpreter = app(LlmTextInterpreter::class);
             $workspaceName = $company->name ?? '';
-
-            // Validate workspace-entity consistency BEFORE calling the LLM
-            $this->validateTextBelongsToWorkspace($text, $workspaceName);
 
             // Validate that the workspace has a matching ITIL prompt
             if (!$interpreter->hasPromptForWorkspace($workspaceName)) {
@@ -804,7 +1291,37 @@ class ServiceRequestPlainTextImportService
             throw new \App\Services\SmartParser\Exceptions\ParsingTimeoutException(self::PIPELINE_TIMEOUT_SECONDS);
         }
 
-        return $parsedResult->toPayload($companyId, $requestedBy);
+        $payload = $parsedResult->toPayload($companyId, $requestedBy);
+
+        // If the SmartPipeline didn't resolve a sub-service, try to infer one using keyword heuristics
+        if (empty($payload['payload']['sub_service_id'])) {
+            $parsed = [
+                'title' => $payload['payload']['title'] ?? '',
+                'description' => $payload['payload']['description'] ?? '',
+            ];
+            $inferredName = $this->inferFallbackSubServiceName($text, $parsed);
+            if ($inferredName !== null) {
+                $company = \App\Models\Company::find($companyId);
+                $activeContractId = (int) ($company?->active_contract_id ?? 0);
+                if ($activeContractId > 0) {
+                    $subService = $this->resolveSubService($inferredName, $activeContractId);
+                    if ($subService) {
+                        $context = $this->serviceRequestService->resolveCreationContext(
+                            $companyId,
+                            (int) $subService->id,
+                            $payload['payload']['criticality_level'] ?? 'MEDIA',
+                            null,
+                        );
+                        $payload['payload']['sub_service_id'] = (int) $subService->id;
+                        $payload['payload']['service_id'] = (int) $context['service_id'];
+                        $payload['payload']['family_id'] = (int) $context['family_id'];
+                        $payload['payload']['sla_id'] = (int) $context['sla_id'];
+                    }
+                }
+            }
+        }
+
+        return $payload;
     }
 
     private function resolveBestSubService(array $parsed, int $contractId, string $plainText): ?SubService
@@ -955,7 +1472,8 @@ class ServiceRequestPlainTextImportService
         $dueDate = $this->parseFlexibleDate((string) ($lines[3] ?? ''));
         $requesterName = $this->normalizeUnavailableLine($this->cleanPersonLine((string) ($lines[4] ?? '')));
         $entryChannel = trim((string) ($lines[5] ?? ''));
-        $subServiceName = Str::limit($this->normalizeUnavailableLine(trim((string) ($lines[6] ?? ''))), 255, '');
+        $subServiceName = trim((string) ($lines[6] ?? ''));
+        $subServiceName = $this->isUnavailableMarker($subServiceName) ? '' : Str::limit($subServiceName, 255, '');
         $linksLine = $this->normalizeUnavailableLine(trim((string) ($lines[7] ?? '')));
         $criticalityLevel = trim((string) ($lines[8] ?? ''));
         $taskTitle = $this->normalizeUnavailableLine($this->cleanTaskTitle((string) ($lines[9] ?? '')));
@@ -1671,17 +2189,65 @@ class ServiceRequestPlainTextImportService
             'ir al contenido',
             'recibidos',
             'vista creada con ia',
+            'aceptar',
+            'rechazar',
+            'tentativo',
+            'chatear',
+            'calendario',
+            'reuniones',
+            'si',
+            'no',
+            'quizas',
+            'mas opciones',
+            'cambiad',
+            'cambiadо',
+            'adjuntos',
+            'invitados',
+            'cuando',
         ], true)) {
             return true;
         }
 
+        // Pattern: "N de N.NNN" (message counter like "1 de 2.667" or "7 de 4.957")
         if (preg_match('/^\d+\s+de\s+[\d.,]+$/u', $normalized) === 1) {
+            return true;
+        }
+
+        // Pattern: "N AM" or "N PM" (time slots in Outlook calendar)
+        if (preg_match('/^\d{1,2}\s*(am|pm)$/i', $normalized) === 1) {
+            return true;
+        }
+
+        // Pattern: "N sin respuesta" (Outlook invite status)
+        if (preg_match('/^\d+\s+sin\s+respuesta$/i', $normalized) === 1) {
+            return true;
+        }
+
+        // Pattern: "label:xxx" (Gmail labels)
+        if (str_starts_with($normalized, 'label:')) {
             return true;
         }
 
         return str_contains($normalized, 'lectores de pantalla')
             || str_contains($normalized, 'correo de bogota')
-            || str_contains($normalized, 'correo de bogotá');
+            || str_contains($normalized, 'correo de bogotá')
+            || str_contains($normalized, 'resumir este correo')
+            || str_contains($normalized, 'reunion de microsoft teams')
+            || str_contains($normalized, 'unirme con google meet')
+            || str_contains($normalized, 'invitacion de google calendar')
+            || str_contains($normalized, 'en tu google calendar')
+            || str_contains($normalized, 'no hay mas eventos')
+            || str_contains($normalized, 'si la solicitud contenida')
+            || str_contains($normalized, 'te hemos enviado este correo')
+            || str_contains($normalized, 'si reenvias esta invitacion')
+            || str_contains($normalized, 'analizados por gmail')
+            || str_contains($normalized, 'le ha invitado')
+            || str_contains($normalized, 'opciones de la reunion')
+            || str_contains($normalized, 'necesita ayuda')
+            || str_contains($normalized, 'referencia del sistema')
+            || str_contains($normalized, 'para organizadores')
+            || str_contains($normalized, 'segun este correo')
+            || str_contains($normalized, 'un archivo adjunto');
     }
 
     private function isQuotedReplyMarker(string $line): bool

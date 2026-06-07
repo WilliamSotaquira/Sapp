@@ -124,6 +124,14 @@
         </button>
     </div>
 
+    @if (session('plain_text_import_suggested_workspace_id'))
+        <form method="POST" action="{{ route('workspaces.switch') }}" id="switchWorkspaceForm" class="hidden">
+            @csrf
+            <input type="hidden" name="company_id" value="{{ session('plain_text_import_suggested_workspace_id') }}">
+            <input type="hidden" name="redirect_to" value="/service-requests/create">
+        </form>
+    @endif
+
     <div
         id="plainTextImportModal"
         class="fixed inset-0 z-50 {{ $shouldOpenPlainTextImport ? '' : 'hidden' }}"
@@ -134,7 +142,7 @@
     >
         <div class="absolute inset-0 bg-slate-950/50" data-plain-text-overlay></div>
         <div class="relative flex min-h-screen items-center justify-center p-4">
-            <div class="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Precarga asistida</p>
@@ -160,6 +168,19 @@
                                 <i class="fas fa-exclamation-circle mt-0.5 text-red-500"></i>
                                 <span>{{ session('plain_text_import_error') }}</span>
                             </div>
+                            @if (session('plain_text_import_suggested_workspace_id'))
+                                <div class="mt-3">
+                                    <button
+                                        type="button"
+                                        id="switchWorkspaceBtn"
+                                        data-workspace-id="{{ session('plain_text_import_suggested_workspace_id') }}"
+                                        class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700 transition"
+                                    >
+                                        <i class="fas fa-exchange-alt"></i>
+                                        Cambiar a {{ session('plain_text_import_suggested_workspace_name') }}
+                                    </button>
+                                </div>
+                            @endif
                         </div>
                     @endif
 
@@ -504,6 +525,15 @@
 
         if (shouldOpenPlainTextImport) {
             openPlainTextImportModal();
+        }
+
+        // Workspace switch button (outside form nesting)
+        const switchWorkspaceBtn = document.getElementById('switchWorkspaceBtn');
+        const switchWorkspaceForm = document.getElementById('switchWorkspaceForm');
+        if (switchWorkspaceBtn && switchWorkspaceForm) {
+            switchWorkspaceBtn.addEventListener('click', function() {
+                switchWorkspaceForm.submit();
+            });
         }
 
         // Auto-crear solicitante pendiente (diferido desde interpretación de texto)

@@ -45,14 +45,14 @@ class DateExtractor implements FieldExtractorInterface
     ];
 
     /**
-     * Patrón para fecha en formato español textual: "16 de mayo de 2025".
+     * Patrón para fecha en formato español textual: "16 de mayo de 2025" con hora opcional.
      */
-    private const SPANISH_DATE_PATTERN = '/(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})/iu';
+    private const SPANISH_DATE_PATTERN = '/(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})(?:\s+(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\.?)?)?/iu';
 
     /**
-     * Patrón para fecha en formato numérico: dd/mm/yyyy o dd-mm-yyyy.
+     * Patrón para fecha en formato numérico: dd/mm/yyyy o dd-mm-yyyy con hora opcional.
      */
-    private const NUMERIC_DATE_PATTERN = '/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/';
+    private const NUMERIC_DATE_PATTERN = '/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\.?)?)?/iu';
 
     /**
      * Extrae fechas del texto: fecha de creación y fecha de vencimiento.
@@ -200,7 +200,7 @@ class DateExtractor implements FieldExtractorInterface
     /**
      * Parsea una fecha en formato español textual desde un match de regex.
      *
-     * @param array<int, string> $match [full_match, day, month_name, year]
+     * @param array<int, string> $match [full_match, day, month_name, year, hour?, minute?, meridiem?]
      */
     private function parseSpanishTextualDate(array $match): ?Carbon
     {
@@ -217,8 +217,19 @@ class DateExtractor implements FieldExtractorInterface
             return null;
         }
 
+        $hour = isset($match[4]) && $match[4] !== '' ? (int) $match[4] : 0;
+        $minute = isset($match[5]) && $match[5] !== '' ? (int) $match[5] : 0;
+        $meridiem = isset($match[6]) && $match[6] !== '' ? mb_strtolower($match[6]) : null;
+
+        if ($meridiem === 'p' && $hour < 12) {
+            $hour += 12;
+        }
+        if ($meridiem === 'a' && $hour === 12) {
+            $hour = 0;
+        }
+
         try {
-            return Carbon::createFromDate($year, $month, $day)->startOfDay();
+            return Carbon::create($year, $month, $day, $hour, $minute, 0);
         } catch (\Exception) {
             return null;
         }
@@ -227,7 +238,7 @@ class DateExtractor implements FieldExtractorInterface
     /**
      * Parsea una fecha en formato numérico desde un match de regex.
      *
-     * @param array<int, string> $match [full_match, day, month, year]
+     * @param array<int, string> $match [full_match, day, month, year, hour?, minute?, meridiem?]
      */
     private function parseNumericDate(array $match): ?Carbon
     {
@@ -239,8 +250,19 @@ class DateExtractor implements FieldExtractorInterface
             return null;
         }
 
+        $hour = isset($match[4]) && $match[4] !== '' ? (int) $match[4] : 0;
+        $minute = isset($match[5]) && $match[5] !== '' ? (int) $match[5] : 0;
+        $meridiem = isset($match[6]) && $match[6] !== '' ? mb_strtolower($match[6]) : null;
+
+        if ($meridiem === 'p' && $hour < 12) {
+            $hour += 12;
+        }
+        if ($meridiem === 'a' && $hour === 12) {
+            $hour = 0;
+        }
+
         try {
-            return Carbon::createFromDate($year, $month, $day)->startOfDay();
+            return Carbon::create($year, $month, $day, $hour, $minute, 0);
         } catch (\Exception) {
             return null;
         }

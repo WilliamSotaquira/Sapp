@@ -90,6 +90,13 @@ class TaskGenerator implements FieldExtractorInterface
             return $this->generateTaskWithSubtasks($listItems, $context);
         }
 
+        // Try to detect lines with explicit duration pattern "(XX min)" even without bullets
+        $durationItems = $this->extractDurationLines($lines);
+
+        if (! empty($durationItems)) {
+            return $this->generateTaskWithSubtasks($durationItems, $context);
+        }
+
         // Try to detect file lists (lines ending with file extensions)
         $fileItems = $this->extractFileItems($lines);
 
@@ -130,6 +137,47 @@ class TaskGenerator implements FieldExtractorInterface
                 if ($length >= self::MIN_TITLE_LENGTH && $length <= self::MAX_TITLE_LENGTH) {
                     $items[] = [
                         'title' => $cleanedTitle,
+                        'raw' => $line,
+                    ];
+                }
+
+                if (count($items) >= self::MAX_SUBTASKS) {
+                    break;
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Extract lines that contain an explicit duration pattern like "(15 min)" or "(2 h)"
+     * even without bullet markers. These are likely subtasks listed without formatting.
+     *
+     * @param  string[]  $lines
+     * @return array<int, array{title: string, raw: string}>
+     */
+    private function extractDurationLines(array $lines): array
+    {
+        $items = [];
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+
+            // Skip empty lines, very short lines, task title lines with "(N subtareas)"
+            if (mb_strlen($trimmed) < 10) {
+                continue;
+            }
+            if (preg_match('/\(\d+\s*subtareas?\)/iu', $trimmed)) {
+                continue;
+            }
+
+            // Must contain an explicit duration: (XX min), (X h), (XX minutos)
+            if (preg_match('/\(\d+\s*(?:min(?:utos?)?|m|horas?|hrs?|h)\)/iu', $trimmed)) {
+                $length = mb_strlen($trimmed);
+                if ($length >= self::MIN_TITLE_LENGTH && $length <= self::MAX_TITLE_LENGTH) {
+                    $items[] = [
+                        'title' => $trimmed,
                         'raw' => $line,
                     ];
                 }
@@ -243,8 +291,16 @@ class TaskGenerator implements FieldExtractorInterface
         foreach ($listItems as $item) {
             $estimatedMinutes = $this->detectDuration($item['raw']) ?? self::DEFAULT_MINUTES;
 
+            // Remove the duration pattern from the title
+            $title = preg_replace('/\s*\(\d+\s*(?:min(?:utos?)?|m|horas?|hrs?|h)\)\s*$/iu', '', $item['title']);
+            $title = trim($title);
+
+            if (mb_strlen($title) < self::MIN_TITLE_LENGTH) {
+                $title = $item['title'];
+            }
+
             $subtasks[] = [
-                'title' => $item['title'],
+                'title' => $title,
                 'priority' => 'medium',
                 'estimated_minutes' => $estimatedMinutes,
             ];
@@ -301,11 +357,22 @@ class TaskGenerator implements FieldExtractorInterface
     }
 
     /**
-     * Derive the task title from context (subject or first meaningful sentence).
+     * Derive the task title from context.
+     * Priority: 1) Line with "(N subtareas)" pattern, 2) Email subject, 3) Title from context, 4) First meaningful sentence.
      */
     private function deriveTaskTitle(ParsingContext $context): string
     {
-        // Try email subject first
+        // Try to find a line with "(N subtareas)" pattern — this is the explicit task title
+        $taskTitleFromText = $this->findTaskTitleLine($context->normalizedText);
+        if ($taskTitleFromText !== null) {
+            // Remove the "(N subtareas)" suffix
+            $clean = trim(preg_replace('/\(\d+\s*subtareas?\)\s*$/iu', '', $taskTitleFromText));
+            if (mb_strlen($clean) >= 5) {
+                return $this->truncateTitle($clean);
+            }
+        }
+
+        // Try email subject
         if (! empty($context->emailHeaders)) {
             $subject = $context->emailHeaders['Asunto'] ?? $context->emailHeaders['Subject'] ?? null;
             if ($subject !== null && mb_strlen(trim($subject)) >= 10) {
@@ -315,12 +382,36 @@ class TaskGenerator implements FieldExtractorInterface
 
         // Fall back to first meaningful sentence from messageBody or normalizedText
         $text = $context->messageBody ?? $context->normalizedText;
+        $sentence = $this->extractFirstSentence($text);
 
-        return $this->truncateTitle($this->extractFirstSentence($text));
+        // If the extracted sentence looks like a URL or metadata, use normalizedText
+        if (preg_match('/^(Ver en:|https?:\/\/)/i', $sentence)) {
+            $sentence = $this->extractFirstSentence($context->normalizedText);
+        }
+
+        return $this->truncateTitle($sentence);
+    }
+
+    /**
+     * Find a line in the text that matches the "(N subtareas)" task title pattern.
+     */
+    private function findTaskTitleLine(string $text): ?string
+    {
+        $lines = preg_split('/\r?\n/', $text);
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if (preg_match('/\(\d+\s*subtareas?\)\s*$/iu', $trimmed) && mb_strlen($trimmed) >= 10) {
+                return $trimmed;
+            }
+        }
+
+        return null;
     }
 
     /**
      * Extract the first meaningful sentence (10+ chars) from text.
+     * Skips Gmail headers, greetings, person names, timestamps, and list items.
      */
     private function extractFirstSentence(string $text): string
     {
@@ -329,13 +420,45 @@ class TaskGenerator implements FieldExtractorInterface
         // Common greeting patterns to skip
         $greetingPatterns = [
             '/^\s*(hola|buenos?\s+d[ií]as?|buenas?\s+tardes?|buenas?\s+noches?|estimad[oa]s?|queridos?|hi|hello|hey|dear|good\s+morning|good\s+afternoon)/iu',
+            // Saludo con nombre: "William buenos días"
+            '/^\s*[\p{L}\p{M}]+\s+(buenos?\s+d[ií]as?|buenas?\s+tardes?|buenas?\s+noches?|hola|c[oó]mo\s+est[aá])/iu',
         ];
 
-        foreach ($lines as $line) {
-            $trimmed = trim($line);
+        // Person name pattern (2-5 capitalized words)
+        $personNamePattern = '/^[\p{Lu}][\p{L}\p{M}]+(?:\s+[\p{Lu}][\p{L}\p{M}]+){1,4}$/u';
+
+        for ($i = 0; $i < count($lines); $i++) {
+            $trimmed = trim($lines[$i]);
 
             if (mb_strlen($trimmed) < 10) {
                 continue;
+            }
+
+            // Skip Gmail timestamps: "6:52 (hace 4 horas)"
+            if (preg_match('/\d{1,2}:\d{2}\s*\(hace\s+\d+/iu', $trimmed)) {
+                continue;
+            }
+
+            // Skip "para mí, ..." recipient lines
+            if (preg_match('/^para\s+(m[ií]|mi)\b/iu', $trimmed)) {
+                continue;
+            }
+
+            // Skip standalone person names followed by a timestamp (Gmail sender)
+            if (preg_match($personNamePattern, $trimmed)) {
+                // Check next non-empty line for timestamp
+                $isGmailSender = false;
+                for ($j = $i + 1; $j < count($lines) && $j <= $i + 3; $j++) {
+                    $nextLine = trim($lines[$j] ?? '');
+                    if ($nextLine === '') continue;
+                    if (preg_match('/\d{1,2}:\d{2}\s*\(hace\s+\d+/iu', $nextLine)) {
+                        $isGmailSender = true;
+                    }
+                    break;
+                }
+                if ($isGmailSender) {
+                    continue;
+                }
             }
 
             // Skip greetings
