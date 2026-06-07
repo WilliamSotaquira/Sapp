@@ -50,6 +50,9 @@
             <option value="ARCHIVO" {{ old('evidence_type', $evidence->evidence_type ?? '') == 'ARCHIVO' ? 'selected' : '' }}>
                 📎 Archivo Adjunto
             </option>
+            <option value="ACTA" {{ old('evidence_type', $evidence->evidence_type ?? '') == 'ACTA' ? 'selected' : '' }}>
+                📋 Acta de Reunión
+            </option>
             <option value="PASO_A_PASO" {{ old('evidence_type', $evidence->evidence_type ?? '') == 'PASO_A_PASO' ? 'selected' : '' }}>
                 📝 Descripción Paso a Paso
             </option>
@@ -201,7 +204,7 @@
             fileRequired.style.display = 'none';
 
             // Mostrar secciones según el tipo seleccionado
-            if (selectedType === 'ARCHIVO') {
+            if (selectedType === 'ARCHIVO' || selectedType === 'ACTA') {
                 fileUploadSection.style.display = 'block';
                 fileRequired.style.display = 'inline';
             } else if (selectedType === 'ENLACE') {

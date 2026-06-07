@@ -4,6 +4,14 @@
 
 @section('content')
 <style>
+    /* Tailwind safelist for dynamic card colors:
+       hover:border-blue-500 hover:border-indigo-500 hover:border-amber-500 hover:border-green-500 hover:border-orange-500
+       border-blue-500 border-indigo-500 border-amber-500 border-green-500 border-orange-500
+       ring-blue-200 ring-indigo-200 ring-amber-200 ring-green-200 ring-orange-200
+       ring-blue-300 ring-indigo-300 ring-amber-300 ring-green-300 ring-orange-300
+       text-blue-700 text-indigo-700 text-amber-700 text-green-700 text-orange-700
+       group-hover:text-blue-700 group-hover:text-indigo-700 group-hover:text-amber-700 group-hover:text-green-700 group-hover:text-orange-700
+    */
     @keyframes scale-in {
         from {
             opacity: 0;
@@ -72,29 +80,6 @@
     }
 </style>
 
-    @if ($errors->any())
-        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <h3 class="text-sm font-semibold text-red-800 mb-1">Revisa los campos obligatorios</h3>
-            <ul class="list-disc list-inside text-sm text-red-700">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            {{ session('error') }}
-        </div>
-    @endif
-
-    @if (session('success'))
-        <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-            {{ session('success') }}
-        </div>
-    @endif
-
     @php
         $plainTextImportValue = old('plain_text_import_text', '');
         $shouldOpenPlainTextImport = (bool) old('__open_plain_text_import', false) || session()->has('plain_text_import_error');
@@ -111,19 +96,41 @@
                 }
             }
         }
+
+        // Determine initial step: go to step 2 if there are validation errors, old() values, or parser prefill
+        $selectedRequestTypeId = old('request_type_id', '');
+        $selectedSlug = '';
+        if ($selectedRequestTypeId) {
+            $selectedType = ($requestTypes ?? collect())->firstWhere('id', (int) $selectedRequestTypeId);
+            $selectedSlug = $selectedType ? $selectedType->slug : '';
+        }
+        $startAtStep2 = $errors->any() || $selectedRequestTypeId || !empty($parserPrefilledFields) || old('title');
     @endphp
 
-    <div class="max-w-4xl mx-auto mb-6 flex justify-end">
-        <button
-            type="button"
-            id="openPlainTextImportModal"
-            class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-            <i class="fas fa-paste"></i>
-            Pegar e interpretar
-        </button>
-    </div>
+    @if ($errors->any())
+        <div class="mb-6 max-w-4xl mx-auto p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h3 class="text-sm font-semibold text-red-800 mb-1">Revisa los campos obligatorios</h3>
+            <ul class="list-disc list-inside text-sm text-red-700">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
+    @if (session('error'))
+        <div class="mb-6 max-w-4xl mx-auto p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if (session('success'))
+        <div class="mb-6 max-w-4xl mx-auto p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    {{-- Plain Text Import Modal (unchanged, outside Alpine scope) --}}
     @if (session('plain_text_import_suggested_workspace_id'))
         <form method="POST" action="{{ route('workspaces.switch') }}" id="switchWorkspaceForm" class="hidden">
             @csrf
@@ -246,118 +253,234 @@
         </div>
     </div>
 
-    <form action="{{ route('service-requests.store') }}" method="POST">
-        @csrf
+    {{-- ===== MAIN CONTENT WITH ALPINE.JS TYPE-FIRST FLOW ===== --}}
+    <div x-data="{
+        step: {{ $startAtStep2 ? '2' : '1' }},
+        selectedTypeId: '{{ $selectedRequestTypeId }}',
+        selectedTypeSlug: '{{ $selectedSlug }}',
+        selectType(id, slug) {
+            this.selectedTypeId = id;
+            this.selectedTypeSlug = slug;
+            this.step = 2;
+        },
+        goBack() {
+            this.step = 1;
+        }
+    }" class="max-w-4xl mx-auto">
 
-        <div class="max-w-4xl mx-auto">
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 1 de 2</p>
-                    <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
-                    <p class="text-sm text-gray-600 mt-1">Los campos marcados con * son obligatorios.</p>
-                </div>
-                <div class="p-6">
-                    @include('components.service-requests.forms.basic-fields', [
-                        'subServices' => $subServices,
-                        'selectedSubService' => $selectedSubService ?? null,
-                        'requesters' => $requesters,
-                        'companies' => $companies ?? [],
-                        'errors' => $errors,
-                        'mode' => 'create',
-                    ])
-                </div>
-            </div>
+        {{-- ===== STATE 1: TYPE SELECTION ===== --}}
+        <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
 
-            <!-- Tareas (opcional) -->
-            <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                <button type="button" id="toggleTasksSection" class="group w-full rounded-2xl px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100 focus:outline-none focus:bg-blue-100 focus:border-blue-600 focus:ring-4 focus:ring-inset focus:ring-blue-600/35 focus:shadow-md focus-visible:bg-blue-100 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-600/35">
-                    <div class="text-left">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Paso 2 de 2</p>
-                        <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas</div>
-                        <div class="text-gray-600 text-sm group-focus:text-blue-800 group-focus-visible:text-blue-800">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
-                    </div>
-                    <span id="tasksChevron" class="text-gray-500 group-focus:text-blue-900 group-focus-visible:text-blue-900">▾</span>
+            {{-- Pegar e interpretar button --}}
+            <div class="mb-6 flex justify-end">
+                <button
+                    type="button"
+                    id="openPlainTextImportModal"
+                    class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <i class="fas fa-paste"></i>
+                    Pegar e interpretar
                 </button>
-
-                <div id="tasksSectionBody" class="hidden p-6">
-                    <div class="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
-                        <div class="flex items-center gap-2 min-w-max">
-                            <label for="tasks_template" class="text-sm font-medium text-gray-700 whitespace-nowrap">Plantilla</label>
-                            <div class="relative group">
-                                <button type="button"
-                                        tabindex="-1"
-                                        class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 text-xs text-gray-500 hover:text-blue-700 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        aria-label="Ayuda sobre plantillas"
-                                        title="Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.">
-                                    <i class="fas fa-question"></i>
-                                </button>
-                                <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 rounded-lg bg-gray-900 text-white text-xs px-3 py-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shadow-lg z-20">
-                                    Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.
-                                </div>
-                            </div>
-                            <select id="tasks_template" name="tasks_template" tabindex="-1" class="w-[280px] px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                                <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
-                                <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
-                            </select>
-                        </div>
-
-                        <div class="flex items-center gap-2 min-w-max ml-auto">
-                            <button type="button" id="addTaskRow" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold whitespace-nowrap">
-                                + Agregar tarea
-                            </button>
-                            <button type="button" id="clearTasks" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold whitespace-nowrap">
-                                Limpiar
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="tasksDraftNotice" class="hidden mt-3 p-3 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-900 text-sm">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <span>Se encontró un borrador guardado automáticamente.</span>
-                            <div class="flex items-center gap-2">
-                                <button type="button" id="restoreTasksDraft" class="px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">Recuperar</button>
-                                <button type="button" id="discardTasksDraft" class="px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-800 hover:bg-indigo-100 font-semibold">Descartar</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tasksNotice" class="hidden mt-4 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm"></div>
-
-                    <div id="tasksList" class="mt-4 space-y-3"></div>
-                </div>
             </div>
 
-            <div class="mt-8 pt-6 border-t border-gray-200">
-                <div class="flex flex-col sm:flex-row justify-end gap-3">
-                    <!-- Botón Cancelar - Simplificado -->
-                    <a href="{{ route('service-requests.index') }}"
-                        class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        Cancelar
-                    </a>
+            {{-- Header --}}
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">¿Qué tipo de solicitud deseas crear?</h1>
+                <p class="mt-2 text-gray-500">Selecciona el tipo para ver un formulario adaptado.</p>
+            </div>
 
-                    <!-- Botón Crear - Simplificado -->
-                    <button type="submit"
-                        class="inline-flex items-center justify-center px-8 py-3 border border-transparent rounded-xl text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg transform hover:scale-105">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                        </svg>
-                        Crear Solicitud
+            {{-- Type Cards Grid --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @php
+                    $cardMeta = [
+                        'general' => ['icon' => '📋', 'color' => 'blue', 'desc' => 'Solicitud de servicio estándar'],
+                        'reunion' => ['icon' => '👥', 'color' => 'indigo', 'desc' => 'Programar y gestionar reuniones'],
+                        'compromiso' => ['icon' => '🤝', 'color' => 'amber', 'desc' => 'Registrar compromisos y seguimiento'],
+                        'seguimiento' => ['icon' => '🔄', 'color' => 'green', 'desc' => 'Dar seguimiento a procesos activos'],
+                        'solicitud-documental' => ['icon' => '📄', 'color' => 'orange', 'desc' => 'Gestión de documentos y actas'],
+                    ];
+                @endphp
+
+                @foreach (($requestTypes ?? collect()) as $type)
+                    @php
+                        $meta = $cardMeta[$type->slug] ?? ['icon' => '📋', 'color' => 'blue', 'desc' => 'Solicitud de servicio'];
+                        $color = $meta['color'];
+                    @endphp
+                    <button
+                        type="button"
+                        @click="selectType('{{ $type->id }}', '{{ $type->slug }}')"
+                        class="group relative bg-white border-2 rounded-2xl p-6 cursor-pointer text-left transition-all duration-200 hover:shadow-lg hover:border-{{ $color }}-500 focus:outline-none focus:ring-2 focus:ring-{{ $color }}-300"
+                        :class="selectedTypeId == '{{ $type->id }}' ? 'border-{{ $color }}-500 ring-2 ring-{{ $color }}-200' : 'border-gray-200'"
+                    >
+                        <div class="text-3xl mb-3">{{ $meta['icon'] }}</div>
+                        <h3 class="text-base font-semibold text-gray-800 group-hover:text-{{ $color }}-700">{{ $type->name }}</h3>
+                        <p class="mt-1 text-sm text-gray-500">{{ $meta['desc'] }}</p>
                     </button>
-                </div>
-                <p id="createFormInlineError" class="hidden mt-2 text-sm text-red-600 font-medium"></p>
+                @endforeach
             </div>
         </div>
-    </form>
+
+        {{-- ===== STATE 2: THE FORM ===== --}}
+        <div x-show="step === 2" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+
+            {{-- Back button + type badge --}}
+            <div class="mb-6 flex items-center justify-between">
+                <button
+                    type="button"
+                    @click="goBack()"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-blue-700 transition"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Cambiar tipo
+                </button>
+
+                <div class="flex items-center gap-3">
+                    {{-- Type badge --}}
+                    <template x-if="selectedTypeSlug">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <span x-text="document.querySelector('[data-type-name-' + selectedTypeSlug + ']')?.textContent || selectedTypeSlug"></span>
+                        </span>
+                    </template>
+
+                    {{-- Pegar e interpretar (also available in step 2) --}}
+                    <button
+                        type="button"
+                        id="openPlainTextImportModalStep2"
+                        class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <i class="fas fa-paste"></i>
+                        Pegar e interpretar
+                    </button>
+                </div>
+            </div>
+
+            {{-- Hidden spans for type names (used by Alpine to display badge) --}}
+            @foreach (($requestTypes ?? collect()) as $type)
+                <span data-type-name-{{ $type->slug }} class="hidden">{{ $type->name }}</span>
+            @endforeach
+
+            <form action="{{ route('service-requests.store') }}" method="POST">
+                @csrf
+
+                {{-- Hidden input for request_type_id, driven by Alpine --}}
+                <input type="hidden" name="request_type_id" :value="selectedTypeId">
+
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 1 de 2</p>
+                        <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
+                        <p class="text-sm text-gray-600 mt-1">Los campos marcados con * son obligatorios.</p>
+                    </div>
+                    <div class="p-6">
+                        @include('components.service-requests.forms.basic-fields', [
+                            'subServices' => $subServices,
+                            'selectedSubService' => $selectedSubService ?? null,
+                            'requesters' => $requesters,
+                            'companies' => $companies ?? [],
+                            'errors' => $errors,
+                            'mode' => 'create',
+                        ])
+
+                        {{-- Meeting-specific fields (shown when type = "reunion") --}}
+                        <div class="mt-6">
+                            @include('service-requests.partials._meeting-details', ['errors' => $errors])
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tareas (opcional) -->
+                <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                    <button type="button" id="toggleTasksSection" class="group w-full rounded-2xl px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100 focus:outline-none focus:bg-blue-100 focus:border-blue-600 focus:ring-4 focus:ring-inset focus:ring-blue-600/35 focus:shadow-md focus-visible:bg-blue-100 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-600/35">
+                        <div class="text-left">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Paso 2 de 2</p>
+                            <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas</div>
+                            <div class="text-gray-600 text-sm group-focus:text-blue-800 group-focus-visible:text-blue-800">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
+                        </div>
+                        <span id="tasksChevron" class="text-gray-500 group-focus:text-blue-900 group-focus-visible:text-blue-900">▾</span>
+                    </button>
+
+                    <div id="tasksSectionBody" class="hidden p-6">
+                        <div class="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
+                            <div class="flex items-center gap-2 min-w-max">
+                                <label for="tasks_template" class="text-sm font-medium text-gray-700 whitespace-nowrap">Plantilla</label>
+                                <div class="relative group">
+                                    <button type="button"
+                                            tabindex="-1"
+                                            class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-300 text-xs text-gray-500 hover:text-blue-700 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            aria-label="Ayuda sobre plantillas"
+                                            title="Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.">
+                                        <i class="fas fa-question"></i>
+                                    </button>
+                                    <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 rounded-lg bg-gray-900 text-white text-xs px-3 py-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shadow-lg z-20">
+                                        Si eliges una plantilla, se cargarán tareas sugeridas que podrás editar.
+                                    </div>
+                                </div>
+                                <select id="tasks_template" name="tasks_template" tabindex="-1" class="w-[280px] px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                                    <option value="none" {{ old('tasks_template', 'none') === 'none' ? 'selected' : '' }}>Ninguna (manual)</option>
+                                    <option value="subservice_standard" {{ old('tasks_template') === 'subservice_standard' ? 'selected' : '' }}>Tareas predefinidas del subservicio</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center gap-2 min-w-max ml-auto">
+                                <button type="button" id="addTaskRow" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold whitespace-nowrap">
+                                    + Agregar tarea
+                                </button>
+                                <button type="button" id="clearTasks" class="px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold whitespace-nowrap">
+                                    Limpiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="tasksDraftNotice" class="hidden mt-3 p-3 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-900 text-sm">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span>Se encontró un borrador guardado automáticamente.</span>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="restoreTasksDraft" class="px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 font-semibold">Recuperar</button>
+                                    <button type="button" id="discardTasksDraft" class="px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-800 hover:bg-indigo-100 font-semibold">Descartar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tasksNotice" class="hidden mt-4 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-sm"></div>
+
+                        <div id="tasksList" class="mt-4 space-y-3"></div>
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex flex-col sm:flex-row justify-end gap-3">
+                        <!-- Botón Cancelar -->
+                        <a href="{{ route('service-requests.index') }}"
+                            class="inline-flex items-center justify-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Cancelar
+                        </a>
+
+                        <!-- Botón Crear -->
+                        <button type="submit"
+                            class="inline-flex items-center justify-center px-8 py-3 border border-transparent rounded-xl text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold shadow-md hover:shadow-lg transform hover:scale-105">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                            </svg>
+                            Crear Solicitud
+                        </button>
+                    </div>
+                    <p id="createFormInlineError" class="hidden mt-2 text-sm text-red-600 font-medium"></p>
+                </div>
+            </form>
+        </div>
+    </div>
+
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const plainTextImportModal = document.getElementById('plainTextImportModal');
         const openPlainTextImportModalBtn = document.getElementById('openPlainTextImportModal');
+        const openPlainTextImportModalStep2Btn = document.getElementById('openPlainTextImportModalStep2');
         const closePlainTextImportModalBtn = document.getElementById('closePlainTextImportModal');
         const cancelPlainTextImportBtn = document.getElementById('cancelPlainTextImport');
         const clearPlainTextImportBtn = document.getElementById('clearPlainTextImport');
@@ -462,10 +585,12 @@
                 return;
             }
 
-            if (openPlainTextImportModalBtn) {
-                openPlainTextImportModalBtn.disabled = true;
-                openPlainTextImportModalBtn.setAttribute('aria-busy', 'true');
-                openPlainTextImportModalBtn.classList.add('cursor-wait', 'opacity-80');
+            // Disable the triggering button temporarily
+            const triggerBtn = this === openPlainTextImportModalStep2Btn ? openPlainTextImportModalStep2Btn : openPlainTextImportModalBtn;
+            if (triggerBtn) {
+                triggerBtn.disabled = true;
+                triggerBtn.setAttribute('aria-busy', 'true');
+                triggerBtn.classList.add('cursor-wait', 'opacity-80');
             }
 
             try {
@@ -493,15 +618,16 @@
             } catch (error) {
                 openPlainTextImportModal();
             } finally {
-                if (openPlainTextImportModalBtn) {
-                    openPlainTextImportModalBtn.disabled = false;
-                    openPlainTextImportModalBtn.removeAttribute('aria-busy');
-                    openPlainTextImportModalBtn.classList.remove('cursor-wait', 'opacity-80');
+                if (triggerBtn) {
+                    triggerBtn.disabled = false;
+                    triggerBtn.removeAttribute('aria-busy');
+                    triggerBtn.classList.remove('cursor-wait', 'opacity-80');
                 }
             }
         }
 
         openPlainTextImportModalBtn?.addEventListener('click', importPlainTextFromClipboard);
+        openPlainTextImportModalStep2Btn?.addEventListener('click', importPlainTextFromClipboard);
         closePlainTextImportModalBtn?.addEventListener('click', closePlainTextImportModal);
         cancelPlainTextImportBtn?.addEventListener('click', closePlainTextImportModal);
         clearPlainTextImportBtn?.addEventListener('click', function() {
@@ -775,6 +901,7 @@
         }
 
         function setNotice(message) {
+            if (!notice) return;
             if (!message) {
                 notice.classList.add('hidden');
                 notice.textContent = '';
@@ -785,6 +912,7 @@
         }
 
         function updateTaskSummary() {
+            if (!tasksList) return;
             const rows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
             let totalMinutes = 0;
 
@@ -854,20 +982,23 @@
         }
 
         function isOpen() {
-            return !body.classList.contains('hidden');
+            return body && !body.classList.contains('hidden');
         }
 
         function openSection() {
+            if (!body) return;
             body.classList.remove('hidden');
-            chevron.textContent = '▴';
+            if (chevron) chevron.textContent = '▴';
         }
 
         function closeSection() {
+            if (!body) return;
             body.classList.add('hidden');
-            chevron.textContent = '▾';
+            if (chevron) chevron.textContent = '▾';
         }
 
         function clearTaskRowErrors() {
+            if (!tasksList) return;
             tasksList.querySelectorAll('[data-task-desc-error]').forEach((el) => el.remove());
             tasksList.querySelectorAll('[data-field="description"]').forEach((el) => {
                 el.classList.remove('border-red-500');
@@ -887,8 +1018,6 @@
                 const description = String(descEl?.value ?? '').trim();
                 const standardTaskId = String(stdIdEl?.value ?? '').trim();
 
-                // Consistente con otras pantallas: mínimo 10 caracteres.
-                // Solo aplica a tareas manuales (sin standard_task_id) y cuando se llena descripción.
                 if (!standardTaskId && description.length > 0 && description.length < 10) {
                     isValid = false;
                     descEl?.classList.add('border-red-500');
@@ -939,6 +1068,8 @@
             field.addEventListener('input', scheduleDraftSave);
             field.addEventListener('change', scheduleDraftSave);
         });
+
+
         function getRowData(rowEl) {
             const subtasks = Array.from(rowEl.querySelectorAll('[data-subtask-row]')).map((stRow) => ({
                 title: stRow.querySelector('input[type="text"]')?.value ?? '',
@@ -994,7 +1125,6 @@
             const hoursEl = taskRow.querySelector('[data-field="estimated_hours"]');
             if (!minutesEl || !hoursEl) return;
 
-            // Sin bloquear inputs: solo mantener sincronía entre minutos y horas.
             if (locked && Number.isFinite(Number(totalMinutes)) && Number(totalMinutes) > 0) {
                 minutesEl.value = String(Math.round(Number(totalMinutes) / 5) * 5);
                 hoursEl.value = formatHoursFromMinutes(minutesEl.value);
@@ -1057,7 +1187,6 @@
             const matches = Array.from(rawTitle.matchAll(/\(([^()]*)\)/g));
             if (!matches.length) return null;
 
-            // Tomar el último paréntesis (lo más común es que la duración vaya al final)
             const inside = String(matches[matches.length - 1][1] ?? '').trim().toLowerCase();
             if (!inside) return null;
 
@@ -1066,7 +1195,6 @@
             let totalMinutes = 0;
             let hasAny = false;
 
-            // Soportar formatos: "1 hora", "1,5 horas", "2h", "30 min", "1 hora 30 min"
             const hourMatch = text.match(/(\d+(?:[\.,]\d+)?)\s*(h|hr|hrs|hora|horas)\b/);
             if (hourMatch) {
                 const hours = Number(String(hourMatch[1]).replace(',', '.'));
@@ -1085,7 +1213,6 @@
                 }
             }
 
-            // Soportar formato "1:30" => 1h30m
             if (!hasAny) {
                 const hm = text.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
                 if (hm) {
@@ -1100,7 +1227,6 @@
 
             if (!hasAny || !Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
 
-            // Redondeo consistente (pasos de 5)
             return Math.round(totalMinutes / 5) * 5;
         }
 
@@ -1235,7 +1361,6 @@
                 if (!Number.isFinite(m) || m < 0) return;
                 minutesEl.value = m === 0 ? '' : String(m);
                 minutesEl.dispatchEvent(new Event('input', { bubbles: true }));
-                // mantener hint actualizado
                 setEstimateUiState(row, { locked: false });
             }
 
@@ -1258,7 +1383,6 @@
                     if (!Number.isFinite(delta) || delta <= 0) return;
 
                     const next = getMinutesValue() + delta;
-                    // redondear a 5 por consistencia
                     const rounded = Math.round(next / 5) * 5;
                     setMinutesValue(rounded);
                     hoursEl.focus();
@@ -1287,7 +1411,6 @@
                 const stMinutesEl = stRow.querySelector('[data-subtask-field="estimated_minutes"]');
                 const raw = String(stMinutesEl?.value ?? '').trim();
 
-                // Consistente con el modelo: default 25 si está vacío
                 let minutes = 25;
                 if (raw !== '') {
                     const parsed = Number(raw);
@@ -1319,12 +1442,10 @@
             if (!minutesEl) return;
 
             minutesEl.addEventListener('input', function() {
-                // Marcar como editado manualmente (evitar pisar con autocompletado desde el título)
                 if (minutesEl.dataset.programmatic === '1') {
                     delete minutesEl.dataset.programmatic;
                 } else {
                     minutesEl.dataset.touched = '1';
-                    // Si el usuario lo editó manualmente, permitir tabular (si aplica)
                     minutesEl.removeAttribute('tabindex');
                 }
                 const taskRow = subtaskRow.closest('[data-task-row]');
@@ -1337,7 +1458,6 @@
             const minutesEl = subtaskRow.querySelector('[data-subtask-field="estimated_minutes"]');
             if (!minutesEl) return;
 
-            // Si fue autocompletado y el usuario aún no lo tocó, sacarlo del orden de tabulación
             if (minutesEl.dataset.touched !== '1' && Number.isFinite(Number(parsedMinutes))) {
                 const current = Number(String(minutesEl.value ?? '').trim());
                 if (Number.isFinite(current) && current === Number(parsedMinutes)) {
@@ -1411,11 +1531,9 @@
                 toggleNotesBtn.textContent = isHidden ? 'Agregar notas' : 'Ocultar notas';
             });
 
-            // Solo contar subtareas con título; si cambia, recalcular
             const subtaskTitleEl = el.querySelector('input[type="text"]');
             const subtaskMinutesEl = el.querySelector('[data-subtask-field="estimated_minutes"]');
 
-            // Si el título ya trae una duración y coincide con minutos, sacar el input del tab order
             if (subtaskTitleEl && subtaskMinutesEl) {
                 const initialParsed = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
                 if (initialParsed !== null) {
@@ -1430,7 +1548,6 @@
             }
 
             subtaskTitleEl?.addEventListener('input', function() {
-                // Si el título trae duración entre paréntesis, usarla para minutos (si no se ha editado manualmente)
                 const extracted = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
                 if (extracted !== null) {
                     subtaskTitleEl.value = extracted.cleanTitle;
@@ -1438,11 +1555,8 @@
 
                 if (subtaskMinutesEl && subtaskMinutesEl.dataset.touched !== '1' && extracted !== null) {
                     subtaskMinutesEl.value = String(extracted.minutes);
-                        // disparar recálculo sin marcar touched
                     subtaskMinutesEl.dataset.programmatic = '1';
                     subtaskMinutesEl.dispatchEvent(new Event('input', { bubbles: true }));
-
-                    // Si fue autocompletado, evitar tabular hacia este campo
                     setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: extracted.minutes });
                 }
                 const taskRow = el.closest('[data-task-row]');
@@ -1461,6 +1575,7 @@
                 });
             });
         }
+
 
         function createRow(task = {}) {
             const row = document.createElement('div');
@@ -1483,78 +1598,81 @@
                         <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-description>Agregar descripción</button>
                     </div>
                     <div class="mt-2 hidden" data-description-section>
-                        <textarea data-field="description" data-name-template="tasks[__INDEX__][description]" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Descripción de la tarea (opcional)">${(task.description ?? '')}</textarea>
-                    </div>
-                </div>
-                <div class="mt-4 border-t border-gray-200"></div>
-
-                <div class="mt-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <label class="block text-sm font-medium text-gray-700">Subtareas (opcional)</label>
-                        <div class="flex flex-wrap items-center justify-end gap-2">
-                            <div class="flex items-center gap-2">
-                                <label class="text-sm text-gray-600">Cantidad</label>
-                                <select tabindex="-1" class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-subtask-count>
-                                    <option value="1" selected>1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
-                                    <option value="6">6</option>
-                                    <option value="7">7</option>
-                                    <option value="8">8</option>
-                                    <option value="9">9</option>
-                                    <option value="10">10</option>
-                                </select>
-                            </div>
-                            <button type="button" tabindex="-1" class="px-3 py-2 rounded-lg border border-gray-300 text-blue-700 hover:bg-blue-50 font-semibold" data-add-subtask>+ Agregar</button>
-                            <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-toggle-subtasks>Ver subtareas</button>
-                        </div>
-                    </div>
-                    <div class="mt-2 hidden" data-subtasks-section>
-                        <div class="space-y-2.5 rounded-xl border border-gray-100 bg-[#f5f5f5] p-2.5" data-subtasks-list></div>
-                    </div>
-                </div>
-
-                <div class="mt-4 border-t border-gray-200"></div>
-
-                <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                        <select data-field="type" data-name-template="tasks[__INDEX__][type]" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                            <option value="regular" ${(task.type ?? 'regular') === 'regular' ? 'selected' : ''}>Regular</option>
-                            <option value="impact" ${(task.type ?? '') === 'impact' ? 'selected' : ''}>Impacto</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
-                        <select data-field="priority" data-name-template="tasks[__INDEX__][priority]" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                            <option value="urgent" ${(task.priority ?? '') === 'urgent' ? 'selected' : ''}>Urgente</option>
-                            <option value="high" ${(task.priority ?? '') === 'high' ? 'selected' : ''}>Alta</option>
-                            <option value="medium" ${(task.priority ?? 'medium') === 'medium' ? 'selected' : ''}>Media</option>
-                            <option value="low" ${(task.priority ?? '') === 'low' ? 'selected' : ''}>Baja</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimado</label>
-                        <div>
-                            <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_7rem] gap-2 min-w-0">
-                                <input type="number" min="0" step="5" inputmode="decimal" data-field="estimated_display" value="${task.estimated_minutes ?? ''}" class="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="75" />
-                                <select data-estimate-unit class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="minutes" selected>Min</option>
-                                    <option value="hours">Horas</option>
-                                </select>
-                            </div>
-                            <input type="hidden" data-field="estimated_minutes" data-name-template="tasks[__INDEX__][estimated_minutes]" value="${task.estimated_minutes ?? ''}" />
-                            <input type="hidden" data-field="estimated_hours" data-name-template="tasks[__INDEX__][estimated_hours]" value="${task.estimated_hours ?? ''}" />
-                        </div>
-
+                        <textarea data-field="description" data-name-template="tasks[__INDEX__][description]" rows="2" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Descripción detallada de la tarea...">${(task.description ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
                     </div>
                 </div>
 
                 <input type="hidden" data-field="standard_task_id" data-name-template="tasks[__INDEX__][standard_task_id]" value="${task.standard_task_id ?? ''}" />
+
+                <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                        <select data-field="type" data-name-template="tasks[__INDEX__][type]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            <option value="regular" ${(task.type ?? 'regular') === 'regular' ? 'selected' : ''}>Regular</option>
+                            <option value="verification" ${task.type === 'verification' ? 'selected' : ''}>Verificación</option>
+                            <option value="approval" ${task.type === 'approval' ? 'selected' : ''}>Aprobación</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
+                        <select data-field="priority" data-name-template="tasks[__INDEX__][priority]" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            <option value="high" ${task.priority === 'high' ? 'selected' : ''}>Alta</option>
+                            <option value="medium" ${(task.priority ?? 'medium') === 'medium' ? 'selected' : ''}>Media</option>
+                            <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Baja</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimado</label>
+                        <div class="flex gap-1 items-center">
+                            <input type="number" min="0" step="5" data-field="estimated_display" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="Minutos (Ej: 75)" />
+                            <select data-estimate-unit class="px-2 py-2.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="minutes">min</option>
+                                <option value="hours">hrs</option>
+                            </select>
+                        </div>
+                        <input type="hidden" data-field="estimated_minutes" data-name-template="tasks[__INDEX__][estimated_minutes]" value="${task.estimated_minutes ?? ''}" />
+                        <input type="hidden" data-field="estimated_hours" data-name-template="tasks[__INDEX__][estimated_hours]" value="${task.estimated_hours ?? ''}" />
+                        <div class="mt-1.5 flex flex-wrap gap-1">
+                            <button type="button" tabindex="-1" data-estimate-chip="15" class="px-2 py-0.5 text-xs rounded border border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-600">+15m</button>
+                            <button type="button" tabindex="-1" data-estimate-chip="30" class="px-2 py-0.5 text-xs rounded border border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-600">+30m</button>
+                            <button type="button" tabindex="-1" data-estimate-chip="60" class="px-2 py-0.5 text-xs rounded border border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-600">+1h</button>
+                            <button type="button" tabindex="-1" data-estimate-chip="clear" class="px-2 py-0.5 text-xs rounded border border-gray-200 hover:bg-red-50 hover:border-red-300 text-gray-600">✕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-t border-gray-100 pt-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">Subtareas</span>
+                        <div class="flex items-center gap-2">
+                            <input type="number" min="1" max="10" value="1" class="w-14 px-2 py-1 text-xs border border-gray-300 rounded-lg" data-subtask-count placeholder="Nº" />
+                            <button type="button" tabindex="-1" class="text-sm font-medium text-blue-600 hover:text-blue-800" data-add-subtask>+ Agregar</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 hidden space-y-2" data-subtasks-section>
+                        <div class="space-y-2" data-subtasks-list></div>
+                    </div>
+                </div>
             `;
 
+            // Description toggle
+            const toggleDescBtn = row.querySelector('[data-toggle-description]');
+            const descSection = row.querySelector('[data-description-section]');
+            const descEl = row.querySelector('[data-field="description"]');
+            if (task.description) {
+                descSection?.classList.remove('hidden');
+                if (toggleDescBtn) toggleDescBtn.textContent = 'Ocultar descripción';
+            }
+            toggleDescBtn?.addEventListener('click', function() {
+                if (!descSection) return;
+                const isHidden = descSection.classList.toggle('hidden');
+                toggleDescBtn.textContent = isHidden ? 'Agregar descripción' : 'Ocultar descripción';
+                if (!isHidden) {
+                    setTimeout(() => descEl?.focus(), 0);
+                }
+            });
+
+            // Remove row
             row.querySelector('[data-remove-row]')?.addEventListener('click', function() {
                 row.classList.add('task-row-leave');
                 setTimeout(() => {
@@ -1565,41 +1683,13 @@
                 }, 160);
             });
 
+            // Estimate sync
             bindTaskEstimateSync(row);
             bindEstimateChips(row);
 
-            // Descripción opcional (sin título visible)
-            const descSection = row.querySelector('[data-description-section]');
-            const descToggle = row.querySelector('[data-toggle-description]');
-            const descEl = row.querySelector('[data-field="description"]');
-
-            function openDescription() {
-                descSection?.classList.remove('hidden');
-                if (descToggle) descToggle.textContent = 'Ocultar descripción';
-            }
-
-            function closeDescription() {
-                descSection?.classList.add('hidden');
-                if (descToggle) descToggle.textContent = 'Agregar descripción';
-            }
-
-            descToggle?.addEventListener('click', function() {
-                const isHidden = descSection?.classList.contains('hidden');
-                if (isHidden) {
-                    openDescription();
-                    setTimeout(() => descEl?.focus(), 0);
-                } else {
-                    closeDescription();
-                }
-            });
-
-            if (String(task.description ?? '').trim()) {
-                openDescription();
-            }
-
-            const subtasksSection = row.querySelector('[data-subtasks-section]');
-            const subtasksToggle = row.querySelector('[data-toggle-subtasks]');
+            // Subtasks
             const subtasksList = row.querySelector('[data-subtasks-list]');
+            const subtasksSection = row.querySelector('[data-subtasks-section]');
             const addSubtaskBtn = row.querySelector('[data-add-subtask]');
             const subtaskCountEl = row.querySelector('[data-subtask-count]');
             const titleEl = row.querySelector('[data-field="title"]');
@@ -1607,38 +1697,23 @@
 
             function openSubtasks() {
                 subtasksSection?.classList.remove('hidden');
-                if (subtasksToggle) subtasksToggle.textContent = 'Ocultar subtareas';
             }
 
-            function closeSubtasks() {
-                subtasksSection?.classList.add('hidden');
-                if (subtasksToggle) subtasksToggle.textContent = 'Ver subtareas';
-            }
+            function extractSubtaskCountFromTaskTitle(title) {
+                const raw = String(title ?? '').trim();
+                if (!raw) return null;
 
-            subtasksToggle?.addEventListener('click', function() {
-                const isHidden = subtasksSection?.classList.contains('hidden');
-                if (isHidden) {
-                    openSubtasks();
-                } else {
-                    closeSubtasks();
-                }
-            });
+                const matches = Array.from(raw.matchAll(/\((\d+)\s*(sub|subtarea|subtareas|st)\)/gi));
+                if (!matches.length) return null;
 
-            function extractSubtaskCountFromTaskTitle(rawTitle) {
-                const normalizedTitle = String(rawTitle ?? '').trim();
-                const match = normalizedTitle.match(/^(.*?)(?:\s*\((\d+)\s+subtareas?\))\s*$/iu);
-                if (!match) return null;
+                const lastMatch = matches[matches.length - 1];
+                const count = parseInt(lastMatch[1], 10);
+                if (!Number.isFinite(count) || count < 1 || count > 10) return null;
 
-                const cleanTitle = String(match[1] ?? '').trim();
-                const count = parseInt(String(match[2] ?? '0'), 10);
-
-                if (!cleanTitle || !Number.isFinite(count) || count < 1) {
-                    return null;
-                }
-
+                const cleanTitle = `${raw.slice(0, lastMatch.index)}${raw.slice(lastMatch.index + lastMatch[0].length)}`.trim().replace(/\s{2,}/g, ' ');
                 return {
-                    cleanTitle,
-                    count: Math.min(10, count),
+                    cleanTitle: cleanTitle || raw,
+                    count,
                 };
             }
 
@@ -1793,14 +1868,12 @@
 
         clearBtn?.addEventListener('click', function() {
             clearAllRows();
-            templateSelect.value = 'none';
+            if (templateSelect) templateSelect.value = 'none';
             setNotice('');
         });
 
         formEl?.addEventListener('submit', function(e) {
-            // Si hay tareas en pantalla, validar descripciones manuales.
-            // (No bloquea tareas predefinidas con standard_task_id)
-            const hasRows = tasksList.querySelector('[data-task-row]');
+            const hasRows = tasksList?.querySelector('[data-task-row]');
             if (!hasRows) {
                 return;
             }
@@ -1868,7 +1941,6 @@
             if (currentRows.length > 0) {
                 const ok = confirm('Esto reemplazará las tareas actuales. ¿Continuar?');
                 if (!ok) {
-                    // revertir al valor anterior
                     templateSelect.value = 'none';
                     return;
                 }
@@ -1878,7 +1950,6 @@
                 await loadTemplateSubServiceStandard();
             } else {
                 setNotice('');
-                // no borra automáticamente en manual; solo cambia plantilla
             }
             scheduleDraftSave();
         });
@@ -1900,7 +1971,7 @@
             setValue('entry_channel', draft.entry_channel);
             setValue('created_at', draft.created_at);
             setValue('due_date', draft.due_date);
-            setValue('tasks_template', draft.tasks_template || 'none');
+            if (templateSelect) setValue('tasks_template', draft.tasks_template || 'none');
 
             clearAllRows();
             if (Array.isArray(draft.tasks)) {

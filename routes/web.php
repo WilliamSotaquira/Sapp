@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
     // Gestión de solicitudes de servicio
     require __DIR__ . '/features/service-requests/web.php';
     require __DIR__ . '/features/service-requests/workflow.php';
+    require __DIR__ . '/features/service-requests/meeting.php';
 
     // Gestión de SLAs
     require __DIR__ . '/features/sla-management/web.php';

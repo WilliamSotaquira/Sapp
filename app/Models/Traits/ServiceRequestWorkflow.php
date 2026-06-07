@@ -2,6 +2,10 @@
 
 namespace App\Models\Traits;
 
+use App\Contracts\RequestTypeValidatorInterface;
+use App\Services\Validators\GeneralTypeValidator;
+use App\Services\Validators\MeetingTypeValidator;
+
 trait ServiceRequestWorkflow
 {
     protected function validateWorkflowRules()
@@ -53,6 +57,16 @@ trait ServiceRequestWorkflow
         }
 
         $this->validateSpecificTransitions($originalStatus, $newStatus);
+
+        // Type-specific validation hook: skip entirely when request_type_id is null (backward compatibility)
+        if ($this->request_type_id !== null) {
+            $typeValidator = $this->resolveTypeValidator();
+            $result = $typeValidator->validateTransition($this, $originalStatus, $newStatus);
+
+            if (!$result->passed) {
+                throw new \Exception($result->errors[0] ?? 'Error de validación específica del tipo de solicitud.');
+            }
+        }
     }
 
     protected function validateSpecificTransitions($from, $to)
@@ -111,6 +125,28 @@ trait ServiceRequestWorkflow
         if (isset($timestampMap[$this->status]) && !$this->{$timestampMap[$this->status]}) {
             $this->{$timestampMap[$this->status]} = now();
         }
+    }
+
+    /**
+     * Resolve the appropriate type-specific validator based on the service request's type.
+     *
+     * Returns GeneralTypeValidator (no-op) for "general" type or any unrecognized type.
+     * Returns MeetingTypeValidator for "reunion" type.
+     */
+    protected function resolveTypeValidator(): RequestTypeValidatorInterface
+    {
+        $requestType = $this->requestType;
+
+        if (!$requestType || $requestType->slug === 'general') {
+            return app(GeneralTypeValidator::class);
+        }
+
+        if ($requestType->slug === 'reunion') {
+            return app(MeetingTypeValidator::class);
+        }
+
+        // Future types can add their own validators here
+        return app(GeneralTypeValidator::class);
     }
 
     /**

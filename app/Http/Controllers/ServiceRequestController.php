@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ResolveServiceRequestRequest;
+use App\Http\Requests\ReassignServiceRequestRequest;
 use App\Http\Requests\StoreServiceRequestRequest;
 use App\Http\Requests\UpdateServiceRequestRequest;
 use App\Http\Requests\RejectServiceRequestRequest;
@@ -18,7 +19,11 @@ use App\Models\Technician;
 use App\Services\ServiceRequestService;
 use App\Services\ServiceRequestPlainTextImportService;
 use App\Services\ServiceRequestWorkflowService;
+use App\Services\MeetingLifecycleService;
 use App\Services\EvidenceService;
+use App\Models\RequestType;
+use App\Services\TraceabilityChainService;
+use App\Services\AssignmentHistoryService;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -35,15 +40,18 @@ class ServiceRequestController extends Controller
     protected ServiceRequestService $serviceRequestService;
     protected ServiceRequestWorkflowService $workflowService;
     protected EvidenceService $evidenceService;
+    protected MeetingLifecycleService $meetingLifecycleService;
 
     public function __construct(
         ServiceRequestService $serviceRequestService,
         ServiceRequestWorkflowService $workflowService,
-        EvidenceService $evidenceService
+        EvidenceService $evidenceService,
+        MeetingLifecycleService $meetingLifecycleService
     ) {
         $this->serviceRequestService = $serviceRequestService;
         $this->workflowService = $workflowService;
         $this->evidenceService = $evidenceService;
+        $this->meetingLifecycleService = $meetingLifecycleService;
     }
 
     /**
@@ -553,7 +561,68 @@ class ServiceRequestController extends Controller
     public function store(StoreServiceRequestRequest $request)
     {
         try {
-            $serviceRequest = $this->serviceRequestService->createServiceRequest($request->validated());
+            $validated = $request->validated();
+
+            // Extract meeting-specific fields before passing to createServiceRequest
+            $meetingFields = [
+                'scheduled_date' => $validated['scheduled_date'] ?? null,
+                'start_time' => $validated['start_time'] ?? null,
+                'expected_duration_minutes' => $validated['expected_duration_minutes'] ?? null,
+                'location' => $validated['location'] ?? null,
+                'virtual_meeting_url' => $validated['virtual_meeting_url'] ?? null,
+            ];
+            unset(
+                $validated['scheduled_date'],
+                $validated['start_time'],
+                $validated['expected_duration_minutes'],
+                $validated['location'],
+                $validated['virtual_meeting_url']
+            );
+
+            // Extract participants if provided (not part of StoreServiceRequestRequest rules but may come from form)
+            $participants = $request->input('participants', []);
+            unset($validated['participants']);
+
+            // If creating a derived request, pre-populate company, requester, and service family from parent
+            if (!empty($validated['service_request_id'])) {
+                $parentRequest = ServiceRequest::find($validated['service_request_id']);
+                if ($parentRequest) {
+                    // Pre-populate from parent if not already provided by the user
+                    if (empty($validated['company_id'])) {
+                        $validated['company_id'] = $parentRequest->company_id;
+                    }
+                    if (empty($validated['requester_id'])) {
+                        $validated['requester_id'] = $parentRequest->requester_id;
+                    }
+                    if (empty($validated['family_id']) && $parentRequest->subService && $parentRequest->subService->service) {
+                        $validated['family_id'] = $parentRequest->subService->service->service_family_id;
+                    }
+                }
+            }
+
+            $serviceRequest = $this->serviceRequestService->createServiceRequest($validated);
+
+            // If the request type is "reunion", create meeting details and participants
+            if (!empty($serviceRequest->request_type_id)) {
+                $requestType = RequestType::find($serviceRequest->request_type_id);
+
+                if ($requestType && $requestType->slug === 'reunion') {
+                    // Create meeting details with the extracted fields
+                    $meetingDetail = $this->meetingLifecycleService->createMeetingDetails(
+                        $serviceRequest,
+                        array_filter($meetingFields, fn($value) => $value !== null)
+                    );
+
+                    // Add participants if provided
+                    if (is_array($participants) && count($participants) > 0) {
+                        foreach ($participants as $participantData) {
+                            if (is_array($participantData) && !empty($participantData['email'])) {
+                                $this->meetingLifecycleService->addParticipant($meetingDetail, $participantData);
+                            }
+                        }
+                    }
+                }
+            }
 
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
@@ -588,7 +657,48 @@ class ServiceRequestController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('service-requests.show', compact('serviceRequest', 'technicians'));
+        // Load traceability chain data
+        $traceabilityChainService = app(TraceabilityChainService::class);
+        $traceabilityChain = $traceabilityChainService->getChainForView($serviceRequest);
+
+        // Load assignment history
+        $assignmentHistoryService = app(AssignmentHistoryService::class);
+        $assignmentHistory = $assignmentHistoryService->getHistory($serviceRequest);
+
+        // Load meeting-specific data when type is "reunion"
+        $meetingDetail = null;
+        $commitments = collect();
+        if ($serviceRequest->requestType && $serviceRequest->requestType->slug === 'reunion') {
+            $serviceRequest->load('meetingDetail.participants');
+            $meetingDetail = $serviceRequest->meetingDetail;
+
+            $commitments = $this->meetingLifecycleService->getCommitments($serviceRequest);
+        }
+
+        // Load child requests (derived requests) limited to 50
+        $childRequests = $serviceRequest->childRequests()
+            ->select(['id', 'service_request_id', 'ticket_number', 'status'])
+            ->limit(50)
+            ->get();
+
+        // Load parent request link if this is a derived request
+        $parentRequest = null;
+        if ($serviceRequest->service_request_id !== null) {
+            $parentRequest = $serviceRequest->parentRequest()
+                ->select(['id', 'ticket_number', 'title'])
+                ->first();
+        }
+
+        return view('service-requests.show', compact(
+            'serviceRequest',
+            'technicians',
+            'traceabilityChain',
+            'assignmentHistory',
+            'meetingDetail',
+            'commitments',
+            'childRequests',
+            'parentRequest'
+        ));
     }
 
     /**
@@ -967,21 +1077,17 @@ class ServiceRequestController extends Controller
     /**
      * Procesar la reasignación de técnico
      */
-    public function reassignSubmit(Request $request, ServiceRequest $service_request)
+    public function reassignSubmit(ReassignServiceRequestRequest $request, ServiceRequest $service_request, AssignmentHistoryService $assignmentHistoryService)
     {
-        if (!auth()->user()->can('assign-service-requests')) {
-            return redirect()->route('service-requests.show', $service_request)->with('error', 'No tienes permisos para reasignar solicitudes.');
-        }
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'assigned_to' => [
-                'required',
-                'exists:users,id',
-                Rule::exists('technicians', 'user_id')
-                    ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
-            ],
-            'reassignment_reason' => 'required|string|min:10|max:500',
-        ]);
+        // Status guard: only allow reassignment in specific statuses
+        $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
+        if (!in_array($service_request->status, $allowedStatuses)) {
+            return redirect()
+                ->route('service-requests.show', $service_request)
+                ->with('error', 'No se puede reasignar una solicitud en estado: ' . $service_request->status);
+        }
 
         if (!$this->isTechnicianAssignedToCompany((int) $validated['assigned_to'], (int) $service_request->company_id)) {
             throw ValidationException::withMessages([
@@ -990,31 +1096,29 @@ class ServiceRequestController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($validated, $service_request) {
-                $previousTechnician = $service_request->assigned_to;
+            $previousTechnician = $service_request->assigned_to;
 
-                $service_request->update([
-                    'assigned_to' => $validated['assigned_to'],
-                ]);
+            $service_request->update([
+                'assigned_to' => $validated['assigned_to'],
+            ]);
 
-                $this->serviceRequestService->syncTasksTechnician($service_request, (int) $validated['assigned_to']);
+            // Record assignment history and create system evidence
+            $assignmentHistoryService->recordAssignment(
+                $service_request,
+                $previousTechnician,
+                (int) $validated['assigned_to'],
+                $validated['reassignment_reason'],
+                auth()->id()
+            );
 
-                ServiceRequestEvidence::create([
-                    'service_request_id' => $service_request->id,
-                    'title' => 'Técnico Reasignado',
-                    'description' => $validated['reassignment_reason'],
-                    'evidence_type' => 'SISTEMA',
-                    'created_by' => auth()->id(),
-                    'evidence_data' => [
-                        'action' => 'REASSIGNED',
-                        'reassigned_by' => auth()->id(),
-                        'reassigned_at' => now()->toISOString(),
-                        'previous_technician' => $previousTechnician,
-                        'new_technician' => $validated['assigned_to'],
-                        'reassignment_reason' => $validated['reassignment_reason'],
-                    ],
-                ]);
-            });
+            // Transfer active tasks from previous technician to new technician
+            if ($previousTechnician) {
+                $assignmentHistoryService->transferTasks(
+                    $service_request,
+                    (int) $previousTechnician,
+                    (int) $validated['assigned_to']
+                );
+            }
 
             return redirect()->route('service-requests.show', $service_request)->with('success', 'Técnico reasignado correctamente.');
         } catch (\Exception $e) {
@@ -1094,7 +1198,7 @@ class ServiceRequestController extends Controller
 
         $rules = array_merge($rules, [
             'evidence_type' => 'nullable|array',
-            'evidence_type.*' => 'nullable|in:ARCHIVO,ENLACE',
+            'evidence_type.*' => 'nullable|in:ARCHIVO,ENLACE,ACTA',
             'files' => 'nullable|array',
             'files.*' => 'nullable|file|max:10240',
             'link_url' => 'nullable|array',

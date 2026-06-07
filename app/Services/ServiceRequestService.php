@@ -952,6 +952,7 @@ class ServiceRequestService
                 ->get(['id', 'name', 'email', 'department', 'company_id']),
             'companies' => \App\Models\Company::orderBy('name')->get(),
             'currentCompany' => $currentCompany,
+            'requestTypes' => \App\Models\RequestType::active()->orderBy('name')->get(['id', 'slug', 'name']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'],
             'complexityLevels' => ['BAJA', 'MEDIA', 'ALTA'],
             'priorityLevels' => \App\Services\PriorityScoringService::getPriorityOptions(),

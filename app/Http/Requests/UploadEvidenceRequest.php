@@ -13,10 +13,18 @@ class UploadEvidenceRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
+            'evidence_type' => 'nullable|string|in:PASO_A_PASO,ARCHIVO,COMENTARIO,ENLACE,ACTA',
             'files' => 'required|array|min:1|max:10',
             'files.*' => 'required|file|max:10240|mimes:jpg,jpeg,png,pdf,doc,docx,txt,xlsx,xls',
         ];
+
+        // When evidence_type is ACTA, restrict allowed MIME types
+        if ($this->input('evidence_type') === 'ACTA') {
+            $rules['files.*'] = 'required|file|max:10240|mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png';
+        }
+
+        return $rules;
     }
 
     public function messages(): array
@@ -30,6 +38,8 @@ class UploadEvidenceRequest extends FormRequest
             'files.*.file' => 'Cada elemento debe ser un archivo válido.',
             'files.*.max' => 'Cada archivo no debe exceder los 10MB.',
             'files.*.mimes' => 'Solo se permiten archivos: jpg, jpeg, png, pdf, doc, docx, txt, xlsx, xls.',
+            'files.*.mimetypes' => 'El tipo de archivo para actas debe ser PDF, DOCX, JPG, JPEG o PNG.',
+            'evidence_type.in' => 'El tipo de evidencia seleccionado no es válido.',
         ];
     }
 }

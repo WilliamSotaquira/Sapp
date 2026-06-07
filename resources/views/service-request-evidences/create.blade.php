@@ -35,6 +35,7 @@
                                 <option value="">Seleccione el tipo de evidencia</option>
                                 <option value="PASO_A_PASO">Paso a Paso</option>
                                 <option value="ARCHIVO">Archivo Adjunto</option>
+                                <option value="ACTA">Acta de Reunión</option>
                                 <option value="COMENTARIO">Comentario</option>
                             </select>
                         </div>
@@ -153,9 +154,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const tipo = this.value;
 
         stepField.style.display = tipo === 'PASO_A_PASO' ? 'block' : 'none';
-        fileField.style.display = (tipo === 'PASO_A_PASO' || tipo === 'ARCHIVO') ? 'block' : 'none';
+        fileField.style.display = (tipo === 'PASO_A_PASO' || tipo === 'ARCHIVO' || tipo === 'ACTA') ? 'block' : 'none';
 
-        if (tipo === 'ARCHIVO') {
+        if (tipo === 'ARCHIVO' || tipo === 'ACTA') {
             fileInput.required = true;
         } else {
             fileInput.required = false;
@@ -219,9 +220,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const tipoEvidencia = evidenceType.value;
         const tieneArchivo = fileInput.files.length > 0;
 
-        if (tipoEvidencia === 'ARCHIVO' && !tieneArchivo) {
+        if ((tipoEvidencia === 'ARCHIVO' || tipoEvidencia === 'ACTA') && !tieneArchivo) {
             e.preventDefault();
-            alert('Para evidencias de tipo "Archivo Adjunto" debe seleccionar un archivo.');
+            alert(tipoEvidencia === 'ACTA'
+                ? 'Para evidencias de tipo "Acta de Reunión" debe seleccionar un archivo (PDF, DOCX, JPG, JPEG o PNG).'
+                : 'Para evidencias de tipo "Archivo Adjunto" debe seleccionar un archivo.');
             fileInput.focus();
             return;
         }

@@ -19,6 +19,7 @@
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
                     @if($evidence->evidence_type == 'PASO_A_PASO') bg-blue-100 text-blue-800
                     @elseif($evidence->evidence_type == 'ARCHIVO') bg-green-100 text-green-800
+                    @elseif($evidence->evidence_type == 'ACTA') bg-amber-100 text-amber-800
                     @elseif($evidence->evidence_type == 'COMENTARIO') bg-purple-100 text-purple-800
                     @else bg-gray-100 text-gray-800 @endif">
                     {{ $evidence->evidence_type }}
