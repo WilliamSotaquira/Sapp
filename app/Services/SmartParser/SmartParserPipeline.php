@@ -26,7 +26,7 @@ class SmartParserPipeline
     /**
      * Maximum allowed time in seconds for the pipeline execution.
      */
-    private const TIMEOUT_SECONDS = 30;
+    private const TIMEOUT_SECONDS = 20;
 
     private ?float $startTime = null;
 

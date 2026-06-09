@@ -48,7 +48,16 @@ class WorkspaceController extends Controller
         // Si viene un redirect_to específico (ej: desde el intérprete de texto), usarlo
         $redirectTo = $request->input('redirect_to');
         if ($redirectTo && (str_starts_with($redirectTo, url('/')) || str_starts_with($redirectTo, '/'))) {
-            return redirect($redirectTo)->with('success', 'Espacio de trabajo cambiado. Pega el texto de nuevo para interpretarlo.');
+            // Preserve pasted text across workspace switch
+            $preserveText = $request->input('preserve_text', '');
+            if ($preserveText !== '') {
+                session()->flash('_old_input', [
+                    'plain_text_import_text' => $preserveText,
+                    '__open_plain_text_import' => '1',
+                ]);
+            }
+
+            return redirect($redirectTo)->with('success', 'Espacio de trabajo cambiado. Interpreta el texto de nuevo.');
         }
 
         return redirect()->intended(route('dashboard'))->with('success', 'Entidad activa actualizada.');

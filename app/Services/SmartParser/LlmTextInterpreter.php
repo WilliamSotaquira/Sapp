@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class LlmTextInterpreter
 {
-    private const TIMEOUT_SECONDS = 60;
+    private const TIMEOUT_SECONDS = 15;
 
     /**
      * Interprets raw text using an LLM with the appropriate ITIL prompt.
