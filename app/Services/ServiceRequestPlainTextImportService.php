@@ -196,6 +196,29 @@ class ServiceRequestPlainTextImportService
      */
     private function enrichDescriptionWithAI(array $result, string $originalText): array
     {
+        // Quick exit if LLM is disabled — skip all AI enrichment but keep heuristic checks
+        if (! config('services.llm.enabled', false)) {
+            // Still verify requester heuristically (no HTTP calls)
+            $result = $this->verifyRequesterFromSender($result, $originalText);
+            // Validate sender domain matches workspace
+            $this->validateSenderDomainFromText($originalText, (int) ($result['payload']['company_id'] ?? 0));
+
+            // Try to generate tasks with LLM even if general LLM is disabled
+            // (tasks are the most valuable AI output and the call is short)
+            $title = $result['payload']['title'] ?? '';
+            $description = $result['payload']['description'] ?? '';
+            try {
+                $aiTasks = $this->taskGenerator->generateWithoutConfig($title, $description);
+                if ($aiTasks !== null && !empty($aiTasks)) {
+                    $result['payload']['tasks'] = $aiTasks;
+                }
+            } catch (\Exception $e) {
+                // Silently fail — keep heuristic tasks
+            }
+
+            return $result;
+        }
+
         $title = $result['payload']['title'] ?? '';
         $currentDescription = $result['payload']['description'] ?? '';
 

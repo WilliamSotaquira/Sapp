@@ -468,6 +468,8 @@ class ServiceRequestController extends Controller
 
     public function prefillFromPlainText(Request $request, ServiceRequestPlainTextImportService $plainTextImportService)
     {
+        \Log::info('=== prefillFromPlainText STARTED ===', ['text_length' => strlen($request->input('plain_text', ''))]);
+
         $validator = Validator::make($request->all(), [
             'plain_text' => ['required', 'string', 'min:20'],
         ], [

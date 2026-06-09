@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  */
 class LlmTaskGenerator
 {
-    private const TIMEOUT_SECONDS = 30;
+    private const TIMEOUT_SECONDS = 15;
 
     private const MAX_INPUT_LENGTH = 4000;
 
@@ -107,6 +107,66 @@ PROMPT;
             Log::info('LlmTaskGenerator: Exception', [
                 'error' => $e->getMessage(),
             ]);
+            return null;
+        }
+    }
+
+    /**
+     * Generate tasks regardless of LLM_ENABLED config (for use when only tasks need AI).
+     * Returns null if API key missing or call fails.
+     */
+    public function generateWithoutConfig(string $title, string $description): ?array
+    {
+        $apiKey = config('services.openrouter.key') ?: config('services.llm.api_key');
+
+        if (empty($apiKey)) {
+            return null;
+        }
+
+        $userMessage = $this->buildUserMessage($title, $description);
+
+        if (mb_strlen($userMessage) < 10) {
+            return null;
+        }
+
+        $model = config('services.llm.description_model',
+            config('services.llm.model',
+                config('services.openrouter.model', 'deepseek/deepseek-chat')
+            )
+        );
+        $baseUrl = config('services.openrouter.base_url', 'https://openrouter.ai/api/v1');
+        $endpoint = $baseUrl . '/chat/completions';
+
+        try {
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type' => 'application/json',
+                    'HTTP-Referer' => config('app.url', 'http://localhost'),
+                    'X-OpenRouter-Title' => config('services.openrouter.app_name', config('app.name', 'SAPP')),
+                ])
+                ->post($endpoint, [
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
+                        ['role' => 'user', 'content' => $userMessage],
+                    ],
+                    'temperature' => 0.2,
+                    'max_tokens' => 500,
+                ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $content = trim($response->json('choices.0.message.content') ?? '');
+            if (empty($content)) {
+                return null;
+            }
+
+            return $this->parseResponse($content);
+        } catch (\Exception $e) {
+            Log::info('LlmTaskGenerator::generateWithoutConfig failed', ['error' => $e->getMessage()]);
             return null;
         }
     }

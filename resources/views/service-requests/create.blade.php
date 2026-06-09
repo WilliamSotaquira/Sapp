@@ -4,45 +4,23 @@
 
 @section('content')
 <style>
-    /* Tailwind safelist for dynamic card colors:
-       hover:border-blue-500 hover:border-indigo-500 hover:border-amber-500 hover:border-green-500 hover:border-orange-500
-       border-blue-500 border-indigo-500 border-amber-500 border-green-500 border-orange-500
-       ring-blue-200 ring-indigo-200 ring-amber-200 ring-green-200 ring-orange-200
-       ring-blue-300 ring-indigo-300 ring-amber-300 ring-green-300 ring-orange-300
-       text-blue-700 text-indigo-700 text-amber-700 text-green-700 text-orange-700
-       group-hover:text-blue-700 group-hover:text-indigo-700 group-hover:text-amber-700 group-hover:text-green-700 group-hover:text-orange-700
-    */
     @keyframes scale-in {
-        from {
-            opacity: 0;
-            transform: scale(0.95);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
     }
-    .animate-scale-in {
-        animation: scale-in 0.2s ease-out;
-    }
+    .animate-scale-in { animation: scale-in 0.2s ease-out; }
+
     @keyframes fade-slide-in {
-        from {
-            opacity: 0;
-            transform: translateY(6px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-    .task-row-enter {
-        animation: fade-slide-in 0.18s ease-out;
-    }
+    .task-row-enter { animation: fade-slide-in 0.18s ease-out; }
     .task-row-leave {
         opacity: 0;
         transform: translateY(6px);
         transition: opacity 0.16s ease, transform 0.16s ease;
     }
+
     /* Parser pre-filled field highlighting */
     .parser-prefilled {
         border-color: #6366f1 !important;
@@ -63,9 +41,8 @@
         text-transform: uppercase;
         letter-spacing: 0.025em;
     }
-    .parser-prefilled-badge i {
-        font-size: 0.5rem;
-    }
+    .parser-prefilled-badge i { font-size: 0.5rem; }
+
     .pending-requester-badge {
         display: inline-flex;
         align-items: center;
@@ -78,6 +55,14 @@
         font-size: 0.75rem;
         font-weight: 500;
     }
+
+    /* Interpreting spinner pulse */
+    @keyframes pulse-ring {
+        0% { transform: scale(0.95); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.7; }
+        100% { transform: scale(0.95); opacity: 1; }
+    }
+    .interpreting-pulse { animation: pulse-ring 1.5s ease-in-out infinite; }
 </style>
 
     @php
@@ -86,7 +71,7 @@
         $pendingRequesterName = old('__pending_requester_name', '');
         $pendingRequesterEmail = old('__pending_requester_email', '');
 
-        // Determine which fields were pre-filled by the parser (have old() values from redirect withInput)
+        // Determine which fields were pre-filled by the parser
         $parserPrefilledFields = [];
         if (session('success') && str_contains(session('success') ?? '', 'Texto interpretado')) {
             $checkFields = ['title', 'description', 'entry_channel', 'sub_service_id', 'requester_id', 'created_at', 'due_date', 'criticality_level', 'web_routes'];
@@ -97,7 +82,7 @@
             }
         }
 
-        // Determine initial step: go to step 2 if there are validation errors, old() values, or parser prefill
+        // Determine initial step
         $selectedRequestTypeId = old('request_type_id', '');
         $selectedSlug = '';
         if ($selectedRequestTypeId) {
@@ -130,152 +115,146 @@
         </div>
     @endif
 
-    {{-- Plain Text Import Modal (unchanged, outside Alpine scope) --}}
+    {{-- Workspace switch form (if needed from interpreter error) --}}
     @if (session('plain_text_import_suggested_workspace_id'))
         <form method="POST" action="{{ route('workspaces.switch') }}" id="switchWorkspaceForm" class="hidden">
             @csrf
             <input type="hidden" name="company_id" value="{{ session('plain_text_import_suggested_workspace_id') }}">
             <input type="hidden" name="redirect_to" value="/service-requests/create">
+            <input type="hidden" name="preserve_text" value="{{ $plainTextImportValue }}">
         </form>
     @endif
 
-    <div
-        id="plainTextImportModal"
-        class="fixed inset-0 z-50 {{ $shouldOpenPlainTextImport ? '' : 'hidden' }}"
-        aria-hidden="{{ $shouldOpenPlainTextImport ? 'false' : 'true' }}"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="plainTextImportTitle"
-    >
-        <div class="absolute inset-0 bg-slate-950/50" data-plain-text-overlay></div>
-        <div class="relative flex min-h-screen items-center justify-center p-4">
-            <div class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Precarga asistida</p>
-                        <h3 id="plainTextImportTitle" class="mt-1 text-xl font-bold text-slate-900">Importar texto</h3>
-                        <p class="mt-1 text-sm text-slate-600">Pega el texto de un correo electrónico o mensaje de WhatsApp. El sistema interpretará automáticamente los datos para pre-llenar el formulario.</p>
-                    </div>
-                    <button
-                        type="button"
-                        id="closePlainTextImportModal"
-                        class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        aria-label="Cerrar diálogo"
-                    >
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+    {{-- ===== MAIN CONTENT WITH ALPINE.JS — AI-FIRST FLOW ===== --}}
+    <div x-data='{"step":{{ $startAtStep2 ? 2 : 1 }},"interpreting":false,"pasteText":{{ json_encode($plainTextImportValue ?: '') }},"selectedTypeId":{{ json_encode($selectedRequestTypeId ?: '') }},"selectedTypeSlug":{{ json_encode($selectedSlug ?: '') }}}' class="max-w-4xl mx-auto">
 
-                <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" id="plainTextImportForm" class="px-6 py-5">
-                    @csrf
-
-                    @if (session('plain_text_import_error'))
-                        <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" id="plainTextImportError">
-                            <div class="flex items-start gap-2">
-                                <i class="fas fa-exclamation-circle mt-0.5 text-red-500"></i>
-                                <span>{{ session('plain_text_import_error') }}</span>
-                            </div>
-                            @if (session('plain_text_import_suggested_workspace_id'))
-                                <div class="mt-3">
-                                    <button
-                                        type="button"
-                                        id="switchWorkspaceBtn"
-                                        data-workspace-id="{{ session('plain_text_import_suggested_workspace_id') }}"
-                                        class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700 transition"
-                                    >
-                                        <i class="fas fa-exchange-alt"></i>
-                                        Cambiar a {{ session('plain_text_import_suggested_workspace_name') }}
-                                    </button>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-
-                    <label for="plain_text" class="block text-sm font-medium text-slate-700 mb-2">
-                        Texto a interpretar
-                    </label>
-                    <textarea
-                        name="plain_text"
-                        id="plain_text"
-                        rows="18"
-                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Pega aquí el texto de un correo electrónico o mensaje de WhatsApp..."
-                        required
-                    >{{ $plainTextImportValue }}</textarea>
-
-                    <div class="mt-2 flex items-center justify-between">
-                        <p class="text-xs text-slate-500">
-                            El sistema interpretará: solicitante, título, descripción, fechas, subservicio, canal, criticidad, URLs y tareas.
-                        </p>
-                        <span id="plainTextCharCount" class="text-xs font-medium tabular-nums" aria-live="polite">
-                            <span id="plainTextCharCountValue">{{ mb_strlen($plainTextImportValue) }}</span> caracteres
-                        </span>
-                    </div>
-
-                    <div id="plainTextMinLengthWarning" class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 {{ mb_strlen($plainTextImportValue) >= 20 ? 'hidden' : '' }}">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Se requieren al menos 20 caracteres para interpretar el texto.
-                    </div>
-
-                    <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                        <button
-                            type="button"
-                            id="cancelPlainTextImport"
-                            class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="button"
-                            id="clearPlainTextImport"
-                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
-                        >
-                            <i class="fas fa-eraser"></i>
-                            Limpiar
-                        </button>
-                        <button
-                            type="submit"
-                            id="interpretTextBtn"
-                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-opacity"
-                            {{ mb_strlen($plainTextImportValue) < 20 ? 'disabled' : '' }}
-                        >
-                            <i class="fas fa-wand-magic-sparkles" id="interpretTextIcon"></i>
-                            <svg id="interpretTextSpinner" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span id="interpretTextLabel">Interpretar</span>
-                            <kbd class="ml-1.5 hidden sm:inline-flex items-center gap-0.5 rounded border border-blue-400/50 bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-100">Ctrl+↵</kbd>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    {{-- ===== MAIN CONTENT WITH ALPINE.JS TYPE-FIRST FLOW ===== --}}
-    <div x-data="{
-        step: {{ $startAtStep2 ? '2' : '1' }},
-        selectedTypeId: '{{ $selectedRequestTypeId }}',
-        selectedTypeSlug: '{{ $selectedSlug }}',
-        selectType(id, slug) {
-            this.selectedTypeId = id;
-            this.selectedTypeSlug = slug;
-            this.step = 2;
-        },
-        goBack() {
-            this.step = 1;
-        }
-    }" class="max-w-4xl mx-auto">
-
-        {{-- ===== STATE 1: TYPE SELECTION ===== --}}
+        {{-- ===== STATE 1: PASTE & INTERPRET (AI-first hero) ===== --}}
         <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
 
-            {{-- Pegar e interpretar button --}}
-            <div class="mb-6 flex justify-end">
+            <div class="flex flex-col items-center justify-center min-h-[60vh] py-12">
+                {{-- Hero header --}}
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 mb-4">
+                        <i class="fas fa-clipboard-list text-2xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">Nueva Solicitud</h1>
+                    <p class="mt-2 text-gray-500 max-w-md mx-auto">
+                        Pega el texto de la solicitud y la IA se encargará de clasificar y llenar los campos automáticamente.
+                    </p>
+                </div>
+
+                {{-- Paste form --}}
+                <div class="w-full max-w-2xl">
+                    <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" id="aiInterpreterForm" x-on:submit="interpreting = true">
+                        @csrf
+
+                        @if (session('plain_text_import_error'))
+                            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                <div class="flex items-start gap-2">
+                                    <i class="fas fa-exclamation-circle mt-0.5 text-red-500"></i>
+                                    <span>{{ session('plain_text_import_error') }}</span>
+                                </div>
+                                @if (session('plain_text_import_suggested_workspace_id'))
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            id="switchWorkspaceBtn"
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700 transition"
+                                        >
+                                            <i class="fas fa-exchange-alt"></i>
+                                            Cambiar a {{ session('plain_text_import_suggested_workspace_name') }}
+                                        </button>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
+                        <div class="relative">
+                            <textarea
+                                name="plain_text"
+                                id="plain_text"
+                                rows="10"
+                                x-model="pasteText"
+                                x-on:keydown.ctrl.enter.prevent="pasteText.length >= 20 && (interpreting = true) && $el.closest('form').submit()"
+                                x-on:keydown.meta.enter.prevent="pasteText.length >= 20 && (interpreting = true) && $el.closest('form').submit()"
+                                class="w-full rounded-2xl border-2 border-gray-200 px-5 py-4 text-base text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
+                                placeholder="Pega aquí el correo, mensaje de WhatsApp o texto de la solicitud..."
+                                required
+                                autofocus
+                            ></textarea>
+
+                            {{-- Interpreting overlay --}}
+                            <div x-show="interpreting" x-cloak class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 rounded-2xl backdrop-blur-sm">
+                                <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span class="text-sm font-medium text-blue-700 interpreting-pulse">Interpretando texto...</span>
+                            </div>
+                        </div>
+
+                        {{-- Character count + submit --}}
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-sm tabular-nums transition-colors"
+                                  :class="pasteText.length < 20 ? 'text-amber-600' : 'text-green-600'">
+                                <span x-text="pasteText.length"></span> caracteres
+                            </span>
+
+                            <button
+                                type="submit"
+                                :disabled="pasteText.length < 20"
+                                x-ref="interpretBtn"
+                                class="inline-flex items-center gap-2.5 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 transition-all duration-200 shadow-md hover:shadow-lg"
+                            >
+                                <i class="fas fa-wand-magic-sparkles" x-show="!interpreting"></i>
+                                <svg x-show="interpreting" x-cloak class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span x-text="interpreting ? 'Interpretando...' : 'Interpretar'"></span>
+                                <kbd x-show="!interpreting" class="ml-1 hidden sm:inline-flex items-center gap-0.5 rounded border border-blue-400/50 bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-100">Ctrl+↵</kbd>
+                            </button>
+                        </div>
+
+                        {{-- Min length warning --}}
+                        <div x-show="pasteText.length > 0 && pasteText.length < 20" x-cloak
+                             class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Se requieren al menos 20 caracteres para interpretar el texto.
+                        </div>
+                    </form>
+
+                    {{-- Manual link --}}
+                    <div class="mt-6 text-center">
+                        <button
+                            type="button"
+                            @click="step = 2"
+                            class="text-sm text-gray-500 hover:text-blue-700 transition-colors"
+                        >
+                            O crear manualmente →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- ===== STATE 2: THE FORM ===== --}}
+        <div x-show="step === 2" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+
+            {{-- Back to paste + re-interpret button --}}
+            <div class="mb-6 flex items-center justify-between">
                 <button
                     type="button"
-                    id="openPlainTextImportModal"
+                    @click="step = 1"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-blue-700 transition"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    ← Volver a pegar texto
+                </button>
+
+                <button
+                    type="button"
+                    id="openPlainTextImportModalStep2"
                     class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <i class="fas fa-paste"></i>
@@ -283,78 +262,7 @@
                 </button>
             </div>
 
-            {{-- Header --}}
-            <div class="text-center mb-8">
-                <h1 class="text-2xl font-bold text-gray-800">¿Qué tipo de solicitud deseas crear?</h1>
-                <p class="mt-2 text-gray-500">Selecciona el tipo para ver un formulario adaptado.</p>
-            </div>
-
-            {{-- Type Cards Grid --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                @php
-                    $cardMeta = [
-                        'general' => ['icon' => '📋', 'color' => 'blue', 'desc' => 'Solicitud de servicio estándar'],
-                        'reunion' => ['icon' => '👥', 'color' => 'indigo', 'desc' => 'Programar y gestionar reuniones'],
-                        'compromiso' => ['icon' => '🤝', 'color' => 'amber', 'desc' => 'Registrar compromisos y seguimiento'],
-                        'seguimiento' => ['icon' => '🔄', 'color' => 'green', 'desc' => 'Dar seguimiento a procesos activos'],
-                        'solicitud-documental' => ['icon' => '📄', 'color' => 'orange', 'desc' => 'Gestión de documentos y actas'],
-                    ];
-                @endphp
-
-                @foreach (($requestTypes ?? collect()) as $type)
-                    @php
-                        $meta = $cardMeta[$type->slug] ?? ['icon' => '📋', 'color' => 'blue', 'desc' => 'Solicitud de servicio'];
-                        $color = $meta['color'];
-                    @endphp
-                    <button
-                        type="button"
-                        @click="selectType('{{ $type->id }}', '{{ $type->slug }}')"
-                        class="group relative bg-white border-2 rounded-2xl p-6 cursor-pointer text-left transition-all duration-200 hover:shadow-lg hover:border-{{ $color }}-500 focus:outline-none focus:ring-2 focus:ring-{{ $color }}-300"
-                        :class="selectedTypeId == '{{ $type->id }}' ? 'border-{{ $color }}-500 ring-2 ring-{{ $color }}-200' : 'border-gray-200'"
-                    >
-                        <div class="text-3xl mb-3">{{ $meta['icon'] }}</div>
-                        <h3 class="text-base font-semibold text-gray-800 group-hover:text-{{ $color }}-700">{{ $type->name }}</h3>
-                        <p class="mt-1 text-sm text-gray-500">{{ $meta['desc'] }}</p>
-                    </button>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- ===== STATE 2: THE FORM ===== --}}
-        <div x-show="step === 2" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
-
-            {{-- Back button + type badge --}}
-            <div class="mb-6 flex items-center justify-between">
-                <button
-                    type="button"
-                    @click="goBack()"
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-blue-700 transition"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Cambiar tipo
-                </button>
-
-                <div class="flex items-center gap-3">
-                    {{-- Type badge --}}
-                    <template x-if="selectedTypeSlug">
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                            <span x-text="document.querySelector('[data-type-name-' + selectedTypeSlug + ']')?.textContent || selectedTypeSlug"></span>
-                        </span>
-                    </template>
-
-                    {{-- Pegar e interpretar (also available in step 2) --}}
-                    <button
-                        type="button"
-                        id="openPlainTextImportModalStep2"
-                        class="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <i class="fas fa-paste"></i>
-                        Pegar e interpretar
-                    </button>
-                </div>
-            </div>
-
-            {{-- Hidden spans for type names (used by Alpine to display badge) --}}
+            {{-- Hidden spans for type names (used for display) --}}
             @foreach (($requestTypes ?? collect()) as $type)
                 <span data-type-name-{{ $type->slug }} class="hidden">{{ $type->name }}</span>
             @endforeach
@@ -362,12 +270,11 @@
             <form action="{{ route('service-requests.store') }}" method="POST">
                 @csrf
 
-                {{-- Hidden input for request_type_id, driven by Alpine --}}
+                {{-- Hidden input for request_type_id --}}
                 <input type="hidden" name="request_type_id" :value="selectedTypeId">
 
                 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Paso 1 de 2</p>
                         <h2 class="text-xl font-bold text-gray-800">Datos de la solicitud</h2>
                         <p class="text-sm text-gray-600 mt-1">Los campos marcados con * son obligatorios.</p>
                     </div>
@@ -382,17 +289,17 @@
                         ])
 
                         {{-- Meeting-specific fields (shown when type = "reunion") --}}
-                        <div class="mt-6">
+                        <div class="mt-6" x-show="selectedTypeSlug === 'reunion'" x-cloak>
                             @include('service-requests.partials._meeting-details', ['errors' => $errors])
                         </div>
                     </div>
                 </div>
 
-                <!-- Tareas (opcional) -->
+                <!-- Tareas (opcional, collapsed by default) -->
                 <div class="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                     <button type="button" id="toggleTasksSection" class="group w-full rounded-2xl px-6 py-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition border-b border-blue-100 focus:outline-none focus:bg-blue-100 focus:border-blue-600 focus:ring-4 focus:ring-inset focus:ring-blue-600/35 focus:shadow-md focus-visible:bg-blue-100 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-blue-600/35">
                         <div class="text-left">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Paso 2 de 2</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-blue-700 group-focus:text-blue-900 group-focus-visible:text-blue-900">Opcional</p>
                             <div class="text-lg font-bold text-gray-800 group-focus:text-blue-950 group-focus-visible:text-blue-950">Tareas</div>
                             <div class="text-gray-600 text-sm group-focus:text-blue-800 group-focus-visible:text-blue-800">Agrega tareas ahora o deja la solicitud solo con descripción.</div>
                         </div>
@@ -476,117 +383,39 @@
     </div>
 
 
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const plainTextImportModal = document.getElementById('plainTextImportModal');
-        const openPlainTextImportModalBtn = document.getElementById('openPlainTextImportModal');
-        const openPlainTextImportModalStep2Btn = document.getElementById('openPlainTextImportModalStep2');
-        const closePlainTextImportModalBtn = document.getElementById('closePlainTextImportModal');
-        const cancelPlainTextImportBtn = document.getElementById('cancelPlainTextImport');
-        const clearPlainTextImportBtn = document.getElementById('clearPlainTextImport');
+        // --- AI Interpreter (State 1) ---
+        const aiForm = document.getElementById('aiInterpreterForm');
         const plainTextInput = document.getElementById('plain_text');
-        const plainTextImportForm = document.getElementById('plainTextImportForm');
-        const interpretTextBtn = document.getElementById('interpretTextBtn');
-        const interpretTextIcon = document.getElementById('interpretTextIcon');
-        const interpretTextSpinner = document.getElementById('interpretTextSpinner');
-        const interpretTextLabel = document.getElementById('interpretTextLabel');
-        const charCountValue = document.getElementById('plainTextCharCountValue');
-        const charCountEl = document.getElementById('plainTextCharCount');
-        const minLengthWarning = document.getElementById('plainTextMinLengthWarning');
-        const shouldOpenPlainTextImport = @json($shouldOpenPlainTextImport);
-        const MIN_CHARS = 20;
+        const openPlainTextImportModalStep2Btn = document.getElementById('openPlainTextImportModalStep2');
 
-        // --- Character count and button enable/disable ---
-        function updateCharCount() {
-            if (!plainTextInput || !charCountValue) return;
-            const len = plainTextInput.value.length;
-            charCountValue.textContent = len;
+        // Auto-paste from clipboard on page load (if step 1 is active)
+        (async function autoClipboardPaste() {
+            const stepEl = document.querySelector('[x-data]');
+            if (!stepEl || !plainTextInput) return;
+            // Only attempt auto-paste if textarea is empty and we're on step 1
+            if (plainTextInput.value.trim()) return;
 
-            // Update color based on minimum
-            if (len < MIN_CHARS) {
-                charCountEl?.classList.remove('text-green-600');
-                charCountEl?.classList.add('text-amber-600');
-                minLengthWarning?.classList.remove('hidden');
-            } else {
-                charCountEl?.classList.remove('text-amber-600');
-                charCountEl?.classList.add('text-green-600');
-                minLengthWarning?.classList.add('hidden');
-            }
+            if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function' || !window.isSecureContext) return;
 
-            // Enable/disable interpret button
-            if (interpretTextBtn) {
-                interpretTextBtn.disabled = len < MIN_CHARS;
-            }
-        }
-
-        plainTextInput?.addEventListener('input', updateCharCount);
-        plainTextInput?.addEventListener('paste', function() {
-            setTimeout(updateCharCount, 0);
-        });
-
-        // Initial state
-        updateCharCount();
-
-        // --- Loading spinner on form submit ---
-        function showLoadingState() {
-            if (!interpretTextBtn) return;
-            interpretTextBtn.disabled = true;
-            interpretTextIcon?.classList.add('hidden');
-            interpretTextSpinner?.classList.remove('hidden');
-            if (interpretTextLabel) interpretTextLabel.textContent = 'Interpretando...';
-        }
-
-        plainTextImportForm?.addEventListener('submit', function(e) {
-            const len = plainTextInput?.value?.length || 0;
-            if (len < MIN_CHARS) {
-                e.preventDefault();
-                return;
-            }
-            showLoadingState();
-        });
-
-        // Ctrl+Enter or Cmd+Enter to submit the interpretation form
-        plainTextInput?.addEventListener('keydown', function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                const len = plainTextInput.value.length;
-                if (len >= MIN_CHARS && plainTextImportForm) {
-                    showLoadingState();
-                    if (typeof plainTextImportForm.requestSubmit === 'function') {
-                        plainTextImportForm.requestSubmit();
-                    } else {
-                        plainTextImportForm.submit();
-                    }
+            try {
+                const clipboardText = await navigator.clipboard.readText();
+                if (clipboardText && clipboardText.trim() && clipboardText.trim().length >= 20) {
+                    plainTextInput.value = clipboardText.replace(/\r\n/g, '\n');
+                    plainTextInput.dispatchEvent(new Event('input', { bubbles: true }));
                 }
+            } catch (e) {
+                // Clipboard permission denied, that's fine — user will paste manually
             }
-        });
+        })();
 
-        function openPlainTextImportModal() {
-            if (!plainTextImportModal) return;
-            plainTextImportModal.classList.remove('hidden');
-            plainTextImportModal.setAttribute('aria-hidden', 'false');
-            setTimeout(() => {
-                plainTextInput?.focus();
-                updateCharCount();
-            }, 0);
-        }
-
-        function closePlainTextImportModal() {
-            if (!plainTextImportModal) return;
-            plainTextImportModal.classList.add('hidden');
-            plainTextImportModal.setAttribute('aria-hidden', 'true');
-        }
-
+        // "Pegar e interpretar" button in step 2 — clipboard auto-submit
         async function importPlainTextFromClipboard() {
-            if (!plainTextInput || !plainTextImportForm) return;
+            if (!plainTextInput || !aiForm) return;
 
-            if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function' || !window.isSecureContext) {
-                openPlainTextImportModal();
-                return;
-            }
-
-            // Disable the triggering button temporarily
-            const triggerBtn = this === openPlainTextImportModalStep2Btn ? openPlainTextImportModalStep2Btn : openPlainTextImportModalBtn;
+            const triggerBtn = openPlainTextImportModalStep2Btn;
             if (triggerBtn) {
                 triggerBtn.disabled = true;
                 triggerBtn.setAttribute('aria-busy', 'true');
@@ -594,29 +423,50 @@
             }
 
             try {
+                if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function' || !window.isSecureContext) {
+                    // Fall back: switch to step 1
+                    const alpineEl = document.querySelector('[x-data]');
+                    if (alpineEl && alpineEl.__x) alpineEl.__x.$data.step = 1;
+                    else if (alpineEl && window.Alpine) window.Alpine.$data(alpineEl).step = 1;
+                    plainTextInput.focus();
+                    return;
+                }
+
                 const clipboardText = await navigator.clipboard.readText();
 
                 if (!clipboardText || !clipboardText.trim()) {
-                    openPlainTextImportModal();
+                    const alpineEl = document.querySelector('[x-data]');
+                    if (alpineEl && alpineEl.__x) alpineEl.__x.$data.step = 1;
+                    else if (alpineEl && window.Alpine) window.Alpine.$data(alpineEl).step = 1;
+                    plainTextInput.focus();
                     return;
                 }
 
                 plainTextInput.value = clipboardText.replace(/\r\n/g, '\n');
-                updateCharCount();
+                plainTextInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-                // Only auto-submit if text meets minimum length
-                if (plainTextInput.value.length >= MIN_CHARS) {
-                    showLoadingState();
-                    if (typeof plainTextImportForm.requestSubmit === 'function') {
-                        plainTextImportForm.requestSubmit();
+                if (plainTextInput.value.length >= 20) {
+                    // Set interpreting state via Alpine
+                    const alpineEl = document.querySelector('[x-data]');
+                    if (alpineEl && alpineEl.__x) alpineEl.__x.$data.interpreting = true;
+                    else if (alpineEl && window.Alpine) window.Alpine.$data(alpineEl).interpreting = true;
+
+                    if (typeof aiForm.requestSubmit === 'function') {
+                        aiForm.requestSubmit();
                     } else {
-                        plainTextImportForm.submit();
+                        aiForm.submit();
                     }
                 } else {
-                    openPlainTextImportModal();
+                    const alpineEl = document.querySelector('[x-data]');
+                    if (alpineEl && alpineEl.__x) alpineEl.__x.$data.step = 1;
+                    else if (alpineEl && window.Alpine) window.Alpine.$data(alpineEl).step = 1;
+                    plainTextInput.focus();
                 }
             } catch (error) {
-                openPlainTextImportModal();
+                const alpineEl = document.querySelector('[x-data]');
+                if (alpineEl && alpineEl.__x) alpineEl.__x.$data.step = 1;
+                else if (alpineEl && window.Alpine) window.Alpine.$data(alpineEl).step = 1;
+                plainTextInput.focus();
             } finally {
                 if (triggerBtn) {
                     triggerBtn.disabled = false;
@@ -626,34 +476,9 @@
             }
         }
 
-        openPlainTextImportModalBtn?.addEventListener('click', importPlainTextFromClipboard);
         openPlainTextImportModalStep2Btn?.addEventListener('click', importPlainTextFromClipboard);
-        closePlainTextImportModalBtn?.addEventListener('click', closePlainTextImportModal);
-        cancelPlainTextImportBtn?.addEventListener('click', closePlainTextImportModal);
-        clearPlainTextImportBtn?.addEventListener('click', function() {
-            if (!plainTextInput) return;
-            plainTextInput.value = '';
-            plainTextInput.focus();
-            updateCharCount();
-        });
 
-        plainTextImportModal?.addEventListener('click', function(e) {
-            if (e.target instanceof HTMLElement && e.target.hasAttribute('data-plain-text-overlay')) {
-                closePlainTextImportModal();
-            }
-        });
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && plainTextImportModal && !plainTextImportModal.classList.contains('hidden')) {
-                closePlainTextImportModal();
-            }
-        });
-
-        if (shouldOpenPlainTextImport) {
-            openPlainTextImportModal();
-        }
-
-        // Workspace switch button (outside form nesting)
+        // Workspace switch button
         const switchWorkspaceBtn = document.getElementById('switchWorkspaceBtn');
         const switchWorkspaceForm = document.getElementById('switchWorkspaceForm');
         if (switchWorkspaceBtn && switchWorkspaceForm) {
@@ -724,7 +549,7 @@
                 'created_at': 'created_at',
                 'due_date': 'due_date',
                 'criticality_level': 'criticality-level-container',
-                'web_routes': null, // handled separately via class selector
+                'web_routes': null,
             };
 
             parserPrefilledFields.forEach(function(fieldName) {
@@ -739,9 +564,7 @@
 
                 if (!el) return;
 
-                // Add highlight class to the input/select/textarea
                 if (fieldName === 'criticality_level') {
-                    // For criticality, highlight the container
                     el.classList.add('parser-prefilled');
                     el.style.padding = '0.5rem';
                     el.style.borderRadius = '0.5rem';
@@ -749,7 +572,6 @@
                     el.classList.add('parser-prefilled');
                 }
 
-                // Add badge next to the label
                 const fieldContainer = el.closest('div');
                 if (fieldContainer) {
                     const label = fieldContainer.querySelector('label');
@@ -774,7 +596,6 @@
                     warningBadge.innerHTML = '<i class="fas fa-user-clock"></i> <span>Solicitante "<strong>' +
                         pendingRequesterName.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
                         '</strong>" pendiente de creación — se creará al enviar el formulario.</span>';
-                    // Insert after the select element
                     const selectEl = document.getElementById('requester_id');
                     if (selectEl) {
                         selectEl.parentNode.insertBefore(warningBadge, selectEl.nextSibling);
@@ -787,44 +608,33 @@
         const inlineErrorEl = document.getElementById('createFormInlineError');
         let createConfirmed = false;
 
-            // Posicionar foco correctamente:
-            // - Si hay errores de validación, enfocar el primer campo con error.
-            // - Si no hay errores, enfocar el título.
-            (function positionInitialFocus() {
-                if (!formEl) return;
+        // Focus positioning
+        (function positionInitialFocus() {
+            if (!formEl) return;
 
-                const isVisible = (el) => {
-                    if (!el) return false;
-                    if (el.disabled) return false;
-                    if (el.type === 'hidden') return false;
-                    const style = window.getComputedStyle(el);
-                    if (style.visibility === 'hidden' || style.display === 'none') return false;
-                    const rect = el.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0;
-                };
+            const isVisible = (el) => {
+                if (!el) return false;
+                if (el.disabled) return false;
+                if (el.type === 'hidden') return false;
+                const style = window.getComputedStyle(el);
+                if (style.visibility === 'hidden' || style.display === 'none') return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            };
 
-                const errorField = formEl.querySelector('input.border-red-500, select.border-red-500, textarea.border-red-500');
-                const titleField = document.getElementById('title');
+            const errorField = formEl.querySelector('input.border-red-500, select.border-red-500, textarea.border-red-500');
+            const titleField = document.getElementById('title');
 
-                const target = (errorField && isVisible(errorField)) ? errorField : (titleField && isVisible(titleField) ? titleField : null);
-                if (!target) return;
+            const target = (errorField && isVisible(errorField)) ? errorField : (titleField && isVisible(titleField) ? titleField : null);
+            if (!target) return;
 
-                // Esperar un tick por si hay scripts que re-renderizan/selectores.
-                setTimeout(() => {
-                    try {
-                        target.focus({ preventScroll: true });
-                    } catch (e) {
-                        target.focus();
-                    }
+            setTimeout(() => {
+                try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+                try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+            }, 0);
+        })();
 
-                    try {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    } catch (e) {
-                        // no-op
-                    }
-                }, 0);
-            })();
-
+        // --- Tasks section logic ---
         const toggleBtn = document.getElementById('toggleTasksSection');
         const body = document.getElementById('tasksSectionBody');
         const chevron = document.getElementById('tasksChevron');
@@ -952,9 +762,7 @@
             try {
                 const payload = collectDraftState();
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
-            } catch (e) {
-                // no-op
-            }
+            } catch (e) {}
         }
 
         function scheduleDraftSave() {
@@ -963,11 +771,7 @@
         }
 
         function clearDraft() {
-            try {
-                localStorage.removeItem(DRAFT_KEY);
-            } catch (e) {
-                // no-op
-            }
+            try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
         }
 
         function readDraft() {
@@ -976,9 +780,7 @@
                 if (!raw) return null;
                 const parsed = JSON.parse(raw);
                 return parsed && typeof parsed === 'object' ? parsed : null;
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         }
 
         function isOpen() {
@@ -1069,7 +871,6 @@
             field.addEventListener('change', scheduleDraftSave);
         });
 
-
         function getRowData(rowEl) {
             const subtasks = Array.from(rowEl.querySelectorAll('[data-subtask-row]')).map((stRow) => ({
                 title: stRow.querySelector('input[type="text"]')?.value ?? '',
@@ -1097,7 +898,6 @@
                     const tpl = input.getAttribute('data-name-template');
                     input.setAttribute('name', tpl.replace('__INDEX__', index));
                 });
-
                 reindexSubtasks(row, index);
             });
         }
@@ -1137,7 +937,6 @@
 
             const normalized = raw.replace(',', '.').replace(/\s+/g, ' ');
 
-            // 1:30
             const hmMatch = normalized.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
             if (hmMatch) {
                 const hh = Number(hmMatch[1]);
@@ -1147,30 +946,20 @@
                 }
             }
 
-            // 90m | 1.5h | 1h 30m
             let total = 0;
             let hasToken = false;
             const hourToken = normalized.match(/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hora|horas)\b/);
             if (hourToken) {
                 const h = Number(hourToken[1]);
-                if (Number.isFinite(h) && h >= 0) {
-                    total += h * 60;
-                    hasToken = true;
-                }
+                if (Number.isFinite(h) && h >= 0) { total += h * 60; hasToken = true; }
             }
             const minuteToken = normalized.match(/(\d+(?:\.\d+)?)\s*(m|min|mins|minuto|minutos)\b/);
             if (minuteToken) {
                 const m = Number(minuteToken[1]);
-                if (Number.isFinite(m) && m >= 0) {
-                    total += m;
-                    hasToken = true;
-                }
+                if (Number.isFinite(m) && m >= 0) { total += m; hasToken = true; }
             }
-            if (hasToken) {
-                return total > 0 ? (Math.round(total / 5) * 5) : null;
-            }
+            if (hasToken) return total > 0 ? (Math.round(total / 5) * 5) : null;
 
-            // Valor decimal sin sufijo = horas.
             const asNumber = Number(normalized);
             if (Number.isFinite(asNumber) && asNumber >= 0) {
                 const minutes = Math.round(asNumber * 60);
@@ -1198,19 +987,13 @@
             const hourMatch = text.match(/(\d+(?:[\.,]\d+)?)\s*(h|hr|hrs|hora|horas)\b/);
             if (hourMatch) {
                 const hours = Number(String(hourMatch[1]).replace(',', '.'));
-                if (Number.isFinite(hours) && hours > 0) {
-                    totalMinutes += hours * 60;
-                    hasAny = true;
-                }
+                if (Number.isFinite(hours) && hours > 0) { totalMinutes += hours * 60; hasAny = true; }
             }
 
             const minuteMatch = text.match(/(\d+(?:[\.,]\d+)?)\s*(m|min|mins|minuto|minutos)\b/);
             if (minuteMatch) {
                 const mins = Number(String(minuteMatch[1]).replace(',', '.'));
-                if (Number.isFinite(mins) && mins > 0) {
-                    totalMinutes += mins;
-                    hasAny = true;
-                }
+                if (Number.isFinite(mins) && mins > 0) { totalMinutes += mins; hasAny = true; }
             }
 
             if (!hasAny) {
@@ -1226,7 +1009,6 @@
             }
 
             if (!hasAny || !Number.isFinite(totalMinutes) || totalMinutes <= 0) return null;
-
             return Math.round(totalMinutes / 5) * 5;
         }
 
@@ -1239,19 +1021,12 @@
 
             const lastMatch = matches[matches.length - 1];
             const parsedMinutes = parseMinutesFromSubtaskTitle(rawTitle);
-            if (parsedMinutes === null || typeof lastMatch.index !== 'number') {
-                return null;
-            }
+            if (parsedMinutes === null || typeof lastMatch.index !== 'number') return null;
 
             const cleanTitle = `${rawTitle.slice(0, lastMatch.index)}${rawTitle.slice(lastMatch.index + lastMatch[0].length)}`.trim().replace(/\s{2,}/g, ' ');
-            if (!cleanTitle) {
-                return null;
-            }
+            if (!cleanTitle) return null;
 
-            return {
-                cleanTitle,
-                minutes: parsedMinutes,
-            };
+            return { cleanTitle, minutes: parsedMinutes };
         }
 
         function bindTaskEstimateSync(row) {
@@ -1263,10 +1038,7 @@
 
             function setHoursFromMinutes(minutes) {
                 const raw = String(minutes ?? '').trim();
-                if (raw === '') {
-                    hoursEl.value = '';
-                    return;
-                }
+                if (raw === '') { hoursEl.value = ''; return; }
                 const m = Number(raw);
                 if (!Number.isFinite(m) || m < 0) return;
                 hoursEl.value = formatHoursFromMinutes(m);
@@ -1281,25 +1053,19 @@
                     displayEl.step = '0.25';
                     displayEl.placeholder = 'Horas (Ej: 1.5)';
                     displayEl.value = (minutes !== null && Number.isFinite(minutes))
-                        ? formatHoursFromMinutes(minutes)
-                        : '';
+                        ? formatHoursFromMinutes(minutes) : '';
                 } else {
                     displayEl.step = '5';
                     displayEl.placeholder = 'Minutos (Ej: 75)';
                     displayEl.value = (minutes !== null && Number.isFinite(minutes))
-                        ? String(Math.round(minutes))
-                        : '';
+                        ? String(Math.round(minutes)) : '';
                 }
             }
 
             function parseDisplayToMinutes() {
                 const raw = String(displayEl.value || '').trim();
                 if (!raw) return null;
-
-                if (unitEl.value === 'hours') {
-                    return parseDurationToMinutes(raw);
-                }
-
+                if (unitEl.value === 'hours') return parseDurationToMinutes(raw);
                 const parsed = Number(raw);
                 if (!Number.isFinite(parsed) || parsed < 0) return null;
                 return Math.round(parsed / 5) * 5;
@@ -1307,12 +1073,9 @@
 
             if (!String(minutesEl.value || '').trim() && String(hoursEl.value || '').trim()) {
                 const m = parseDurationToMinutes(hoursEl.value);
-                if (m !== null) {
-                    minutesEl.value = String(m);
-                }
+                if (m !== null) minutesEl.value = String(m);
             }
 
-            // Estado inicial (manual)
             setEstimateUiState(row, { locked: false });
             setHoursFromMinutes(minutesEl.value);
             renderDisplayFromMinutes();
@@ -1335,7 +1098,6 @@
                 scheduleDraftSave();
             });
 
-            // Permite refrescar visual desde otras funciones (ej. subtareas)
             row.__renderEstimateDisplay = renderDisplayFromMinutes;
         }
 
@@ -1414,11 +1176,8 @@
                 let minutes = 25;
                 if (raw !== '') {
                     const parsed = Number(raw);
-                    if (Number.isFinite(parsed)) {
-                        minutes = parsed;
-                    }
+                    if (Number.isFinite(parsed)) minutes = parsed;
                 }
-
                 if (minutes > 0) totalMinutes += minutes;
             });
 
@@ -1538,20 +1297,16 @@
                 const initialParsed = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
                 if (initialParsed !== null) {
                     subtaskTitleEl.value = initialParsed.cleanTitle;
-
                     if (subtaskMinutesEl.dataset.touched !== '1') {
                         subtaskMinutesEl.value = String(initialParsed.minutes);
                     }
-
                     setSubtaskTabOrderFromAutoMinutes(el, { parsedMinutes: initialParsed.minutes });
                 }
             }
 
             subtaskTitleEl?.addEventListener('input', function() {
                 const extracted = extractSubtaskTitleAndMinutes(subtaskTitleEl.value);
-                if (extracted !== null) {
-                    subtaskTitleEl.value = extracted.cleanTitle;
-                }
+                if (extracted !== null) subtaskTitleEl.value = extracted.cleanTitle;
 
                 if (subtaskMinutesEl && subtaskMinutesEl.dataset.touched !== '1' && extracted !== null) {
                     subtaskMinutesEl.value = String(extracted.minutes);
@@ -1575,7 +1330,6 @@
                 });
             });
         }
-
 
         function createRow(task = {}) {
             const row = document.createElement('div');
@@ -1667,9 +1421,7 @@
                 if (!descSection) return;
                 const isHidden = descSection.classList.toggle('hidden');
                 toggleDescBtn.textContent = isHidden ? 'Agregar descripción' : 'Ocultar descripción';
-                if (!isHidden) {
-                    setTimeout(() => descEl?.focus(), 0);
-                }
+                if (!isHidden) setTimeout(() => descEl?.focus(), 0);
             });
 
             // Remove row
@@ -1711,43 +1463,29 @@
                 if (!Number.isFinite(count) || count < 1 || count > 10) return null;
 
                 const cleanTitle = `${raw.slice(0, lastMatch.index)}${raw.slice(lastMatch.index + lastMatch[0].length)}`.trim().replace(/\s{2,}/g, ' ');
-                return {
-                    cleanTitle: cleanTitle || raw,
-                    count,
-                };
+                return { cleanTitle: cleanTitle || raw, count };
             }
 
             function normalizeTaskPriorityToSubtaskPriority(taskPriority) {
                 const normalized = String(taskPriority ?? '').toLowerCase();
-                if (normalized === 'urgent' || normalized === 'critical' || normalized === 'high') {
-                    return 'high';
-                }
-                if (normalized === 'low') {
-                    return 'low';
-                }
+                if (normalized === 'urgent' || normalized === 'critical' || normalized === 'high') return 'high';
+                if (normalized === 'low') return 'low';
                 return 'medium';
             }
 
             function appendAutomaticSubtasks(count) {
                 openSubtasks();
-
                 const safeCount = Math.max(1, Math.min(10, parseInt(String(count ?? '1'), 10) || 1));
                 const currentSubtasks = Array.from(subtasksList?.querySelectorAll('[data-subtask-row]') ?? []);
                 const baseIndex = currentSubtasks.length;
                 const subtaskPriority = normalizeTaskPriorityToSubtaskPriority(priorityEl?.value);
 
                 for (let i = 0; i < safeCount; i++) {
-                    const stRow = createSubtaskRow({
-                        title: `Subtarea ${baseIndex + i + 1}`,
-                        priority: subtaskPriority,
-                    });
+                    const stRow = createSubtaskRow({ title: `Subtarea ${baseIndex + i + 1}`, priority: subtaskPriority });
                     subtasksList?.appendChild(stRow);
                 }
 
-                if (subtaskCountEl) {
-                    subtaskCountEl.value = String(safeCount);
-                }
-
+                if (subtaskCountEl) subtaskCountEl.value = String(safeCount);
                 reindexRows();
                 recalcTaskEstimateFromSubtasks(row);
                 scheduleDraftSave();
@@ -1756,11 +1494,7 @@
             function maybeCreateSubtasksFromTaskTitle() {
                 const parsed = extractSubtaskCountFromTaskTitle(titleEl?.value);
                 if (!parsed) return;
-
-                if (titleEl) {
-                    titleEl.value = parsed.cleanTitle;
-                }
-
+                if (titleEl) titleEl.value = parsed.cleanTitle;
                 appendAutomaticSubtasks(parsed.count);
             }
 
@@ -1836,7 +1570,6 @@
                 inputEl.addEventListener('change', scheduleDraftSave);
             });
 
-            // Autocalcular estimado si hay subtareas con minutos
             recalcTaskEstimateFromSubtasks(row);
 
             return row;
@@ -1849,9 +1582,7 @@
             reindexRows();
             updateTaskSummary();
             scheduleDraftSave();
-            if (focusTitle) {
-                setTimeout(() => row.querySelector('[data-field="title"]')?.focus(), 0);
-            }
+            if (focusTitle) setTimeout(() => row.querySelector('[data-field="title"]')?.focus(), 0);
         }
 
         function clearAllRows() {
@@ -1874,9 +1605,7 @@
 
         formEl?.addEventListener('submit', function(e) {
             const hasRows = tasksList?.querySelector('[data-task-row]');
-            if (!hasRows) {
-                return;
-            }
+            if (!hasRows) return;
 
             const ok = validateTaskDescriptionsMinLen();
             if (!ok) {
@@ -1940,10 +1669,7 @@
             const currentRows = Array.from(tasksList.querySelectorAll('[data-task-row]'));
             if (currentRows.length > 0) {
                 const ok = confirm('Esto reemplazará las tareas actuales. ¿Continuar?');
-                if (!ok) {
-                    templateSelect.value = 'none';
-                    return;
-                }
+                if (!ok) { templateSelect.value = 'none'; return; }
             }
 
             if (templateSelect.value === 'subservice_standard') {
@@ -1977,9 +1703,7 @@
             if (Array.isArray(draft.tasks)) {
                 draft.tasks.forEach((t) => addRow(t));
             }
-            if (Array.isArray(draft.tasks) && draft.tasks.length > 0) {
-                openSection();
-            }
+            if (Array.isArray(draft.tasks) && draft.tasks.length > 0) openSection();
 
             updateTaskSummary();
             setNotice('Borrador recuperado correctamente.');
@@ -2007,7 +1731,7 @@
             addRow({}, { focusTitle: true });
         });
 
-        // Si viene old() con tareas, renderizarlas y abrir sección
+        // Render old() tasks if present
         if (Array.isArray(initialTasks) && initialTasks.length > 0) {
             openSection();
             initialTasks.forEach((t) => addRow(t));
@@ -2015,7 +1739,6 @@
             openSection();
         }
 
-        // Si subservicio cambia y la plantilla actual es del subservicio, avisar.
         subServiceIdInput?.addEventListener('change', function() {
             if (templateSelect?.value === 'subservice_standard') {
                 setNotice('El subservicio cambió. Vuelve a cargar la plantilla para actualizar las tareas.');
@@ -2056,7 +1779,7 @@
             });
         }
 
-        // No mostrar aviso de borrador en solicitudes nuevas.
+        // Don't show draft notice for fresh forms
         tasksDraftNotice?.classList.add('hidden');
 
         window.addEventListener('beforeunload', saveDraftNow);

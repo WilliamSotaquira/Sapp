@@ -649,9 +649,16 @@ class ServiceRequestService
         }
 
         if ($slaId > 0 && (int) ($context['sla_id'] ?? 0) !== $slaId) {
-            throw ValidationException::withMessages([
-                'sla_id' => 'El SLA no corresponde al subservicio/entidad seleccionada.',
+            // Si el SLA del formulario no coincide con el resuelto por contexto,
+            // usar el SLA resuelto automáticamente en lugar de rechazar la solicitud.
+            // Esto ocurre cuando el SLA del formulario fue pre-llenado con una criticidad diferente.
+            Log::info('SLA del formulario difiere del contexto resuelto, usando SLA del contexto.', [
+                'form_sla_id' => $slaId,
+                'context_sla_id' => $context['sla_id'] ?? null,
+                'sub_service_id' => $subServiceId,
+                'criticality' => $criticality,
             ]);
+            $data['sla_id'] = (int) $context['sla_id'];
         }
     }
 

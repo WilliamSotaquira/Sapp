@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
  */
 class LlmDescriptionGenerator
 {
-    private const TIMEOUT_SECONDS = 30;
+    private const TIMEOUT_SECONDS = 15;
 
     private const MAX_INPUT_LENGTH = 8000;
 
