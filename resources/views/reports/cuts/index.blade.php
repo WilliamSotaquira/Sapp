@@ -45,6 +45,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Corte</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contrato</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rango</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Creado</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitudes</th>
                                 <th class="px-4 py-3"></th>
                             </tr>
@@ -61,6 +62,13 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">
                                         {{ $cut->start_date->format('Y-m-d') }} → {{ $cut->end_date->format('Y-m-d') }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">
+                                        @if($cut->created_at)
+                                            {{ $cut->created_at->format('d/m/Y H:i') }}
+                                        @else
+                                            <span class="text-gray-400 italic">Sin fecha de creación</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">
                                         <span class="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">

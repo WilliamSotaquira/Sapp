@@ -31,6 +31,16 @@
                 @endif
             </div>
             <div class="flex items-center gap-2">
+                @if(!empty($cut->folder_path))
+                    <a href="openfolder://{{ str_replace('\\', '/', $cut->folder_path) }}" class="px-3 py-2 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50" title="Abrir carpeta en explorador de archivos">
+                        <i class="fa-solid fa-folder-open"></i>
+                        Abrir carpeta
+                    </a>
+                    <button type="button" onclick="navigator.clipboard.writeText('{{ $cut->folder_path }}').then(() => { this.innerHTML='<i class=\'fa-solid fa-check\'></i> Copiado'; setTimeout(() => { this.innerHTML='<i class=\'fa-solid fa-copy\'></i> Copiar ruta'; }, 2000); })" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50" title="Copiar ruta de carpeta al portapapeles">
+                        <i class="fa-solid fa-copy"></i>
+                        Copiar ruta
+                    </button>
+                @endif
                 <a href="{{ route('reports.cuts.analytics', $cut) }}" class="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">
                     <i class="fa-solid fa-chart-column"></i>
                     Informe analitico
@@ -157,6 +167,146 @@
                     'selectedFamilyLabels' => $selectedFamilyLabels,
                 ])
             </div>
+
+            {{-- Evidence Organization Section --}}
+            @if(!empty($cut->folder_path))
+                <div class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg" id="evidenceOrganizationSection">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900">
+                                <i class="fa-solid fa-folder-open mr-1" aria-hidden="true"></i>
+                                Organizar evidencias
+                            </h3>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Selecciona archivos de evidencia para moverlos a la carpeta del corte.
+                                <span id="evidenceCountDisplay" class="font-medium text-gray-700">{{ $evidenceCount }} evidencia{{ $evidenceCount !== 1 ? 's' : '' }} disponible{{ $evidenceCount !== 1 ? 's' : '' }}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- Organization Result Summary --}}
+                    @if(session('organization_result'))
+                        @php $orgResult = session('organization_result'); @endphp
+                        <div class="mb-4 p-3 rounded-lg {{ $orgResult['failure_count'] > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200' }}">
+                            <div class="flex items-start gap-2">
+                                @if($orgResult['failure_count'] === 0)
+                                    <i class="fa-solid fa-circle-check text-green-600 mt-0.5" aria-hidden="true"></i>
+                                @else
+                                    <i class="fa-solid fa-triangle-exclamation text-yellow-600 mt-0.5" aria-hidden="true"></i>
+                                @endif
+                                <div class="flex-1">
+                                    @if($orgResult['success_count'] > 0)
+                                        <p class="text-sm font-medium text-green-700">
+                                            {{ $orgResult['success_count'] }} archivo{{ $orgResult['success_count'] !== 1 ? 's' : '' }} organizado{{ $orgResult['success_count'] !== 1 ? 's' : '' }} correctamente
+                                        </p>
+                                    @endif
+                                    @if($orgResult['failure_count'] > 0)
+                                        <p class="text-sm font-medium text-red-700 {{ $orgResult['success_count'] > 0 ? 'mt-1' : '' }}">
+                                            {{ $orgResult['failure_count'] }} archivo{{ $orgResult['failure_count'] !== 1 ? 's' : '' }} fallaron
+                                        </p>
+                                        @if(!empty($orgResult['failed']))
+                                            <ul class="mt-2 text-xs text-red-600 list-disc list-inside">
+                                                @foreach($orgResult['failed'] as $failure)
+                                                    <li>ID {{ $failure['evidence_id'] }}: {{ $failure['reason'] }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($evidences->count() > 0)
+                        <form method="POST" action="{{ route('reports.cuts.organize-evidences', $cut) }}" id="organizeEvidencesForm">
+                            @csrf
+
+                            {{-- Controls --}}
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        id="selectAllEvidences"
+                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        aria-label="Seleccionar todas las evidencias"
+                                    >
+                                    <span>Seleccionar todo</span>
+                                </label>
+                                <div class="flex items-center gap-3">
+                                    <span id="selectedEvidenceCount" class="text-xs text-gray-500">0 seleccionados</span>
+                                    <span id="maxSelectionWarning" class="text-xs text-red-600 hidden">Máximo 50 archivos</span>
+                                    <button
+                                        type="submit"
+                                        id="organizeBtn"
+                                        disabled
+                                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <i class="fa-solid fa-folder-tree mr-1.5" aria-hidden="true"></i>
+                                        Organizar
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Evidence List --}}
+                            <div class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg bg-white">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-100 sticky top-0">
+                                        <tr>
+                                            <th class="w-10 px-3 py-2 text-left"></th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Archivo</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Solicitud</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Tipo</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Tamaño</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($evidences as $evidence)
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                <td class="px-3 py-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="evidence_ids[]"
+                                                        value="{{ $evidence->id }}"
+                                                        class="evidence-checkbox h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                        aria-label="Seleccionar evidencia {{ $evidence->file_original_name ?? $evidence->title ?? 'ID ' . $evidence->id }}"
+                                                    >
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                    <div class="flex items-center gap-2">
+                                                        <i class="fa-solid {{ $evidence->file_icon }} text-gray-400" aria-hidden="true"></i>
+                                                        <span class="text-gray-900 truncate max-w-xs" title="{{ $evidence->file_original_name ?? $evidence->title ?? 'Sin nombre' }}">
+                                                            {{ $evidence->file_original_name ?? $evidence->title ?? 'Sin nombre' }}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600">
+                                                    {{ $evidence->serviceRequest?->ticket_number ?? '—' }}
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600">
+                                                    @if($evidence->evidence_type === 'ENLACE')
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Enlace</span>
+                                                    @else
+                                                        <span class="text-xs">{{ $evidence->file_type }}</span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-500 text-xs">
+                                                    {{ $evidence->formatted_file_size }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @error('evidence_ids')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </form>
+                    @else
+                        <p class="text-sm text-gray-500">No hay evidencias disponibles para organizar en este corte.</p>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 </div>
@@ -352,6 +502,95 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     updateSelectAllButton();
+
+    // =====================================================================
+    // Evidence Organization - Checkbox Selection Logic
+    // =====================================================================
+    const MAX_EVIDENCE_SELECTION = 50;
+    const selectAllEvidences = document.getElementById('selectAllEvidences');
+    const organizeBtn = document.getElementById('organizeBtn');
+    const selectedCountEl = document.getElementById('selectedEvidenceCount');
+    const maxWarningEl = document.getElementById('maxSelectionWarning');
+    const evidenceCheckboxes = document.querySelectorAll('.evidence-checkbox');
+
+    if (selectAllEvidences && organizeBtn && evidenceCheckboxes.length > 0) {
+        function updateEvidenceSelectionState() {
+            const checked = document.querySelectorAll('.evidence-checkbox:checked');
+            const count = checked.length;
+            const total = evidenceCheckboxes.length;
+
+            // Update count display
+            if (selectedCountEl) {
+                selectedCountEl.textContent = count + ' seleccionado' + (count !== 1 ? 's' : '');
+            }
+
+            // Enable/disable organize button
+            organizeBtn.disabled = count === 0 || count > MAX_EVIDENCE_SELECTION;
+
+            // Show/hide max selection warning
+            if (maxWarningEl) {
+                if (count > MAX_EVIDENCE_SELECTION) {
+                    maxWarningEl.classList.remove('hidden');
+                } else {
+                    maxWarningEl.classList.add('hidden');
+                }
+            }
+
+            // Update select all checkbox state
+            if (count === 0) {
+                selectAllEvidences.checked = false;
+                selectAllEvidences.indeterminate = false;
+            } else if (count === total) {
+                selectAllEvidences.checked = true;
+                selectAllEvidences.indeterminate = false;
+            } else {
+                selectAllEvidences.checked = false;
+                selectAllEvidences.indeterminate = true;
+            }
+        }
+
+        selectAllEvidences.addEventListener('change', function() {
+            const shouldCheck = this.checked;
+            const limit = Math.min(evidenceCheckboxes.length, MAX_EVIDENCE_SELECTION);
+
+            evidenceCheckboxes.forEach(function(cb, index) {
+                if (shouldCheck) {
+                    cb.checked = index < limit;
+                } else {
+                    cb.checked = false;
+                }
+            });
+
+            updateEvidenceSelectionState();
+        });
+
+        evidenceCheckboxes.forEach(function(cb) {
+            cb.addEventListener('change', updateEvidenceSelectionState);
+        });
+
+        // Form submission confirmation
+        const organizeForm = document.getElementById('organizeEvidencesForm');
+        if (organizeForm) {
+            organizeForm.addEventListener('submit', function(e) {
+                const checked = document.querySelectorAll('.evidence-checkbox:checked');
+                if (checked.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                if (checked.length > MAX_EVIDENCE_SELECTION) {
+                    e.preventDefault();
+                    alert('No puedes organizar más de ' + MAX_EVIDENCE_SELECTION + ' archivos a la vez.');
+                    return;
+                }
+                if (!confirm('¿Organizar ' + checked.length + ' archivo' + (checked.length !== 1 ? 's' : '') + ' en la carpeta del corte?')) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // Initialize state
+        updateEvidenceSelectionState();
+    }
 });
 </script>
 @endsection

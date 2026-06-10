@@ -85,6 +85,55 @@
                 >{{ old('notes', $cut->notes) }}</textarea>
             </div>
 
+            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label for="folder_path" class="block text-sm font-medium text-gray-700 mb-2">Carpeta de evidencias</label>
+                <div class="flex gap-2">
+                    <input
+                        type="text"
+                        id="folder_path"
+                        name="folder_path"
+                        value="{{ old('folder_path', $cut->folder_path) }}"
+                        placeholder="Ej: E:\corte-3-2026-02-01"
+                        maxlength="500"
+                        class="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                    <button type="button" id="browseFolder" class="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100" title="Seleccionar carpeta">
+                        <i class="fa-solid fa-folder"></i>
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">Ruta absoluta de la carpeta donde se almacenarán las evidencias de este corte. Si la carpeta no existe, se creará automáticamente.</p>
+                @error('folder_path')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+
+                {{-- Hidden directory picker (webkitdirectory gives relative paths only, used as UX helper) --}}
+                <input type="file" id="folderPicker" webkitdirectory directory class="hidden">
+            </div>
+
+            <script>
+                document.getElementById('browseFolder').addEventListener('click', function() {
+                    document.getElementById('folderPicker').click();
+                });
+                document.getElementById('folderPicker').addEventListener('change', function(e) {
+                    if (e.target.files.length > 0) {
+                        // webkitRelativePath gives something like "folder/subfolder/file.txt"
+                        // Extract the top-level folder name from the first file
+                        var relativePath = e.target.files[0].webkitRelativePath;
+                        var folderName = relativePath.split('/')[0];
+                        var input = document.getElementById('folder_path');
+                        // If the input already has a base path, append; otherwise suggest
+                        if (input.value && !input.value.endsWith('\\') && !input.value.endsWith('/')) {
+                            input.value = input.value + '\\' + folderName;
+                        } else if (input.value) {
+                            input.value = input.value + folderName;
+                        } else {
+                            // Browsers don't provide absolute paths for security reasons
+                            // Show the folder name and prompt user to complete the full path
+                            input.value = folderName;
+                            alert('El navegador no proporciona la ruta completa por seguridad. Se detectó la carpeta "' + folderName + '". Por favor completa la ruta absoluta (ej: E:\\' + folderName + ').');
+                        }
+                    }
+                });
+            </script>
+
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('reports.cuts.show', $cut) }}" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</a>
                 <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">

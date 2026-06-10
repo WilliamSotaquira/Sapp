@@ -1,0 +1,15 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\openfolder]
+@="URL:Open Folder Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\openfolder\DefaultIcon]
+@="explorer.exe,0"
+
+[HKEY_CLASSES_ROOT\openfolder\shell]
+
+[HKEY_CLASSES_ROOT\openfolder\shell\open]
+
+[HKEY_CLASSES_ROOT\openfolder\shell\open\command]
+@="cmd /c \"set \"arg=%1\" && call set \"uri=%%arg:openfolder://=%%\" && call set \"uri=%%uri:/=\\%%\" && call explorer.exe \"%%uri%%\"\""

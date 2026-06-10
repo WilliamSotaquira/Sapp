@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Cut;
 use App\Models\ServiceFamily;
 use App\Models\ServiceRequest;
+use App\Services\DateSuggestionService;
+use App\Services\EvidenceOrganizerService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +22,11 @@ use ZipArchive;
 
 class CutController extends Controller
 {
+    public function __construct(
+        private readonly DateSuggestionService $dateSuggestionService,
+        private readonly EvidenceOrganizerService $evidenceOrganizerService,
+    ) {
+    }
     public function index(): View
     {
         $currentCompanyId = (int) session('current_company_id');
@@ -51,7 +58,29 @@ class CutController extends Controller
             : null;
         $activeContract = $currentCompany?->activeContract;
 
-        return view('reports.cuts.create', compact('activeContract', 'currentCompany'));
+        $dateSuggestion = null;
+        $suggestedFolderPath = null;
+        $hasActiveContract = $activeContract !== null;
+
+        if ($hasActiveContract) {
+            $dateSuggestion = $this->dateSuggestionService->suggestDates($activeContract->id);
+
+            // Use a placeholder cut ID (next auto-increment or 0) for folder suggestion
+            $nextCutId = (int) DB::table('cuts')->max('id') + 1;
+            $suggestedFolderPath = $this->evidenceOrganizerService->suggestFolderPath(
+                $nextCutId,
+                $dateSuggestion->startDate,
+                $activeContract->number
+            );
+        }
+
+        return view('reports.cuts.create', compact(
+            'activeContract',
+            'currentCompany',
+            'dateSuggestion',
+            'suggestedFolderPath',
+            'hasActiveContract'
+        ));
     }
 
     public function edit(Cut $cut): View
@@ -77,6 +106,7 @@ class CutController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string'],
+            'folder_name' => ['nullable', 'string', 'max:128'],
         ]);
 
         $currentCompanyId = (int) session('current_company_id');
@@ -88,19 +118,62 @@ class CutController extends Controller
             return back()->withInput()->with('error', 'No hay contrato activo para el espacio de trabajo actual.');
         }
 
-        $probeCut = new Cut(['contract_id' => $activeContract->id]);
-        if ($probeCut->overlapsRange($validated['start_date'], $validated['end_date'])) {
-            return back()->withInput()->with(
-                'error',
-                'El rango del corte se solapa con otro corte del mismo contrato. Ajusta las fechas antes de guardar.'
-            );
+        // Validate date overlap using DateSuggestionService
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate = Carbon::parse($validated['end_date']);
+        $overlapResult = $this->dateSuggestionService->validateNoOverlap(
+            $activeContract->id,
+            $startDate,
+            $endDate
+        );
+
+        if ($overlapResult->hasOverlap) {
+            $conflictingCut = $overlapResult->conflictingCut;
+            $conflictMessage = 'El rango del corte se solapa con el corte "' . ($conflictingCut?->name ?? 'desconocido') . '" ('
+                . ($conflictingCut?->start_date?->format('Y-m-d') ?? '') . ' - '
+                . ($conflictingCut?->end_date?->format('Y-m-d') ?? '') . '). Ajusta las fechas antes de guardar.';
+
+            return back()->withInput()->with('error', $conflictMessage);
         }
 
+        // Handle folder creation
+        $folderPath = null;
+        $folderName = trim($validated['folder_name'] ?? '');
+        $basePath = $this->evidenceOrganizerService->resolveBasePath();
+
+        if ($folderName !== '') {
+            // Validate custom folder name
+            $folderValidation = $this->evidenceOrganizerService->validateFolderName($folderName, $basePath);
+            if (!$folderValidation->passed) {
+                return back()->withInput()->withErrors(['folder_name' => $folderValidation->errors]);
+            }
+            $folderPath = rtrim($basePath, '/\\') . DIRECTORY_SEPARATOR . $folderName;
+        }
+
+        // Create the cut record first to get the ID
         $cut = Cut::create([
-            ...$validated,
+            'name' => $validated['name'],
+            'start_date' => $validated['start_date'],
+            'end_date' => $validated['end_date'],
+            'notes' => $validated['notes'] ?? null,
             'contract_id' => $activeContract->id,
             'created_by' => $request->user()?->id,
         ]);
+
+        // If no custom folder name provided, generate default folder path using new cut ID
+        if ($folderPath === null) {
+            $folderPath = $this->evidenceOrganizerService->suggestFolderPath($cut->id, $startDate, $activeContract->number);
+        }
+
+        // Create the folder on the filesystem
+        if (!$this->evidenceOrganizerService->createCutFolder($folderPath)) {
+            // Folder creation failed: delete the cut record and show error
+            $cut->delete();
+            return back()->withInput()->with('error', 'No se pudo crear la carpeta del corte. Verifica los permisos del directorio.');
+        }
+
+        // Store folder_path in the cut record
+        $cut->update(['folder_path' => $folderPath]);
 
         $this->syncCutServiceRequests($cut);
 
@@ -208,13 +281,27 @@ class CutController extends Controller
             ]);
         }
 
+        // Load evidences for the organize section (only when cut has a folder_path)
+        $evidences = collect();
+        $evidenceCount = 0;
+        if (!empty($cut->folder_path)) {
+            $evidences = \App\Models\ServiceRequestEvidence::query()
+                ->whereIn('service_request_id', $cut->serviceRequests()->pluck('service_requests.id'))
+                ->with('serviceRequest:id,ticket_number')
+                ->orderBy('created_at', 'desc')
+                ->get();
+            $evidenceCount = $evidences->count();
+        }
+
         return view('reports.cuts.show', compact(
             'cut',
             'serviceRequests',
             'families',
             'selectedFamilyIds',
             'selectedFamilyLabels',
-            'familyRequestCounts'
+            'familyRequestCounts',
+            'evidences',
+            'evidenceCount'
         ));
     }
 
@@ -236,6 +323,7 @@ class CutController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string'],
+            'folder_path' => ['nullable', 'string', 'max:500'],
         ]);
 
         if ($cut->overlapsRange($validated['start_date'], $validated['end_date'], $cut->id)) {
@@ -245,11 +333,22 @@ class CutController extends Controller
             );
         }
 
+        // Handle folder_path: create directory if provided and doesn't exist
+        $folderPath = trim($validated['folder_path'] ?? '');
+        if ($folderPath !== '') {
+            if (!is_dir($folderPath)) {
+                if (!$this->evidenceOrganizerService->createCutFolder($folderPath)) {
+                    return back()->withInput()->withErrors(['folder_path' => 'No se pudo crear la carpeta. Verifica que la ruta sea válida y que la aplicación tenga permisos de escritura.']);
+                }
+            }
+        }
+
         $cut->update([
             'name' => $validated['name'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'notes' => $validated['notes'] ?? null,
+            'folder_path' => $folderPath ?: null,
         ]);
 
         $this->syncCutServiceRequests($cut);
@@ -570,6 +669,55 @@ class CutController extends Controller
         return $this->export($request, $cut);
     }
 
+    /**
+     * Organize selected evidence files into the cut's folder structure.
+     *
+     * Accepts a batch of evidence IDs (max 50), validates the cut has a folder_path,
+     * delegates to EvidenceOrganizerService, and returns a summary with success/failure counts.
+     */
+    public function organizeEvidences(Request $request, Cut $cut): RedirectResponse
+    {
+        $validated = $request->validate([
+            'evidence_ids' => ['required', 'array', 'max:50'],
+            'evidence_ids.*' => ['integer'],
+        ]);
+
+        // Validate that the cut has a folder_path configured
+        if (empty($cut->folder_path)) {
+            return back()->with('error', 'El corte no tiene una carpeta de destino configurada. Configura la ruta de carpeta antes de organizar evidencias.');
+        }
+
+        $evidenceIds = $validated['evidence_ids'];
+
+        $result = $this->evidenceOrganizerService->organizeEvidences($cut, $evidenceIds);
+
+        return back()->with('organization_result', [
+            'success_count' => $result->successCount,
+            'failure_count' => $result->failureCount,
+            'succeeded' => $result->succeeded,
+            'failed' => $result->failed,
+        ]);
+    }
+
+    /**
+     * Open the cut's folder in the system file explorer.
+     * Returns a .vbs file that opens the folder when executed.
+     */
+    public function openFolder(Cut $cut)
+    {
+        if (empty($cut->folder_path) || !is_dir($cut->folder_path)) {
+            return back()->with('error', 'La carpeta del corte no existe o no está configurada.');
+        }
+
+        $path = str_replace('/', '\\', $cut->folder_path);
+        // VBScript is more reliable than .bat for opening explorer
+        $vbsContent = "CreateObject(\"WScript.Shell\").Run \"explorer.exe \"\"$path\"\"\", 1, False\r\nWScript.Quit";
+
+        return response($vbsContent)
+            ->header('Content-Type', 'application/octet-stream')
+            ->header('Content-Disposition', 'attachment; filename="abrir_carpeta.vbs"');
+    }
+
     private function syncCutServiceRequests(Cut $cut): void
     {
         [$start, $end] = $cut->getDateRangeForQuery();
@@ -600,7 +748,16 @@ class CutController extends Controller
             }
         }
 
+        // Determine which requests are newly being added to this cut
+        $currentRequestIds = $cut->serviceRequests()->pluck('service_requests.id')->all();
+        $newRequestIds = array_diff($requestIds, $currentRequestIds);
+
         $cut->serviceRequests()->sync($requestIds);
+
+        // Relocate evidence files for newly added requests to this cut's folder
+        if (!empty($newRequestIds) && !empty($cut->folder_path)) {
+            $this->evidenceOrganizerService->relocateEvidences($cut, $newRequestIds);
+        }
     }
 
     private function formatFamilyLabel($family): string

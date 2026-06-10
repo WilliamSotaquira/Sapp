@@ -98,6 +98,9 @@ Route::middleware('auth')->group(function () {
     // Gestión de solicitantes
     require __DIR__ . '/features/requester-management/web.php';
 
+    // Configuración del sistema
+    require __DIR__ . '/features/settings/web.php';
+
     // Módulo de Tiempos y Capacidad para Técnicos
     require __DIR__ . '/features/technician-module/web.php';
 

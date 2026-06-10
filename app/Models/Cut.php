@@ -16,6 +16,7 @@ class Cut extends Model
         'start_date',
         'end_date',
         'notes',
+        'folder_path',
         'created_by',
     ];
 
@@ -38,6 +39,14 @@ class Cut extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Determine if the cut has an associated folder on the filesystem.
+     */
+    public function hasFolder(): bool
+    {
+        return !empty($this->folder_path) && is_dir($this->folder_path);
     }
 
     public function getDateRangeForQuery(): array

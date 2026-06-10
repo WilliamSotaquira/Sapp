@@ -82,7 +82,7 @@ class LlmTextInterpreter
                 return null;
             }
 
-            return trim($content);
+            return $this->cleanLlmOutput(trim($content));
         } catch (\Exception $e) {
             Log::error('LlmTextInterpreter: Exception during API call', [
                 'exception' => get_class($e),
@@ -91,6 +91,49 @@ class LlmTextInterpreter
 
             return null;
         }
+    }
+
+    /**
+     * Removes unwanted meta-commentary lines that the LLM might inject.
+     * These are observations about the input rather than the structured output.
+     */
+    private function cleanLlmOutput(string $content): string
+    {
+        $lines = explode("\n", $content);
+        $cleaned = [];
+        $metaPatterns = [
+            '/^parece que/i',
+            '/^nota:/i',
+            '/^observaci[oó]n/i',
+            '/^este mensaje/i',
+            '/^el texto/i',
+            '/^aclaraci[oó]n/i',
+            '/^importante:/i',
+            '/^disclaimer/i',
+            '/^note:/i',
+            '/^it (seems|appears|looks)/i',
+            '/^this (message|text)/i',
+        ];
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            $isMetaLine = false;
+
+            foreach ($metaPatterns as $pattern) {
+                if (preg_match($pattern, $trimmed)) {
+                    $isMetaLine = true;
+                    break;
+                }
+            }
+
+            if (!$isMetaLine) {
+                $cleaned[] = $line;
+            }
+        }
+
+        // Remove leading empty lines after cleanup
+        $result = implode("\n", $cleaned);
+        return ltrim($result, "\n");
     }
 
     /**
