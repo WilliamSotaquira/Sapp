@@ -98,6 +98,8 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::post('/{cut}/requests/add-ticket', [CutController::class, 'addRequestByTicket'])->name('requests.add-ticket');
         Route::delete('/{cut}/requests/{service_request}', [CutController::class, 'removeRequest'])->name('requests.remove');
 
+        Route::post('/{cut}/organize-evidences', [CutController::class, 'organizeEvidences'])->name('organize-evidences');
+        Route::get('/{cut}/open-folder', [CutController::class, 'openFolder'])->name('open-folder');
         Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
         Route::get('/{cut}/export', [CutController::class, 'export'])->name('export');
         Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');

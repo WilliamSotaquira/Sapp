@@ -21,24 +21,32 @@ class LlmDescriptionGenerator
     private const MAX_INPUT_LENGTH = 8000;
 
     private const SYSTEM_PROMPT = <<<'PROMPT'
-Eres un analista de mesa de servicios ITIL. Tu tarea es redactar la descripción formal de un ticket de solicitud de servicio.
+Eres un analista de mesa de servicios ITIL que trabaja como administrador/programador/analista web. Tu tarea es redactar la descripción formal de un ticket de solicitud de servicio DESDE TU PERSPECTIVA TÉCNICA (lo que TÚ harás).
 
 A partir del asunto y contenido de un correo/mensaje/reunión, redacta UN SOLO PÁRRAFO formal que:
 
-1. Inicie con "Se solicita..." o "Se requiere..." describiendo la acción técnica a ejecutar.
-2. Incluya el QUÉ (acción), el DÓNDE (página, sección, micrositio, sistema) y el PARA QUÉ (objetivo o razón) si están disponibles.
-3. Mencione recursos adjuntos relevantes (ej: "conforme a las piezas gráficas suministradas vía Drive" o "según el documento compartido").
-4. Si hay una fecha límite o plazo, inclúyelo (ej: "con fecha de publicación el sábado 6 de junio").
-5. Sea conciso: entre 150 y 400 caracteres máximo.
-6. NO incluya nombres de personas, correos electrónicos, firmas, saludos ni despedidas.
-7. NO incluya URLs completas; referéncielas genéricamente (ej: "enlace compartido", "carpeta de Drive suministrada").
-8. NO repita el título/asunto textualmente como primera oración.
-9. Responde ÚNICAMENTE con el párrafo, sin comillas, sin explicaciones.
+1. Inicie con un verbo de acción técnica describiendo lo que TÚ ejecutarás (ej: "Publicar...", "Configurar...", "Implementar...", "Actualizar...", "Desarrollar...").
+2. Describa la ACCIÓN TÉCNICA concreta: publicar en CMS, subir archivos, editar contenido, configurar componente, crear página, etc.
+3. Incluya el DÓNDE (portal web, micrositio, sección específica) y los INSUMOS utilizados (archivos, enlace de Drive, piezas gráficas).
+4. Si hay fecha límite, inclúyela.
+5. Sea conciso: entre 100 y 350 caracteres máximo.
+6. NO uses "Se solicita..." ni "Se requiere..." — describe lo que TÚ harás como ejecutor técnico.
+7. NO incluya nombres de personas, correos, firmas ni saludos.
+8. NO incluya URLs completas; referéncielas genéricamente.
+9. NO repitas el título/asunto textualmente.
+10. Si el texto incluye confirmaciones de que ya se hizo ("ya quedó publicada", "listo"), genera la descripción de la acción que SE EJECUTÓ (como registro formal del trabajo realizado).
 
 Ejemplo:
-Título: Publicación de piezas en portal web
-Mensaje: Le envío el drive con las piezas que deberán publicarse en la página desde el sábado 6 de junio.
-Resultado: Se solicita la publicación de un conjunto de piezas gráficas en el portal web institucional, conforme a los archivos suministrados vía carpeta de Drive, con fecha de implementación a partir del sábado 6 de junio.
+Título: Publicación de nota - Pico y placa regional
+Mensaje: Chicos me ayudan con la publicación de esta nota en el portal. Ya quedó publicada.
+Resultado: Publicar nota informativa sobre pico y placa regional en la sección de noticias del portal web institucional, conforme al contenido suministrado por el área de comunicaciones.
+
+Ejemplo 2:
+Título: Actualización micrositio fotodetección
+Mensaje: Necesito que actualicen las cifras del micrositio con los datos adjuntos.
+Resultado: Actualizar cifras y datos estadísticos en el micrositio de fotodetección, conforme a la información suministrada en archivo adjunto.
+
+Responde ÚNICAMENTE con el párrafo, sin comillas, sin explicaciones.
 PROMPT;
 
     /**
