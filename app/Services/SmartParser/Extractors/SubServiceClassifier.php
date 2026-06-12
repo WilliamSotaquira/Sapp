@@ -21,9 +21,15 @@ class SubServiceClassifier implements FieldExtractorInterface
 
     public function extract(ParsingContext $context): ExtractionResult
     {
-        $normalizedText = $this->normalizeForComparison($context->normalizedText);
+        // First, try to extract sub-service name from LLM-interpreted text
+        // The LLM output format puts the sub-service name on line 9
+        $searchText = $this->extractSubServiceFromLlmOutput($context->normalizedText);
 
-        if ($normalizedText === '') {
+        if ($searchText === '') {
+            $searchText = $this->normalizeForComparison($context->normalizedText);
+        }
+
+        if ($searchText === '') {
             return ExtractionResult::empty('sub_service');
         }
 
@@ -33,10 +39,18 @@ class SubServiceClassifier implements FieldExtractorInterface
             return ExtractionResult::empty('sub_service');
         }
 
-        $bestMatch = $this->findBestMatch($normalizedText, $subServices);
+        $bestMatch = $this->findBestMatch($searchText, $subServices);
 
         if ($bestMatch === null || $bestMatch['score'] < self::SIMILARITY_THRESHOLD) {
-            return ExtractionResult::empty('sub_service');
+            // Fallback: try with full normalized text if LLM extraction didn't match well
+            $fullText = $this->normalizeForComparison($context->normalizedText);
+            if ($fullText !== $searchText) {
+                $bestMatch = $this->findBestMatch($fullText, $subServices);
+            }
+
+            if ($bestMatch === null || $bestMatch['score'] < self::SIMILARITY_THRESHOLD) {
+                return ExtractionResult::empty('sub_service');
+            }
         }
 
         /** @var SubService $subService */
@@ -61,6 +75,55 @@ class SubServiceClassifier implements FieldExtractorInterface
             value: $value,
             confidence: $confidence,
         );
+    }
+
+    /**
+     * Attempts to extract the sub-service name from LLM-formatted output.
+     * The LLM output has the sub-service on line 9 (after title, description, date, requester).
+     */
+    private function extractSubServiceFromLlmOutput(string $text): string
+    {
+        $lines = preg_split('/\r?\n/', $text);
+        $nonEmptyLines = [];
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed !== '') {
+                $nonEmptyLines[] = $trimmed;
+            }
+        }
+
+        // The LLM format has: title, description, date, requester, subservice (5th non-empty line)
+        // But we can also look for known subservice names in any line
+        $knownPatterns = [
+            'publicacion de noticia',
+            'publicacion de documento',
+            'solicitud de edicion',
+            'solicitud de diseno',
+            'desarrollo configuracion',
+            'reporte de enlace roto',
+            'asignacion de tarea',
+            'solicitud de desarrollo de micrositio',
+            'solicitud de creacion de un nuevo portal',
+            'publicacion de banner',
+            'acompanamiento actividades',
+        ];
+
+        foreach ($nonEmptyLines as $line) {
+            $normalized = $this->normalizeForComparison($line);
+            foreach ($knownPatterns as $pattern) {
+                if (str_contains($normalized, $pattern)) {
+                    return $normalized;
+                }
+            }
+        }
+
+        // If 5th non-empty line exists and is short (likely a subservice name)
+        if (isset($nonEmptyLines[4]) && mb_strlen($nonEmptyLines[4]) < 80) {
+            return $this->normalizeForComparison($nonEmptyLines[4]);
+        }
+
+        return '';
     }
 
     /**
