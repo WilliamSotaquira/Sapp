@@ -98,6 +98,16 @@
     <!-- Toast visual (complementa aria-live) -->
     <div id="srToast" class="fixed bottom-4 right-4 z-50 hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 
+    <!-- Menú Contextual Global -->
+    <x-context-menu :items="[
+        ['label' => 'Nueva solicitud', 'icon' => 'fa-plus-circle', 'iconColor' => 'text-blue-500', 'href' => route('service-requests.create'), 'bold' => true],
+        ['divider' => true],
+        ['label' => 'Actualizar listado', 'icon' => 'fa-sync-alt', 'action' => 'reload'],
+        ['label' => 'Limpiar filtros', 'icon' => 'fa-eraser', 'action' => 'clear-filters'],
+        ['divider' => true],
+        ['label' => 'Ir al Dashboard', 'icon' => 'fa-tachometer-alt', 'href' => url('/dashboard')],
+    ]" />
+
     <!-- Diálogo accesible para pausar (evita prompt/alert) -->
     <div id="pauseReasonModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="pauseReasonTitle" aria-describedby="pauseReasonDesc">
         <div class="absolute inset-0 bg-black/40" data-modal-overlay></div>
@@ -704,6 +714,20 @@
         }
     }
     initialLoad();
+
+    // Exponer funciones para el menú contextual
+    window.srUpdateResults = updateResults;
+    window.srClearFilters = clearFilters;
+
+    // Escuchar acciones del menú contextual
+    document.addEventListener('context-menu-action', function(e) {
+        var action = e.detail && e.detail.action;
+        if (action === 'reload') {
+            updateResults();
+        } else if (action === 'clear-filters') {
+            clearFilters();
+        }
+    });
 })();
 </script>
 @endsection
