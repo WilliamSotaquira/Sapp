@@ -71,6 +71,7 @@ class UpdateServiceRequestRequest extends FormRequest
             'is_reportable' => 'sometimes|boolean',
             'due_date' => 'nullable|date',
             'created_at' => 'sometimes|required|date|before_or_equal:now',
+            'resolved_at' => 'nullable|date|before_or_equal:now',
         ];
     }
 
@@ -147,6 +148,25 @@ class UpdateServiceRequestRequest extends FormRequest
                     // La regla date reporta el error de formato.
                 }
             }
+
+            // Validar resolved_at: debe ser posterior a created_at
+            if ($this->filled('resolved_at')) {
+                try {
+                    $resolvedAt = Carbon::parse($this->input('resolved_at'));
+                    $createdAtForResolve = $this->filled('created_at')
+                        ? Carbon::parse($this->input('created_at'))
+                        : ($routeServiceRequest?->created_at ?? null);
+
+                    if ($createdAtForResolve && $resolvedAt->lt($createdAtForResolve)) {
+                        $validator->errors()->add(
+                            'resolved_at',
+                            'La fecha de resolución no puede ser anterior a la fecha de la solicitud.'
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    // La regla date reporta el error de formato.
+                }
+            }
         });
     }
 
@@ -169,6 +189,8 @@ class UpdateServiceRequestRequest extends FormRequest
             'created_at.required' => 'La fecha de la solicitud es obligatoria.',
             'created_at.date' => 'La fecha de la solicitud no tiene un formato válido.',
             'created_at.before_or_equal' => 'La fecha de la solicitud no puede ser futura.',
+            'resolved_at.date' => 'La fecha de resolución no tiene un formato válido.',
+            'resolved_at.before_or_equal' => 'La fecha de resolución no puede ser futura.',
         ];
     }
 }

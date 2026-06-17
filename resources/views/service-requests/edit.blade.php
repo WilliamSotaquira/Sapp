@@ -88,12 +88,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const channel = document.getElementById('entry_channel');
         const createdAt = document.getElementById('created_at')?.value || 'Sin fecha';
         const dueDate = document.getElementById('due_date')?.value || 'Sin vencimiento';
+        const resolvedAt = document.getElementById('resolved_at')?.value || '';
 
         const requesterText = requester?.selectedOptions?.[0]?.textContent?.trim() || 'Sin solicitante';
         const subServiceText = subService?.selectedOptions?.[0]?.textContent?.trim() || 'Sin subservicio';
         const channelText = channel?.selectedOptions?.[0]?.textContent?.trim() || 'Sin canal';
 
-        return [
+        const lines = [
             'Resumen de cambios:',
             `- Título: ${title}`,
             `- Solicitante: ${requesterText}`,
@@ -101,9 +102,14 @@ document.addEventListener('DOMContentLoaded', function () {
             `- Canal: ${channelText}`,
             `- Fecha solicitud: ${createdAt.replace('T', ' ')}`,
             `- Vencimiento: ${dueDate}`,
-            '',
-            '¿Deseas actualizar la solicitud?'
-        ].join('\n');
+        ];
+
+        if (resolvedAt) {
+            lines.push(`- Fecha resolución: ${resolvedAt.replace('T', ' ')}`);
+        }
+
+        lines.push('', '¿Deseas actualizar la solicitud?');
+        return lines.join('\n');
     }
 
     ['title', 'description', 'requester_id', 'sub_service_id', 'entry_channel', 'created_at', 'due_date'].forEach((id) => {

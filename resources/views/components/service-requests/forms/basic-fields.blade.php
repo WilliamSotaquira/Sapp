@@ -136,6 +136,41 @@
         @enderror
     </div>
 
+    {{-- Campo temporal de contingencia: Fecha de resolución (solo en modo edición) --}}
+    @if(($mode ?? 'create') === 'edit')
+        @php
+            $resolvedAtBorderClass = $errors->has('resolved_at') ? 'border-red-500' : 'border-gray-300';
+            $resolvedAtValue = old(
+                'resolved_at',
+                optional($serviceRequest?->resolved_at)->format('Y-m-d\TH:i')
+            );
+        @endphp
+        <div class="p-4 rounded-lg border border-amber-200 bg-amber-50/50">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-exclamation-triangle text-amber-500"></i>
+                <span class="text-xs font-semibold text-amber-700 uppercase tracking-wide">Ajuste de contingencia</span>
+            </div>
+            <label for="resolved_at" class="block text-sm font-medium text-gray-700 mb-2">
+                Fecha y hora de resolución
+            </label>
+            <input
+                type="datetime-local"
+                name="resolved_at"
+                id="resolved_at"
+                value="{{ $resolvedAtValue }}"
+                max="{{ now()->format('Y-m-d\TH:i') }}"
+                class="w-full px-4 py-3 border {{ $resolvedAtBorderClass }} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+            >
+            <p class="mt-1 text-xs text-gray-500">
+                <i class="fas fa-info-circle text-amber-500 mr-1"></i>
+                Permite ajustar manualmente la fecha de resolución. Dejar vacío si la solicitud aún no ha sido resuelta.
+            </p>
+            @error('resolved_at')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+    @endif
+
     <!-- SELECTOR DE SOLICITANTE - EDITABLE EN AMBOS MODOS -->
     <div>
         <label for="requester_id" class="block text-sm font-medium text-gray-700 mb-2">
