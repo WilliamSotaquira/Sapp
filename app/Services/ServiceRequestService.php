@@ -1049,6 +1049,15 @@ class ServiceRequestService
                 $data['created_at'] = $this->normalizeCreationTimestamp($data['created_at'], $serviceRequest->created_at);
             }
 
+            // Contingencia: manejar resolved_at manual
+            if (array_key_exists('resolved_at', $data)) {
+                if ($data['resolved_at'] === null || $data['resolved_at'] === '') {
+                    $data['resolved_at'] = null;
+                } else {
+                    $data['resolved_at'] = Carbon::parse($data['resolved_at']);
+                }
+            }
+
             $previousAssignedTo = $serviceRequest->assigned_to;
 
             DB::transaction(function () use ($serviceRequest, $data) {

@@ -20,21 +20,29 @@ class LlmTaskGenerator
     private const MAX_INPUT_LENGTH = 4000;
 
     private const SYSTEM_PROMPT = <<<'PROMPT'
-Eres un analista ITIL que descompone solicitudes de servicio en tareas ejecutables.
+Eres un analista ITIL que descompone solicitudes de servicio en tareas ejecutables para un administrador/programador/analista web.
 
-A partir del título y descripción de una solicitud, genera UNA tarea principal con 2-4 subtareas operativas.
+CONTEXTO IMPORTANTE:
+- El usuario (ejecutor) es un webmaster que gestiona portales web institucionales.
+- Las solicitudes llegan como correos, chats o textos pegados que pueden contener hilos de conversación, respuestas previas y contexto que NO son tareas.
+- TU trabajo es identificar LA ACCIÓN TÉCNICA PRINCIPAL que el webmaster debe ejecutar y descomponerla en pasos operativos.
+
+A partir del título y descripción de una solicitud, genera UNA tarea principal con 2-5 subtareas operativas.
 
 Formato de respuesta EXACTO (JSON):
-{"title":"Título de la actividad principal","subtasks":[{"title":"Acción operativa 1","minutes":15},{"title":"Acción operativa 2","minutes":20},{"title":"Acción operativa 3","minutes":10}]}
+{"title":"Título de la actividad técnica principal","subtasks":[{"title":"Acción operativa 1","minutes":15},{"title":"Acción operativa 2","minutes":20},{"title":"Acción operativa 3","minutes":10}]}
 
-Reglas:
-1. El título de la tarea debe describir LA ACTIVIDAD TÉCNICA a realizar (ej: "Publicación de piezas gráficas en portal web"), NO repetir el mensaje del solicitante.
-2. Cada subtarea es un paso operativo concreto que ejecutará el técnico (ej: "Validar formato y peso de las piezas recibidas", "Publicar contenido en la sección indicada del portal").
-3. La última subtarea siempre es de confirmación/cierre (ej: "Confirmar con el solicitante la correcta publicación").
-4. Los minutos estimados son: 10-15 para validaciones, 15-30 para ejecución, 10 para confirmaciones.
-5. Títulos de subtareas entre 30 y 120 caracteres, sin puntos finales.
-6. NO incluir nombres de personas ni URLs.
-7. Responde SOLO con el JSON, sin explicaciones ni formato markdown.
+Reglas ESTRICTAS:
+1. El título de la tarea debe describir LA ACTIVIDAD TÉCNICA a realizar (ej: "Publicación de piezas gráficas en portal web"), NO repetir el mensaje del solicitante ni su contenido.
+2. Cada subtarea es un paso operativo concreto que ejecutará el técnico: subir archivos, editar HTML/CSS, configurar CMS, publicar contenido, validar en navegador, generar URLs, etc.
+3. NUNCA uses como subtarea fragmentos de texto del correo original, respuestas de otras personas, contenido legal, párrafos informativos o explicaciones. Esos son CONTEXTO, no acciones.
+4. NUNCA generes más de 5 subtareas. Si la solicitud es simple, 2-3 subtareas es suficiente.
+5. La última subtarea siempre es de confirmación/notificación (ej: "Notificar al solicitante la publicación realizada").
+6. Los minutos estimados son: 5-15 para validaciones, 15-30 para ejecución técnica, 5-10 para confirmaciones.
+7. Títulos de subtareas entre 20 y 100 caracteres, iniciando con verbo de acción: Validar, Publicar, Configurar, Subir, Editar, Crear, Desplegar, Revisar, Optimizar, Notificar.
+8. NO incluir nombres de personas, URLs, ni contenido literal del correo.
+9. Si la descripción menciona que algo "ya fue resuelto" o "ya se hizo", genera las tareas como registro formal de lo ejecutado (pasado: "Publicación realizada de...", subtareas en pasado o como verificación).
+10. Responde SOLO con el JSON, sin explicaciones ni formato markdown.
 PROMPT;
 
     /**
@@ -201,8 +209,19 @@ PROMPT;
                     continue;
                 }
 
-                $subTitle = mb_substr(trim($sub['title']), 0, 255);
-                $minutes = max(5, min(480, (int) ($sub['minutes'] ?? 25)));
+                $subTitle = trim($sub['title']);
+
+                // Rechazar subtareas con títulos demasiado largos (probablemente texto copiado)
+                if (mb_strlen($subTitle) > 150) {
+                    $subTitle = mb_substr($subTitle, 0, 100);
+                }
+
+                // Rechazar subtareas que no parecen acciones (no inician con verbo o son oraciones largas informativas)
+                if (mb_strlen($subTitle) < 5) {
+                    continue;
+                }
+
+                $minutes = max(5, min(60, (int) ($sub['minutes'] ?? 15)));
                 $totalMinutes += $minutes;
 
                 $subtasks[] = [
@@ -211,10 +230,16 @@ PROMPT;
                     'estimated_minutes' => $minutes,
                 ];
             }
+
+            // Máximo 5 subtareas
+            $subtasks = array_slice($subtasks, 0, 5);
         }
 
         if (empty($subtasks)) {
             $totalMinutes = 30;
+        } else {
+            // Recalcular total con subtareas limitadas
+            $totalMinutes = array_sum(array_column($subtasks, 'estimated_minutes'));
         }
 
         return [
@@ -234,11 +259,13 @@ PROMPT;
     {
         $desc = mb_substr(trim($description), 0, self::MAX_INPUT_LENGTH);
 
-        $parts = ["Solicitud: {$title}"];
+        $parts = ["Título de la solicitud ITIL: {$title}"];
 
         if (!empty($desc) && $desc !== $title) {
-            $parts[] = "Descripción: {$desc}";
+            $parts[] = "Descripción técnica (qué debe hacer el webmaster): {$desc}";
         }
+
+        $parts[] = "\nGenera las tareas operativas que el administrador web debe ejecutar para resolver esta solicitud. NO uses el contenido textual como subtareas.";
 
         return implode("\n", $parts);
     }

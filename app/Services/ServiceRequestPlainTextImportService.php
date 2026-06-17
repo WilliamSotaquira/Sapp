@@ -1909,6 +1909,11 @@ class ServiceRequestPlainTextImportService
             return null;
         }
 
+        // Rechazar líneas demasiado largas (probablemente contenido copiado, no acciones)
+        if (mb_strlen(trim($line)) > 200) {
+            return null;
+        }
+
         $isBullet = $this->looksLikeBullet($line);
         if (!$isBullet && $this->extractDurationMinutes($line) <= 0) {
             return null;
@@ -1923,7 +1928,7 @@ class ServiceRequestPlainTextImportService
         $title = trim(preg_replace('/\s*\((?:[^()]*)\)\s*$/u', '', $clean) ?? $clean);
 
         return [
-            'title' => Str::limit($title, 400, ''),
+            'title' => Str::limit($title, 150, ''),
             'priority' => 'medium',
             'estimated_minutes' => $minutes > 0 ? $minutes : 25,
         ];
