@@ -42,7 +42,7 @@
                     <i class="fas fa-tasks text-purple-600 text-sm"></i>
                 </div>
                 <div>
-                    <h3 class="sr-card-title text-gray-900">Tareas Asociadas</h3>
+                    <h3 class="text-base font-semibold text-gray-800">Tareas Asociadas</h3>
                     <p id="tasksCountLabel"
                        data-count="{{ $tasks->count() }}"
                        class="text-xs text-gray-500 mt-0.5">

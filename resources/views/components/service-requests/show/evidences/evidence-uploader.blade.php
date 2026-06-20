@@ -21,101 +21,76 @@
     </div>
 </div>
 @else
-<!-- Formulario normal de carga de evidencias -->
-<div id="evidenceUploadArea" class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-gray-400 transition duration-150">
-    <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 text-left">
-            <div class="space-y-4 md:pr-4 md:border-r md:border-gray-200">
-                <div class="text-center md:text-left">
-                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-3"></i>
-                    <h4 class="text-lg font-semibold text-gray-700 mb-1">Archivos</h4>
-                    <p class="text-gray-500 text-sm">
-                        Arrastra y suelta archivos aquí o haz clic para seleccionarlos
-                    </p>
-                </div>
+<!-- Formulario unificado de carga de evidencias -->
+<div id="evidenceUploadArea" class="border border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50/30 transition duration-150">
+    <form action="{{ route('service-requests.evidences.store', $serviceRequest) }}"
+          method="POST"
+          enctype="multipart/form-data"
+          id="evidenceUploadForm"
+          class="space-y-3">
+        @csrf
+        <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
 
-                <!-- Mensajes de éxito/error -->
-                @if(session('evidence_success'))
-                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                        <i class="fas fa-check-circle mr-2"></i>{{ session('evidence_success') }}
-                    </div>
-                @endif
+        @if(session('evidence_success'))
+            <div class="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-lg text-xs">
+                <i class="fas fa-check-circle mr-1"></i>{{ session('evidence_success') }}
+            </div>
+        @endif
+        @if(session('evidence_error'))
+            <div class="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-xs">
+                <i class="fas fa-exclamation-triangle mr-1"></i>{{ session('evidence_error') }}
+            </div>
+        @endif
 
-                @if(session('evidence_error'))
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>{{ session('evidence_error') }}
-                    </div>
-                @endif
-
-                <form action="{{ route('service-requests.evidences.store', $serviceRequest) }}"
-                      method="POST"
-                      enctype="multipart/form-data"
-                      class="space-y-4"
-                      id="evidenceUploadForm">
-                    @csrf
-                    <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
-
-                    <div class="w-full">
-                        <label for="evidenceFiles" class="cursor-pointer block w-full">
-                            <span class="w-56 h-10 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-150 inline-flex items-center justify-center font-semibold">
-                                <i class="fas fa-plus mr-2"></i>Seleccionar Archivos
-                            </span>
-                            <input type="file"
-                                   name="files[]"
-                                   id="evidenceFiles"
-                                   multiple
-                                   class="hidden"
-                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.csv,.svg">
-                        </label>
-                    </div>
-
-                    <div id="fileList" class="text-left space-y-2 hidden"></div>
-
-                    <div class="text-xs text-gray-400">
-                        Formatos permitidos: JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP, CSV, SVG<br>
-                        También puedes pegar imágenes con `Ctrl + V` o `Cmd + V`<br>
-                        Tamaño máximo por archivo: 10MB
-                    </div>
-
-                    <button type="submit"
-                            id="uploadButton"
-                            class="w-56 h-10 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-150 font-semibold hidden">
-                        <i class="fas fa-upload mr-2"></i>Subir Archivos
-                    </button>
-                </form>
+        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+            {{-- File upload --}}
+            <div class="space-y-2">
+                <label for="evidenceFiles" class="flex items-center gap-3 cursor-pointer group">
+                    <span class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-plus mr-2 text-xs"></i>Archivos
+                    </span>
+                    <span class="text-xs text-gray-400 group-hover:text-gray-600 transition">
+                        Arrastra, selecciona o pega (Ctrl+V)
+                    </span>
+                    <input type="file"
+                           name="files[]"
+                           id="evidenceFiles"
+                           multiple
+                           class="hidden"
+                           accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.csv,.svg">
+                </label>
+                <div id="fileList" class="space-y-1 hidden"></div>
+                <p class="text-[10px] text-gray-300">JPG, PNG, GIF, PDF, DOC, XLS, TXT, ZIP, CSV, SVG · 10MB máx.</p>
             </div>
 
-            <div class="space-y-4">
-                <div class="text-center md:text-left">
-                    <i class="fas fa-link text-3xl text-gray-400 mb-3"></i>
-                    <h4 class="text-lg font-semibold text-gray-700 mb-1">Enlace</h4>
-                    <p class="text-gray-500 text-sm">
-                        Guarda una URL como evidencia de la solicitud
-                    </p>
-                </div>
+            {{-- Separator --}}
+            <div class="hidden md:flex flex-col items-center self-stretch py-2">
+                <div class="w-px flex-1 bg-gray-200"></div>
+                <span class="text-[10px] text-gray-300 py-1">+</span>
+                <div class="w-px flex-1 bg-gray-200"></div>
+            </div>
 
-                <form action="{{ route('service-requests.evidences.store', $serviceRequest) }}"
-                      method="POST"
-                      class="space-y-3 text-left">
-                    @csrf
-                    <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
-                    <div>
-                        <label for="link_url" class="block text-sm font-medium text-gray-700 mb-1">URL *</label>
-                        <input type="url"
-                               name="link_url"
-                               id="link_url"
-                               required
-                               placeholder="https://..."
-                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <button type="submit"
-                            class="w-56 h-10 bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition duration-150 font-semibold">
-                        <i class="fas fa-link mr-2"></i>Guardar Enlace
-                    </button>
-                </form>
+            {{-- Link --}}
+            <div class="space-y-2">
+                <label for="link_url" class="text-xs font-medium text-gray-500">Enlace (opcional)</label>
+                <input type="url"
+                       name="link_url"
+                       id="link_url"
+                       placeholder="https://..."
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
         </div>
-    </div>
+
+        {{-- Submit --}}
+        <div class="flex items-center gap-3 pt-1">
+            <button type="submit"
+                    id="uploadButton"
+                    class="inline-flex items-center px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-upload mr-2 text-xs"></i>Guardar evidencia(s)
+            </button>
+            <span class="text-xs text-gray-400" id="uploadHint">Selecciona archivos y/o agrega un enlace</span>
+        </div>
+    </form>
 </div>
 
 <script>

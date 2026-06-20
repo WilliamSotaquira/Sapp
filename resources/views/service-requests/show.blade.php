@@ -39,7 +39,7 @@
     @endphp
 
     <div class="sr-view space-y-4 sm:space-y-6 {{ $isDeadState ? 'sr-dead-state' : '' }}">
-        <div class="flex items-center justify-between gap-2 rounded-lg border {{ $isDeadState ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-200 bg-slate-50 text-slate-600' }} px-3 py-2 text-xs sm:text-sm"
+        <div class="flex items-center justify-between gap-2 rounded-md border {{ $isDeadState ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-slate-100 bg-white text-slate-600' }} px-3 py-1.5 text-xs"
             id="requestNavigation"
             data-prev-url="{{ $previousRequestNav ? route('service-requests.show', $previousRequestNav) : '' }}"
             data-next-url="{{ $nextRequestNav ? route('service-requests.show', $nextRequestNav) : '' }}" role="navigation"
@@ -82,6 +82,9 @@
         <!-- Header Principal con botón de edición -->
         <x-service-requests.show.header.main-header :serviceRequest="$serviceRequest" :technicians="$technicians" />
 
+        <!-- Checklist de requisitos para siguiente paso -->
+        <x-service-requests.show.next-step-checklist :serviceRequest="$serviceRequest" />
+
         <!-- Parent Request Link (if this is a derived request) -->
         @if($parentRequest)
             <div class="flex items-center gap-2 px-4 py-3 bg-violet-50 border border-violet-200 rounded-lg text-sm">
@@ -97,63 +100,136 @@
             </div>
         @endif
 
+        <!-- Navegación contextual por secciones + controles -->
+        <div class="flex items-center justify-between gap-3">
+            <x-service-requests.show.section-nav :serviceRequest="$serviceRequest" />
+        </div>
+
+        @php
+            // Define priority sections per status (these stay expanded)
+            $prioritySections = match($serviceRequest->status) {
+                'PENDIENTE' => ['description', 'service-info'],
+                'ACEPTADA' => ['description', 'tasks', 'service-info'],
+                'EN_PROCESO' => ['evidences', 'tasks', 'timelines'],
+                'PAUSADA' => ['timelines', 'description'],
+                'RESUELTA' => ['actions', 'evidences', 'description'],
+                'CERRADA', 'CANCELADA', 'RECHAZADA' => ['description', 'service-info', 'timelines'],
+                'REABIERTO' => ['description', 'tasks'],
+                default => ['description', 'service-info'],
+            };
+        @endphp
+
         <!-- Descripción del Problema (Lo más importante primero) -->
-        <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
+        <section id="sr-section-description"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="description"
+                 data-priority="{{ in_array('description', $prioritySections) ? '1' : '0' }}">
+            <x-service-requests.show.content.description-panel :serviceRequest="$serviceRequest" />
+        </section>
 
         <!-- Información Clave en 2 columnas -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <x-service-requests.show.info-cards.service-info :serviceRequest="$serviceRequest" />
-            <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
-        </div>
+        <section id="sr-section-service-info"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="service-info"
+                 data-priority="{{ in_array('service-info', $prioritySections) ? '1' : '0' }}">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <x-service-requests.show.info-cards.service-info :serviceRequest="$serviceRequest" />
+                <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
+            </div>
+        </section>
 
         <!-- Tiempos y SLA -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <x-service-requests.show.info-cards.timelines-info :serviceRequest="$serviceRequest" />
-            <x-service-requests.show.info-cards.sla-info :serviceRequest="$serviceRequest" />
-        </div>
+        <section id="sr-section-timelines"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="timelines"
+                 data-priority="{{ in_array('timelines', $prioritySections) ? '1' : '0' }}">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <x-service-requests.show.info-cards.timelines-info :serviceRequest="$serviceRequest" />
+                <x-service-requests.show.info-cards.sla-info :serviceRequest="$serviceRequest" />
+            </div>
+        </section>
 
         <!-- Sistema de Evidencias -->
-        <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
+        <section id="sr-section-evidences"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="evidences"
+                 data-priority="{{ in_array('evidences', $prioritySections) ? '1' : '0' }}">
+            <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
+        </section>
 
         <!-- Tareas Asociadas -->
-        <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
+        <section id="sr-section-tasks"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="tasks"
+                 data-priority="{{ in_array('tasks', $prioritySections) ? '1' : '0' }}">
+            <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
+        </section>
 
         <!-- Meeting Sections (only for type "reunion") -->
         @if($serviceRequest->requestType && $serviceRequest->requestType->slug === 'reunion' && $meetingDetail)
-            @include('service-requests.partials._meeting-details-show')
-            @include('service-requests.partials._meeting-participants')
-            @include('service-requests.partials._meeting-commitments')
+            <section class="sr-section sr-collapsible scroll-mt-16"
+                     data-section-key="meeting"
+                     data-priority="{{ in_array('meeting', $prioritySections ?? []) ? '1' : '0' }}">
+                @include('service-requests.partials._meeting-details-show')
+                @include('service-requests.partials._meeting-participants')
+                @include('service-requests.partials._meeting-commitments')
+            </section>
         @endif
 
         <!-- Traceability Chain (if request has parent or children) -->
         @if($traceabilityChain)
-            @include('service-requests.partials._traceability-chain')
+            <section class="sr-section sr-collapsible scroll-mt-16"
+                     data-section-key="traceability"
+                     data-priority="0">
+                @include('service-requests.partials._traceability-chain')
+            </section>
         @endif
 
         <!-- Derived Requests (child requests) -->
         @if($childRequests->isNotEmpty() || ($serviceRequest->requestType && $serviceRequest->requestType->slug !== null))
-            @include('service-requests.partials._derive-request')
+            <section class="sr-section sr-collapsible scroll-mt-16"
+                     data-section-key="derived"
+                     data-priority="0">
+                @include('service-requests.partials._derive-request')
+            </section>
         @endif
 
         <!-- Assignment History -->
         @if($assignmentHistory->isNotEmpty())
-            @include('service-requests.partials._assignment-history')
+            <section class="sr-section sr-collapsible scroll-mt-16"
+                     data-section-key="assignment-history"
+                     data-priority="0">
+                @include('service-requests.partials._assignment-history')
+            </section>
         @endif
 
         <!-- Panel de Rutas Web (solo si existen) -->
         @if ($serviceRequest->hasWebRoutes())
-            <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
+            <section class="sr-section sr-collapsible scroll-mt-16"
+                     data-section-key="web-routes"
+                     data-priority="0">
+                <x-service-requests.show.content.web-routes-panel :serviceRequest="$serviceRequest" />
+            </section>
         @endif
 
         <!-- Notas y Comentarios del Sistema (Información complementaria) -->
-        <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />
+        <section class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="system-notes"
+                 data-priority="0">
+            <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />
+        </section>
 
         <!-- Historial y Timeline (Al final, información histórica) -->
         {{-- <x-service-requests.show.history.history-timeline :serviceRequest="$serviceRequest" /> --}}
 
 
         <!-- Acciones Disponibles (Segundo en importancia) -->
-        <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
+        <section id="sr-section-actions"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="actions"
+                 data-priority="{{ in_array('actions', $prioritySections ?? []) ? '1' : '0' }}">
+            <x-service-requests.show.content.actions-panel :serviceRequest="$serviceRequest" />
+        </section>
     </div>
 
     <!-- Accesibilidad: anuncios y feedback sin recargar -->
@@ -167,9 +243,289 @@
         <i class="fas fa-arrow-up" aria-hidden="true"></i>
     </button>
 
+    <!-- Menú contextual (clic derecho) -->
+    <x-service-requests.show.context-menu :serviceRequest="$serviceRequest" :technicians="$technicians" />
+
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection
+
+@push('styles')
+<style>
+/* === Collapsible Sections === */
+.sr-collapsible {
+    position: relative;
+}
+
+.sr-collapsible__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 2px 10px;
+    margin-bottom: 4px;
+    margin-left: auto;
+    width: fit-content;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, 0.9);
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sr-collapsible__toggle:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.sr-collapsible__toggle:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.sr-collapsible__toggle-icon {
+    font-size: 0.6rem;
+    transition: transform 0.3s ease;
+}
+
+.sr-collapsible--collapsed .sr-collapsible__toggle-icon {
+    transform: rotate(-90deg);
+}
+
+/* Collapsed state */
+.sr-collapsible__content {
+    transition: max-height 0.35s ease, opacity 0.25s ease;
+    overflow: hidden;
+    max-height: 2000px;
+    opacity: 1;
+}
+
+.sr-collapsible--collapsed .sr-collapsible__content {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* Collapsed placeholder */
+.sr-collapsible__placeholder {
+    display: none;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px dashed #e2e8f0;
+    border-radius: 12px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sr-collapsible__placeholder:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.sr-collapsible--collapsed .sr-collapsible__placeholder {
+    display: block;
+}
+
+/* Expand all / Collapse all button */
+.sr-collapse-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.sr-collapse-controls__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sr-collapse-controls__btn:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function() {
+    var STORAGE_KEY = 'sr-collapsed-sections';
+    var sections = document.querySelectorAll('.sr-collapsible');
+    if (!sections.length) return;
+
+    // Section labels for placeholder text
+    var sectionLabels = {
+        'description': 'Descripción',
+        'service-info': 'Información del Servicio',
+        'timelines': 'Tiempos y SLA',
+        'evidences': 'Evidencias',
+        'tasks': 'Tareas',
+        'actions': 'Acciones',
+        'meeting': 'Reunión',
+        'traceability': 'Cadena de Trazabilidad',
+        'derived': 'Solicitudes Derivadas',
+        'assignment-history': 'Historial de Asignación',
+        'web-routes': 'Rutas Web',
+        'system-notes': 'Notas del Sistema'
+    };
+
+    // Load user preferences from localStorage
+    function getPreferences() {
+        try {
+            var stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : {};
+        } catch(e) { return {}; }
+    }
+
+    function savePreferences(prefs) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch(e) {}
+    }
+
+    var prefs = getPreferences();
+
+    sections.forEach(function(section) {
+        var key = section.dataset.sectionKey;
+        var isPriority = section.dataset.priority === '1';
+        if (!key) return;
+
+        // Wrap existing content in a collapsible container
+        var content = document.createElement('div');
+        content.className = 'sr-collapsible__content';
+        while (section.firstChild) {
+            content.appendChild(section.firstChild);
+        }
+        section.appendChild(content);
+
+        // Add toggle button
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'sr-collapsible__toggle';
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Colapsar sección');
+        toggle.innerHTML = '<i class="fas fa-chevron-down sr-collapsible__toggle-icon" aria-hidden="true"></i><span>Colapsar</span>';
+        section.insertBefore(toggle, content);
+
+        // Add placeholder (visible when collapsed)
+        var placeholder = document.createElement('div');
+        placeholder.className = 'sr-collapsible__placeholder';
+        placeholder.innerHTML = '<i class="fas fa-chevron-right" style="margin-right:6px"></i>' + (sectionLabels[key] || key) + ' <span style="opacity:0.7">(click para expandir)</span>';
+        section.appendChild(placeholder);
+
+        // Determine initial state
+        var shouldCollapse = false;
+        if (prefs.hasOwnProperty(key)) {
+            // User has explicit preference
+            shouldCollapse = prefs[key] === 'collapsed';
+        } else {
+            // Auto-collapse non-priority sections
+            shouldCollapse = !isPriority;
+        }
+
+        function collapse() {
+            section.classList.add('sr-collapsible--collapsed');
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', 'Expandir sección');
+            toggle.querySelector('span').textContent = 'Expandir';
+        }
+
+        function expand() {
+            section.classList.remove('sr-collapsible--collapsed');
+            toggle.setAttribute('aria-expanded', 'true');
+            toggle.setAttribute('aria-label', 'Colapsar sección');
+            toggle.querySelector('span').textContent = 'Colapsar';
+        }
+
+        function toggleSection() {
+            var isCollapsed = section.classList.contains('sr-collapsible--collapsed');
+            if (isCollapsed) {
+                expand();
+                prefs[key] = 'expanded';
+            } else {
+                collapse();
+                prefs[key] = 'collapsed';
+            }
+            savePreferences(prefs);
+        }
+
+        // Set initial state
+        if (shouldCollapse) {
+            collapse();
+        }
+
+        // Event listeners
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleSection();
+        });
+
+        placeholder.addEventListener('click', function() {
+            expand();
+            prefs[key] = 'expanded';
+            savePreferences(prefs);
+        });
+    });
+
+    // Add expand/collapse all controls
+    var navComponent = document.getElementById('sr-section-nav');
+    if (navComponent) {
+        var controls = document.createElement('div');
+        controls.className = 'sr-collapse-controls';
+        controls.innerHTML =
+            '<button type="button" class="sr-collapse-controls__btn" data-action="expand-all"><i class="fas fa-expand-alt" style="font-size:0.6rem"></i> Expandir todo</button>' +
+            '<button type="button" class="sr-collapse-controls__btn" data-action="collapse-all"><i class="fas fa-compress-alt" style="font-size:0.6rem"></i> Colapsar todo</button>';
+
+        navComponent.parentNode.insertBefore(controls, navComponent.nextSibling);
+
+        controls.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-action]');
+            if (!btn) return;
+
+            var action = btn.dataset.action;
+            sections.forEach(function(section) {
+                var key = section.dataset.sectionKey;
+                if (!key) return;
+
+                if (action === 'expand-all') {
+                    section.classList.remove('sr-collapsible--collapsed');
+                    var t = section.querySelector('.sr-collapsible__toggle');
+                    if (t) {
+                        t.setAttribute('aria-expanded', 'true');
+                        t.querySelector('span').textContent = 'Colapsar';
+                    }
+                    prefs[key] = 'expanded';
+                } else {
+                    section.classList.add('sr-collapsible--collapsed');
+                    var t = section.querySelector('.sr-collapsible__toggle');
+                    if (t) {
+                        t.setAttribute('aria-expanded', 'false');
+                        t.querySelector('span').textContent = 'Expandir';
+                    }
+                    prefs[key] = 'collapsed';
+                }
+            });
+            savePreferences(prefs);
+        });
+    }
+})();
+</script>
+@endpush
 
 @push('scripts')
 <script>
@@ -389,14 +745,6 @@
 
 @push('styles')
     <style>
-        .sr-card-title {
-            font-family: "Segoe UI", "Segoe UI Variable", Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 1.125rem !important;
-            font-weight: 600 !important;
-            line-height: 1.3;
-            letter-spacing: 0;
-        }
-
         .sr-view h1,
         .sr-view h2,
         .sr-view h3,

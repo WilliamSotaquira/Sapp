@@ -4,16 +4,14 @@
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
 @endphp
 
-<div id="evidences-section" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-100' }} px-6 py-4 border-b">
+<div id="evidences-section" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-amber-50/50 border-amber-100' }} px-5 py-3 border-b">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
-                <i class="fas fa-images {{ $isDead ? 'text-gray-500' : 'text-amber-600' }} mr-3 text-xl"></i>
-                <div>
-                    <h3 class="sr-card-title text-gray-800">Evidencias</h3>
-                </div>
+                <i class="fas fa-images {{ $isDead ? 'text-gray-500' : 'text-amber-500' }} mr-2.5"></i>
+                <h3 class="text-base font-semibold text-gray-800">Evidencias</h3>
             </div>
-            <div class="text-sm {{ $isDead ? 'text-gray-600' : 'text-amber-800' }}">
+            <div class="text-xs {{ $isDead ? 'text-gray-600' : 'text-amber-700' }}">
                 {{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() }} archivo{{ $serviceRequest->evidences->where('evidence_type', 'ARCHIVO')->count() !== 1 ? 's' : '' }}
                 ·
                 {{ $serviceRequest->evidences->where('evidence_type', 'ENLACE')->count() }} enlace{{ $serviceRequest->evidences->where('evidence_type', 'ENLACE')->count() !== 1 ? 's' : '' }}
@@ -21,16 +19,16 @@
         </div>
     </div>
 
-    <div class="p-6">
+    <div class="p-5">
         @php
-            // Filtrar solo evidencias de tipo ARCHIVO
             $fileEvidences = $serviceRequest->evidences->where('evidence_type', 'ARCHIVO');
             $linkEvidences = $serviceRequest->evidences->where('evidence_type', 'ENLACE');
             $galleryEvidencesCount = $fileEvidences->count() + $linkEvidences->count();
+            $canUpload = in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true);
         @endphp
 
         @if($galleryEvidencesCount > 0)
-            <div class="mb-6">
+            <div class="mb-4">
                 @php
                     $totalSize = $fileEvidences->sum('file_size');
                 @endphp
@@ -46,50 +44,18 @@
                     @endforeach
                 </div>
             </div>
-        @else
-            <div class="text-center py-10 text-gray-500">
-                <div class="inline-flex items-center justify-center w-12 h-12 bg-amber-100 rounded-full mb-3">
-                    <i class="fas fa-images text-xl text-amber-500"></i>
-                </div>
-                <p class="text-sm font-medium">No hay evidencias adjuntas.</p>
-            </div>
         @endif
 
-        <!-- Sección de subida de archivos -->
-        @if(in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true))
-        <div class="{{ $fileEvidences->count() > 0 ? 'mt-8 pt-6 border-t border-gray-200' : '' }}">
-            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center">
-                        <i class="fas fa-cloud-upload-alt text-gray-600 mr-2"></i>
-                        <h4 class="text-md font-semibold text-gray-700">
-                            {{ $fileEvidences->count() > 0 ? 'Agregar más evidencias' : 'Subir primera evidencia' }}
-                        </h4>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-                            Máx. 10MB por archivo
-                        </span>
-                        <button type="button"
-                            class="copy-ticket-btn inline-flex items-center justify-center w-8 h-8 rounded-md bg-white hover:bg-slate-100 transition text-slate-600 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                            data-default-icon="fa-copy"
-                            data-success-icon="fa-check"
-                            aria-label="Copiar número de ticket"
-                            onclick="copyTicketNumber('{{ $serviceRequest->ticket_number }}', this)">
-                            <i class="fas fa-copy text-[13px]"></i>
-                        </button>
-                    </div>
-                </div>
+        {{-- Upload section --}}
+        @if($canUpload)
+            <div class="{{ $galleryEvidencesCount > 0 ? 'pt-4 border-t border-gray-100' : '' }}">
                 <x-service-requests.show.evidences.evidence-uploader :serviceRequest="$serviceRequest" />
             </div>
-        </div>
-        @else
-        <!-- Mensaje cuando la solicitud no permite evidencias -->
-        <div class="mt-8 pt-6 border-t border-gray-200">
-            <div class="bg-gray-100 rounded-xl p-4 border border-gray-300 text-center text-sm text-gray-600">
-                No se pueden agregar evidencias en el estado actual: <strong>{{ $serviceRequest->status }}</strong>.
+        @elseif($galleryEvidencesCount === 0)
+            <div class="text-center py-6 text-gray-400">
+                <i class="fas fa-images text-2xl mb-2"></i>
+                <p class="text-sm">Sin evidencias. Se pueden agregar cuando esté en proceso.</p>
             </div>
-        </div>
         @endif
     </div>
 </div>
