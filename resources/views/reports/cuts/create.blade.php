@@ -41,28 +41,14 @@
             <form method="POST" action="{{ route('reports.cuts.store') }}" class="p-6 space-y-6" id="cut-create-form">
                 @csrf
 
-                {{-- Inline overlap warning (shown when server returns overlap error via session) --}}
-                @if(session('error') && str_contains(session('error'), 'solapa'))
+                {{-- Inline error (shown when server returns error via session) --}}
+                @if(session('error'))
                     <div class="rounded-lg bg-red-50 border border-red-200 p-4" role="alert">
                         <div class="flex items-start">
                             <svg class="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
-                            <div>
-                                <h3 class="text-sm font-medium text-red-800">Solapamiento de fechas detectado</h3>
-                                <p class="mt-1 text-sm text-red-700">{{ session('error') }}</p>
-                            </div>
-                        </div>
-                    </div>
-                @elseif(session('error'))
-                    <div class="rounded-lg bg-red-50 border border-red-200 p-4" role="alert">
-                        <div class="flex items-start">
-                            <svg class="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                            </svg>
-                            <div>
-                                <p class="text-sm text-red-700">{{ session('error') }}</p>
-                            </div>
+                            <p class="text-sm text-red-700">{{ session('error') }}</p>
                         </div>
                     </div>
                 @endif
@@ -156,8 +142,8 @@
 
                 <div class="flex items-center justify-end gap-3">
                     <a href="{{ route('reports.cuts.index') }}" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Cancelar</a>
-                    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed" {{ session('error') && str_contains(session('error'), 'solapa') ? 'disabled' : '' }}>
-                        Crear y asociar por fecha
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                        Crear corte
                     </button>
                 </div>
             </form>

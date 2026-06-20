@@ -121,34 +121,20 @@ class CutController extends Controller
         // Validate date overlap using DateSuggestionService
         $startDate = Carbon::parse($validated['start_date']);
         $endDate = Carbon::parse($validated['end_date']);
-        $overlapResult = $this->dateSuggestionService->validateNoOverlap(
-            $activeContract->id,
-            $startDate,
-            $endDate
-        );
 
-        if ($overlapResult->hasOverlap) {
-            $conflictingCut = $overlapResult->conflictingCut;
-            $conflictMessage = 'El rango del corte se solapa con el corte "' . ($conflictingCut?->name ?? 'desconocido') . '" ('
-                . ($conflictingCut?->start_date?->format('Y-m-d') ?? '') . ' - '
-                . ($conflictingCut?->end_date?->format('Y-m-d') ?? '') . '). Ajusta las fechas antes de guardar.';
-
-            return back()->withInput()->with('error', $conflictMessage);
-        }
-
-        // Auto-adjust: close the previous cut's end_date to 1 day before this cut's start_date
-        // This ensures no gaps between consecutive cuts.
+        // Auto-close previous cut: set its end_date to 1 second before this cut's start_date.
+        // The definitive end of a cut is determined by when the next cut begins.
         $previousCut = Cut::query()
             ->where('contract_id', $activeContract->id)
-            ->where('end_date', '<', $startDate)
-            ->orderByDesc('end_date')
+            ->where('start_date', '<', $startDate)
+            ->orderByDesc('start_date')
             ->first();
 
         if ($previousCut) {
-            $expectedEnd = $startDate->copy()->subDay();
-            if ($previousCut->end_date->lt($expectedEnd)) {
-                // There's a gap — extend the previous cut to cover it
-                $previousCut->update(['end_date' => $expectedEnd]);
+            $definitiveEnd = $startDate->copy()->subSecond();
+            if (!$previousCut->end_date->eq($definitiveEnd)) {
+                $previousCut->update(['end_date' => $definitiveEnd]);
+                $this->syncCutServiceRequests($previousCut);
             }
         }
 
@@ -342,44 +328,37 @@ class CutController extends Controller
             'folder_path' => ['nullable', 'string', 'max:500'],
         ]);
 
-        if ($cut->overlapsRange($validated['start_date'], $validated['end_date'], $cut->id)) {
-            return back()->withInput()->with(
-                'error',
-                'El rango del corte se solapa con otro corte del mismo contrato. Ajusta las fechas antes de guardar.'
-            );
-        }
-
-        // Auto-adjust adjacent cuts to prevent gaps
+        // Auto-adjust adjacent cuts to maintain contiguity
         $newStart = Carbon::parse($validated['start_date']);
         $newEnd = Carbon::parse($validated['end_date']);
 
-        // Adjust previous cut: extend its end_date to the day before this cut's new start_date
+        // Auto-close previous cut: set its end_date to 1 second before this cut's start_date
         $previousCut = Cut::query()
             ->where('contract_id', $cut->contract_id)
             ->where('id', '!=', $cut->id)
-            ->where('end_date', '<', $newStart)
-            ->orderByDesc('end_date')
+            ->where('start_date', '<', $newStart)
+            ->orderByDesc('start_date')
             ->first();
 
         if ($previousCut) {
-            $expectedPrevEnd = $newStart->copy()->subDay();
-            if ($previousCut->end_date->lt($expectedPrevEnd)) {
-                $previousCut->update(['end_date' => $expectedPrevEnd]);
+            $definitiveEnd = $newStart->copy()->subSecond();
+            if (!$previousCut->end_date->eq($definitiveEnd)) {
+                $previousCut->update(['end_date' => $definitiveEnd]);
                 $this->syncCutServiceRequests($previousCut);
             }
         }
 
-        // Adjust next cut: move its start_date to the day after this cut's new end_date
+        // Auto-adjust next cut: set its start_date to 1 second after this cut's end_date
         $nextCut = Cut::query()
             ->where('contract_id', $cut->contract_id)
             ->where('id', '!=', $cut->id)
-            ->where('start_date', '>', $newEnd)
+            ->where('start_date', '>', $newStart)
             ->orderBy('start_date')
             ->first();
 
         if ($nextCut) {
-            $expectedNextStart = $newEnd->copy()->addDay();
-            if ($nextCut->start_date->gt($expectedNextStart)) {
+            $expectedNextStart = $newEnd->copy()->addSecond();
+            if (!$nextCut->start_date->eq($expectedNextStart)) {
                 $nextCut->update(['start_date' => $expectedNextStart]);
                 $this->syncCutServiceRequests($nextCut);
             }
