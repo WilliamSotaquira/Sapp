@@ -136,6 +136,22 @@ class CutController extends Controller
             return back()->withInput()->with('error', $conflictMessage);
         }
 
+        // Auto-adjust: close the previous cut's end_date to 1 day before this cut's start_date
+        // This ensures no gaps between consecutive cuts.
+        $previousCut = Cut::query()
+            ->where('contract_id', $activeContract->id)
+            ->where('end_date', '<', $startDate)
+            ->orderByDesc('end_date')
+            ->first();
+
+        if ($previousCut) {
+            $expectedEnd = $startDate->copy()->subDay();
+            if ($previousCut->end_date->lt($expectedEnd)) {
+                // There's a gap — extend the previous cut to cover it
+                $previousCut->update(['end_date' => $expectedEnd]);
+            }
+        }
+
         // Handle folder creation
         $folderPath = null;
         $folderName = trim($validated['folder_name'] ?? '');
@@ -333,6 +349,42 @@ class CutController extends Controller
             );
         }
 
+        // Auto-adjust adjacent cuts to prevent gaps
+        $newStart = Carbon::parse($validated['start_date']);
+        $newEnd = Carbon::parse($validated['end_date']);
+
+        // Adjust previous cut: extend its end_date to the day before this cut's new start_date
+        $previousCut = Cut::query()
+            ->where('contract_id', $cut->contract_id)
+            ->where('id', '!=', $cut->id)
+            ->where('end_date', '<', $newStart)
+            ->orderByDesc('end_date')
+            ->first();
+
+        if ($previousCut) {
+            $expectedPrevEnd = $newStart->copy()->subDay();
+            if ($previousCut->end_date->lt($expectedPrevEnd)) {
+                $previousCut->update(['end_date' => $expectedPrevEnd]);
+                $this->syncCutServiceRequests($previousCut);
+            }
+        }
+
+        // Adjust next cut: move its start_date to the day after this cut's new end_date
+        $nextCut = Cut::query()
+            ->where('contract_id', $cut->contract_id)
+            ->where('id', '!=', $cut->id)
+            ->where('start_date', '>', $newEnd)
+            ->orderBy('start_date')
+            ->first();
+
+        if ($nextCut) {
+            $expectedNextStart = $newEnd->copy()->addDay();
+            if ($nextCut->start_date->gt($expectedNextStart)) {
+                $nextCut->update(['start_date' => $expectedNextStart]);
+                $this->syncCutServiceRequests($nextCut);
+            }
+        }
+
         // Handle folder_path: create directory if provided and doesn't exist
         $folderPath = trim($validated['folder_path'] ?? '');
         if ($folderPath !== '') {
@@ -377,8 +429,17 @@ class CutController extends Controller
         $serviceRequestsQuery = ServiceRequest::query()
             ->with(['requester'])
             ->eligibleForCutAssignment()
-            ->whereBetween('technician_assigned_at', [$start, $end])
-            ->orderByDesc('technician_assigned_at')
+            ->where(function ($q) use ($start, $end) {
+                $q->where(function ($inner) use ($start, $end) {
+                    $inner->whereNotNull('closed_at')
+                          ->whereBetween('closed_at', [$start, $end]);
+                })->orWhere(function ($inner) use ($start, $end) {
+                    $inner->whereNull('closed_at')
+                          ->whereNotNull('resolved_at')
+                          ->whereBetween('resolved_at', [$start, $end]);
+                });
+            })
+            ->orderByRaw('COALESCE(closed_at, resolved_at) DESC')
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
             $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
@@ -479,7 +540,7 @@ class CutController extends Controller
     {
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Solicitudes recalculadas según la fecha de asignación aceptada del técnico.');
+        return back()->with('success', 'Solicitudes recalculadas según la fecha de cierre/resolución.');
     }
 
     public function addRequestByTicket(Cut $cut, Request $request): RedirectResponse
@@ -505,22 +566,23 @@ class CutController extends Controller
             }
         }
         if (!$serviceRequest->canBeAssociatedToCut()) {
-            return back()->with('error', 'La solicitud debe tener un técnico asignado y estar al menos aceptada para asociarse a un corte.');
+            return back()->with('error', 'La solicitud debe estar RESUELTA o CERRADA para asociarse a un corte.');
         }
-        if (!$cut->containsDate($serviceRequest->technician_assigned_at)) {
-            return back()->with('error', 'La solicitud no pertenece al rango operativo de este corte.');
+        $cutRef = $serviceRequest->getCutReferenceAt();
+        if (!$cutRef || !$cut->containsDate($cutRef)) {
+            return back()->with('error', 'La fecha de cierre/resolución de la solicitud no pertenece al rango de este corte.');
         }
 
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'La solicitud pertenece al rango operativo del corte y la asociación fue recalculada.');
+        return back()->with('success', 'La solicitud pertenece al rango del corte y la asociación fue recalculada.');
     }
 
     public function removeRequest(Cut $cut, ServiceRequest $serviceRequest): RedirectResponse
     {
         return back()->with(
             'error',
-            'La asociación del corte se calcula por la fecha de asignación aceptada del técnico. Ajusta esa asignación o el rango del corte para removerla.'
+            'La asociación del corte se calcula por la fecha de cierre/resolución de la solicitud. Ajusta esa fecha o el rango del corte para removerla.'
         );
     }
 
@@ -528,7 +590,7 @@ class CutController extends Controller
     {
         $this->syncCutServiceRequests($cut);
 
-        return back()->with('success', 'Asociación actualizada según la fecha de asignación aceptada del técnico.');
+        return back()->with('success', 'Asociación actualizada según la fecha de cierre/resolución.');
     }
 
     public function export(Request $request, Cut $cut)
@@ -730,7 +792,17 @@ class CutController extends Controller
                     $fq->where('contract_id', $cut->contract_id);
                 });
             })
-            ->whereBetween('technician_assigned_at', [$start, $end])
+            ->where(function ($q) use ($start, $end) {
+                // Reference date: closed_at ?? resolved_at
+                $q->where(function ($inner) use ($start, $end) {
+                    $inner->whereNotNull('closed_at')
+                          ->whereBetween('closed_at', [$start, $end]);
+                })->orWhere(function ($inner) use ($start, $end) {
+                    $inner->whereNull('closed_at')
+                          ->whereNotNull('resolved_at')
+                          ->whereBetween('resolved_at', [$start, $end]);
+                });
+            })
             ->pluck('id')
             ->all();
 

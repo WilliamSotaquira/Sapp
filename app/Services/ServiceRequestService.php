@@ -175,7 +175,11 @@ class ServiceRequestService
         return $cutId ? (int) $cutId : null;
     }
 
-    public function resolveCutByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
+    /**
+     * Resolve which cut a service request belongs to based on its completion date.
+     * Uses closed_at ?? resolved_at as the reference date.
+     */
+    public function resolveCutByCompletionDate(ServiceRequest $serviceRequest): ?Cut
     {
         $serviceRequest->load('subService.service.family.contract');
 
@@ -205,23 +209,42 @@ class ServiceRequestService
             ->first(['id', 'contract_id', 'name', 'start_date', 'end_date']);
     }
 
-    public function syncCutAssociationByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
+    /**
+     * Sync cut association for a service request based on its completion date.
+     */
+    public function syncCutAssociationByCompletionDate(ServiceRequest $serviceRequest): ?Cut
     {
-        $cut = $this->resolveCutByTechnicianAssignmentDate($serviceRequest);
+        $cut = $this->resolveCutByCompletionDate($serviceRequest);
 
         $serviceRequest->cuts()->sync($cut ? [$cut->id] : []);
 
         return $cut;
     }
 
+    /**
+     * @deprecated Use resolveCutByCompletionDate() instead.
+     */
+    public function resolveCutByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        return $this->resolveCutByCompletionDate($serviceRequest);
+    }
+
+    /**
+     * @deprecated Use syncCutAssociationByCompletionDate() instead.
+     */
+    public function syncCutAssociationByTechnicianAssignmentDate(ServiceRequest $serviceRequest): ?Cut
+    {
+        return $this->syncCutAssociationByCompletionDate($serviceRequest);
+    }
+
     public function resolveCutByCreationDate(ServiceRequest $serviceRequest): ?Cut
     {
-        return $this->resolveCutByTechnicianAssignmentDate($serviceRequest);
+        return $this->resolveCutByCompletionDate($serviceRequest);
     }
 
     public function syncCutAssociationByCreationDate(ServiceRequest $serviceRequest): ?Cut
     {
-        return $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest);
+        return $this->syncCutAssociationByCompletionDate($serviceRequest);
     }
 
     private function applySorting($query, ?string $sortBy, string $dateView = 'created_at'): void

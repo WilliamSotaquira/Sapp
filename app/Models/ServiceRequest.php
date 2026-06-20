@@ -185,12 +185,14 @@ class ServiceRequest extends Model
         });
 
         static::saved(function ($model) {
+            // Sync cut association when the request is completed (resolved/closed)
+            // Only trigger when status, closed_at, or resolved_at changes
+            $shouldSyncCut = $model->wasRecentlyCreated
+                || $model->wasChanged(['status', 'closed_at', 'resolved_at', 'sub_service_id', 'company_id']);
+
             if (!$model->wasChanged('assigned_to') || empty($model->assigned_to)) {
-                if (
-                    $model->wasRecentlyCreated
-                    || $model->wasChanged(['technician_assigned_at', 'status', 'sub_service_id', 'company_id'])
-                ) {
-                    app(ServiceRequestService::class)->syncCutAssociationByTechnicianAssignmentDate($model);
+                if ($shouldSyncCut) {
+                    app(ServiceRequestService::class)->syncCutAssociationByCompletionDate($model);
                 }
 
                 return;
@@ -216,7 +218,9 @@ class ServiceRequest extends Model
                     ->update(['technician_id' => $technician->id]);
             }
 
-            app(ServiceRequestService::class)->syncCutAssociationByTechnicianAssignmentDate($model);
+            if ($shouldSyncCut) {
+                app(ServiceRequestService::class)->syncCutAssociationByCompletionDate($model);
+            }
         });
     }
 
@@ -325,39 +329,41 @@ class ServiceRequest extends Model
     public static function getCutEligibleStatuses(): array
     {
         return [
-            self::STATUS_ACCEPTED,
-            self::STATUS_IN_PROGRESS,
-            self::STATUS_PAUSED,
             self::STATUS_RESOLVED,
             self::STATUS_CLOSED,
-            self::STATUS_REOPENED,
         ];
     }
 
     public function scopeEligibleForCutAssignment($query)
     {
         return $query
-            ->whereNotNull('assigned_to')
-            ->whereNotNull('technician_assigned_at')
+            ->where(function ($q) {
+                $q->whereNotNull('closed_at')
+                  ->orWhereNotNull('resolved_at');
+            })
             ->whereIn('status', self::getCutEligibleStatuses());
     }
 
     public function canBeAssociatedToCut(): bool
     {
-        return !empty($this->assigned_to)
-            && !empty($this->technician_assigned_at)
-            && in_array((string) $this->status, self::getCutEligibleStatuses(), true);
+        return in_array((string) $this->status, self::getCutEligibleStatuses(), true)
+            && ($this->closed_at !== null || $this->resolved_at !== null);
     }
 
+    /**
+     * Fecha de referencia para asignar al corte:
+     * Se usa la fecha de cierre (closed_at) o la de resolución (resolved_at) como fallback.
+     * El corte agrupa solicitudes por cuándo fueron completadas, no por cuándo se crearon o asignaron.
+     */
     public function getCutReferenceAt(): ?Carbon
     {
         if (!$this->canBeAssociatedToCut()) {
             return null;
         }
 
-        return $this->technician_assigned_at
-            ? Carbon::parse($this->technician_assigned_at)
-            : null;
+        $reference = $this->closed_at ?? $this->resolved_at;
+
+        return $reference ? Carbon::parse($reference) : null;
     }
 
     /**
