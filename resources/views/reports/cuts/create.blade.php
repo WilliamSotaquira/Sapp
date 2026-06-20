@@ -83,21 +83,70 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Fecha y hora inicio <span class="text-red-500">*</span></label>
-                        <input type="datetime-local" name="start_date" value="{{ old('start_date', $dateSuggestion ? $dateSuggestion->startDate->format('Y-m-d\TH:i') : '') }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('start_date') border-red-500 @enderror" required>
+                        <input type="datetime-local" name="start_date" id="start_date" value="{{ old('start_date', $dateSuggestion ? $dateSuggestion->startDate->format('Y-m-d\TH:i') : '') }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('start_date') border-red-500 @enderror" required>
                         @if($dateSuggestion)
-                            <p class="mt-1 text-xs text-gray-500">Sugerido: <span class="font-mono">{{ $dateSuggestion->formattedStartDate() }}</span> <span class="text-gray-400">(YYYY-MM-DD HH:mm)</span></p>
+                            <p class="mt-1 text-xs text-gray-500">Sugerido: <span class="font-mono">{{ $dateSuggestion->formattedStartDate() }}</span></p>
                         @endif
                         @error('start_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Fecha y hora fin <span class="text-red-500">*</span></label>
-                        <input type="datetime-local" name="end_date" value="{{ old('end_date', $dateSuggestion ? $dateSuggestion->endDate->format('Y-m-d\TH:i') : '') }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('end_date') border-red-500 @enderror" required>
-                        @if($dateSuggestion)
-                            <p class="mt-1 text-xs text-gray-500">Sugerido: <span class="font-mono">{{ $dateSuggestion->formattedEndDate() }}</span> <span class="text-gray-400">(YYYY-MM-DD HH:mm)</span></p>
-                        @endif
+                        <input type="datetime-local" name="end_date" id="end_date" value="{{ old('end_date', $dateSuggestion ? $dateSuggestion->endDate->format('Y-m-d\TH:i') : '') }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('end_date') border-red-500 @enderror" required>
+                        <p class="mt-1 text-xs text-gray-500">
+                            <span id="end-date-hint">Se calcula automáticamente: 30 días desde el inicio.</span>
+                            <button type="button" id="recalc-end-date" class="ml-1 text-blue-600 hover:text-blue-800 font-medium">Recalcular</button>
+                        </p>
                         @error('end_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
                 </div>
+
+                <script>
+                (function() {
+                    var startInput = document.getElementById('start_date');
+                    var endInput = document.getElementById('end_date');
+                    var recalcBtn = document.getElementById('recalc-end-date');
+                    var userManuallyEdited = false;
+
+                    function calcEndDate(startValue) {
+                        if (!startValue) return null;
+                        var start = new Date(startValue);
+                        if (isNaN(start.getTime())) return null;
+                        // Add 30 days, set to 23:59
+                        var end = new Date(start.getTime() + (30 * 24 * 60 * 60 * 1000) - 1000);
+                        // Format as YYYY-MM-DDTHH:mm
+                        var y = end.getFullYear();
+                        var m = String(end.getMonth() + 1).padStart(2, '0');
+                        var d = String(end.getDate()).padStart(2, '0');
+                        var h = String(end.getHours()).padStart(2, '0');
+                        var min = String(end.getMinutes()).padStart(2, '0');
+                        return y + '-' + m + '-' + d + 'T' + h + ':' + min;
+                    }
+
+                    function autoFillEnd() {
+                        if (userManuallyEdited) return;
+                        var val = calcEndDate(startInput.value);
+                        if (val) endInput.value = val;
+                    }
+
+                    startInput.addEventListener('change', autoFillEnd);
+                    startInput.addEventListener('input', autoFillEnd);
+
+                    endInput.addEventListener('input', function() {
+                        userManuallyEdited = true;
+                    });
+
+                    recalcBtn.addEventListener('click', function() {
+                        userManuallyEdited = false;
+                        var val = calcEndDate(startInput.value);
+                        if (val) endInput.value = val;
+                    });
+
+                    // Initial auto-fill if end is empty and start has value
+                    if (startInput.value && !endInput.value) {
+                        autoFillEnd();
+                    }
+                })();
+                </script>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
