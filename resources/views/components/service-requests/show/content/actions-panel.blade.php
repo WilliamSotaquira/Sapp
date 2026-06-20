@@ -4,10 +4,10 @@
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
 @endphp
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-6 py-4 border-b">
-        <h3 class="sr-card-title text-gray-800 flex items-center">
-            <i class="fas fa-cog {{ $isDead ? 'text-gray-500' : 'text-purple-600' }} mr-3"></i>
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-5 py-3 border-b">
+        <h3 class="text-base font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-cog {{ $isDead ? 'text-gray-500' : 'text-purple-500' }} mr-2.5"></i>
             Acciones y Compartir
         </h3>
     </div>

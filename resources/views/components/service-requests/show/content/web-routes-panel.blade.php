@@ -1,55 +1,45 @@
 @props(['serviceRequest'])
 
 @php
-    // Manejar diferentes formatos de web_routes
     $webRoutes = [];
     $rawWebRoutes = $serviceRequest->web_routes;
 
     if (is_array($rawWebRoutes) && count($rawWebRoutes) > 0) {
         $webRoutes = $rawWebRoutes;
     } elseif (is_string($rawWebRoutes) && !empty(trim($rawWebRoutes))) {
-        // Intentar decodificar como JSON primero
         $decoded = json_decode($rawWebRoutes, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
             $webRoutes = $decoded;
         } else {
-            // Si no es JSON válido, tratar como string simple
             $webRoutes = [['url' => trim($rawWebRoutes), 'name' => 'URL Principal']];
         }
     }
 @endphp
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-green-100">
-        <h3 class="sr-card-title text-gray-800 flex items-center">
-            <i class="fas fa-globe text-green-600 mr-3"></i>
-            Rutas Web y URLs
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-globe text-green-500" aria-hidden="true"></i>
+            Rutas Web
+            <span class="text-xs font-normal text-gray-400">({{ count($webRoutes) }})</span>
         </h3>
     </div>
-    <div class="p-6">
-        <div class="space-y-4">
-            @if (count($webRoutes) > 0)
+    <div class="px-4 sm:px-5 py-3">
+        @if (count($webRoutes) > 0)
+            <div class="space-y-1.5" id="webRoutesContainer">
                 @foreach ($webRoutes as $index => $route)
                     @php
-                        // Manejar diferentes formatos de ruta
                         $url = null;
-                        $name = 'Ruta ' . ($index + 1);
 
                         if (is_string($route)) {
                             $url = $route;
                         } elseif (is_array($route)) {
                             $url = $route['url'] ?? ($route['route'] ?? ($route['path'] ?? null));
-                            $name = $route['name'] ?? ($route['title'] ?? ($route['label'] ?? $name));
                         }
 
-                        // Formatear URL si es necesario
                         if ($url && !empty(trim($url))) {
                             $cleanUrl = trim($url);
-                            if (!preg_match('/^https?:\/\//', $cleanUrl)) {
-                                $formattedUrl = 'https://' . $cleanUrl;
-                            } else {
-                                $formattedUrl = $cleanUrl;
-                            }
+                            $formattedUrl = preg_match('/^https?:\/\//', $cleanUrl) ? $cleanUrl : 'https://' . $cleanUrl;
                             $isValidUrl = filter_var($formattedUrl, FILTER_VALIDATE_URL);
                         } else {
                             $formattedUrl = null;
@@ -59,53 +49,116 @@
                         $displayUrl = $url ?: 'URL no disponible';
                     @endphp
 
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div class="flex items-center space-x-3 flex-1 min-w-0">
-                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-link text-blue-600 text-sm"></i>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="font-medium text-gray-900 truncate">{{ $name }}</p>
-                                <p class="text-sm text-gray-500 truncate">{{ $displayUrl }}</p>
-                            </div>
-                        </div>
-
+                    <div class="sr-route-item {{ $index >= 3 ? 'sr-web-route-extra hidden' : '' }}">
                         @if ($isValidUrl)
                             <a href="{{ $formattedUrl }}" target="_blank" rel="noopener noreferrer"
-                                class="flex-shrink-0 text-blue-600 hover:text-blue-800 transition duration-150 px-3 py-2 rounded-lg hover:bg-blue-50 ml-3"
-                                title="Abrir en nueva pestaña">
-                                <i class="fas fa-external-link-alt"></i>
+                               class="sr-route-link group"
+                               title="{{ $formattedUrl }}">
+                                <i class="fas fa-external-link-alt sr-route-icon" aria-hidden="true"></i>
+                                <span class="sr-route-url">{{ $formattedUrl }}</span>
                             </a>
-                        @elseif($url)
-                            <span class="flex-shrink-0 text-gray-400 px-3 py-2 cursor-not-allowed ml-3"
-                                title="URL no válida">
-                                <i class="fas fa-external-link-alt"></i>
+                        @else
+                            <span class="sr-route-link sr-route-link--disabled">
+                                <i class="fas fa-link sr-route-icon" aria-hidden="true"></i>
+                                <span class="sr-route-url">{{ $displayUrl }}</span>
                             </span>
                         @endif
                     </div>
                 @endforeach
-            @else
-                <div class="text-center py-8">
-                    <div class="text-gray-400 mb-3">
-                        <i class="fas fa-link text-4xl"></i>
-                    </div>
-                    <p class="text-gray-500">No hay rutas web asociadas a esta solicitud</p>
-                </div>
-            @endif
-        </div>
-
-        {{-- Debug opcional --}}
-        @if (false)
-            <div class="mt-4 p-3 bg-yellow-50 rounded-lg">
-                <p class="text-sm text-yellow-800">
-                    <strong>Debug - hasWebRoutes:</strong> {{ $serviceRequest->hasWebRoutes() ? 'TRUE' : 'FALSE' }}<br>
-                    <strong>Tipo:</strong> {{ gettype($serviceRequest->web_routes) }}<br>
-                    <strong>Valor:</strong> {{ $serviceRequest->web_routes }}<br>
-                    <strong>Count:</strong>
-                    {{ is_array($serviceRequest->web_routes) ? count($serviceRequest->web_routes) : 'N/A' }}<br>
-                    <strong>WebRoutes procesadas:</strong> {{ json_encode($webRoutes) }}
-                </p>
             </div>
+
+            @if (count($webRoutes) > 3)
+                <button type="button"
+                        class="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        onclick="this.previousElementSibling.querySelectorAll('.sr-web-route-extra').forEach(function(el){el.classList.toggle('hidden')}); this.textContent = this.textContent.includes('más') ? 'Ver menos' : 'Ver {{ count($webRoutes) - 3 }} más';">
+                    Ver {{ count($webRoutes) - 3 }} más
+                </button>
+            @endif
+        @else
+            <p class="text-xs text-gray-400 text-center py-2">No hay rutas web asociadas</p>
         @endif
     </div>
 </div>
+
+@once
+@push('styles')
+<style>
+.sr-route-item {
+    border-radius: 6px;
+}
+
+.sr-route-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background 0.15s ease;
+    min-width: 0;
+}
+
+.sr-route-link:hover {
+    background: #f0f9ff;
+}
+
+.sr-route-link--disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.sr-route-link--disabled:hover {
+    background: none;
+}
+
+.sr-route-icon {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+}
+
+.sr-route-link:hover .sr-route-icon {
+    color: #3b82f6;
+}
+
+.sr-route-url {
+    font-size: 0.8rem;
+    color: #2563eb;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.sr-route-link:hover .sr-route-url {
+    text-decoration: underline;
+    color: #1d4ed8;
+}
+
+.sr-route-link--disabled .sr-route-url {
+    color: #64748b;
+}
+
+/* Responsive: wrap on small screens */
+@media (max-width: 640px) {
+    .sr-route-url {
+        font-size: 0.72rem;
+        white-space: normal;
+        word-break: break-all;
+        line-height: 1.4;
+    }
+
+    .sr-route-link {
+        padding: 8px 10px;
+        align-items: flex-start;
+    }
+
+    .sr-route-icon {
+        margin-top: 3px;
+    }
+}
+</style>
+@endpush
+@endonce

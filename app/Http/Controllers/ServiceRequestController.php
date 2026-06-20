@@ -877,6 +877,9 @@ class ServiceRequestController extends Controller
             'resolution_description' => 'required|string|min:10|max:8000',
             'resolution_notes' => 'nullable|string|max:8000',
             'actual_resolution_time' => 'nullable|integer|min:1|max:100000',
+            'also_close' => 'nullable|in:1',
+            'response_channel' => 'nullable|string|in:CORREO,WHATSAPP,LLAMADA,OTRA',
+            'closure_notes' => 'nullable|string|max:2000',
         ]);
 
         $resolutionDescription = trim((string) $validated['resolution_description']);
@@ -895,6 +898,57 @@ class ServiceRequestController extends Controller
         ];
 
         $result = $this->workflowService->resolveRequest($serviceRequest, $data);
+
+        if (!$result['success']) {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('error', $result['message']);
+        }
+
+        // If "also_close" was checked, proceed to close immediately
+        if ($request->input('also_close') === '1') {
+            try {
+                $serviceRequest->refresh();
+
+                $closureNotes = trim((string) ($validated['closure_notes'] ?? ''));
+                if ($closureNotes !== '') {
+                    $currentNotes = $serviceRequest->resolution_notes ?? '';
+                    $serviceRequest->resolution_notes = trim($currentNotes . "\n\nObservaciones de cierre:\n" . $closureNotes);
+                }
+
+                $serviceRequest->status = 'CERRADA';
+                $serviceRequest->closed_at = now();
+                $serviceRequest->save();
+
+                // Record history
+                if (class_exists('App\Models\ServiceRequestHistory')) {
+                    \App\Models\ServiceRequestHistory::create([
+                        'service_request_id' => $serviceRequest->id,
+                        'user_id' => auth()->id(),
+                        'action' => 'CIERRE_NORMAL',
+                        'description' => 'Solicitud resuelta y cerrada en un solo paso',
+                        'details' => json_encode([
+                            'response_channel' => $validated['response_channel'] ?? 'CORREO',
+                            'closure_notes' => $closureNotes,
+                            'previous_status' => 'RESUELTA',
+                            'closed_by' => auth()->id(),
+                            'closed_at' => now()->toISOString(),
+                            'closure_type' => 'resolve_and_close',
+                        ], JSON_UNESCAPED_UNICODE),
+                    ]);
+                }
+
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest)
+                    ->with('success', 'Solicitud resuelta y cerrada correctamente.');
+            } catch (\Exception $e) {
+                \Log::error('Error al cerrar tras resolver: ' . $e->getMessage());
+                return redirect()
+                    ->route('service-requests.show', $serviceRequest)
+                    ->with('success', $result['message'])
+                    ->with('error', 'La solicitud fue resuelta pero no se pudo cerrar: ' . $e->getMessage());
+            }
+        }
 
         return redirect()
             ->route('service-requests.show', $serviceRequest)

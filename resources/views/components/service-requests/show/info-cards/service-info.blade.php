@@ -29,8 +29,8 @@
 
 <div class="h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-slate-50 border-gray-200' }} px-5 py-3 border-b">
-        <h3 class="sr-card-title text-gray-800 flex items-center">
-            <i class="fas fa-cogs {{ $isDead ? 'text-gray-500' : 'text-blue-600' }} mr-2"></i>
+        <h3 class="text-base font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-cogs {{ $isDead ? 'text-gray-500' : 'text-blue-500' }} mr-2.5"></i>
             Información del Servicio
         </h3>
     </div>

@@ -12,8 +12,8 @@
 
 <div class="h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" data-assignment-card="1" data-service-request-id="{{ $serviceRequest->id }}" data-company-id="{{ $serviceRequest->company_id ? (int) $serviceRequest->company_id : '' }}">
     <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-emerald-50 border-emerald-100' }} px-5 py-3 border-b">
-        <h3 class="sr-card-title text-gray-800 flex items-center">
-            <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-emerald-600' }} mr-2"></i>
+        <h3 class="text-base font-semibold text-gray-800 flex items-center">
+            <i class="fas fa-users {{ $isDead ? 'text-gray-500' : 'text-emerald-500' }} mr-2.5"></i>
             Asignación y Responsables
         </h3>
     </div>

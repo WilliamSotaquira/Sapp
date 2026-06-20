@@ -1,10 +1,10 @@
 @props(['serviceRequest'])
 
-<div id="history-section" class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-    <div class="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
+<div id="history-section" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-purple-50/50 px-5 py-3 border-b border-purple-100">
         <div class="flex items-center justify-between">
-            <h3 class="sr-card-title text-gray-800 flex items-center">
-                <i class="fas fa-history text-purple-600 mr-3"></i>
+            <h3 class="text-base font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-stream text-purple-500 mr-2.5"></i>
                 Historial y Timeline
             </h3>
             <span class="text-sm font-normal text-purple-600 bg-purple-100 px-3 py-1 rounded-full">

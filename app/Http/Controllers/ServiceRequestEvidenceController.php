@@ -54,64 +54,70 @@ class ServiceRequestEvidenceController extends Controller
         }
 
         try {
-            // Permite guardar enlace desde el mismo endpoint
+            $savedCount = 0;
+            $messages = [];
+
+            // Process link if provided
             if ($request->filled('link_url')) {
-                $validatedLink = $request->validate([
-                    'link_url' => 'required|url|max:2048',
+                $request->validate([
+                    'link_url' => 'url|max:2048',
                 ]);
 
                 ServiceRequestEvidence::create([
                     'service_request_id' => $serviceRequest->id,
                     'title' => 'Enlace - ' . now()->format('d/m/Y H:i'),
-                    'description' => $validatedLink['link_url'],
+                    'description' => $request->input('link_url'),
                     'evidence_type' => 'ENLACE',
-                    'evidence_data' => ['url' => $validatedLink['link_url']],
+                    'evidence_data' => ['url' => $request->input('link_url')],
                     'user_id' => auth()->id(),
                 ]);
 
-                return redirect()->back()->with('evidence_success', 'Enlace agregado correctamente.');
+                $savedCount++;
+                $messages[] = 'Enlace agregado';
             }
 
-            // Determine the evidence type (defaults to ARCHIVO)
-            $evidenceType = $request->input('evidence_type', 'ARCHIVO');
+            // Process files if provided
+            if ($request->hasFile('files')) {
+                $evidenceType = $request->input('evidence_type', 'ARCHIVO');
 
-            // Build validation rules — apply ACTA-specific MIME restriction
-            $fileRules = 'required|file|max:10240';
-            if ($evidenceType === 'ACTA') {
-                $fileRules .= '|mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png';
-            } else {
-                $fileRules .= '|mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,txt,zip,rar,csv,svg';
-            }
-
-            // Nuestro formulario usa 'files[]' no 'file'
-            $request->validate([
-                'evidence_type' => 'nullable|string|in:PASO_A_PASO,ARCHIVO,COMENTARIO,ENLACE,ACTA',
-                'files' => 'required|array|min:1|max:10',
-                'files.*' => $fileRules,
-            ], [
-                'files.*.mimetypes' => 'El tipo de archivo para actas debe ser PDF, DOCX, JPG, JPEG o PNG.',
-                'evidence_type.in' => 'El tipo de evidencia seleccionado no es válido.',
-            ]);
-
-            \Log::info('✅ Validation passed');
-
-            if (!$request->hasFile('files')) {
-                \Log::warning('⚠️ No files to process');
-                return redirect()->back()->with('evidence_error', 'No se seleccionaron archivos.');
-            }
-
-            $evidenceService = app(EvidenceService::class);
-            $result = $evidenceService->uploadEvidences($serviceRequest, $request->file('files'), $evidenceType);
-
-            if ($result['success_count'] > 0) {
-                $message = $result['success_count'] . ' archivo(s) subido(s) correctamente.';
-                if ($result['error_count'] > 0) {
-                    $message .= ' ' . $result['error_count'] . ' archivo(s) con errores.';
+                $fileRules = 'file|max:10240';
+                if ($evidenceType === 'ACTA') {
+                    $fileRules .= '|mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png';
+                } else {
+                    $fileRules .= '|mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx,txt,zip,rar,csv,svg';
                 }
-                return redirect()->back()->with('evidence_success', $message);
+
+                $request->validate([
+                    'evidence_type' => 'nullable|string|in:PASO_A_PASO,ARCHIVO,COMENTARIO,ENLACE,ACTA',
+                    'files' => 'array|min:1|max:10',
+                    'files.*' => $fileRules,
+                ], [
+                    'files.*.mimetypes' => 'El tipo de archivo para actas debe ser PDF, DOCX, JPG, JPEG o PNG.',
+                    'evidence_type.in' => 'El tipo de evidencia seleccionado no es válido.',
+                ]);
+
+                $evidenceService = app(EvidenceService::class);
+                $result = $evidenceService->uploadEvidences($serviceRequest, $request->file('files'), $evidenceType);
+
+                $savedCount += $result['success_count'];
+                if ($result['success_count'] > 0) {
+                    $messages[] = $result['success_count'] . ' archivo(s) subido(s)';
+                }
+                if ($result['error_count'] > 0) {
+                    $messages[] = $result['error_count'] . ' archivo(s) con errores';
+                }
             }
 
-            return redirect()->back()->with('evidence_error', 'No se pudieron subir los archivos.');
+            // If nothing was submitted
+            if ($savedCount === 0 && !$request->hasFile('files') && !$request->filled('link_url')) {
+                return redirect()->back()->with('evidence_error', 'No se seleccionaron archivos ni enlaces.');
+            }
+
+            if ($savedCount > 0) {
+                return redirect()->back()->with('evidence_success', implode(' · ', $messages));
+            }
+
+            return redirect()->back()->with('evidence_error', 'No se pudieron guardar las evidencias.');
         } catch (\Exception $e) {
             \Log::error('❌ STORE EVIDENCE ERROR: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
