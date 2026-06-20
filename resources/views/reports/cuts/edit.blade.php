@@ -72,8 +72,37 @@
                         required
                         class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                     >
+                    <p class="mt-1 text-xs text-gray-500">
+                        <button type="button" id="recalc-end-date" class="text-blue-600 hover:text-blue-800 font-medium">Recalcular 30 días desde inicio</button>
+                    </p>
                 </div>
             </div>
+
+            <script>
+            (function() {
+                var startInput = document.getElementById('start_date');
+                var endInput = document.getElementById('end_date');
+                var recalcBtn = document.getElementById('recalc-end-date');
+
+                function calcEndDate(startValue) {
+                    if (!startValue) return null;
+                    var start = new Date(startValue);
+                    if (isNaN(start.getTime())) return null;
+                    var end = new Date(start.getTime() + (30 * 24 * 60 * 60 * 1000) - 1000);
+                    var y = end.getFullYear();
+                    var m = String(end.getMonth() + 1).padStart(2, '0');
+                    var d = String(end.getDate()).padStart(2, '0');
+                    var h = String(end.getHours()).padStart(2, '0');
+                    var min = String(end.getMinutes()).padStart(2, '0');
+                    return y + '-' + m + '-' + d + 'T' + h + ':' + min;
+                }
+
+                recalcBtn.addEventListener('click', function() {
+                    var val = calcEndDate(startInput.value);
+                    if (val) endInput.value = val;
+                });
+            })();
+            </script>
 
             <div>
                 <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">Notas (opcional)</label>
