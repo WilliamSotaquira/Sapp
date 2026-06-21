@@ -1078,6 +1078,18 @@ class ServiceRequestService
                     $data['resolved_at'] = null;
                 } else {
                     $data['resolved_at'] = Carbon::parse($data['resolved_at']);
+
+                    // Si se establece resolved_at manualmente y la solicitud no está
+                    // en RESUELTA/CERRADA, actualizar status para que sea elegible al corte.
+                    $currentStatus = $serviceRequest->status;
+                    if (!in_array($currentStatus, ['RESUELTA', 'CERRADA'], true)) {
+                        $data['status'] = 'RESUELTA';
+                    }
+
+                    // Si no tiene closed_at, usar resolved_at como referencia para el corte
+                    if (empty($serviceRequest->closed_at) && empty($data['closed_at'] ?? null)) {
+                        $data['closed_at'] = $data['resolved_at'];
+                    }
                 }
             }
 
@@ -1085,7 +1097,8 @@ class ServiceRequestService
 
             DB::transaction(function () use ($serviceRequest, $data) {
                 $serviceRequest->update($data);
-                $this->syncCutAssociationByTechnicianAssignmentDate($serviceRequest->refresh());
+                $fresh = $serviceRequest->refresh();
+                $this->syncCutAssociationByCompletionDate($fresh);
             });
 
             Log::info('✅ Solicitud actualizada exitosamente', [
