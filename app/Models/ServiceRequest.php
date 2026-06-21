@@ -352,8 +352,9 @@ class ServiceRequest extends Model
 
     /**
      * Fecha de referencia para asignar al corte:
-     * Se usa la fecha de cierre (closed_at) o la de resolución (resolved_at) como fallback.
-     * El corte agrupa solicitudes por cuándo fueron completadas, no por cuándo se crearon o asignaron.
+     * Se usa la fecha más temprana entre resolved_at y closed_at.
+     * Esto permite que al retrofechar resolved_at, la solicitud se ubique
+     * en el corte correcto (cuando realmente se completó el trabajo).
      */
     public function getCutReferenceAt(): ?Carbon
     {
@@ -361,9 +362,14 @@ class ServiceRequest extends Model
             return null;
         }
 
-        $reference = $this->closed_at ?? $this->resolved_at;
+        $resolved = $this->resolved_at ? Carbon::parse($this->resolved_at) : null;
+        $closed = $this->closed_at ? Carbon::parse($this->closed_at) : null;
 
-        return $reference ? Carbon::parse($reference) : null;
+        if ($resolved && $closed) {
+            return $resolved->lt($closed) ? $resolved : $closed;
+        }
+
+        return $resolved ?? $closed;
     }
 
     /**
