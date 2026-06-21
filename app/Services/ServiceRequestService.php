@@ -1085,11 +1085,6 @@ class ServiceRequestService
                     if (!in_array($currentStatus, ['RESUELTA', 'CERRADA'], true)) {
                         $data['status'] = 'RESUELTA';
                     }
-
-                    // Si no tiene closed_at, usar resolved_at como referencia para el corte
-                    if (empty($serviceRequest->closed_at) && empty($data['closed_at'] ?? null)) {
-                        $data['closed_at'] = $data['resolved_at'];
-                    }
                 }
             }
 

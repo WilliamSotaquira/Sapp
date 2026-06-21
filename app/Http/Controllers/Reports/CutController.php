@@ -409,16 +409,9 @@ class CutController extends Controller
             ->with(['requester'])
             ->eligibleForCutAssignment()
             ->where(function ($q) use ($start, $end) {
-                $q->where(function ($inner) use ($start, $end) {
-                    $inner->whereNotNull('closed_at')
-                          ->whereBetween('closed_at', [$start, $end]);
-                })->orWhere(function ($inner) use ($start, $end) {
-                    $inner->whereNull('closed_at')
-                          ->whereNotNull('resolved_at')
-                          ->whereBetween('resolved_at', [$start, $end]);
-                });
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
             })
-            ->orderByRaw('COALESCE(closed_at, resolved_at) DESC')
+            ->orderByRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) DESC')
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
             $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
@@ -772,15 +765,8 @@ class CutController extends Controller
                 });
             })
             ->where(function ($q) use ($start, $end) {
-                // Reference date: closed_at ?? resolved_at
-                $q->where(function ($inner) use ($start, $end) {
-                    $inner->whereNotNull('closed_at')
-                          ->whereBetween('closed_at', [$start, $end]);
-                })->orWhere(function ($inner) use ($start, $end) {
-                    $inner->whereNull('closed_at')
-                          ->whereNotNull('resolved_at')
-                          ->whereBetween('resolved_at', [$start, $end]);
-                });
+                // Reference date: min(resolved_at, closed_at) — whichever is earlier
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
             })
             ->pluck('id')
             ->all();
