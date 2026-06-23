@@ -963,15 +963,15 @@ class CutController extends Controller
 
     private function buildFamilyFolderName($family): string
     {
+        $sortOrder = (int) ($family?->sort_order ?? 0);
         $familyName = $family?->name ?? 'Sin Familia';
-        $contractNumber = $family?->contract?->number;
-        $label = $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
 
         // Sanitize for filesystem: remove invalid chars, limit length
-        $slug = preg_replace('/[\\\\\/:"*?<>|]+/', '-', $label);
+        $slug = preg_replace('/[\\\\\/:"*?<>|]+/', '-', $familyName);
         $slug = preg_replace('/\s+/', ' ', trim($slug));
+        $slug = mb_substr($slug, 0, 90);
 
-        return mb_substr($slug, 0, 100);
+        return $sortOrder > 0 ? "{$sortOrder} - {$slug}" : $slug;
     }
 
     private function generateFamilyPdfPackage(
