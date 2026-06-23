@@ -1096,7 +1096,7 @@ class CutController extends Controller
             }
         }
 
-        // Compress with tar (produces valid ZIP on Windows)
+        // Compress with Windows PowerShell 5.1 (Compress-Archive works reliably there)
         $zipPath = storage_path("app/temp/{$baseFileName}.zip");
         if (file_exists($zipPath)) {
             unlink($zipPath);
@@ -1104,7 +1104,10 @@ class CutController extends Controller
 
         $escapedBuildDir = str_replace('/', '\\', $buildDir);
         $escapedZipPath = str_replace('/', '\\', $zipPath);
-        exec("tar -a -cf \"{$escapedZipPath}\" -C \"{$escapedBuildDir}\" .", $tarOutput, $tarReturnCode);
+
+        $psCmd = "Compress-Archive -Path '{$escapedBuildDir}\\*' -DestinationPath '{$escapedZipPath}' -Force";
+        $cmd = "powershell.exe -NoProfile -Command \"{$psCmd}\"";
+        exec($cmd, $tarOutput, $tarReturnCode);
 
         // Cleanup build directory
         $cleanIt = new \RecursiveIteratorIterator(
