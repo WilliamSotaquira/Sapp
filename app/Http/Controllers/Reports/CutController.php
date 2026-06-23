@@ -963,9 +963,15 @@ class CutController extends Controller
 
     private function buildFamilyFolderName($family): string
     {
-        $sortOrder = (int) ($family?->sort_order ?? 0);
+        $familyName = $family?->name ?? 'Sin Familia';
+        $contractNumber = $family?->contract?->number;
+        $label = $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
 
-        return 'Obligacion ' . max(0, $sortOrder);
+        // Sanitize for filesystem: remove invalid chars, limit length
+        $slug = preg_replace('/[\\\\\/:"*?<>|]+/', '-', $label);
+        $slug = preg_replace('/\s+/', ' ', trim($slug));
+
+        return mb_substr($slug, 0, 100);
     }
 
     private function generateFamilyPdfPackage(
@@ -978,21 +984,24 @@ class CutController extends Controller
         string $generatedByEmail = '',
         string $generatedByDependency = ''
     ) {
-        if (!class_exists('ZipArchive')) {
-            return back()->with('error', 'La extensión ZIP no está habilitada. No es posible generar la carpeta de reportes.');
-        }
-
         $tempDir = storage_path('app/temp');
         if (!is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
 
-        $zipPath = storage_path("app/temp/{$baseFileName}.zip");
-        $zip = new ZipArchive();
-
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return back()->with('error', 'No se pudo generar el archivo ZIP del reporte.');
+        // Use filesystem-based approach: write to temp folder then compress with tar
+        $buildDir = storage_path("app/temp/{$baseFileName}");
+        if (is_dir($buildDir)) {
+            $cleanIt = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($cleanIt as $item) {
+                $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+            }
+            rmdir($buildDir);
         }
+        mkdir($buildDir, 0755, true);
 
         $requestsByFamilyId = $serviceRequests->groupBy(function ($request) {
             return (int) ($request->subService?->service?->family?->id ?? 0);
@@ -1001,6 +1010,7 @@ class CutController extends Controller
         $singleFamilyPackage = count($selectedFamilyIds) === 1;
         $evidencesAdded = 0;
         $pdfCount = 0;
+
         foreach ($selectedFamilyIds as $familyId) {
             $family = $families->firstWhere('id', $familyId);
             if (!$family) {
@@ -1009,9 +1019,13 @@ class CutController extends Controller
 
             $familyRequests = $requestsByFamilyId->get((int) $familyId, collect());
             $familyFolderName = $this->buildFamilyFolderName($family);
-            $familyRoot = $singleFamilyPackage ? '' : $familyFolderName;
-            $familyInfoPath = $familyRoot === '' ? 'descripcion.txt' : "{$familyRoot}/descripcion.txt";
-            $zip->addFromString($familyInfoPath, $this->buildFamilyInfoText($family));
+            $familyRoot = $singleFamilyPackage ? $buildDir : $buildDir . DIRECTORY_SEPARATOR . $familyFolderName;
+
+            if (!is_dir($familyRoot)) {
+                mkdir($familyRoot, 0755, true);
+            }
+
+            file_put_contents($familyRoot . DIRECTORY_SEPARATOR . 'descripcion.txt', $this->buildFamilyInfoText($family));
 
             if ($familyRequests->isEmpty()) {
                 continue;
@@ -1040,8 +1054,7 @@ class CutController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->output();
 
-            $reportPath = $familyRoot === '' ? 'reporte.pdf' : "{$familyRoot}/reporte.pdf";
-            $zip->addFromString($reportPath, $pdfContent);
+            file_put_contents($familyRoot . DIRECTORY_SEPARATOR . 'reporte.pdf', $pdfContent);
             $pdfCount++;
 
             foreach ($familyRequests as $serviceRequest) {
@@ -1055,12 +1068,22 @@ class CutController extends Controller
                     $ticketFolder = preg_replace('/[^A-Za-z0-9_-]/', '-', $ticket);
                     $fileName = $this->sanitizeFileName($evidence->file_original_name ?: basename($storagePath));
 
+                    $evidenceDir = $familyRoot . DIRECTORY_SEPARATOR . 'evidencias' . DIRECTORY_SEPARATOR . $ticketFolder;
+                    if (!is_dir($evidenceDir)) {
+                        mkdir($evidenceDir, 0755, true);
+                    }
+
+                    $destPath = $evidenceDir . DIRECTORY_SEPARATOR . $fileName;
+                    if (file_exists($destPath)) {
+                        $ext = pathinfo($fileName, PATHINFO_EXTENSION);
+                        $base = pathinfo($fileName, PATHINFO_FILENAME);
+                        $fileName = $base . '_' . ($evidence->id ?? rand(1, 999)) . '.' . $ext;
+                        $destPath = $evidenceDir . DIRECTORY_SEPARATOR . $fileName;
+                    }
+
                     try {
                         $content = Storage::disk('public')->get($storagePath);
-                        $evidencePath = $familyRoot === ''
-                            ? "evidencias/{$ticketFolder}/{$fileName}"
-                            : "{$familyRoot}/evidencias/{$ticketFolder}/{$fileName}";
-                        $zip->addFromString($evidencePath, $content);
+                        file_put_contents($destPath, $content);
                         $evidencesAdded++;
                     } catch (\Throwable $e) {
                         Log::warning('No se pudo incluir evidencia en paquete de PDFs por familia', [
@@ -1073,7 +1096,29 @@ class CutController extends Controller
             }
         }
 
-        $zip->close();
+        // Compress with tar (produces valid ZIP on Windows)
+        $zipPath = storage_path("app/temp/{$baseFileName}.zip");
+        if (file_exists($zipPath)) {
+            unlink($zipPath);
+        }
+
+        $escapedBuildDir = str_replace('/', '\\', $buildDir);
+        $escapedZipPath = str_replace('/', '\\', $zipPath);
+        exec("tar -a -cf \"{$escapedZipPath}\" -C \"{$escapedBuildDir}\" .", $tarOutput, $tarReturnCode);
+
+        // Cleanup build directory
+        $cleanIt = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($cleanIt as $item) {
+            $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+        }
+        rmdir($buildDir);
+
+        if ($tarReturnCode !== 0 || !file_exists($zipPath)) {
+            return back()->with('error', 'No se pudo generar el archivo ZIP del reporte.');
+        }
 
         return response()->download($zipPath, $baseFileName . '.zip')->deleteFileAfterSend();
     }
