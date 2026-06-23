@@ -90,9 +90,10 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             @foreach($families as $family)
                                 @php
-                                    $familyLabel = $family->contract?->number
-                                        ? ($family->contract->number . ' - ' . $family->name)
-                                        : $family->name;
+                                    $obligationNumber = (int) ($family->sort_order ?? 0);
+                                    $familyLabel = ($obligationNumber > 0 ? $obligationNumber . '. ' : '')
+                                        . ($family->contract?->number ? ($family->contract->number . ' - ') : '')
+                                        . $family->name;
                                 @endphp
                                 <label class="flex items-start p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all group">
                                     <input
