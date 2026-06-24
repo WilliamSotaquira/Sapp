@@ -45,6 +45,10 @@
                     <i class="fa-solid fa-chart-column"></i>
                     Informe analitico
                 </a>
+                <a href="{{ route('reports.cuts.closure', $cut) }}" class="px-3 py-2 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    Cierre de corte
+                </a>
                 <a href="{{ route('reports.cuts.edit', $cut) }}" class="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50">
                     <i class="fa-solid fa-pen-to-square"></i>
                     Editar corte
