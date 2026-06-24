@@ -117,7 +117,13 @@
                 <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs font-bold mr-2.5">2</span>
                 Reporte de Obligaciones
             </h2>
-            <span class="text-xs text-gray-500">{{ $report['total_requests'] }} solicitudes · {{ count($report['obligations']) }} obligaciones</span>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-gray-500">{{ $report['total_requests'] }} solicitudes · {{ count($report['obligations']) }} obligaciones</span>
+                <button type="button" id="generateAiBtn" onclick="generateWithAI()"
+                        class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-xs font-semibold rounded-lg hover:bg-purple-700 transition">
+                    <i class="fas fa-magic mr-1.5"></i> Generar con IA
+                </button>
+            </div>
         </div>
         <div class="p-5">
             <div class="space-y-4">
@@ -139,7 +145,7 @@
                             </div>
                         </div>
                         <div class="px-4 py-3">
-                            <p class="text-sm text-gray-700 leading-relaxed">{{ $obligation['activity_text'] }}</p>
+                            <p class="text-sm text-gray-700 leading-relaxed" data-obligation-family-id="{{ $obligation['family_id'] }}">{{ $obligation['activity_text'] }}</p>
                             @if($obligation['request_count'] > 0)
                                 <details class="mt-2">
                                     <summary class="text-xs text-blue-600 cursor-pointer hover:text-blue-800">Ver solicitudes</summary>
@@ -200,4 +206,55 @@
         </div>
     </section>
 </div>
+
+<script>
+function generateWithAI() {
+    var btn = document.getElementById('generateAiBtn');
+    var originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Generando...';
+
+    fetch('{{ route("reports.cuts.closure.generate-ai", $cut) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.success && data.generated) {
+            // Update each obligation's activity text in the DOM
+            var obligations = document.querySelectorAll('[data-obligation-family-id]');
+            obligations.forEach(function(el) {
+                var familyId = el.dataset.obligationFamilyId;
+                if (data.generated[familyId]) {
+                    el.textContent = data.generated[familyId];
+                    el.classList.add('bg-purple-50', 'p-2', 'rounded');
+                }
+            });
+            btn.innerHTML = '<i class="fas fa-check mr-1.5"></i> Generado';
+            btn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+            btn.classList.add('bg-green-600');
+            setTimeout(function() {
+                btn.innerHTML = '<i class="fas fa-magic mr-1.5"></i> Regenerar con IA';
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            alert('No se pudo generar. Verifica que el servicio de IA esté configurado.');
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    })
+    .catch(function(err) {
+        console.error(err);
+        alert('Error de conexión. Intenta de nuevo.');
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    });
+}
+</script>
 @endsection
