@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Reports\ReportController as ReportsController;
 use App\Http\Controllers\Reports\CutAnalyticsReportController;
+use App\Http\Controllers\Reports\CutClosureController;
 use App\Http\Controllers\Reports\CutController;
 use App\Http\Controllers\Reports\UnifiedTimelineController;
 use App\Http\Controllers\Reports\ServicesSlaController;
@@ -103,6 +104,13 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
         Route::get('/{cut}/export', [CutController::class, 'export'])->name('export');
         Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');
+
+        // Cut closure workflow
+        Route::get('/{cut}/closure', [CutClosureController::class, 'show'])->name('closure');
+        Route::post('/{cut}/closure/fix-orphans', [CutClosureController::class, 'fixOrphans'])->name('closure.fix-orphans');
+        Route::post('/{cut}/closure/package', [CutClosureController::class, 'packageEvidences'])->name('closure.package');
+        Route::get('/{cut}/closure/export-table', [CutClosureController::class, 'exportTable'])->name('closure.export-table');
+
         Route::get('/{cut}/analytics', [CutAnalyticsReportController::class, 'show'])->name('analytics');
         Route::get('/{cut}/analytics/export/csv', [CutAnalyticsReportController::class, 'exportCsv'])->name('analytics.export.csv');
         Route::get('/{cut}/analytics/export/pdf', [CutAnalyticsReportController::class, 'exportPdf'])->name('analytics.export.pdf');
