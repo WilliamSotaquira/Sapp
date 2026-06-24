@@ -17,6 +17,7 @@ class CutClosureController extends Controller
 {
     public function __construct(
         private readonly ObligationReportService $reportService,
+        private readonly \App\Services\LlmObligationGenerator $llmGenerator,
     ) {}
 
     /**
@@ -183,6 +184,24 @@ class CutClosureController extends Controller
         $report = $this->reportService->generateReport($cut, $contractId);
 
         return view('reports.cuts.closure-export', compact('cut', 'report'));
+    }
+
+    /**
+     * Generate AI-powered activity texts for all obligations.
+     * Returns JSON with generated texts keyed by family_id.
+     */
+    public function generateWithAI(Cut $cut)
+    {
+        $contractId = (int) $cut->contract_id;
+        $report = $this->reportService->generateReport($cut, $contractId);
+
+        $period = $cut->start_date->format('d/m/Y') . ' - ' . $cut->end_date->format('d/m/Y');
+        $results = $this->llmGenerator->generateBatch($report['obligations'], $period);
+
+        return response()->json([
+            'success' => true,
+            'generated' => $results,
+        ]);
     }
 
     private function cleanDirectory(string $dir): void

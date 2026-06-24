@@ -110,6 +110,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::post('/{cut}/closure/fix-orphans', [CutClosureController::class, 'fixOrphans'])->name('closure.fix-orphans');
         Route::post('/{cut}/closure/package', [CutClosureController::class, 'packageEvidences'])->name('closure.package');
         Route::get('/{cut}/closure/export-table', [CutClosureController::class, 'exportTable'])->name('closure.export-table');
+        Route::post('/{cut}/closure/generate-ai', [CutClosureController::class, 'generateWithAI'])->name('closure.generate-ai');
 
         Route::get('/{cut}/analytics', [CutAnalyticsReportController::class, 'show'])->name('analytics');
         Route::get('/{cut}/analytics/export/csv', [CutAnalyticsReportController::class, 'exportCsv'])->name('analytics.export.csv');
