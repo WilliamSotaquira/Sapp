@@ -17,9 +17,9 @@
             $pendingRequirement = ['label' => 'Completar tarea', 'icon' => 'fa-tasks', 'scroll' => 'sr-section-tasks'];
         }
     } elseif ($status === 'PENDIENTE' && empty($serviceRequest->assigned_to)) {
-        $pendingRequirement = ['label' => 'Asignar técnico', 'icon' => 'fa-user-plus', 'scroll' => 'sr-section-service-info'];
+        $pendingRequirement = ['label' => 'Asignar técnico', 'icon' => 'fa-user-plus', 'modal' => 'assign-technician-modal-'.$serviceRequest->id];
     } elseif ($status === 'ACEPTADA' && empty($serviceRequest->assigned_to)) {
-        $pendingRequirement = ['label' => 'Asignar técnico', 'icon' => 'fa-user-plus', 'scroll' => 'sr-section-service-info'];
+        $pendingRequirement = ['label' => 'Asignar técnico', 'icon' => 'fa-user-plus', 'modal' => 'assign-technician-modal-'.$serviceRequest->id];
     }
 
     $allRequirementsMet = is_null($pendingRequirement);
@@ -69,12 +69,21 @@
 
             @if ($pendingRequirement)
                 {{-- Requirement not met: guide user to fulfill it --}}
-                <button type="button" class="sr-ctx__item sr-ctx__item--primary" role="menuitem"
-                        data-ctx-scroll="{{ $pendingRequirement['scroll'] }}" data-ctx-default>
-                    <i class="fas {{ $pendingRequirement['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
-                    {{ $pendingRequirement['label'] }}
-                    <kbd class="sr-ctx__kbd">Tab</kbd>
-                </button>
+                @if (isset($pendingRequirement['modal']))
+                    <button type="button" class="sr-ctx__item sr-ctx__item--primary" role="menuitem"
+                            data-ctx-modal="{{ $pendingRequirement['modal'] }}" data-ctx-default>
+                        <i class="fas {{ $pendingRequirement['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
+                        {{ $pendingRequirement['label'] }}
+                        <kbd class="sr-ctx__kbd">Tab</kbd>
+                    </button>
+                @else
+                    <button type="button" class="sr-ctx__item sr-ctx__item--primary" role="menuitem"
+                            data-ctx-scroll="{{ $pendingRequirement['scroll'] }}" data-ctx-default>
+                        <i class="fas {{ $pendingRequirement['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
+                        {{ $pendingRequirement['label'] }}
+                        <kbd class="sr-ctx__kbd">Tab</kbd>
+                    </button>
+                @endif
             @elseif (count($workflowActions) > 0)
                 {{-- All requirements met: show workflow transition --}}
                 @php $primary = $workflowActions[0]; @endphp
