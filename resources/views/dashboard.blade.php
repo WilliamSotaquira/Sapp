@@ -1034,4 +1034,23 @@ document.addEventListener('DOMContentLoaded', function() {
 .dense-rows tbody tr td { padding-top:0.35rem; padding-bottom:0.35rem; }
 .request-row:focus { background-color:#f0f9ff; box-shadow:inset 0 0 0 2px #3b82f6; }
 </style>
+
+{{-- Context Menu --}}
+<x-context-menu :items="[
+    ['label' => 'Nueva solicitud', 'icon' => 'fa-plus-circle', 'iconColor' => 'text-green-500', 'href' => route('service-requests.create'), 'bold' => true, 'kbd' => 'Tab'],
+    ['divider' => true],
+    ['label' => 'Ver solicitudes', 'icon' => 'fa-list', 'iconColor' => 'text-blue-500', 'href' => route('service-requests.index')],
+    ['label' => 'Cortes', 'icon' => 'fa-cut', 'iconColor' => 'text-purple-500', 'href' => route('reports.cuts.index')],
+    ['label' => 'Reportes', 'icon' => 'fa-chart-bar', 'iconColor' => 'text-indigo-500', 'href' => route('reports.index')],
+    ['divider' => true],
+    ['label' => 'Recargar', 'icon' => 'fa-sync-alt', 'iconColor' => 'text-gray-400', 'action' => 'reload'],
+]" />
+
+<script>
+document.addEventListener('context-menu-action', function(e) {
+    if (e.detail && e.detail.action === 'reload') {
+        window.location.reload();
+    }
+});
+</script>
 @endsection
