@@ -22,31 +22,45 @@
 @props(['items' => [], 'id' => 'globalContextMenu'])
 
 <div id="{{ $id }}"
-     class="fixed hidden z-[100] min-w-[220px] bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 text-sm select-none"
+     class="fixed hidden z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1 select-none"
      role="menu"
-     aria-label="Menú contextual">
+     aria-label="Menú contextual"
+     style="animation: ctx-scale-in 0.12s ease-out;">
 
     @foreach($items as $item)
         @if(!empty($item['divider']))
-            <div class="border-t border-gray-100 my-1"></div>
+            <div class="border-t border-gray-100 my-1 mx-1"></div>
         @elseif(!empty($item['href']))
             <a href="{{ $item['href'] }}"
-               class="context-menu-item flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+               class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors no-underline {{ !empty($item['bold']) ? 'font-semibold' : '' }}"
                role="menuitem">
-                <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center"></i>
-                <span class="{{ !empty($item['bold']) ? 'font-medium' : '' }}">{{ $item['label'] }}</span>
+                <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center text-xs"></i>
+                <span>{{ $item['label'] }}</span>
+                @if(!empty($item['kbd']))
+                    <kbd class="ml-auto px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{{ $item['kbd'] }}</kbd>
+                @endif
             </a>
         @elseif(!empty($item['action']))
             <button type="button"
                     data-ctx-action="{{ $item['action'] }}"
-                    class="context-menu-item w-full flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors text-left"
+                    class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors text-left border-none bg-transparent cursor-pointer {{ !empty($item['bold']) ? 'font-semibold' : '' }}"
                     role="menuitem">
-                <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center"></i>
-                <span class="{{ !empty($item['bold']) ? 'font-medium' : '' }}">{{ $item['label'] }}</span>
+                <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center text-xs"></i>
+                <span>{{ $item['label'] }}</span>
+                @if(!empty($item['kbd']))
+                    <kbd class="ml-auto px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{{ $item['kbd'] }}</kbd>
+                @endif
             </button>
         @endif
     @endforeach
 </div>
+
+<style>
+@keyframes ctx-scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+</style>
 
 <script>
 (function() {

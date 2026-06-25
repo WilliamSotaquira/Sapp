@@ -1789,7 +1789,7 @@
     </script>
 
     {{-- Context Menu --}}
-    <div id="sr-create-ctx" class="hidden fixed z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1" role="menu">
+    <div id="sr-create-ctx" class="hidden fixed z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1" role="menu" style="animation: ctx-scale-in 0.12s ease-out;">
         <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones</div>
         <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="submit">
             <i class="fas fa-paper-plane"></i>
@@ -1826,6 +1826,10 @@
     </div>
 
     <style>
+        @keyframes ctx-scale-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
         .sr-create-ctx__item {
             display: flex;
             align-items: center;
@@ -1835,7 +1839,7 @@
             border-radius: 6px;
             border: none;
             background: none;
-            font-size: 0.8rem;
+            font-size: 13px;
             font-weight: 500;
             color: #334155;
             text-decoration: none;
@@ -1846,12 +1850,13 @@
         .sr-create-ctx__item:hover,
         .sr-create-ctx__item:focus {
             background: #f1f5f9;
+            color: #0f172a;
             outline: none;
         }
         .sr-create-ctx__item i {
             width: 14px;
             text-align: center;
-            font-size: 0.7rem;
+            font-size: 11px;
             color: #64748b;
         }
         .sr-create-ctx__item:hover i { color: #3b82f6; }
