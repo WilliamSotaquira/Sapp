@@ -168,13 +168,13 @@
     max-width: 260px;
     background: white;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border-radius: 12px;
     box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
     padding: 4px;
-    animation: sr-ctx-in 0.12s ease-out;
+    animation: ctx-scale-in 0.12s ease-out;
 }
 
-@keyframes sr-ctx-in {
+@keyframes ctx-scale-in {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
@@ -207,7 +207,7 @@
     border-radius: 6px;
     border: none;
     background: none;
-    font-size: 0.8rem;
+    font-size: 13px;
     font-weight: 500;
     color: #334155;
     text-decoration: none;
@@ -230,7 +230,7 @@
 .sr-ctx__icon {
     width: 14px;
     text-align: center;
-    font-size: 0.7rem;
+    font-size: 11px;
     color: #64748b;
     flex-shrink: 0;
 }
@@ -263,7 +263,7 @@
     border-radius: 4px;
     background: #e2e8f0;
     color: #64748b;
-    font-size: 0.6rem;
+    font-size: 10px;
     font-weight: 600;
     font-family: inherit;
 }
