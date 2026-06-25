@@ -111,29 +111,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectEl = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
 
     // When modal opens, pre-select current user and focus the primary action
+    var currentUserId = '{{ auth()->id() }}';
+
+    function preSelectAndFocus() {
+        if (!selectEl || !currentUserId) return;
+        // Pre-select current user
+        for (var i = 0; i < selectEl.options.length; i++) {
+            if (selectEl.options[i].value === currentUserId) {
+                selectEl.selectedIndex = i;
+                break;
+            }
+        }
+        // Focus "Aceptar e Iniciar" button
+        var acceptBtn = form.querySelector('[data-submit-mode="accept-start"]');
+        if (acceptBtn) acceptBtn.focus();
+    }
+
+    // Pre-select immediately on DOM ready (for the PHP selected fallback)
+    preSelectAndFocus();
+
+    // Also detect when modal becomes visible (openModal removes 'hidden' class)
     if (modal) {
-        var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(m) {
-                if (m.attributeName === 'aria-hidden' && modal.getAttribute('aria-hidden') === 'false') {
-                    setTimeout(function() {
-                        // Force pre-select current user via JS
-                        var currentUserId = '{{ auth()->id() }}';
-                        if (selectEl && currentUserId) {
-                            for (var i = 0; i < selectEl.options.length; i++) {
-                                if (selectEl.options[i].value === currentUserId) {
-                                    selectEl.selectedIndex = i;
-                                    break;
-                                }
-                            }
-                        }
-                        // Focus "Aceptar e Iniciar" button
-                        var acceptBtn = form.querySelector('[data-submit-mode="accept-start"]');
-                        if (acceptBtn) acceptBtn.focus();
-                    }, 100);
-                }
-            });
-        });
-        observer.observe(modal, { attributes: true });
+        var checkInterval = null;
+        var lastHidden = modal.classList.contains('hidden');
+
+        checkInterval = setInterval(function() {
+            var nowHidden = modal.classList.contains('hidden');
+            if (lastHidden && !nowHidden) {
+                // Modal just became visible
+                setTimeout(preSelectAndFocus, 50);
+            }
+            lastHidden = nowHidden;
+        }, 100);
     }
 
     // Keyboard shortcuts inside modal:
