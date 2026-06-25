@@ -113,6 +113,9 @@
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             items[(idx - 1 + items.length) % items.length].focus();
+        } else if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (document.activeElement) document.activeElement.click();
         }
     });
 })();

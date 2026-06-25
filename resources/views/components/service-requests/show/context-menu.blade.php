@@ -73,7 +73,7 @@
                         data-ctx-scroll="{{ $pendingRequirement['scroll'] }}" data-ctx-default>
                     <i class="fas {{ $pendingRequirement['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
                     {{ $pendingRequirement['label'] }}
-                    <kbd class="sr-ctx__kbd">Enter</kbd>
+                    <kbd class="sr-ctx__kbd">Tab</kbd>
                 </button>
             @elseif (count($workflowActions) > 0)
                 {{-- All requirements met: show workflow transition --}}
@@ -83,13 +83,13 @@
                             data-ctx-modal="{{ $primary['modal'] }}" data-ctx-default>
                         <i class="fas {{ $primary['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
                         {{ $primary['label'] }}
-                        <kbd class="sr-ctx__kbd">Enter</kbd>
+                        <kbd class="sr-ctx__kbd">Tab</kbd>
                     </button>
                 @elseif (isset($primary['url']))
                     <a href="{{ $primary['url'] }}" class="sr-ctx__item sr-ctx__item--primary" role="menuitem" data-ctx-default>
                         <i class="fas {{ $primary['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
                         {{ $primary['label'] }}
-                        <kbd class="sr-ctx__kbd">Enter</kbd>
+                        <kbd class="sr-ctx__kbd">Tab</kbd>
                     </a>
                 @endif
             @endif
@@ -321,10 +321,8 @@
 
     // Right-click anywhere on the page
     document.addEventListener('contextmenu', function(e) {
-        // Don't override on inputs, textareas, links, or buttons
-        var tag = e.target.tagName;
-        if (['INPUT', 'TEXTAREA', 'SELECT'].indexOf(tag) !== -1) return;
-        if (e.target.closest('a[href], button, [contenteditable]')) return;
+        // Don't override on text inputs (allow native paste menu)
+        if (e.target.closest('input[type="text"], input[type="url"], input[type="email"], textarea, select')) return;
         // Don't override inside modals
         if (e.target.closest('[role="dialog"]')) return;
 
@@ -333,7 +331,7 @@
     });
 
     // Close on click outside
-    document.addEventListener('click', function(e) {
+    document.addEventListener('mousedown', function(e) {
         if (isOpen && !menu.contains(e.target)) {
             hide();
         }
@@ -429,7 +427,7 @@
             e.preventDefault();
             var prev = items[(idx - 1 + items.length) % items.length];
             if (prev) prev.focus();
-        } else if (e.key === 'Enter' || e.key === ' ') {
+        } else if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (current) current.click();
         }
