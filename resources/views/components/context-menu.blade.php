@@ -52,18 +52,11 @@
 (function() {
     var ctxMenu = document.getElementById('{{ $id }}');
     if (!ctxMenu) return;
+    var isOpen = false;
 
-    document.addEventListener('contextmenu', function(e) {
-        var tag = (e.target.tagName || '').toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
-            return;
-        }
-
-        e.preventDefault();
-
-        var x = e.clientX;
-        var y = e.clientY;
+    function show(x, y) {
         ctxMenu.classList.remove('hidden');
+        isOpen = true;
         var rect = ctxMenu.getBoundingClientRect();
 
         if (x + rect.width > window.innerWidth) {
@@ -75,31 +68,58 @@
 
         ctxMenu.style.left = x + 'px';
         ctxMenu.style.top = y + 'px';
+
+        // Focus first item
+        setTimeout(function() {
+            var first = ctxMenu.querySelector('.context-menu-item');
+            if (first) first.focus();
+        }, 50);
+    }
+
+    function hide() {
+        ctxMenu.classList.add('hidden');
+        isOpen = false;
+    }
+
+    document.addEventListener('contextmenu', function(e) {
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+        if (e.target.closest('[role="dialog"]')) return;
+
+        e.preventDefault();
+        show(e.clientX, e.clientY);
     });
 
-    document.addEventListener('click', function(e) {
-        if (!ctxMenu.contains(e.target)) {
-            ctxMenu.classList.add('hidden');
-        }
+    document.addEventListener('mousedown', function(e) {
+        if (isOpen && !ctxMenu.contains(e.target)) hide();
     });
 
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            ctxMenu.classList.add('hidden');
+        if (!isOpen) return;
+        if (e.key === 'Escape') { hide(); return; }
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var focused = document.activeElement;
+            if (focused && focused.closest('#{{ $id }}')) {
+                focused.click();
+            } else {
+                var first = ctxMenu.querySelector('.context-menu-item');
+                if (first) first.click();
+            }
         }
     });
 
-    document.addEventListener('scroll', function() {
-        ctxMenu.classList.add('hidden');
-    }, true);
+    document.addEventListener('scroll', function() { if (isOpen) hide(); }, true);
 
     ctxMenu.addEventListener('click', function(e) {
+        var link = e.target.closest('a[href]');
+        if (link) { hide(); return; }
+
         var btn = e.target.closest('[data-ctx-action]');
         if (!btn) return;
 
         var action = btn.dataset.ctxAction;
-        ctxMenu.classList.add('hidden');
-
+        hide();
         document.dispatchEvent(new CustomEvent('context-menu-action', { detail: { action: action } }));
     });
 
@@ -113,7 +133,7 @@
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             items[(idx - 1 + items.length) % items.length].focus();
-        } else if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') {
+        } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             if (document.activeElement) document.activeElement.click();
         }
