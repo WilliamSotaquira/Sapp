@@ -1787,4 +1787,160 @@
 
     });
     </script>
+
+    {{-- Context Menu --}}
+    <div id="sr-create-ctx" class="hidden fixed z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1" role="menu" style="animation: scale-in 0.12s ease-out;">
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones</div>
+        <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="submit">
+            <i class="fas fa-paper-plane"></i>
+            <span>Crear solicitud</span>
+            <kbd class="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">Enter</kbd>
+        </button>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="interpret">
+            <i class="fas fa-magic"></i>
+            <span>Interpretar texto con IA</span>
+        </button>
+        <div class="my-1 border-t border-gray-100"></div>
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Ir a</div>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="focus-title">
+            <i class="fas fa-heading"></i>
+            <span>Título</span>
+        </button>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="focus-description">
+            <i class="fas fa-align-left"></i>
+            <span>Descripción</span>
+        </button>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="focus-service">
+            <i class="fas fa-concierge-bell"></i>
+            <span>Servicio</span>
+        </button>
+        <div class="my-1 border-t border-gray-100"></div>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="clear">
+            <i class="fas fa-eraser"></i>
+            <span>Limpiar formulario</span>
+        </button>
+        <a href="{{ route('service-requests.index') }}" class="sr-create-ctx__item" role="menuitem">
+            <i class="fas fa-list"></i>
+            <span>Ver solicitudes</span>
+        </a>
+    </div>
+
+    <style>
+        .sr-create-ctx__item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: none;
+            background: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #334155;
+            text-decoration: none;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.1s ease;
+        }
+        .sr-create-ctx__item:hover,
+        .sr-create-ctx__item:focus {
+            background: #f1f5f9;
+            outline: none;
+        }
+        .sr-create-ctx__item i {
+            width: 14px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .sr-create-ctx__item:hover i { color: #3b82f6; }
+        .sr-create-ctx__item--primary {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            font-weight: 600;
+            color: #166534;
+        }
+        .sr-create-ctx__item--primary:hover { background: #dcfce7; border-color: #86efac; }
+        .sr-create-ctx__item--primary i { color: #16a34a; }
+    </style>
+
+    <script>
+    (function() {
+        var menu = document.getElementById('sr-create-ctx');
+        if (!menu) return;
+
+        var isOpen = false;
+
+        function show(x, y) {
+            menu.classList.remove('hidden');
+            isOpen = true;
+            var vw = window.innerWidth, vh = window.innerHeight;
+            menu.style.left = '0px'; menu.style.top = '0px';
+            var mw = menu.offsetWidth, mh = menu.offsetHeight;
+            var px = x + mw > vw ? x - mw : x;
+            var py = y + mh > vh ? y - mh : y;
+            menu.style.left = Math.max(4, px) + 'px';
+            menu.style.top = Math.max(4, py) + 'px';
+
+            setTimeout(function() {
+                var primary = menu.querySelector('.sr-create-ctx__item--primary');
+                if (primary) primary.focus();
+            }, 50);
+        }
+
+        function hide() { menu.classList.add('hidden'); isOpen = false; }
+
+        document.addEventListener('contextmenu', function(e) {
+            var tag = e.target.tagName;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].indexOf(tag) !== -1) return;
+            if (e.target.closest('a[href], button, [contenteditable]')) return;
+            e.preventDefault();
+            show(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('click', function(e) { if (isOpen && !menu.contains(e.target)) hide(); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) hide(); });
+        window.addEventListener('scroll', function() { if (isOpen) hide(); }, { passive: true });
+
+        menu.addEventListener('click', function(e) {
+            var item = e.target.closest('.sr-create-ctx__item');
+            if (!item) return;
+            var action = item.dataset.ctxAction;
+            hide();
+
+            if (action === 'submit') {
+                var form = document.querySelector('form[action*="service-requests"]');
+                if (form && form.querySelector('[type="submit"]')) {
+                    form.querySelector('[type="submit"]').click();
+                }
+            } else if (action === 'interpret') {
+                var aiBtn = document.getElementById('openPlainTextImportModalStep2') || document.querySelector('[x-ref="interpretBtn"]');
+                if (aiBtn) aiBtn.click();
+            } else if (action === 'focus-title') {
+                var el = document.querySelector('[name="title"]');
+                if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+            } else if (action === 'focus-description') {
+                var el = document.querySelector('[name="description"]');
+                if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+            } else if (action === 'focus-service') {
+                var el = document.querySelector('[name="sub_service_id"]');
+                if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+            } else if (action === 'clear') {
+                if (confirm('¿Limpiar todos los campos del formulario?')) {
+                    var form = document.querySelector('form[action*="service-requests/store"]') || document.querySelector('form[action*="service-requests"]');
+                    if (form) form.reset();
+                }
+            }
+        });
+
+        menu.addEventListener('keydown', function(e) {
+            var items = Array.from(menu.querySelectorAll('.sr-create-ctx__item'));
+            var idx = items.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); }
+            else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.activeElement?.click(); }
+        });
+    })();
+    </script>
 @endsection
