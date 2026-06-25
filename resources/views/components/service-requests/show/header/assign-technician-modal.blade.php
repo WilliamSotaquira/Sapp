@@ -61,6 +61,12 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                             required>
                         <option value="">Selecciona un técnico...</option>
+                        @php
+                            $currentUserInList = $technicians->contains('id', auth()->id());
+                        @endphp
+                        @if(!$currentUserInList && auth()->user())
+                            <option value="{{ auth()->id() }}" selected>{{ auth()->user()->name }} (yo)</option>
+                        @endif
                         @foreach($technicians as $technician)
                             <option value="{{ $technician->id }}" {{ (int) $technician->id === (int) auth()->id() ? 'selected' : '' }}>
                                 {{ $technician->name }}
@@ -117,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!selectEl || !currentUserId) return;
         // Pre-select current user
         for (var i = 0; i < selectEl.options.length; i++) {
-            if (selectEl.options[i].value === currentUserId) {
+            if (selectEl.options[i].value === currentUserId || selectEl.options[i].value === String(currentUserId)) {
                 selectEl.selectedIndex = i;
                 break;
             }
