@@ -110,19 +110,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}');
     const selectEl = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
 
-    // When modal opens, focus the "Aceptar e Iniciar" button if a technician is pre-selected
+    // When modal opens, pre-select current user and focus the primary action
     if (modal) {
         var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(m) {
                 if (m.attributeName === 'aria-hidden' && modal.getAttribute('aria-hidden') === 'false') {
                     setTimeout(function() {
-                        // If technician is already selected, focus the primary action
-                        if (selectEl && selectEl.value) {
-                            var acceptBtn = form.querySelector('[data-submit-mode="accept-start"]');
-                            if (acceptBtn) acceptBtn.focus();
-                        } else {
-                            if (selectEl) selectEl.focus();
+                        // Force pre-select current user via JS
+                        var currentUserId = '{{ auth()->id() }}';
+                        if (selectEl && currentUserId) {
+                            for (var i = 0; i < selectEl.options.length; i++) {
+                                if (selectEl.options[i].value === currentUserId) {
+                                    selectEl.selectedIndex = i;
+                                    break;
+                                }
+                            }
                         }
+                        // Focus "Aceptar e Iniciar" button
+                        var acceptBtn = form.querySelector('[data-submit-mode="accept-start"]');
+                        if (acceptBtn) acceptBtn.focus();
                     }, 100);
                 }
             });
@@ -130,14 +136,36 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(modal, { attributes: true });
     }
 
-    // Keyboard shortcut: when modal is visible, press 1 for "Asignar", 2 for "Aceptar e Iniciar"
+    // Keyboard shortcuts inside modal:
+    // Tab = execute focused button (or "Aceptar e Iniciar" by default)
+    // 1 = Asignar y Continuar
+    // 2 = Aceptar e Iniciar
+    // Escape = close
     if (modal) {
         modal.addEventListener('keydown', function(e) {
-            if (e.key === '1' && !e.target.closest('select')) {
+            if (e.target.closest('select')) {
+                // Let select handle its own keys, except Tab/1/2
+                if (e.key !== 'Tab' && e.key !== '1' && e.key !== '2') return;
+            }
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                // Tab = click the focused button, or default to "Aceptar e Iniciar"
+                var focused = document.activeElement;
+                if (focused && focused.dataset && focused.dataset.submitMode) {
+                    focused.click();
+                } else {
+                    var startBtn = form.querySelector('[data-submit-mode="accept-start"]');
+                    if (startBtn) startBtn.click();
+                }
+                return;
+            }
+
+            if (e.key === '1') {
                 e.preventDefault();
                 var assignBtn = form.querySelector('[data-submit-mode="assign"]');
                 if (assignBtn) assignBtn.click();
-            } else if (e.key === '2' && !e.target.closest('select')) {
+            } else if (e.key === '2') {
                 e.preventDefault();
                 var startBtn = form.querySelector('[data-submit-mode="accept-start"]');
                 if (startBtn) startBtn.click();
