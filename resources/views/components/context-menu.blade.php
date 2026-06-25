@@ -32,23 +32,27 @@
             <div class="border-t border-gray-100 my-1 mx-1"></div>
         @elseif(!empty($item['href']))
             <a href="{{ $item['href'] }}"
-               class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors no-underline {{ !empty($item['bold']) ? 'font-semibold' : '' }}"
-               role="menuitem">
+               class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors no-underline
+                   {{ !empty($item['bold']) ? 'font-semibold ctx-item--primary' : 'font-medium' }}"
+               role="menuitem"
+               {{ !empty($item['bold']) ? 'data-ctx-primary' : '' }}>
                 <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center text-xs"></i>
                 <span>{{ $item['label'] }}</span>
                 @if(!empty($item['kbd']))
-                    <kbd class="ml-auto px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{{ $item['kbd'] }}</kbd>
+                    <kbd class="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold {{ !empty($item['bold']) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">{{ $item['kbd'] }}</kbd>
                 @endif
             </a>
         @elseif(!empty($item['action']))
             <button type="button"
                     data-ctx-action="{{ $item['action'] }}"
-                    class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors text-left border-none bg-transparent cursor-pointer {{ !empty($item['bold']) ? 'font-semibold' : '' }}"
-                    role="menuitem">
+                    class="context-menu-item flex items-center gap-2 w-full px-3 py-2 rounded-md text-[13px] text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors text-left border-none bg-transparent cursor-pointer
+                        {{ !empty($item['bold']) ? 'font-semibold ctx-item--primary' : 'font-medium' }}"
+                    role="menuitem"
+                    {{ !empty($item['bold']) ? 'data-ctx-primary' : '' }}>
                 <i class="fas {{ $item['icon'] ?? 'fa-circle' }} {{ $item['iconColor'] ?? 'text-gray-400' }} w-4 text-center text-xs"></i>
                 <span>{{ $item['label'] }}</span>
                 @if(!empty($item['kbd']))
-                    <kbd class="ml-auto px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{{ $item['kbd'] }}</kbd>
+                    <kbd class="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold {{ !empty($item['bold']) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">{{ $item['kbd'] }}</kbd>
                 @endif
             </button>
         @endif
@@ -60,6 +64,18 @@
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+.ctx-item--primary {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+.ctx-item--primary:hover,
+.ctx-item--primary:focus {
+    background: #dcfce7 !important;
+    border-color: #86efac;
+    color: #166534 !important;
+}
+.ctx-item--primary i { color: #16a34a !important; }
 </style>
 
 <script>
@@ -83,10 +99,11 @@
         ctxMenu.style.left = x + 'px';
         ctxMenu.style.top = y + 'px';
 
-        // Focus first item
+        // Focus primary item (or first)
         setTimeout(function() {
-            var first = ctxMenu.querySelector('.context-menu-item');
-            if (first) first.focus();
+            var primary = ctxMenu.querySelector('[data-ctx-primary]');
+            var target = primary || ctxMenu.querySelector('.context-menu-item');
+            if (target) target.focus();
         }, 50);
     }
 

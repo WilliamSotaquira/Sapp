@@ -100,7 +100,7 @@
 
     <!-- Menú Contextual Global -->
     <x-context-menu :items="[
-        ['label' => 'Nueva solicitud', 'icon' => 'fa-plus-circle', 'iconColor' => 'text-blue-500', 'href' => route('service-requests.create'), 'bold' => true],
+        ['label' => 'Nueva solicitud', 'icon' => 'fa-plus-circle', 'iconColor' => 'text-blue-500', 'href' => route('service-requests.create'), 'bold' => true, 'kbd' => 'Tab'],
         ['divider' => true],
         ['label' => 'Actualizar listado', 'icon' => 'fa-sync-alt', 'action' => 'reload'],
         ['label' => 'Limpiar filtros', 'icon' => 'fa-eraser', 'action' => 'clear-filters'],
