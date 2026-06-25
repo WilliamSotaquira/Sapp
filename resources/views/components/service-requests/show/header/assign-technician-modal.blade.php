@@ -62,11 +62,14 @@
                             required>
                         <option value="">Selecciona un técnico...</option>
                         @foreach($technicians as $technician)
-                            <option value="{{ $technician->id }}">
+                            <option value="{{ $technician->id }}" {{ (int) $technician->id === (int) auth()->id() ? 'selected' : '' }}>
                                 {{ $technician->name }}
                             </option>
                         @endforeach
                     </select>
+                    @if(auth()->user())
+                        <p class="mt-1.5 text-xs text-green-600"><i class="fas fa-user-check mr-1"></i>Preseleccionado: {{ auth()->user()->name }}</p>
+                    @endif
                 </div>
             </div>
 
@@ -84,6 +87,7 @@
                         class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
                     <i class="fas fa-save mr-2"></i>
                     Asignar y Continuar
+                    <kbd class="ml-1.5 px-1 py-0.5 bg-blue-700 rounded text-[10px] font-bold opacity-70">1</kbd>
                 </button>
                 <button type="submit"
                         data-submit-mode="accept-start"
@@ -92,6 +96,7 @@
                         class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200">
                     <i class="fas fa-play mr-2"></i>
                     Aceptar e Iniciar
+                    <kbd class="ml-1.5 px-1 py-0.5 bg-emerald-700 rounded text-[10px] font-bold opacity-70">2</kbd>
                 </button>
             </div>
         </form>
@@ -102,6 +107,43 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('assign-form-{{ $serviceRequest->id }}');
+    const modal = document.getElementById('assign-technician-modal-{{ $serviceRequest->id }}');
+    const selectEl = document.getElementById('assigned_to_{{ $serviceRequest->id }}');
+
+    // When modal opens, focus the "Aceptar e Iniciar" button if a technician is pre-selected
+    if (modal) {
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(m) {
+                if (m.attributeName === 'aria-hidden' && modal.getAttribute('aria-hidden') === 'false') {
+                    setTimeout(function() {
+                        // If technician is already selected, focus the primary action
+                        if (selectEl && selectEl.value) {
+                            var acceptBtn = form.querySelector('[data-submit-mode="accept-start"]');
+                            if (acceptBtn) acceptBtn.focus();
+                        } else {
+                            if (selectEl) selectEl.focus();
+                        }
+                    }, 100);
+                }
+            });
+        });
+        observer.observe(modal, { attributes: true });
+    }
+
+    // Keyboard shortcut: when modal is visible, press 1 for "Asignar", 2 for "Aceptar e Iniciar"
+    if (modal) {
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === '1' && !e.target.closest('select')) {
+                e.preventDefault();
+                var assignBtn = form.querySelector('[data-submit-mode="assign"]');
+                if (assignBtn) assignBtn.click();
+            } else if (e.key === '2' && !e.target.closest('select')) {
+                e.preventDefault();
+                var startBtn = form.querySelector('[data-submit-mode="accept-start"]');
+                if (startBtn) startBtn.click();
+            }
+        });
+    }
 
     if (form) {
         form.addEventListener('submit', function(e) {
