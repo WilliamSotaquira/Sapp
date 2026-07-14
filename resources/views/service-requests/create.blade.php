@@ -10,6 +10,12 @@
     }
     .animate-scale-in { animation: scale-in 0.2s ease-out; }
 
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in { animation: fade-in 0.25s ease-out; }
+
     @keyframes fade-slide-in {
         from { opacity: 0; transform: translateY(6px); }
         to { opacity: 1; transform: translateY(0); }
@@ -377,6 +383,37 @@
                         </button>
                     </div>
                     <p id="createFormInlineError" class="hidden mt-2 text-sm text-red-600 font-medium"></p>
+
+                    {{-- Panel de confirmación inline --}}
+                    <div id="confirmationPanel" class="hidden mt-4 border border-blue-200 bg-blue-50 rounded-xl p-4 shadow-sm animate-fade-in">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-sm font-semibold text-blue-800 mb-2">Confirmar creación de solicitud</h4>
+                                <div id="confirmationSummary" class="text-sm text-blue-700 space-y-1 mb-3">
+                                    {{-- Se llena dinámicamente --}}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="btnConfirmCreate"
+                                        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
+                                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        Confirmar
+                                        <kbd class="ml-2 px-1.5 py-0.5 bg-blue-500 text-blue-100 rounded text-[10px] font-bold">Enter</kbd>
+                                    </button>
+                                    <button type="button" id="btnCancelCreate"
+                                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -1770,12 +1807,80 @@
                 }
 
                 e.preventDefault();
-                const confirmed = window.confirm(buildSummaryText());
-                if (!confirmed) return;
 
-                createConfirmed = true;
-                clearDraft();
-                formEl.submit();
+                // Mostrar panel de confirmación inline
+                const panel = document.getElementById('confirmationPanel');
+                const summaryEl = document.getElementById('confirmationSummary');
+                const btnConfirm = document.getElementById('btnConfirmCreate');
+                const btnCancel = document.getElementById('btnCancelCreate');
+
+                if (!panel || !summaryEl || !btnConfirm || !btnCancel) {
+                    // Fallback si no existe el panel
+                    createConfirmed = true;
+                    clearDraft();
+                    formEl.submit();
+                    return;
+                }
+
+                // Construir resumen visual
+                const title = document.getElementById('title')?.value?.trim() || '(sin título)';
+                const requester = document.getElementById('requester_id');
+                const subService = document.getElementById('sub_service_id');
+                const channel = document.getElementById('entry_channel');
+                const tasksCount = document.querySelectorAll('#tasksList [data-task-row]').length;
+
+                const requesterText = requester?.selectedOptions?.[0]?.textContent?.trim() || 'Sin solicitante';
+                const subServiceText = subService?.selectedOptions?.[0]?.textContent?.trim() || 'Sin subservicio';
+                const channelText = channel?.selectedOptions?.[0]?.textContent?.trim() || 'Sin canal';
+
+                summaryEl.innerHTML = `
+                    <div class="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
+                        <span class="text-blue-500 font-medium">Título:</span><span class="truncate">${title}</span>
+                        <span class="text-blue-500 font-medium">Solicitante:</span><span class="truncate">${requesterText}</span>
+                        <span class="text-blue-500 font-medium">Subservicio:</span><span class="truncate">${subServiceText}</span>
+                        <span class="text-blue-500 font-medium">Canal:</span><span>${channelText}</span>
+                        <span class="text-blue-500 font-medium">Tareas:</span><span>${tasksCount}</span>
+                    </div>
+                `;
+
+                panel.classList.remove('hidden');
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                btnConfirm.focus();
+
+                // Handler para confirmar
+                function handleConfirm() {
+                    cleanup();
+                    createConfirmed = true;
+                    clearDraft();
+                    formEl.submit();
+                }
+
+                // Handler para cancelar
+                function handleCancel() {
+                    cleanup();
+                    panel.classList.add('hidden');
+                }
+
+                // Handler para teclas
+                function handleKeydown(evt) {
+                    if (evt.key === 'Enter' || evt.key === 'Tab') {
+                        evt.preventDefault();
+                        handleConfirm();
+                    } else if (evt.key === 'Escape') {
+                        evt.preventDefault();
+                        handleCancel();
+                    }
+                }
+
+                function cleanup() {
+                    btnConfirm.removeEventListener('click', handleConfirm);
+                    btnCancel.removeEventListener('click', handleCancel);
+                    document.removeEventListener('keydown', handleKeydown);
+                }
+
+                btnConfirm.addEventListener('click', handleConfirm);
+                btnCancel.addEventListener('click', handleCancel);
+                document.addEventListener('keydown', handleKeydown);
             });
         }
 

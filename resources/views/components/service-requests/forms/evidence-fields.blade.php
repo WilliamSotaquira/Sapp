@@ -255,6 +255,16 @@
         // Inicializar estado
         toggleSections();
 
+        // Auto-replace URLs de prueba: reemplazar 'ovprdnwportwebapp01' por 'www'
+        const evidenceLinkInput = document.getElementById('evidence_link');
+        if (evidenceLinkInput) {
+            evidenceLinkInput.addEventListener('input', function () {
+                if (this.value.includes('ovprdnwportwebapp01')) {
+                    this.value = this.value.replace(/ovprdnwportwebapp01/g, 'www');
+                }
+            });
+        }
+
         // Si hay error de validación, asegurar que se muestren las secciones correctas
         @if($errors - > has('file') || $errors - > has('link_url'))
         toggleSections();
