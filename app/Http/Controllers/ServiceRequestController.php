@@ -365,7 +365,7 @@ class ServiceRequestController extends Controller
         $prompt .= "1. Saludo cordial breve (ejemplo: 'Cordial saludo,')\n";
         $prompt .= "2. Cuerpo: describir qué se hizo y el resultado concreto (3 a 5 oraciones).\n";
         $prompt .= "3. Si hay enlaces de evidencia, incluirlos de forma natural como referencia para que el destinatario pueda consultar o verificar el resultado. NO usar la palabra 'evidencia'. Usar frases como: 'La publicación se encuentra disponible en:', 'Puede consultarse en el siguiente enlace:', 'El resultado puede verificarse en:'.\n";
-        $prompt .= "4. Cierre cordial breve (ejemplo: 'Quedamos atentos ante cualquier inquietud.')\n\n";
+        $prompt .= "4. Cierre cordial breve en primera persona del singular (ejemplo: 'Quedo atento ante cualquier inquietud.')\n\n";
         $prompt .= "INSTRUCCIONES DE REDACCIÓN:\n";
         $prompt .= "- Escribe en tercera persona o forma impersonal: 'Se realizó...', 'Se completó...', 'Fue publicado...'.\n";
         $prompt .= "- Tono profesional, institucional y cordial.\n";
