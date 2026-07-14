@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Block Destructive DB Commands",
+      "description": "Prevents execution of destructive database commands like db:wipe, migrate:fresh, migrate:reset, DROP DATABASE. Forces safe alternatives (drop specific table, create fix migration).",
+      "trigger": "PreToolUse",
+      "matcher": "^(execute_bash|execute_pwsh|control_bash_process|control_pwsh_process|list_processes|get_process_output)$",
+      "action": {
+        "type": "agent",
+        "prompt": "STOP. Check if this command contains any of these destructive patterns: db:wipe, migrate:fresh, migrate:reset, DROP DATABASE, truncate. If it does, you are FORBIDDEN from running it. Instead suggest a safe alternative like dropping only the specific problematic table or creating a new fix migration. NEVER destroy all data to fix a single table issue."
+      },
+      "enabled": false
+    }
+  ]
+}

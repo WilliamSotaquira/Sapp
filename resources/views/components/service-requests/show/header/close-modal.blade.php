@@ -172,6 +172,16 @@
                             renumberEvidenceBlocks();
                         });
                     }
+
+                    // Auto-replace URLs de prueba: reemplazar 'ovprdnwportwebapp01' por 'www'
+                    const linkInput = block.querySelector('input[name="link_url[]"]');
+                    if (linkInput) {
+                        linkInput.addEventListener('input', function () {
+                            if (this.value.includes('ovprdnwportwebapp01')) {
+                                this.value = this.value.replace(/ovprdnwportwebapp01/g, 'www');
+                            }
+                        });
+                    }
                 }
 
                 function renumberEvidenceBlocks() {

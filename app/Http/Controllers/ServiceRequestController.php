@@ -338,29 +338,45 @@ class ServiceRequestController extends Controller
             return $line;
         })->implode("\n\n");
 
-        $prompt = "Redacta un mensaje profesional para responder por correo a la persona que hizo esta solicitud. El texto se copiará y pegará directamente en un correo electrónico institucional.\n\n";
+        // Obtener evidencias tipo ENLACE asociadas a la solicitud
+        $linkEvidences = $serviceRequest->evidences()
+            ->where('evidence_type', 'ENLACE')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $linksSection = '';
+        if ($linkEvidences->isNotEmpty()) {
+            $linksList = $linkEvidences->map(function ($evidence) {
+                $url = data_get($evidence, 'evidence_data.url') ?? $evidence->description ?? $evidence->file_path ?? '';
+                $title = $evidence->title ?? 'Enlace';
+                return "- {$title}: {$url}";
+            })->implode("\n");
+
+            $linksSection = "\n\nENLACES DE EVIDENCIA DISPONIBLES (incluir en el correo como referencia):\n{$linksList}";
+        }
+
+        $prompt = "Redacta un correo electrónico profesional e institucional para responder a la persona que hizo esta solicitud. El texto se copiará y pegará directamente en un correo.\n\n";
         $prompt .= "LO QUE EL USUARIO PIDIÓ:\n";
         $prompt .= "- {$serviceRequest->title}\n";
         $prompt .= "- " . Str::limit($serviceRequest->description, 200) . "\n\n";
-        $prompt .= "LO QUE SE HIZO (información interna de tareas, NO copiar textualmente):\n{$tasksSummary}\n\n";
-        $prompt .= "INSTRUCCIONES:\n";
+        $prompt .= "LO QUE SE HIZO (información interna de tareas, NO copiar textualmente):\n{$tasksSummary}\n";
+        $prompt .= $linksSection . "\n\n";
+        $prompt .= "ESTRUCTURA DEL CORREO:\n";
+        $prompt .= "1. Saludo cordial breve (ejemplo: 'Cordial saludo,')\n";
+        $prompt .= "2. Cuerpo: describir qué se hizo y el resultado concreto (3 a 5 oraciones).\n";
+        $prompt .= "3. Si hay enlaces de evidencia, incluirlos de forma natural como referencia para que el destinatario pueda consultar o verificar el resultado. NO usar la palabra 'evidencia'. Usar frases como: 'La publicación se encuentra disponible en:', 'Puede consultarse en el siguiente enlace:', 'El resultado puede verificarse en:'.\n";
+        $prompt .= "4. Cierre cordial breve (ejemplo: 'Quedamos atentos ante cualquier inquietud.')\n\n";
+        $prompt .= "INSTRUCCIONES DE REDACCIÓN:\n";
         $prompt .= "- Escribe en tercera persona o forma impersonal: 'Se realizó...', 'Se completó...', 'Fue publicado...'.\n";
-        $prompt .= "- Tono profesional, institucional y cordial. No informal ni coloquial.\n";
-        $prompt .= "- Inicia directamente con lo que se hizo. NO repitas la solicitud original.\n";
+        $prompt .= "- Tono profesional, institucional y cordial.\n";
         $prompt .= "- Describe el RESULTADO concreto: qué quedó publicado, actualizado, configurado o disponible.\n";
-        $prompt .= "- Si aplica, indica dónde puede verificar el resultado (portal web, micrositio, sección específica).\n";
-        $prompt .= "- Extensión: 3 a 5 oraciones. Conciso pero completo.\n";
+        $prompt .= "- Si hay enlaces de evidencia, inclúyelos como URLs completas. NO uses la palabra 'evidencia' al mencionarlos. Usa frases naturales como 'Puede consultarse en:', 'La publicación está disponible en:', 'El material se encuentra en el siguiente enlace:'.\n";
+        $prompt .= "- Extensión total del correo: 5 a 8 oraciones. Conciso pero completo.\n";
         $prompt .= "- Usa verbos en pasado: fue publicado, se actualizó, quedó disponible, se realizó la configuración.\n";
-        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica interna, mencionar tickets/sistemas internos, frases como 'quedó listo', 'ya está', 'puedes verificarlo'.\n";
-        $prompt .= "- NO incluyas saludos, despedidas, firmas ni frases de cortesía.\n";
-        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown.\n";
-        $prompt .= "- Idioma: español.\n\n";
-        $prompt .= "EJEMPLOS DE TONO CORRECTO:\n";
-        $prompt .= "- \"Ya quedó montada la landing con los contenidos y enlaces actualizados. Puedes revisarla en el CMS.\"\n";
-        $prompt .= "- \"Se corrigió el problema con el acceso. Ya deberías poder ingresar sin inconvenientes.\"\n";
-        $prompt .= "- \"Quedó lista la campaña de mailing con el diseño y la base de datos que nos indicaste.\"";
-
-
+        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica interna, mencionar tickets/sistemas internos, frases coloquiales.\n";
+        $prompt .= "- NO incluyas firma ni datos del remitente.\n";
+        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown. Los enlaces van como URLs completas en línea.\n";
+        $prompt .= "- Idioma: español.\n";
 
 
         try {
