@@ -61,9 +61,16 @@ class CutController extends Controller
         $dateSuggestion = null;
         $suggestedFolderPath = null;
         $hasActiveContract = $activeContract !== null;
+        $currentOpenCut = null;
 
         if ($hasActiveContract) {
             $dateSuggestion = $this->dateSuggestionService->suggestDates($activeContract->id);
+
+            $currentOpenCut = Cut::query()
+                ->where('contract_id', $activeContract->id)
+                ->open()
+                ->withCount('serviceRequests')
+                ->first();
 
             // Use a placeholder cut ID (next auto-increment or 0) for folder suggestion
             $nextCutId = (int) DB::table('cuts')->max('id') + 1;
@@ -79,7 +86,8 @@ class CutController extends Controller
             'currentCompany',
             'dateSuggestion',
             'suggestedFolderPath',
-            'hasActiveContract'
+            'hasActiveContract',
+            'currentOpenCut'
         ));
     }
 
@@ -538,10 +546,20 @@ class CutController extends Controller
 
         $serviceRequestsQuery = ServiceRequest::query()
             ->with(['requester'])
-            ->eligibleForCutAssignment()
-            ->where(function ($q) use ($start, $end) {
+            ->eligibleForCutAssignment();
+
+        // Open cuts: no end_date limit
+        if ($cut->isOpen()) {
+            $serviceRequestsQuery->where(function ($q) use ($start) {
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+            });
+        } else {
+            $serviceRequestsQuery->where(function ($q) use ($start, $end) {
                 $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
-            })
+            });
+        }
+
+        $serviceRequestsQuery
             ->orderByRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) DESC')
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
@@ -717,6 +735,12 @@ class CutController extends Controller
             return back()->with('error', 'Este corte ya está cerrado.');
         }
 
+        // Don't close an empty cut — suggest deleting instead
+        $requestCount = $cut->serviceRequests()->count();
+        if ($requestCount === 0) {
+            return back()->with('error', 'No se puede cerrar un corte sin solicitudes. Elimínalo o espera a que tenga actividad.');
+        }
+
         // Determine close date: use provided date or now
         $closeAt = $request->filled('close_at')
             ? Carbon::parse($request->input('close_at'))
@@ -733,14 +757,16 @@ class CutController extends Controller
         // Close and create next
         $nextCut = $cut->closeAndCreateNext($closeAt);
 
-        // Generate folder for the new cut
+        // Generate folder for the new cut using cut name
         $activeContract = $currentCompany?->activeContract;
         if ($activeContract) {
-            $folderPath = $this->evidenceOrganizerService->suggestFolderPath(
-                $nextCut->id,
-                $nextCut->start_date,
-                $activeContract->number
-            );
+            $basePath = $this->evidenceOrganizerService->resolveBasePath();
+            $sanitizedContract = preg_replace('/[\\\\\/:"*?<>|]+/', '-', $activeContract->number ?? '');
+            $sanitizedCutName = preg_replace('/[\\\\\/:"*?<>|]+/', '-', $nextCut->name);
+            $folderPath = rtrim($basePath, '/\\') . DIRECTORY_SEPARATOR
+                . $sanitizedContract . DIRECTORY_SEPARATOR
+                . $sanitizedCutName;
+
             if ($this->evidenceOrganizerService->createCutFolder($folderPath)) {
                 $nextCut->update(['folder_path' => $folderPath]);
             }
@@ -752,6 +778,54 @@ class CutController extends Controller
         return redirect()
             ->route('reports.cuts.show', $nextCut)
             ->with('success', "Corte \"{$cut->name}\" cerrado. Nuevo corte \"{$nextCut->name}\" creado automáticamente.");
+    }
+
+    /**
+     * Delete a cut. Only allowed if the cut has no associated service requests.
+     */
+    public function destroy(Cut $cut): RedirectResponse
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+
+        // Only allow deleting cuts with no service requests
+        if ($cut->serviceRequests()->count() > 0) {
+            return back()->with('error', 'No se puede eliminar un corte que tiene solicitudes asociadas. Desasócialas primero.');
+        }
+
+        $cutName = $cut->name;
+        $contractId = $cut->contract_id;
+        $wasOpen = $cut->isOpen();
+
+        // If deleting the open cut, reopen the previous one
+        if ($wasOpen) {
+            $previousCut = Cut::query()
+                ->where('contract_id', $contractId)
+                ->where('id', '!=', $cut->id)
+                ->orderByDesc('start_date')
+                ->first();
+
+            if ($previousCut) {
+                $previousCut->update([
+                    'status' => Cut::STATUS_OPEN,
+                    'closed_at' => null,
+                    'end_date' => now()->addDays(30)->setTime(23, 59, 59),
+                ]);
+            }
+        }
+
+        $cut->serviceRequests()->detach();
+        $cut->delete();
+
+        return redirect()
+            ->route('reports.cuts.index')
+            ->with('success', "Corte \"{$cutName}\" eliminado.");
     }
 
     public function export(Request $request, Cut $cut)
@@ -945,20 +1019,27 @@ class CutController extends Controller
     {
         [$start, $end] = $cut->getDateRangeForQuery();
 
-        $requestIds = ServiceRequest::query()
+        $query = ServiceRequest::query()
             ->eligibleForCutAssignment()
             ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->when($cut->contract_id, function ($q) use ($cut) {
                 $q->whereHas('subService.service.family', function ($fq) use ($cut) {
                     $fq->where('contract_id', $cut->contract_id);
                 });
-            })
-            ->where(function ($q) use ($start, $end) {
-                // Reference date: min(resolved_at, closed_at) — whichever is earlier
+            });
+
+        // Open cuts capture everything from start_date onward (no end_date limit)
+        if ($cut->isOpen()) {
+            $query->where(function ($q) use ($start) {
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+            });
+        } else {
+            $query->where(function ($q) use ($start, $end) {
                 $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
-            })
-            ->pluck('id')
-            ->all();
+            });
+        }
+
+        $requestIds = $query->pluck('id')->all();
 
         if ($cut->contract_id && !empty($requestIds)) {
             $siblingCutIds = Cut::query()
@@ -1285,20 +1366,52 @@ class CutController extends Controller
             }
         }
 
-        // Compress with Windows PowerShell 5.1 (Compress-Archive works reliably there)
+        // Compress using PHP ZipArchive
         $zipPath = storage_path("app/temp/{$baseFileName}.zip");
         if (file_exists($zipPath)) {
             unlink($zipPath);
         }
 
-        $escapedBuildDir = str_replace('/', '\\', $buildDir);
-        $escapedZipPath = str_replace('/', '\\', $zipPath);
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            // Cleanup build directory
+            $this->removeBuildDirectory($buildDir);
+            return back()->with('error', 'No se pudo crear el archivo ZIP del reporte.');
+        }
 
-        $psCmd = "Compress-Archive -Path '{$escapedBuildDir}\\*' -DestinationPath '{$escapedZipPath}' -Force";
-        $cmd = "powershell.exe -NoProfile -Command \"{$psCmd}\"";
-        exec($cmd, $tarOutput, $tarReturnCode);
+        // Recursively add files from buildDir to zip
+        $buildDirRealPath = realpath($buildDir);
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($files as $file) {
+            if ($file->isFile()) {
+                $filePath = $file->getRealPath();
+                $relativePath = substr($filePath, strlen($buildDirRealPath) + 1);
+                $zip->addFile($filePath, str_replace('\\', '/', $relativePath));
+            }
+        }
+
+        $zip->close();
 
         // Cleanup build directory
+        $this->removeBuildDirectory($buildDir);
+
+        if (!file_exists($zipPath)) {
+            return back()->with('error', 'No se pudo generar el archivo ZIP del reporte.');
+        }
+
+        return response()->download($zipPath, $baseFileName . '.zip')->deleteFileAfterSend();
+    }
+
+    private function removeBuildDirectory(string $buildDir): void
+    {
+        if (!is_dir($buildDir)) {
+            return;
+        }
+
         $cleanIt = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST
@@ -1307,11 +1420,5 @@ class CutController extends Controller
             $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
         }
         rmdir($buildDir);
-
-        if ($tarReturnCode !== 0 || !file_exists($zipPath)) {
-            return back()->with('error', 'No se pudo generar el archivo ZIP del reporte.');
-        }
-
-        return response()->download($zipPath, $baseFileName . '.zip')->deleteFileAfterSend();
     }
 }

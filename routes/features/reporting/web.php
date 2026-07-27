@@ -104,6 +104,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/{cut}/open-folder', [CutController::class, 'openFolder'])->name('open-folder');
         Route::post('/{cut}/sync', [CutController::class, 'sync'])->name('sync');
         Route::post('/{cut}/close', [CutController::class, 'close'])->name('close');
+        Route::delete('/{cut}', [CutController::class, 'destroy'])->name('destroy');
         Route::get('/{cut}/export', [CutController::class, 'export'])->name('export');
         Route::get('/{cut}/pdf', [CutController::class, 'exportPdf'])->name('export-pdf');
 

@@ -96,11 +96,23 @@ class Cut extends Model
     }
 
     /**
-     * Generate a name for the next cut based on the start date month.
+     * Generate a name for the next cut. If a cut with the same month name
+     * already exists for this contract, use the following month.
      */
     private function generateNextCutName(Carbon $startDate): string
     {
-        return ucfirst($startDate->locale('es')->translatedFormat('F Y'));
+        $candidateName = ucfirst($startDate->locale('es')->translatedFormat('F Y'));
+
+        // Check if a cut with this name already exists for the same contract
+        $exists = self::where('contract_id', $this->contract_id)
+            ->where('name', $candidateName)
+            ->exists();
+
+        if ($exists) {
+            $candidateName = ucfirst($startDate->copy()->addMonth()->locale('es')->translatedFormat('F Y'));
+        }
+
+        return $candidateName;
     }
 
     // ==================== RELATIONS ====================
