@@ -201,7 +201,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 ->where('is_active', true)
                 ->with([
                     'service:id,name,service_family_id',
-                    'service.family:id,name,contract_id',
+                    'service.family:id,name,contract_id,sort_order',
                     'service.family.contract:id,number',
                     // Traer SLAs activos; usamos el primero como referencia
                     'slas'
@@ -226,7 +226,8 @@ Route::prefix('api')->name('api.')->group(function () {
                         ->orWhereHas('service', function ($sq) use ($term) {
                             $sq->where('name', 'LIKE', "%{$term}%")
                                 ->orWhereHas('family', function ($fq) use ($term) {
-                                    $fq->where('name', 'LIKE', "%{$term}%");
+                                    $fq->where('name', 'LIKE', "%{$term}%")
+                                        ->orWhere('sort_order', $term);
                                 });
                         });
                 });
@@ -246,8 +247,12 @@ Route::prefix('api')->name('api.')->group(function () {
             $results = $items->map(function (SubService $subService) {
                 $family = $subService->service?->family;
                 $familyName = $family?->name ?? 'Sin Familia';
+                $familySort = $family?->sort_order;
                 $contractNumber = $family?->contract?->number;
-                $familyLabel = $contractNumber ? "{$contractNumber} - {$familyName}" : $familyName;
+                $familyLabel = ($familySort ? $familySort . '. ' : '') . $familyName;
+                if ($contractNumber) {
+                    $familyLabel = $contractNumber . ' - ' . $familyLabel;
+                }
                 $serviceName = $subService->service?->name ?? 'Sin Servicio';
                 $familyId = $family?->id;
                 $serviceId = $subService->service?->id;

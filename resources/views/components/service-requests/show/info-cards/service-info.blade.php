@@ -36,10 +36,16 @@
     </div>
     <div class="p-5">
         @php
-            $familyName = $serviceRequest->subService?->service?->family?->name;
-            $serviceName = $serviceRequest->subService?->service?->name;
-            $subServiceName = $serviceRequest->subService?->name;
-            $serviceLabel = trim(collect([$familyName, $serviceName, $subServiceName])->filter()->join(' · '));
+            $family = $serviceRequest->subService?->service?->family;
+            $service = $serviceRequest->subService?->service;
+            $subService = $serviceRequest->subService;
+
+            $familyOrder = $family ? (int) $family->sort_order : null;
+            $familyLabel = $family ? $family->name : null;
+            $serviceLabel2 = $service ? $service->name : null;
+            $subServiceLabel = $subService ? $subService->name : null;
+
+            $serviceLabel = trim(collect([$familyLabel, $serviceLabel2, $subServiceLabel])->filter()->join(' · '));
             $contract = $serviceRequest->subService?->service?->family?->contract;
             $contractLabel = $contract ? ($contract->name ?: $contract->number) : null;
             $selectedOption = $selectedEntryChannel && isset($entryChannelOptions[$selectedEntryChannel])
@@ -51,8 +57,25 @@
         <dl class="divide-y divide-gray-100">
             <div class="pb-3">
                 <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</dt>
-                <dd class="mt-1 text-sm text-gray-950 font-semibold leading-snug break-words">
-                    {{ $serviceLabel ?: 'N/A' }}
+                <dd class="mt-1.5 space-y-0.5">
+                    @if ($familyLabel)
+                        <span class="block text-[13px] font-semibold text-gray-900">
+                            {{ $familyOrder ? $familyOrder . '. ' . $familyLabel : $familyLabel }}
+                        </span>
+                    @endif
+                    @if ($serviceLabel2)
+                        <span class="block text-[13px] text-gray-600 pl-4">
+                            › {{ $serviceLabel2 }}
+                        </span>
+                    @endif
+                    @if ($subServiceLabel)
+                        <span class="block text-[13px] font-medium text-emerald-700 pl-6">
+                            › {{ $subServiceLabel }}
+                        </span>
+                    @endif
+                    @if (!$familyLabel && !$serviceLabel2 && !$subServiceLabel)
+                        <span class="text-sm text-gray-500">N/A</span>
+                    @endif
                 </dd>
             </div>
 

@@ -489,6 +489,7 @@ class ServiceRequestController extends Controller
 
         $validator = Validator::make($request->all(), [
             'plain_text' => ['required', 'string', 'min:20'],
+            'operator_notes' => ['nullable', 'string', 'max:1000'],
         ], [
             'plain_text.required' => 'Pega el texto que quieres interpretar.',
             'plain_text.min' => 'El texto es demasiado corto para identificar una solicitud.',
@@ -505,6 +506,7 @@ class ServiceRequestController extends Controller
         }
 
         $validated = $validator->validated();
+        $operatorNotes = trim($validated['operator_notes'] ?? '');
 
         $companyId = (int) session('current_company_id');
         if ($companyId <= 0) {
@@ -518,6 +520,7 @@ class ServiceRequestController extends Controller
                 $validated['plain_text'],
                 $companyId,
                 auth()->id(),
+                $operatorNotes ?: null,
             );
 
             $meta = $result['meta'];
@@ -571,6 +574,141 @@ class ServiceRequestController extends Controller
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', 'Ocurrió un problema durante la interpretación del texto. Intenta de nuevo más tarde.');
+        }
+    }
+
+    /**
+     * Interpret text and create the service request in a single step (fast-create).
+     * Skips the review form — interprets the pasted text and immediately stores the SR.
+     */
+    public function interpretAndStore(Request $request, ServiceRequestPlainTextImportService $plainTextImportService)
+    {
+        $validator = Validator::make($request->all(), [
+            'plain_text' => ['required', 'string', 'min:20'],
+            'operator_notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'plain_text.required' => 'Pega el texto que quieres interpretar.',
+            'plain_text.min' => 'El texto es demasiado corto para identificar una solicitud.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => (string) $request->input('plain_text', ''),
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', $validator->errors()->first('plain_text'));
+        }
+
+        $validated = $validator->validated();
+        $operatorNotes = trim($validated['operator_notes'] ?? '');
+
+        $companyId = (int) session('current_company_id');
+        if ($companyId <= 0) {
+            return redirect()
+                ->route('service-requests.create')
+                ->with('error', 'No hay un espacio de trabajo activo para interpretar el texto pegado.');
+        }
+
+        try {
+            $result = $plainTextImportService->parseToFormData(
+                $validated['plain_text'],
+                $companyId,
+                auth()->id(),
+                $operatorNotes ?: null,
+            );
+
+            $payload = $result['payload'];
+
+            // If requester is pending (not found), auto-create them for fast flow
+            if (!empty($result['meta']['requester_pending'])) {
+                $requester = \App\Models\Requester::create([
+                    'name' => $result['meta']['requester_name'],
+                    'email' => $payload['__pending_requester_email'] ?? null,
+                    'company_id' => $companyId,
+                ]);
+                $payload['requester_id'] = $requester->id;
+            }
+
+            // Remove internal metadata fields
+            unset($payload['__pending_requester_name'], $payload['__pending_requester_email'], $payload['__open_plain_text_import']);
+
+            // Ensure required fields have values
+            if (empty($payload['requested_by'])) {
+                $payload['requested_by'] = auth()->id();
+            }
+            if (empty($payload['company_id'])) {
+                $payload['company_id'] = $companyId;
+            }
+            if (empty($payload['web_routes'])) {
+                $payload['web_routes'] = json_encode([]);
+            }
+            if (empty($payload['is_reportable'])) {
+                $payload['is_reportable'] = true;
+            }
+
+            // Validate essential fields are present before attempting creation
+            $requiredFields = ['title', 'description', 'sub_service_id', 'service_id', 'family_id', 'sla_id', 'requester_id'];
+            $missingFields = [];
+            foreach ($requiredFields as $field) {
+                if (empty($payload[$field])) {
+                    $missingFields[] = $field;
+                }
+            }
+
+            if (!empty($missingFields)) {
+                // Fallback: redirect to prefill mode so user can complete missing fields
+                return redirect()
+                    ->route('service-requests.create')
+                    ->withInput($payload)
+                    ->with('success', 'Texto interpretado, pero faltan campos obligatorios. Completa el formulario.');
+            }
+
+            // Create the service request directly
+            $serviceRequest = $this->serviceRequestService->createServiceRequest($payload);
+
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('success', "Solicitud creada directamente desde texto. Ticket: {$serviceRequest->ticket_number}");
+
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())
+                ->flatten()
+                ->filter()
+                ->first() ?: 'No se pudo interpretar el texto pegado.';
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', $message);
+
+        } catch (\App\Services\SmartParser\Exceptions\ParsingTimeoutException $e) {
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', 'La interpretación excedió el tiempo límite. Intenta con "Interpretar" para revisar manualmente.');
+
+        } catch (\Throwable $e) {
+            Log::error('Error en interpretAndStore', [
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'workspace_id' => $companyId,
+            ]);
+
+            return redirect()
+                ->route('service-requests.create')
+                ->withInput([
+                    'plain_text_import_text' => $validated['plain_text'],
+                    '__open_plain_text_import' => '1',
+                ])
+                ->with('plain_text_import_error', 'Error al crear la solicitud automáticamente. Intenta con "Interpretar" para revisar.');
         }
     }
 

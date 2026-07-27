@@ -165,137 +165,136 @@
     // Contar botones activos para distribuir dinámicamente
     $activeActions = collect($actions)->filter(fn($action) => $action['condition'])->count();
 
-    // Determinar clases de grid según cantidad de botones
+    // Separar acciones principales (primary) de secundarias para layout mejorado
+    $primaryActions = collect($actions)->filter(fn($a) => $a['condition'] && ($a['appearance'] ?? 'soft') === 'primary')->values();
+    $secondaryActions = collect($actions)->filter(fn($a) => $a['condition'] && ($a['appearance'] ?? 'soft') !== 'primary')->values();
+
+    // Grid siempre horizontal para mejor usabilidad
     $gridClasses = match(true) {
         $activeActions === 1 => 'grid-cols-1',
-        $activeActions === 2 => 'grid-cols-1 sm:grid-cols-2',
-        $activeActions === 3 => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
-        $activeActions >= 4 => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
-        default => 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+        $activeActions === 2 => 'grid-cols-2',
+        $activeActions === 3 => 'grid-cols-3',
+        $activeActions >= 4 => 'grid-cols-2 sm:grid-cols-4',
+        default => 'grid-cols-2 sm:grid-cols-3'
     };
 
     $resolveActionClasses = function (array $actionItem): string {
         $appearance = $actionItem['appearance'] ?? 'soft';
 
-        $base = 'flex items-center justify-center w-full px-4 py-3 rounded-2xl font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-150 group min-h-[3rem] no-underline';
+        $base = 'inline-flex items-center justify-center px-3 py-2 rounded-lg font-medium text-[13px] focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all duration-150 group no-underline gap-1.5 flex-1 min-w-0';
 
         return match ($appearance) {
-            'primary' => $base . ' bg-emerald-600 border border-emerald-700 text-white shadow-sm hover:bg-emerald-700 hover:shadow-md focus:ring-emerald-500',
-            'danger-soft' => $base . ' bg-red-50 border border-red-200 text-red-700 shadow-sm hover:bg-red-100 hover:border-red-300 focus:ring-red-400',
-            'warning-soft' => $base . ' bg-amber-50 border border-amber-200 text-amber-800 shadow-sm hover:bg-amber-100 hover:border-amber-300 focus:ring-amber-400',
-            default => $base . ' bg-white border border-slate-200 text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-md focus:ring-slate-300',
+            'primary' => $base . ' bg-emerald-600 border border-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500',
+            'danger-soft' => $base . ' bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 focus:ring-red-400',
+            'warning-soft' => $base . ' bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 focus:ring-amber-400',
+            default => $base . ' bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-300',
         };
     };
 @endphp
 
 @if (count($actions) > 0 && !$disabled)
-    <div class="{{ $compact ? 'flex flex-col gap-2' : 'grid ' . $gridClasses . ' gap-3' }}">
+    <div class="flex flex-wrap gap-2">
         @foreach ($actions as $actionItem)
             @if ($actionItem['condition'])
-                <div class="flex">
-                    {{-- BOTONES QUE ABREN MODALES --}}
-                    @if ($actionItem['method'] === 'MODAL')
-                        <button type="button"
-                            data-service-request-id="{{ $serviceRequest->id }}"
-                            data-workflow-action="{{ $actionItem['action'] }}"
-                            data-modal-id="{{ $actionItem['modal_id'] ?? '' }}"
-                            onclick="openModal('{{ $actionItem['modal_id'] }}', this)"
+                {{-- BOTONES QUE ABREN MODALES --}}
+                @if ($actionItem['method'] === 'MODAL')
+                    <button type="button"
+                        data-service-request-id="{{ $serviceRequest->id }}"
+                        data-workflow-action="{{ $actionItem['action'] }}"
+                        data-modal-id="{{ $actionItem['modal_id'] ?? '' }}"
+                        onclick="openModal('{{ $actionItem['modal_id'] }}', this)"
+                        class="{{ $resolveActionClasses($actionItem) }}"
+                        aria-label="{{ $actionItem['label'] }}">
+                        <i class="fas fa-{{ $actionItem['icon'] }} text-[11px] flex-shrink-0" aria-hidden="true"></i>
+                        @if ($showLabels)
+                            <span class="truncate">{{ $actionItem['label'] }}</span>
+                        @endif
+                    </button>
+
+                    {{-- BOTONES CON GET (LINKS) --}}
+                @elseif($actionItem['method'] === 'GET')
+                    <a href="{{ route($actionItem['route'], $actionItem['route_params'] ?? $serviceRequest) }}"
+                        class="{{ $resolveActionClasses($actionItem) }}"
+                        aria-label="{{ $actionItem['label'] }}">
+                        <i class="fas fa-{{ $actionItem['icon'] }} text-[11px] flex-shrink-0" aria-hidden="true"></i>
+                        @if ($showLabels)
+                            <span class="truncate">{{ $actionItem['label'] }}</span>
+                        @endif
+                    </a>
+
+                    {{-- BOTONES CON FORMULARIOS (POST, PATCH) --}}
+                @else
+                    <form action="{{ route($actionItem['route'], $serviceRequest) }}" method="POST" class="flex flex-1 min-w-0">
+                        @csrf
+                        @if ($actionItem['method'] === 'PATCH')
+                            @method('PATCH')
+                        @endif
+
+                        <button type="submit"
                             class="{{ $resolveActionClasses($actionItem) }}"
+                            onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')"
                             aria-label="{{ $actionItem['label'] }}">
-                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
+                            <i class="fas fa-{{ $actionItem['icon'] }} text-[11px] flex-shrink-0" aria-hidden="true"></i>
                             @if ($showLabels)
-                                <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
+                                <span class="truncate">{{ $actionItem['label'] }}</span>
                             @endif
                         </button>
-
-                        {{-- BOTONES CON GET (LINKS) --}}
-                    @elseif($actionItem['method'] === 'GET')
-                        <a href="{{ route($actionItem['route'], $actionItem['route_params'] ?? $serviceRequest) }}"
-                            class="{{ $resolveActionClasses($actionItem) }}"
-                            aria-label="{{ $actionItem['label'] }}">
-                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
-                            @if ($showLabels)
-                                <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
-                            @endif
-                        </a>
-
-                        {{-- BOTONES CON FORMULARIOS (POST, PATCH) --}}
-                    @else
-                        <form action="{{ route($actionItem['route'], $serviceRequest) }}" method="POST"
-                            class="w-full">
-                            @csrf
-                            @if ($actionItem['method'] === 'PATCH')
-                                @method('PATCH')
-                            @endif
-
-                            <button type="submit"
-                                class="{{ $resolveActionClasses($actionItem) }}"
-                                onclick="return confirm('¿Estás seguro de que deseas {{ strtolower($actionItem['label']) }}?')"
-                                aria-label="{{ $actionItem['label'] }}">
-                                <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2 flex-shrink-0' : '' }} text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
-                                @if ($showLabels)
-                                    <span class="line-clamp-2 text-center leading-tight">{{ $actionItem['label'] }}</span>
-                                @endif
-                            </button>
-                        </form>
-                    @endif
-                </div>
+                    </form>
+                @endif
             @else
-                <div class="flex">
-                    @if ($actionItem['action'] === 'resolve' && $canResolveByEvidence && !$hasCompletedSubtask)
-                        {{-- Anchor button to tasks section when evidence is met but subtask validation fails --}}
-                        <a href="#tasks-panel-{{ $serviceRequest->id }}"
-                           onclick="event.preventDefault(); document.getElementById('tasks-panel-{{ $serviceRequest->id }}').scrollIntoView({ behavior: 'smooth', block: 'start' })"
-                           class="{{ $resolveActionClasses(['appearance' => 'primary']) }}"
-                           aria-label="Ir a Tareas Asociadas"
-                           data-header-subtask-anchor="{{ $serviceRequest->id }}">
-                            <i class="fas fa-arrow-down mr-2 flex-shrink-0 text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
-                            @if ($showLabels)
-                                <span class="line-clamp-2 text-center leading-tight">Completar Tareas</span>
-                            @endif
-                        </a>
-                        {{-- Hidden resolve button that appears when subtask is completed --}}
-                        <button type="button"
-                            data-service-request-id="{{ $serviceRequest->id }}"
-                            data-workflow-action="resolve"
-                            data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
-                            data-header-resolve-button="{{ $serviceRequest->id }}"
-                            onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
-                            class="{{ $resolveActionClasses(['appearance' => 'primary']) }} hidden"
-                            aria-label="Resolver Solicitud">
-                            <i class="fas fa-check-circle mr-2 flex-shrink-0 text-[13px] transition-transform group-hover:scale-105" aria-hidden="true"></i>
-                            @if ($showLabels)
-                                <span class="line-clamp-2 text-center leading-tight">Resolver Solicitud</span>
-                            @endif
-                        </button>
-                    @else
-                        {{-- Default disabled button --}}
-                        <button type="button" disabled
-                            class="flex items-center justify-center w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl font-semibold text-slate-400 text-sm cursor-not-allowed opacity-80 min-h-[3rem]"
-                            title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible en este momento' }}"
-                            aria-label="{{ $actionItem['label'] }} (deshabilitado)">
-                            <i class="fas fa-{{ $actionItem['icon'] }} {{ $showLabels ? 'mr-2' : '' }}"></i>
-                            @if ($showLabels)
-                                {{ $actionItem['label'] }}
-                            @endif
-                        </button>
-                    @endif
-                </div>
+                @if ($actionItem['action'] === 'resolve' && $canResolveByEvidence && !$hasCompletedSubtask)
+                    {{-- Anchor button to tasks section when evidence is met but subtask validation fails --}}
+                    <a href="#tasks-panel-{{ $serviceRequest->id }}"
+                       onclick="event.preventDefault(); document.getElementById('tasks-panel-{{ $serviceRequest->id }}').scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                       class="{{ $resolveActionClasses(['appearance' => 'primary']) }}"
+                       aria-label="Ir a Tareas Asociadas"
+                       data-header-subtask-anchor="{{ $serviceRequest->id }}">
+                        <i class="fas fa-arrow-down text-[11px] flex-shrink-0" aria-hidden="true"></i>
+                        @if ($showLabels)
+                            <span class="truncate">Completar Tareas</span>
+                        @endif
+                    </a>
+                    {{-- Hidden resolve button that appears when subtask is completed --}}
+                    <button type="button"
+                        data-service-request-id="{{ $serviceRequest->id }}"
+                        data-workflow-action="resolve"
+                        data-modal-id="resolve-modal-{{ $serviceRequest->id }}"
+                        data-header-resolve-button="{{ $serviceRequest->id }}"
+                        onclick="openModal('resolve-modal-{{ $serviceRequest->id }}', this)"
+                        class="{{ $resolveActionClasses(['appearance' => 'primary']) }} hidden"
+                        aria-label="Resolver Solicitud">
+                        <i class="fas fa-check-circle text-[11px] flex-shrink-0" aria-hidden="true"></i>
+                        @if ($showLabels)
+                            <span class="truncate">Resolver Solicitud</span>
+                        @endif
+                    </button>
+                @else
+                    {{-- Default disabled button --}}
+                    <button type="button" disabled
+                        class="inline-flex items-center justify-center px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-medium text-slate-400 text-[13px] cursor-not-allowed opacity-70 gap-1.5 flex-1 min-w-0"
+                        title="{{ $actionItem['action'] === 'resolve' ? 'Debe agregar al menos una evidencia antes de resolver' : 'Acción no disponible' }}"
+                        aria-label="{{ $actionItem['label'] }} (deshabilitado)">
+                        <i class="fas fa-{{ $actionItem['icon'] }} text-[11px]"></i>
+                        @if ($showLabels)
+                            <span class="truncate">{{ $actionItem['label'] }}</span>
+                        @endif
+                    </button>
+                @endif
             @endif
         @endforeach
     </div>
 @elseif($disabled)
-    <div class="bg-gray-100 border border-gray-300 rounded-2xl text-center">
-        <p class="text-gray-600">
-            <i class="fas fa-lock mr-2"></i>
-            Las acciones no están disponibles en este momento
+    <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center">
+        <p class="text-gray-500 text-sm">
+            <i class="fas fa-lock mr-1.5"></i>
+            Acciones no disponibles
         </p>
     </div>
 @else
-    <div class="bg-blue-50 border border-blue-300 rounded-2xl text-center">
-        <p class="text-blue-700">
-            <i class="fas fa-check-circle mr-2"></i>
-            No hay acciones disponibles para el estado: <strong>{{ $currentStatus }}</strong>
+    <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-center">
+        <p class="text-blue-600 text-sm">
+            <i class="fas fa-check-circle mr-1.5"></i>
+            Sin acciones para: <strong>{{ $currentStatus }}</strong>
         </p>
     </div>
 @endif

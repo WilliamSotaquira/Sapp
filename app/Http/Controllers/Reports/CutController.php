@@ -99,6 +99,81 @@ class CutController extends Controller
         return view('reports.cuts.edit', compact('cut', 'currentCompany'));
     }
 
+    /**
+     * AJAX preview: estimate how many requests would be captured by a date range.
+     */
+    public function preview(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+        ]);
+
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+        $activeContract = $currentCompany?->activeContract;
+
+        if (!$activeContract) {
+            return response()->json(['error' => 'Sin contrato activo'], 422);
+        }
+
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate = Carbon::parse($validated['end_date']);
+
+        // If end_date has no time, assume end of day
+        if ($endDate->format('H:i:s') === '00:00:00' && $endDate->gt($startDate)) {
+            $endDate = $endDate->copy()->setTime(23, 59, 59);
+        }
+
+        $durationDays = (int) $startDate->diffInDays($endDate);
+        $durationHours = $startDate->diffInHours($endDate);
+
+        // Count eligible requests that would fall in this range
+        $requestCount = ServiceRequest::query()
+            ->eligibleForCutAssignment()
+            ->where('company_id', $currentCompanyId)
+            ->whereHas('subService.service.family', function ($fq) use ($activeContract) {
+                $fq->where('contract_id', $activeContract->id);
+            })
+            ->where(function ($q) use ($startDate, $endDate) {
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$startDate, $endDate]);
+            })
+            ->count();
+
+        // Check overlap
+        $overlapCheck = $this->dateSuggestionService->validateNoOverlap(
+            $activeContract->id,
+            $startDate,
+            $endDate
+        );
+
+        $warnings = [];
+
+        if ($durationHours < 12) {
+            $warnings[] = 'El rango es menor a 12 horas. No se permitirá crear el corte.';
+        } elseif ($durationDays < 7) {
+            $warnings[] = "El rango es de solo {$durationDays} día(s). Los cortes normalmente cubren periodos de 2-4 semanas.";
+        }
+
+        if ($requestCount === 0) {
+            $warnings[] = 'No hay solicitudes cerradas/resueltas en este rango. El corte quedará vacío.';
+        }
+
+        if ($overlapCheck->hasOverlap) {
+            $conflicting = $overlapCheck->conflictingCut;
+            $warnings[] = "Se solapa con el corte \"{$conflicting->name}\" ({$conflicting->start_date->format('d/m/Y')} - {$conflicting->end_date->format('d/m/Y')}).";
+        }
+
+        return response()->json([
+            'request_count' => $requestCount,
+            'duration_days' => $durationDays,
+            'warnings' => $warnings,
+            'valid' => $durationHours >= 12 && !$overlapCheck->hasOverlap,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -122,6 +197,20 @@ class CutController extends Controller
         $startDate = Carbon::parse($validated['start_date']);
         $endDate = Carbon::parse($validated['end_date']);
 
+        // Ensure end_date has time component set to end of day if it equals start of day
+        // This prevents accidentally creating cuts with ranges of a few hours
+        if ($endDate->format('H:i:s') === '00:00:00' && $endDate->gt($startDate)) {
+            $endDate = $endDate->copy()->setTime(23, 59, 59);
+            $validated['end_date'] = $endDate->toDateTimeString();
+        }
+
+        // Validate minimum cut duration (at least 1 day)
+        if ($startDate->diffInHours($endDate) < 12) {
+            return back()->withInput()->withErrors([
+                'end_date' => 'El corte debe tener una duración mínima de al menos 12 horas. Verifica las fechas.',
+            ]);
+        }
+
         // Auto-close previous cut: set its end_date to 1 second before this cut's start_date.
         // The definitive end of a cut is determined by when the next cut begins.
         $previousCut = Cut::query()
@@ -136,6 +225,21 @@ class CutController extends Controller
                 $previousCut->update(['end_date' => $definitiveEnd]);
                 $this->syncCutServiceRequests($previousCut);
             }
+        }
+
+        // Validate no overlap with existing cuts of the same contract
+        // Exclude the previous cut since it was just auto-closed
+        $overlapCheck = $this->dateSuggestionService->validateNoOverlap(
+            $activeContract->id,
+            $startDate,
+            $endDate,
+            $previousCut?->id
+        );
+        if ($overlapCheck->hasOverlap) {
+            $conflicting = $overlapCheck->conflictingCut;
+            return back()->withInput()->withErrors([
+                'start_date' => "Las fechas se solapan con el corte \"{$conflicting->name}\" ({$conflicting->start_date->format('Y-m-d')} a {$conflicting->end_date->format('Y-m-d')}). Ajusta las fechas o edita el corte existente.",
+            ]);
         }
 
         // Handle folder creation
@@ -331,6 +435,33 @@ class CutController extends Controller
         // Auto-adjust adjacent cuts to maintain contiguity
         $newStart = Carbon::parse($validated['start_date']);
         $newEnd = Carbon::parse($validated['end_date']);
+
+        // Ensure end_date has time component set to end of day if it equals start of day
+        if ($newEnd->format('H:i:s') === '00:00:00' && $newEnd->gt($newStart)) {
+            $newEnd = $newEnd->copy()->setTime(23, 59, 59);
+            $validated['end_date'] = $newEnd->toDateTimeString();
+        }
+
+        // Validate minimum cut duration (at least 12 hours)
+        if ($newStart->diffInHours($newEnd) < 12) {
+            return back()->withInput()->withErrors([
+                'end_date' => 'El corte debe tener una duración mínima de al menos 12 horas. Verifica las fechas.',
+            ]);
+        }
+
+        // Validate no overlap with existing cuts of the same contract (excluding this cut)
+        $overlapCheck = $this->dateSuggestionService->validateNoOverlap(
+            $cut->contract_id,
+            $newStart,
+            $newEnd,
+            $cut->id
+        );
+        if ($overlapCheck->hasOverlap) {
+            $conflicting = $overlapCheck->conflictingCut;
+            return back()->withInput()->withErrors([
+                'start_date' => "Las fechas se solapan con el corte \"{$conflicting->name}\" ({$conflicting->start_date->format('Y-m-d')} a {$conflicting->end_date->format('Y-m-d')}). Ajusta las fechas.",
+            ]);
+        }
 
         // Auto-close previous cut: set its end_date to 1 second before this cut's start_date
         $previousCut = Cut::query()

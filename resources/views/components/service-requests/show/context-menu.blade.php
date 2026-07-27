@@ -7,6 +7,8 @@
 
     // Determine pending requirements (what's blocking the next transition)
     $pendingRequirement = null;
+    $hasEvidence = false;
+    $hasSubtask = true;
     if ($status === 'EN_PROCESO') {
         $hasEvidence = ($serviceRequest->is_reportable === false) || $viewService->getResolvableEvidenceCount($serviceRequest) > 0;
         $hasSubtask = $viewService->hasCompletedSubtask($serviceRequest);
@@ -62,12 +64,46 @@
 
 <!-- Context Menu -->
 <div id="sr-context-menu" class="sr-ctx hidden" role="menu" aria-label="Menú contextual">
+    {{-- Dead state: offer to create a new request for quick flow --}}
+    @if ($isDeadState)
+        <div class="sr-ctx__group">
+            <div class="sr-ctx__group-label">Nueva solicitud</div>
+            <a href="{{ route('service-requests.create') }}" class="sr-ctx__item sr-ctx__item--primary" role="menuitem" data-ctx-default>
+                <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
+                Crear nueva solicitud
+                <kbd class="sr-ctx__kbd">Tab</kbd>
+            </a>
+            <a href="{{ route('service-requests.create', ['service_request_id' => $serviceRequest->id]) }}" class="sr-ctx__item" role="menuitem">
+                <i class="fas fa-code-branch sr-ctx__icon" aria-hidden="true"></i>
+                Crear solicitud derivada
+            </a>
+        </div>
+    @endif
+
     {{-- Primary action: pending requirement OR workflow transition --}}
     @if (!$isDeadState)
-        <div class="sr-ctx__group">
+        <div class="sr-ctx__group" data-ctx-group="next-step">
             <div class="sr-ctx__group-label">Siguiente paso</div>
 
-            @if ($pendingRequirement)
+            @if ($status === 'EN_PROCESO' && $hasEvidence)
+                {{-- Dynamic: show "Completar tarea" or "Resolver Solicitud" based on live subtask state --}}
+                <button type="button" class="sr-ctx__item sr-ctx__item--primary {{ $hasSubtask ? 'hidden' : '' }}" role="menuitem"
+                        data-ctx-scroll="sr-section-tasks"
+                        @if(!$hasSubtask) data-ctx-default @endif
+                        data-ctx-pending-subtask>
+                    <i class="fas fa-tasks sr-ctx__icon" aria-hidden="true"></i>
+                    Completar tarea
+                    <kbd class="sr-ctx__kbd">Tab</kbd>
+                </button>
+                <button type="button" class="sr-ctx__item sr-ctx__item--primary {{ !$hasSubtask ? 'hidden' : '' }}" role="menuitem"
+                        data-ctx-modal="resolve-modal-{{ $serviceRequest->id }}"
+                        @if($hasSubtask) data-ctx-default @endif
+                        data-ctx-resolve-ready>
+                    <i class="fas fa-check-circle sr-ctx__icon" aria-hidden="true"></i>
+                    Resolver Solicitud
+                    <kbd class="sr-ctx__kbd">Tab</kbd>
+                </button>
+            @elseif ($pendingRequirement)
                 {{-- Requirement not met: guide user to fulfill it --}}
                 @if (isset($pendingRequirement['modal']))
                     <button type="button" class="sr-ctx__item sr-ctx__item--primary" role="menuitem"
@@ -111,6 +147,8 @@
             <div class="sr-ctx__group-label">Acciones</div>
             @foreach ($workflowActions as $index => $action)
                 @if ($allRequirementsMet && $index === 0) @continue @endif
+                {{-- Skip "Resolver Solicitud" when it's handled dynamically in next-step --}}
+                @if ($status === 'EN_PROCESO' && $hasEvidence && $index === 0) @continue @endif
                 @if (isset($action['modal']))
                     <button type="button" class="sr-ctx__item" role="menuitem"
                             data-ctx-modal="{{ $action['modal'] }}">
@@ -142,6 +180,14 @@
     {{-- Quick actions --}}
     <div class="sr-ctx__group">
         <div class="sr-ctx__group-label">Rápido</div>
+        <a href="{{ route('service-requests.create') }}" class="sr-ctx__item" role="menuitem">
+            <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
+            Crear nueva solicitud
+        </a>
+        <a href="{{ route('service-requests.index') }}" class="sr-ctx__item" role="menuitem">
+            <i class="fas fa-list sr-ctx__icon" aria-hidden="true"></i>
+            Ver todas las solicitudes
+        </a>
         <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-action="copy-ticket">
             <i class="fas fa-copy sr-ctx__icon" aria-hidden="true"></i>
             Copiar ticket
@@ -283,6 +329,33 @@
 
     var isOpen = false;
 
+    /**
+     * Update context menu "Siguiente paso" based on live subtask state.
+     * Called from tasks-panel after subtask/task toggles.
+     */
+    window.updateContextMenuNextStep = function() {
+        var pendingBtn = menu.querySelector('[data-ctx-pending-subtask]');
+        var resolveBtn = menu.querySelector('[data-ctx-resolve-ready]');
+        if (!pendingBtn || !resolveBtn) return;
+
+        // Reuse the existing hasAnyCompletedSubtask function from tasks-panel
+        var hasCompleted = (typeof hasAnyCompletedSubtask === 'function')
+            ? hasAnyCompletedSubtask(@js($serviceRequest->id))
+            : false;
+
+        if (hasCompleted) {
+            pendingBtn.classList.add('hidden');
+            pendingBtn.removeAttribute('data-ctx-default');
+            resolveBtn.classList.remove('hidden');
+            resolveBtn.setAttribute('data-ctx-default', '');
+        } else {
+            resolveBtn.classList.add('hidden');
+            resolveBtn.removeAttribute('data-ctx-default');
+            pendingBtn.classList.remove('hidden');
+            pendingBtn.setAttribute('data-ctx-default', '');
+        }
+    };
+
     function show(x, y) {
         menu.classList.remove('hidden');
         isOpen = true;
@@ -313,11 +386,11 @@
 
         // Focus the default (next step) item
         setTimeout(function() {
-            var defaultItem = menu.querySelector('[data-ctx-default]');
+            var defaultItem = menu.querySelector('[data-ctx-default]:not(.hidden)');
             if (defaultItem) {
                 defaultItem.focus();
             } else {
-                var first = menu.querySelector('.sr-ctx__item');
+                var first = menu.querySelector('.sr-ctx__item:not(.hidden)');
                 if (first) first.focus();
             }
         }, 50);
@@ -424,7 +497,7 @@
 
     // Keyboard navigation within menu
     menu.addEventListener('keydown', function(e) {
-        var items = Array.from(menu.querySelectorAll('.sr-ctx__item'));
+        var items = Array.from(menu.querySelectorAll('.sr-ctx__item:not(.hidden)'));
         var current = document.activeElement;
         var idx = items.indexOf(current);
 

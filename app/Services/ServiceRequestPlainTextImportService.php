@@ -18,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class ServiceRequestPlainTextImportService
 {
+    private ?string $operatorNotes = null;
+
     public function __construct(
         private readonly ServiceRequestService $serviceRequestService,
         private readonly SmartParserPipeline $smartPipeline,
@@ -27,9 +29,10 @@ class ServiceRequestPlainTextImportService
     ) {
     }
 
-    public function parseToFormData(string $plainText, int $companyId, ?int $requestedBy = null): array
+    public function parseToFormData(string $plainText, int $companyId, ?int $requestedBy = null, ?string $operatorNotes = null): array
     {
         $text = trim($plainText);
+        $this->operatorNotes = $operatorNotes;
         if ($text === '') {
             throw ValidationException::withMessages([
                 'plain_text' => 'Pega un texto para poder interpretarlo.',
@@ -196,6 +199,12 @@ class ServiceRequestPlainTextImportService
      */
     private function enrichDescriptionWithAI(array $result, string $originalText): array
     {
+        // Build context text: original text + operator notes (if any)
+        $contextText = $originalText;
+        if (!empty($this->operatorNotes)) {
+            $contextText .= "\n\n[INDICACIONES DEL OPERADOR: {$this->operatorNotes}]";
+        }
+
         // Quick exit if LLM is disabled — skip all AI enrichment but keep heuristic checks
         if (! config('services.llm.enabled', false)) {
             // Still verify requester heuristically (no HTTP calls)
@@ -207,8 +216,11 @@ class ServiceRequestPlainTextImportService
             // (tasks are the most valuable AI output and the call is short)
             $title = $result['payload']['title'] ?? '';
             $description = $result['payload']['description'] ?? '';
+            $descWithNotes = !empty($this->operatorNotes)
+                ? $description . "\n\n[INDICACIONES DEL OPERADOR: {$this->operatorNotes}]"
+                : $description;
             try {
-                $aiTasks = $this->taskGenerator->generateWithoutConfig($title, $description);
+                $aiTasks = $this->taskGenerator->generateWithoutConfig($title, $descWithNotes);
                 if ($aiTasks !== null && !empty($aiTasks)) {
                     $result['payload']['tasks'] = $aiTasks;
                 }
@@ -229,8 +241,8 @@ class ServiceRequestPlainTextImportService
         // Si no se detectó Gmail sender, igual validar dominios de email en el texto
         $this->validateSenderDomainFromText($originalText, (int) ($result['payload']['company_id'] ?? 0));
 
-        // Generar descripción ITIL por IA
-        $aiDescription = $this->descriptionGenerator->generate($title, $originalText);
+        // Generar descripción ITIL por IA (with operator notes as context)
+        $aiDescription = $this->descriptionGenerator->generate($title, $contextText);
         if ($aiDescription !== null && mb_strlen($aiDescription) >= 10) {
             $result['payload']['description'] = $aiDescription;
         }
@@ -243,6 +255,9 @@ class ServiceRequestPlainTextImportService
         // Generar tareas ITIL por IA (siempre que el LLM esté disponible)
         // Las tareas generadas heurísticamente suelen ser de baja calidad
         $descForTasks = $aiDescription ?? $currentDescription;
+        if (!empty($this->operatorNotes)) {
+            $descForTasks .= "\n\n[INDICACIONES DEL OPERADOR: {$this->operatorNotes}]";
+        }
         $aiTasks = $this->taskGenerator->generate($title, $descForTasks);
         if ($aiTasks !== null && !empty($aiTasks)) {
             $result['payload']['tasks'] = $aiTasks;
@@ -707,7 +722,13 @@ class ServiceRequestPlainTextImportService
                 ]);
             }
 
-            $structuredText = $interpreter->interpret($text, $workspaceName);
+            // Prepend operator notes to the text for the LLM if provided
+            $textForLlm = $text;
+            if (!empty($this->operatorNotes)) {
+                $textForLlm = "[INDICACIONES DEL OPERADOR: {$this->operatorNotes}]\n\n" . $text;
+            }
+
+            $structuredText = $interpreter->interpret($textForLlm, $workspaceName);
 
             if ($structuredText === null) {
                 return null;

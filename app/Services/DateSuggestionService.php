@@ -31,7 +31,7 @@ class DateSuggestionService
 
         $endDate = $startDate->copy()
             ->endOfMonth()
-            ->setTime(23, 59);
+            ->setTime(23, 59, 59);
 
         return new DateSuggestion(
             startDate: $startDate,

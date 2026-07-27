@@ -87,6 +87,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
     Route::prefix('cuts')->name('cuts.')->group(function () {
         Route::get('/', [CutController::class, 'index'])->name('index');
         Route::get('/create', [CutController::class, 'create'])->name('create');
+        Route::post('/preview', [CutController::class, 'preview'])->name('preview');
         Route::get('/{cut}/edit', [CutController::class, 'edit'])->name('edit');
         Route::post('/', [CutController::class, 'store'])->name('store');
         Route::put('/{cut}', [CutController::class, 'update'])->name('update');
