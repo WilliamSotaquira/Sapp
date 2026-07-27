@@ -1000,7 +1000,7 @@ class ServiceRequestService
         return $serviceRequest->load([
             'subService:id,name,service_id',
             'subService.service:id,name,service_family_id',
-            'subService.service.family:id,name,contract_id',
+            'subService.service.family:id,name,contract_id,sort_order',
             'subService.service.family.contract:id,number,name,company_id',
             'sla:id,name,criticality_level,response_time_minutes,resolution_time_minutes',
             'requester:id,name,email,phone,position',

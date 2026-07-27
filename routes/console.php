@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('evidence:clean-backups')->daily();
+
+Schedule::command('cuts:health-check')->dailyAt('07:00');

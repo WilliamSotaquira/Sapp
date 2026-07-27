@@ -40,6 +40,7 @@
             font-weight: 500;
             border-radius: 0.75rem;
             padding: 0.5rem 0.9rem;
+            white-space: nowrap;
             transition: background-color 0.2s ease, transform 0.2s ease;
         }
 
@@ -61,6 +62,9 @@
 
         .mobile-menu {
             transition: opacity 0.3s ease, transform 0.3s ease;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .mobile-section-trigger {
@@ -120,6 +124,13 @@
 
         .dropdown-menu.show {
             display: block;
+        }
+
+        /* Prevent dropdown from overflowing viewport on right side */
+        [data-dropdown]:last-child .dropdown-menu,
+        [data-dropdown]:nth-last-child(2) .dropdown-menu {
+            left: auto;
+            right: 0;
         }
 
         .dropdown-menu a {
@@ -252,7 +263,7 @@
         }
 
         /* Responsive */
-        @media (max-width: 768px) {
+        @media (max-width: 1023px) {
             .dropdown-menu {
                 position: static;
                 box-shadow: none;
@@ -271,7 +282,7 @@
             }
         }
 
-        @media (min-width: 769px) {
+        @media (min-width: 1024px) {
             .logo-large {
                 display: block;
             }
@@ -310,7 +321,7 @@
     </style>
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-gray-100 overflow-x-hidden">
     @php
         $navSections = [
             [
@@ -567,7 +578,7 @@
 
                     @auth
                         <!-- Menú para desktop -->
-                        <div class="hidden md:flex items-center space-x-2">
+                        <div class="hidden lg:flex items-center space-x-1 xl:space-x-2">
                             @foreach ($navSections as $section)
                                 @php
                                     $sectionActive = $isSectionActive($section['match'] ?? []);
@@ -604,12 +615,26 @@
                     @endauth
                 </div>
 
-                <!-- Menú de usuario -->
-                <div class="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
+        <!-- Menú de usuario -->
+                <div class="flex items-center space-x-1 sm:space-x-2 lg:space-x-4">
                     @auth
                         @if(isset($currentWorkspace))
+                            {{-- Compact workspace badge for tablets --}}
                             <a href="{{ route('workspaces.select') }}"
-                               class="hidden lg:flex items-center w-[150px] px-2 py-1.5 rounded-xl border border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition"
+                               class="hidden md:flex xl:hidden items-center justify-center w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 transition"
+                               title="{{ $workspaceDisplayName }} - {{ $activeContractLabel }}">
+                                @if ($workspaceLogo)
+                                    <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-white">
+                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.25rem] max-h-[1.25rem] object-contain">
+                                    </div>
+                                @else
+                                    <i class="fas fa-building text-sm text-white/90"></i>
+                                @endif
+                            </a>
+
+                            {{-- Full workspace badge for large screens --}}
+                            <a href="{{ route('workspaces.select') }}"
+                               class="hidden xl:flex items-center max-w-[180px] px-2 py-1.5 rounded-xl border border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition"
                                title="Cambiar entidad activa">
                                 <div class="flex items-center gap-2 w-full">
                                     @if ($workspaceLogo)
@@ -633,7 +658,7 @@
                             class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
                             <i class="fas fa-user-circle text-sm sm:text-base"></i>
                             <span
-                                class="hidden sm:inline text-sm md:text-base truncate max-w-[100px] md:max-w-none">{{ Auth::user()->name }}</span>
+                                class="hidden sm:inline text-sm lg:text-base truncate max-w-[80px] lg:max-w-[120px]">{{ Auth::user()->name }}</span>
                         </div>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -647,7 +672,7 @@
 
                         <!-- Botón menú móvil -->
                         <button type="button"
-                            class="md:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2"
+                            class="lg:hidden text-white focus:outline-none transition-transform duration-300 hover:scale-110 p-2"
                             data-mobile-menu-toggle aria-expanded="false" aria-controls="mobileMenuPanel">
                             <i class="fas fa-bars text-lg sm:text-xl"></i>
                         </button>
@@ -664,7 +689,7 @@
             <!-- Menú móvil -->
             @auth
                 <div id="mobileMenuPanel"
-                    class="mobile-menu md:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
+                    class="mobile-menu lg:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
                     <div class="py-4 px-4 space-y-3">
                         @if(isset($currentWorkspace))
                             <a href="{{ route('workspaces.select') }}" class="block bg-white/10 rounded-2xl p-3 hover:bg-white/20 transition">

@@ -251,6 +251,11 @@ function refreshCurrentPanelResolveAction(taskId) {
 
     updateResolveActionVisibility(serviceRequestId);
     updateHeaderResolveAction(serviceRequestId);
+
+    // Update context menu next-step dynamically
+    if (typeof window.updateContextMenuNextStep === 'function') {
+        window.updateContextMenuNextStep();
+    }
 }
 
 /**

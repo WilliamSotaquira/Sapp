@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
 
 class ServiceLevelAgreement extends Model
 {
@@ -49,10 +48,6 @@ class ServiceLevelAgreement extends Model
     {
         if (empty($subServiceId)) {
             return $query->whereRaw('1 = 0');
-        }
-
-        if (Schema::hasColumn('service_level_agreements', 'sub_service_id')) {
-            return $query->where('sub_service_id', $subServiceId);
         }
 
         return $query->whereHas('serviceSubservice', function (Builder $subQuery) use ($subServiceId) {

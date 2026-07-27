@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/service-requests/prefill-from-text', [ServiceRequestController::class, 'prefillFromPlainText'])
     ->name('service-requests.prefill-from-text');
 
+Route::post('/service-requests/interpret-and-store', [ServiceRequestController::class, 'interpretAndStore'])
+    ->name('service-requests.interpret-and-store');
+
 Route::resource('service-requests', ServiceRequestController::class);
 
 Route::get('/service-requests/{service_request}/edit', [ServiceRequestController::class, 'edit'])->name('service-requests.edit');

@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Reset OPcache on file save",
+      "trigger": "PostFileSave",
+      "description": "Resets Apache OPcache when PHP/Blade files are saved so changes are immediately visible in the browser.",
+      "matcher": "\\.(php|blade\\.php)$",
+      "action": {
+        "type": "command",
+        "command": "curl -s http://sapp.env/opcache_reset.php"
+      }
+    }
+  ]
+}

@@ -396,14 +396,18 @@
                     foreach ($subServices as $subService) {
                         $family = $subService->service?->family;
                         $familyName = $family?->name ?? 'Sin Familia';
+                        $familySort = $family?->sort_order;
                         $contractNumber = $family?->contract?->number;
-                        $familyName = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                        $familyDisplay = ($familySort ? $familySort . '. ' : '') . $familyName;
+                        if ($contractNumber) {
+                            $familyDisplay = $contractNumber . ' - ' . $familyDisplay;
+                        }
                         $serviceName = $subService->service->name ?? 'Sin Servicio';
-                        $groupKey = $familyName . '|' . $serviceName;
+                        $groupKey = $familyDisplay . '|' . $serviceName;
 
                         if (!isset($groupedSubServices[$groupKey])) {
                             $groupedSubServices[$groupKey] = [
-                                'family_name' => $familyName,
+                                'family_name' => $familyDisplay,
                                 'service_name' => $serviceName,
                                 'subservices' => [],
                             ];
@@ -431,7 +435,11 @@
                                     $family = $subService->service?->family;
                                     $familyName = $family?->name ?? 'Sin familia';
                                     $contractNumber = $family?->contract?->number;
-                                    $familyLabel = $contractNumber ? ($contractNumber . ' - ' . $familyName) : $familyName;
+                                    $familySort = $family?->sort_order;
+                                    $familyLabel = ($familySort ? $familySort . '. ' : '') . $familyName;
+                                    if ($contractNumber) {
+                                        $familyLabel = $contractNumber . ' - ' . $familyLabel;
+                                    }
                                 @endphp
                                 data-family-name="{{ $familyLabel }}"
                                 data-family-id="{{ $subService->service->family->id ?? '' }}"
@@ -456,7 +464,7 @@
                 <option value="{{ $selectedSubService->id }}" selected
                     data-service-id="{{ $selectedSubService->service_id }}"
                     data-service-name="{{ $selectedSubService->service->name ?? '' }}"
-                    data-family-name="{{ $selectedSubService->service->family->name ?? '' }}"
+                    data-family-name="{{ ($selectedSubService->service->family->sort_order ? $selectedSubService->service->family->sort_order . '. ' : '') }}{{ $selectedSubService->service->family->name ?? '' }}"
                     data-family-id="{{ $selectedSubService->service->family->id ?? '' }}"
                     data-criticality-level="{{ $criticalityLevel }}"
                     data-sla-id="{{ $slaId }}">
