@@ -696,6 +696,64 @@ class CutController extends Controller
         return back()->with('success', 'Asociación actualizada según la fecha de cierre/resolución.');
     }
 
+    /**
+     * Close the current cut and automatically create the next open cut.
+     */
+    public function close(Cut $cut, Request $request): RedirectResponse
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403);
+        }
+
+        if ($cut->isClosed()) {
+            return back()->with('error', 'Este corte ya está cerrado.');
+        }
+
+        // Determine close date: use provided date or now
+        $closeAt = $request->filled('close_at')
+            ? Carbon::parse($request->input('close_at'))
+            : now();
+
+        // Ensure close date is not before the cut's start date
+        if ($closeAt->lt($cut->start_date)) {
+            return back()->with('error', 'La fecha de cierre no puede ser anterior al inicio del corte.');
+        }
+
+        // Sync current cut's requests before closing
+        $this->syncCutServiceRequests($cut);
+
+        // Close and create next
+        $nextCut = $cut->closeAndCreateNext($closeAt);
+
+        // Generate folder for the new cut
+        $activeContract = $currentCompany?->activeContract;
+        if ($activeContract) {
+            $folderPath = $this->evidenceOrganizerService->suggestFolderPath(
+                $nextCut->id,
+                $nextCut->start_date,
+                $activeContract->number
+            );
+            if ($this->evidenceOrganizerService->createCutFolder($folderPath)) {
+                $nextCut->update(['folder_path' => $folderPath]);
+            }
+        }
+
+        // Sync the new cut's requests
+        $this->syncCutServiceRequests($nextCut);
+
+        return redirect()
+            ->route('reports.cuts.show', $nextCut)
+            ->with('success', "Corte \"{$cut->name}\" cerrado. Nuevo corte \"{$nextCut->name}\" creado automáticamente.");
+    }
+
     public function export(Request $request, Cut $cut)
     {
         $currentCompanyId = (int) session('current_company_id');

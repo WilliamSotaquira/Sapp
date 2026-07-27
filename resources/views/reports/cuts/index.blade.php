@@ -54,7 +54,12 @@
                             @foreach($cuts as $cut)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3">
-                                        <div class="font-semibold text-gray-900">{{ $cut->name }}</div>
+                                        <div class="font-semibold text-gray-900">
+                                            {{ $cut->name }}
+                                            @if($cut->isOpen())
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700 ml-1">ABIERTO</span>
+                                            @endif
+                                        </div>
                                         <div class="text-xs text-gray-500">#{{ $cut->id }}</div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">

@@ -18,7 +18,18 @@
         <div class="px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
             <div>
                 <p class="text-xs uppercase tracking-wide text-gray-500">Corte #{{ $cut->id }}</p>
-                <h2 class="text-xl font-bold text-gray-900">{{ $cut->name }}</h2>
+                <h2 class="text-xl font-bold text-gray-900">
+                    {{ $cut->name }}
+                    @if($cut->isOpen())
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">
+                            <i class="fas fa-circle text-[6px] mr-1 animate-pulse"></i> Abierto
+                        </span>
+                    @else
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 ml-2">
+                            <i class="fas fa-lock text-[8px] mr-1"></i> Cerrado
+                        </span>
+                    @endif
+                </h2>
                 <p class="text-sm text-gray-600">{{ $cut->start_date->format('Y-m-d') }} → {{ $cut->end_date->format('Y-m-d') }}</p>
                 @if($cut->contract)
                     <p class="text-xs text-gray-500 mt-1">Contrato: {{ $cut->contract->number }}</p>
@@ -64,6 +75,15 @@
                         Recalcular
                     </button>
                 </form>
+                @if($cut->isOpen())
+                    <form method="POST" action="{{ route('reports.cuts.close', $cut) }}" onsubmit="return confirm('¿Cerrar este corte? Se fijará la fecha de cierre a este momento y se creará automáticamente el siguiente corte.')">
+                        @csrf
+                        <button type="submit" class="px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 font-medium">
+                            <i class="fa-solid fa-lock"></i>
+                            Cerrar Corte
+                        </button>
+                    </form>
+                @endif
             </div>
         </div>
 

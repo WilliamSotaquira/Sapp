@@ -195,18 +195,39 @@ class ServiceRequestService
             return null;
         }
 
-        return Cut::query()
-            ->when($contractId > 0, fn($query) => $query->where('contract_id', $contractId))
-            ->when($contractId <= 0 && $companyId > 0, function ($query) use ($companyId) {
-                $query->whereHas('contract', function ($contractQuery) use ($companyId) {
-                    $contractQuery->where('company_id', $companyId);
+        $contractScope = function ($query) use ($contractId, $companyId) {
+            $query->when($contractId > 0, fn($q) => $q->where('contract_id', $contractId))
+                ->when($contractId <= 0 && $companyId > 0, function ($q) use ($companyId) {
+                    $q->whereHas('contract', function ($contractQuery) use ($companyId) {
+                        $contractQuery->where('company_id', $companyId);
+                    });
                 });
-            })
+        };
+
+        // First: try to find a closed cut whose fixed range contains the reference date
+        $closedCut = Cut::query()
+            ->tap($contractScope)
+            ->where('status', Cut::STATUS_CLOSED)
             ->whereDate('start_date', '<=', $reference->toDateString())
             ->whereDate('end_date', '>=', $reference->toDateString())
             ->orderByDesc('start_date')
             ->orderByDesc('id')
-            ->first(['id', 'contract_id', 'name', 'start_date', 'end_date']);
+            ->first(['id', 'contract_id', 'name', 'start_date', 'end_date', 'status']);
+
+        if ($closedCut) {
+            return $closedCut;
+        }
+
+        // Second: try the open cut — it captures everything from start_date onward
+        $openCut = Cut::query()
+            ->tap($contractScope)
+            ->where('status', Cut::STATUS_OPEN)
+            ->whereDate('start_date', '<=', $reference->toDateString())
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->first(['id', 'contract_id', 'name', 'start_date', 'end_date', 'status']);
+
+        return $openCut;
     }
 
     /**
