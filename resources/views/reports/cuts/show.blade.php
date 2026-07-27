@@ -84,6 +84,16 @@
                         </button>
                     </form>
                 @endif
+                @if($cut->serviceRequests()->count() === 0)
+                    <form method="POST" action="{{ route('reports.cuts.destroy', $cut) }}" onsubmit="return confirm('¿Eliminar el corte \'{{ $cut->name }}\'? Esta acción no se puede deshacer.')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="px-3 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50">
+                            <i class="fa-solid fa-trash"></i>
+                            Eliminar
+                        </button>
+                    </form>
+                @endif
             </div>
         </div>
 

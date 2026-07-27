@@ -111,18 +111,27 @@ class ObligationReportService
     {
         [$start, $end] = $cut->getDateRangeForQuery();
 
-        return ServiceRequest::where('company_id', $companyId)
+        $query = ServiceRequest::where('company_id', $companyId)
             ->whereIn('status', ['RESUELTA', 'CERRADA'])
-            ->where(function ($q) use ($start, $end) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
-            })
             ->whereHas('subService.service.family', function ($q) use ($contractId) {
                 $q->where('contract_id', $contractId);
             })
             ->whereDoesntHave('cuts', function ($q) use ($cut) {
                 $q->where('cuts.id', $cut->id);
-            })
-            ->get(['id', 'ticket_number', 'title', 'status', 'resolved_at', 'closed_at']);
+            });
+
+        // Open cuts capture everything from start_date onward
+        if ($cut->isOpen()) {
+            $query->where(function ($q) use ($start) {
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+            });
+        } else {
+            $query->where(function ($q) use ($start, $end) {
+                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+            });
+        }
+
+        return $query->get(['id', 'ticket_number', 'title', 'status', 'resolved_at', 'closed_at']);
     }
 
     /**

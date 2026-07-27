@@ -158,17 +158,36 @@ class CutClosureController extends Controller
             }
         }
 
-        // Compress
+        // Compress using PHP ZipArchive
         $zipPath = storage_path("app/temp/{$baseFileName}.zip");
-        $escapedBuildDir = str_replace('/', '\\', $buildDir);
-        $escapedZipPath = str_replace('/', '\\', $zipPath);
+        if (file_exists($zipPath)) {
+            unlink($zipPath);
+        }
 
-        $psCmd = "Compress-Archive -Path '{$escapedBuildDir}\\*' -DestinationPath '{$escapedZipPath}' -Force";
-        exec("powershell.exe -NoProfile -Command \"{$psCmd}\"", $output, $returnCode);
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            $this->cleanDirectory($buildDir);
+            return back()->with('error', 'No se pudo crear el archivo ZIP.');
+        }
 
+        $buildDirRealPath = realpath($buildDir);
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($buildDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($files as $file) {
+            if ($file->isFile()) {
+                $filePath = $file->getRealPath();
+                $relativePath = substr($filePath, strlen($buildDirRealPath) + 1);
+                $zip->addFile($filePath, str_replace('\\', '/', $relativePath));
+            }
+        }
+
+        $zip->close();
         $this->cleanDirectory($buildDir);
 
-        if ($returnCode !== 0 || !file_exists($zipPath)) {
+        if (!file_exists($zipPath)) {
             return back()->with('error', 'No se pudo generar el archivo ZIP.');
         }
 
