@@ -524,7 +524,7 @@ class TaskController extends Controller
         $validated['type'] = $validated['type'] ?? 'regular';
 
         // Auto-marcar como crítica si tiene prioridad crítica o (alta/urgente con fecha de vencimiento)
-        if ($validated['priority'] === 'critical' || 
+        if ($validated['priority'] === 'critical' ||
             (in_array($validated['priority'], ['high', 'urgent']) && !empty($validated['due_date']))) {
             $validated['is_critical'] = true;
         }
@@ -625,19 +625,14 @@ class TaskController extends Controller
         $validated['technical_notes'] = $validated['technical_notes'] ?? null;
 
         // Crear tarea con generación atómica de código
-        \Log::info("=== INICIO CREACIÓN DE TAREA ===");
 
         $date = $this->makeUiDate($validated['scheduled_date']);
         $prefix = $validated['type'] === 'impact' ? 'IMP' : 'REG';
         $dateStr = $date->format('Ymd');
         $lockName = "task_code_gen_{$prefix}_{$dateStr}";
 
-        \Log::info("Lock name: " . $lockName);
-
         // Obtener lock de aplicación (espera hasta 10 segundos)
         $lockAcquired = \DB::selectOne("SELECT GET_LOCK(?, 10) as result", [$lockName])->result;
-
-        \Log::info("Lock acquired: " . ($lockAcquired ? 'YES' : 'NO'));
 
         if (!$lockAcquired) {
             return back()->withErrors(['task_code' => 'No se pudo generar el código de tarea. Intente nuevamente.'])->withInput();
@@ -661,13 +656,6 @@ class TaskController extends Controller
                 if (isset($parts[2])) {
                     $lastSequence = intval($parts[2]);
                     $sequence = $lastSequence + 1;
-
-                    // Log para debug
-                    \Log::info("Generando código de tarea", [
-                        'last_code' => $lastTask->task_code,
-                        'last_sequence' => $lastSequence,
-                        'new_sequence' => $sequence
-                    ]);
                 }
             }
 
@@ -677,26 +665,13 @@ class TaskController extends Controller
             $validated['created_at'] = now();
             $validated['updated_at'] = now();
 
-            \Log::info("DEBUG: Intentando insertar tarea", [
-                'last_task_code' => $lastTask ? $lastTask->task_code : 'NINGUNA',
-                'sequence_calculated' => $sequence,
-                'new_code' => $taskCode,
-                'validated_code' => $validated['task_code']
-            ]);
-
             $taskData = Arr::except($validated, ['subtasks', 'checklist', 'task_organization']);
-
-            \Log::debug('Insert task payload keys', [
-                'keys' => array_keys($taskData)
-            ]);
 
             // Insertar directamente
             \DB::table('tasks')->insert($taskData);
 
             // Commit de la transacción
             \DB::commit();
-
-            \Log::info("Tarea insertada exitosamente: " . $validated['task_code']);
 
             // Buscar la tarea creada
             $task = Task::where('task_code', $validated['task_code'])->first();
@@ -1277,7 +1252,7 @@ class TaskController extends Controller
         $validated['requires_evidence'] = $request->has('requires_evidence') && $request->input('requires_evidence') == '1';
 
         // Auto-marcar como crítica si la prioridad es "critical" o si es "high"/"urgent" con fecha de vencimiento
-        if ($validated['priority'] === 'critical' || 
+        if ($validated['priority'] === 'critical' ||
             (in_array($validated['priority'], ['high', 'urgent']) && !empty($validated['due_date']))) {
             $validated['is_critical'] = true;
         }
@@ -1828,14 +1803,7 @@ class TaskController extends Controller
 
     protected function getUiTimezone(): string
     {
-        $timezone = config('app.ui_timezone');
-
-        if (empty($timezone) || $timezone === 'UTC') {
-            $envTimezone = env('APP_UI_TIMEZONE', env('APP_TIMEZONE'));
-            if (!empty($envTimezone)) {
-                $timezone = $envTimezone;
-            }
-        }
+        $timezone = config('app.ui_timezone', 'America/Bogota');
 
         if (empty($timezone) || $timezone === 'UTC') {
             $timezone = 'America/Bogota';

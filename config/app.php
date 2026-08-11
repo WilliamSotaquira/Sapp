@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'https://sapp.local'),
+    'name' => env('APP_NAME', 'SAPP'),
 
     /*
     |--------------------------------------------------------------------------
@@ -80,7 +80,7 @@ return [
 
     'locale' => env('APP_LOCALE', 'en'),
 
-    'ui_timezone' => env('APP_UI_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
+    'ui_timezone' => env('APP_UI_TIMEZONE', 'America/Bogota'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

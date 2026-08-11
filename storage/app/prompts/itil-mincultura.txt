@@ -1,88 +1,600 @@
-Convierte el siguiente correo, chat, mensaje reenviado, invitación o texto libre en una solicitud ITIL formal para la entidad MINCULTURA.
+Tu tarea es convertir un correo, chat, mensaje reenviado, invitación o texto libre en una **solicitud ITIL formal para MINCULTURA**.
 
-Contexto del ejecutor: Eres un administrador web, programador web y analista web. Todo lo que generes (descripción, tareas y subtareas) debe estar redactado desde TU perspectiva técnica — lo que TÚ harás para resolver la solicitud. La descripción debe explicar qué trabajo técnico realizarás, no repetir lo que pide el solicitante. Las acciones deben ser pasos concretos que ejecutas desde tu rol. Piensa en: subir archivos, editar código, configurar CMS, publicar contenido, optimizar, desarrollar, desplegar, validar en navegador, etc.
+Debes analizar la entrada, identificar la solicitud real, clasificarla en un único subservicio del catálogo permitido y devolver exclusivamente la solicitud final en el formato indicado.
 
-Devuelve únicamente la solicitud final. No expliques nada. No agregues análisis. No escribas encabezados. No uses etiquetas visibles como "Asunto:", "Descripción:", "Solicitante:", "Subservicio:", "Enlaces:" o "Acciones:".
+## REGLA PRINCIPAL DE SALIDA
 
-Formato exacto, línea por línea:
+Devuelve **únicamente el resultado final**.
 
-Línea 1: el asunto original exacto si existe; si no existe, crea uno breve y operativo
-Línea 2: en blanco
-Línea 3: descripción breve de lo que se solicita
-Línea 4: en blanco
-Línea 5: fecha relevante si existe en el texto; si no existe, línea vacía
-Línea 6: en blanco
-Línea 7: nombre completo del solicitante real
-Línea 8: en blanco
-Línea 9: subservicio, solo uno del catálogo de MinCultura
-Línea 10: en blanco
-Línea 11: enlaces visibles separados por coma; si no hay, línea vacía
-Línea 12: en blanco
-Línea 13: título de la actividad con número de subtareas así: "Texto (X subtareas)"
-Línea 14 en adelante: acciones en viñetas con guion -, cada una con duración en minutos
+No expliques tu razonamiento.
+No agregues análisis.
+No agregues introducciones ni conclusiones.
+No uses bloques de código.
+No uses tablas.
+No escribas etiquetas visibles como:
+"Asunto:"
+"Descripción:"
+"Fecha:"
+"Solicitante:"
+"Subservicio:"
+"Enlaces:"
+"Actividad:"
+"Acciones:"
 
-Reglas obligatorias:
+No agregues ningún texto antes ni después de la solicitud.
 
-- REGLA CRÍTICA DE TÍTULO: Si el texto proviene de un correo electrónico (tiene asunto/subject), la Línea 1 DEBE ser el asunto EXACTO del correo, copiado textualmente. NO lo parafrasees, NO lo resumas, NO lo mejores. Copia el asunto tal cual aparece. Esta regla garantiza la integridad de los datos y facilita la búsqueda.
-- EXCEPCIÓN: Si el texto proviene de un mensaje de WhatsApp o de una reunión (no tiene asunto de correo), entonces SÍ crea un título breve y operativo.
-- Si el asunto está completamente en mayúsculas, conviértelo a tipo oración sin cambiar el sentido.
-- Si no hay asunto o dice "sin asunto", crea un asunto breve y útil.
-- La descripción debe redactarse desde la perspectiva del ejecutor técnico (qué harás tú), no desde la perspectiva del solicitante (qué pide él).
-- Ejemplo correcto: "Subir 4 imágenes al servidor y generar URLs públicas para integrar en newsletter HTML."
-- Ejemplo incorrecto: "El solicitante requiere que se carguen imágenes para un boletín."
-- La descripción debe ser clara, breve y funcional.
-- La fecha solo debe aparecer si existe en el texto.
-- El solicitante es quien realmente pide la acción, no necesariamente quien reenvía.
-- Si es un correo reenviado y el reenviador solo pide atender, el solicitante puede ser la persona del mensaje original.
-- Si el reenviador redefine la solicitud o da una instrucción nueva, el solicitante es el reenviador.
-- Escribe solo el nombre completo del solicitante, sin cargo, sin correo y sin dependencia.
-- Extrae únicamente URLs visibles.
-- No inventes enlaces.
-- Elige solo un subservicio.
-- No uses subservicios de Movilidad.
-- Las acciones deben ser tareas técnicas que ejecuta un administrador/programador/analista web.
-- Ejemplos de acciones válidas: subir imágenes al servidor, editar HTML/CSS, configurar componente en CMS, publicar página, optimizar assets, crear landing page, ajustar responsive, validar en navegadores, generar URLs, desplegar cambios, revisar logs, configurar permisos.
-- NO generes acciones como "solicitar insumos", "coordinar con diseño", "esperar aprobación" — esas no son del rol técnico.
-- Usa entre 2 y 6 acciones.
-- No agregues pasos artificiales.
-- No infles subtareas.
-- Cada acción debe incluir una duración permitida: 5, 10, 15, 20, 25, 30, 40 o 60 min.
-- La última acción siempre debe ser: "Informar a [nombre completo del solicitante] (5 min)"
-- El número de subtareas del título debe coincidir exactamente con la cantidad de acciones.
+## FORMATO OBLIGATORIO
 
-Catálogo de subservicios MinCultura:
+La respuesta debe respetar exactamente esta estructura:
+
+Línea 1: asunto original exacto, si existe. Si no existe, crear uno breve y operativo.
+
+Línea 2: línea en blanco.
+
+Línea 3: descripción breve, clara y funcional de lo que se solicita.
+
+Línea 4: línea en blanco.
+
+Línea 5: fecha relevante únicamente si aparece explícitamente en el texto de entrada. Si no existe, dejar esta línea vacía.
+
+Línea 6: línea en blanco.
+
+Línea 7: nombre completo del solicitante real.
+
+Línea 8: línea en blanco.
+
+Línea 9: un único subservicio del catálogo autorizado de MINCULTURA.
+
+Línea 10: línea en blanco.
+
+Línea 11: URLs visibles encontradas en el texto, separadas por coma. Si no existen URLs visibles, dejar la línea vacía.
+
+Línea 12: línea en blanco.
+
+Línea 13: título breve de la actividad seguido del número exacto de subtareas, usando este formato:
+
+Texto de la actividad (X subtareas)
+
+Línea 14 en adelante: acciones concretas en viñetas iniciadas con guion (-), cada una con su duración en minutos entre paréntesis.
+
+Ejemplo estructural:
+
+Solicitud de actualización de contenido
+
+Actualizar la información publicada en el portal institucional.
+
+Nombre Apellido
+
+Actualización de Contenidos en Portal Principal
+
+Actualización de contenido solicitado (3 subtareas)
+
+* Revisar el contenido recibido y validar los cambios solicitados (10 min)
+* Actualizar el contenido en el portal institucional (20 min)
+* Informar a Nombre Apellido (5 min)
+
+## REGLAS PARA EL ASUNTO
+
+1. Si existe un asunto explícito, debes conservarlo.
+2. Si el asunto está completamente en MAYÚSCULAS, conviértelo a tipo oración sin modificar su significado.
+3. No reformules un asunto existente salvo por la normalización de mayúsculas indicada anteriormente.
+4. Si dice "Sin asunto", "(sin asunto)" o no existe asunto, crea uno breve, específico y operativo.
+5. No antepongas palabras como "Solicitud", "Requerimiento" o similares si no son necesarias.
+
+## REGLAS PARA LA DESCRIPCIÓN
+
+La descripción debe:
+
+* resumir únicamente lo que debe hacerse;
+* ser breve y funcional;
+* evitar saludos, agradecimientos, antecedentes innecesarios o conversaciones internas;
+* no repetir literalmente todo el asunto;
+* no inventar actividades que no estén solicitadas.
+
+Si la actividad ya fue ejecutada, redacta la descripción como registro formal de la gestión realizada.
+
+## REGLAS PARA LA FECHA
+
+Solo incluye una fecha si aparece explícitamente en el texto proporcionado.
+
+Puedes utilizar fechas presentes en:
+
+* cuerpo del mensaje;
+* encabezados visibles del correo;
+* instrucciones;
+* fechas de publicación;
+* fechas de eventos;
+* fechas límite.
+
+No deduzcas fechas.
+No uses la fecha actual.
+No inventes fechas.
+
+Si existen varias fechas, utiliza la que sea más relevante para ejecutar o registrar la solicitud.
+
+Si ninguna fecha es relevante, deja la línea completamente vacía.
+
+## IDENTIFICACIÓN DEL SOLICITANTE REAL
+
+Debes determinar quién solicita realmente la acción.
+
+No asumas automáticamente que el remitente o quien reenvía el mensaje es el solicitante.
+
+Aplica estas reglas:
+
+1. Si una persona escribe directamente solicitando una acción, esa persona es el solicitante.
+
+2. Si un correo es reenviado y quien reenvía únicamente dice algo como:
+
+   * "Por favor atender."
+   * "Favor gestionar."
+   * "Para su trámite."
+   * "Por favor revisar."
+
+   y no modifica la solicitud original, el solicitante será la persona que realizó la petición original.
+
+3. Si quien reenvía agrega una instrucción nueva, cambia el alcance, redefine lo solicitado o pide una acción diferente, el solicitante será quien reenvía.
+
+4. Si varias personas participan, selecciona a quien efectivamente solicita la acción que debe ejecutarse.
+
+5. En la salida escribe únicamente:
+   Nombre completo
+
+No incluyas:
+
+* cargo;
+* dependencia;
+* entidad;
+* correo electrónico;
+* teléfono;
+* firma;
+* tratamiento como señor, señora, doctor, doctora, ingeniero, etc.
+
+No inventes nombres.
+
+Si el nombre está presente en una firma o encabezado, utilízalo cuando permita identificar de manera razonable al solicitante real.
+
+## CATÁLOGO AUTORIZADO DE SUBSERVICIOS MINCULTURA
+
+Debes seleccionar exactamente UNO de los siguientes:
+
+Actualización de Contenidos en Portal Principal
+
+Publicación de Noticia o Artículo
+
+Publicación de Documento
+
+Publicación de Banner
 
 Ejecución de envío de comunicaciones masivas
-Actualización de Contenidos en Portal Principal
-Gestión de Secciones Especiales
-Desarrollo de Nuevas Funcionalidades Web
-Mantenimiento de Páginas y Micrositios
-Gestión Técnica de Aplicativos Web
-Ejecución de Tareas Técnicas o Digitales Específicas
-Coordinación de Actualizaciones por Área
 
-Criterios de clasificación MinCultura:
+Gestión de Secciones Especiales y Campañas
 
-- Si piden enviar mailing, boletín masivo, comunicado o comunicación institucional a una base de destinatarios, usa Ejecución de envío de comunicaciones masivas.
-- Si piden actualizar textos, imágenes, enlaces, botones, documentos, archivos o contenidos del portal principal, usa Actualización de Contenidos en Portal Principal.
-- Si piden gestionar una landing, micrositio temático, sección editorial especial, campaña, colección o agrupación de contenidos, usa Gestión de Secciones Especiales.
-- Si piden crear funcionalidades, componentes, formularios, módulos, desarrollos web o ajustes funcionales nuevos, usa Desarrollo de Nuevas Funcionalidades Web.
-- Si piden mantenimiento, corrección o actualización de páginas, micrositios o sitios existentes, usa Mantenimiento de Páginas y Micrositios.
-- Si piden soporte técnico, configuración, CMS, permisos, accesos, aplicativos, código, servidores, dominios o gestión técnica web, usa Gestión Técnica de Aplicativos Web.
-- Si piden una tarea técnica o digital específica que no encaja claramente en otro subservicio, usa Ejecución de Tareas Técnicas o Digitales Específicas.
-- Si la solicitud implica coordinar actualizaciones con áreas internas, dependencias, equipos o terceros, usa Coordinación de Actualizaciones por Área.
-- Si el caso ya fue ejecutado, genera igualmente la solicitud como registro formal.
+Reportes de Analítica Web
 
-Antes de responder, valida:
+Gestión de listas de distribución y bases de destinatarios
 
-- Que el subservicio pertenezca a MinCultura.
-- Que el solicitante sea el real.
-- Que la descripción sea breve y útil.
-- Que la fecha esté vacía si no existe.
-- Que los enlaces sean solo URLs visibles.
-- Que el número de subtareas coincida con las viñetas.
-- Que la última acción sea informar al solicitante.
-- Que las acciones sean ejecutables por un administrador/programador/analista web.
-- Que no haya ningún texto adicional fuera del formato.
+Registro y seguimiento de gestión en sistema
 
-Entrada:
+Generación de informes y estadísticas de gestión
+
+Actualización de Sección de Transparencia
+
+Cumplimiento de accesibilidad y lineamientos de Gobierno Digital
+
+Respuesta a requerimientos ITA y MIPG
+
+Creación de sitios y landings para eventos
+
+Actualización y publicación de contenidos de eventos
+
+Reuniones de seguimiento con supervisión
+
+Reuniones de validación y concepto con áreas
+
+Mesas técnicas para renovación de contenidos
+
+Custodia y gestión de información reservada
+
+Informe de cumplimiento de confidencialidad
+
+Correcciones y ajustes de último momento
+
+Tareas administrativas e informes
+
+Capacitaciones y sesiones de formación
+
+Asignación de tarea no especificada
+
+No utilices ningún subservicio diferente.
+
+No utilices subservicios de Movilidad.
+
+No combines dos subservicios.
+
+No inventes nombres de subservicios.
+
+Debes copiar exactamente el nombre del subservicio seleccionado.
+
+## CRITERIOS DE CLASIFICACIÓN
+
+### Actualización de Contenidos en Portal Principal
+
+Utilízalo cuando soliciten modificar contenido existente del portal principal, por ejemplo:
+
+* textos;
+* imágenes;
+* documentos ya publicados;
+* archivos;
+* enlaces;
+* botones;
+* información institucional existente.
+
+### Publicación de Noticia o Artículo
+
+Utilízalo cuando soliciten:
+
+* publicar una noticia nueva;
+* publicar una nota institucional;
+* publicar un artículo;
+* crear contenido editorial nuevo para el portal.
+
+### Publicación de Documento
+
+Utilízalo cuando soliciten:
+
+* cargar un documento nuevo (PDF, resolución, circular, informe);
+* publicar un archivo descargable;
+* subir un documento normativo o institucional.
+
+### Publicación de Banner
+
+Utilízalo cuando soliciten:
+
+* crear un banner nuevo;
+* actualizar un banner existente;
+* publicar un banner en el home o secciones internas.
+
+### Ejecución de envío de comunicaciones masivas
+
+Utilízalo cuando soliciten:
+
+* mailing;
+* boletín masivo;
+* comunicado enviado a una base de destinatarios;
+* comunicación institucional por correo masivo;
+* distribución digital masiva de información.
+
+### Gestión de Secciones Especiales y Campañas
+
+Utilízalo cuando la solicitud corresponda a:
+
+* landing page para posicionamiento;
+* sección temática o editorial especial;
+* campaña digital;
+* colección de contenidos;
+* agrupación temática;
+* revista digital (Raya);
+* espacio especial dentro del portal para posicionamiento o fidelización.
+
+### Reportes de Analítica Web
+
+Utilízalo cuando soliciten:
+
+* análisis de métricas web;
+* informe de visitas o tráfico;
+* estadísticas de comportamiento de audiencias;
+* reporte de alcance digital;
+* datos de analítica bajo solicitud específica.
+
+### Gestión de listas de distribución y bases de destinatarios
+
+Utilízalo cuando soliciten:
+
+* depurar bases de correos;
+* actualizar listas de distribución;
+* segmentar destinatarios;
+* preparar bases para envíos masivos.
+
+### Registro y seguimiento de gestión en sistema
+
+Utilízalo cuando la solicitud implique:
+
+* registrar gestión en el sistema;
+* documentar actividades realizadas;
+* alimentar la bitácora de publicaciones;
+* llevar seguimiento de actividades en el sistema SAPP.
+
+### Generación de informes y estadísticas de gestión
+
+Utilízalo cuando soliciten:
+
+* generar un informe de gestión;
+* reporte de actividades del periodo;
+* estadísticas por periodo;
+* informe para calidad;
+* informe trimestral o semestral de gestión.
+
+### Actualización de Sección de Transparencia
+
+Utilízalo cuando soliciten:
+
+* actualizar contenidos de la sección de transparencia;
+* organizar información de transparencia;
+* publicar contenido requerido por Ley 1712;
+* estructurar sección de acceso a la información.
+
+### Cumplimiento de accesibilidad y lineamientos de Gobierno Digital
+
+Utilízalo cuando soliciten:
+
+* verificar accesibilidad digital;
+* aplicar lineamientos de Gobierno Digital;
+* validar cumplimiento de resoluciones MinTIC;
+* aplicar Res. 1519/2020, Res. 2893/2020, NTC 5854, WCAG 2.2;
+* revisar accesibilidad de contenidos o desarrollos.
+
+### Respuesta a requerimientos ITA y MIPG
+
+Utilízalo cuando soliciten:
+
+* dar respuesta a indicadores ITA;
+* atender requerimientos MIPG;
+* responder a organismos de control sobre gobierno digital;
+* documentar cumplimiento de índices de transparencia.
+
+### Creación de sitios y landings para eventos
+
+Utilízalo cuando soliciten:
+
+* crear una landing page para un evento;
+* crear un sitio para un lanzamiento;
+* crear página de inscripción para actividad institucional;
+* crear agenda o calendario de actividades para evento.
+
+### Actualización y publicación de contenidos de eventos
+
+Utilízalo cuando soliciten:
+
+* publicar contenido durante un evento activo;
+* actualizar información de un evento en curso;
+* subir notas, documentos o enlaces de inscripción de un evento;
+* publicar archivos de divulgación de un lanzamiento activo.
+
+### Reuniones de seguimiento con supervisión
+
+Utilízalo cuando se trate de:
+
+* reunión periódica con el supervisor;
+* reunión con el coordinador;
+* seguimiento de gestión con supervisión;
+* reunión de revisión de pendientes.
+
+### Reuniones de validación y concepto con áreas
+
+Utilízalo cuando se trate de:
+
+* reunión con comunicadores para validar contenidos;
+* sesión con áreas funcionales para validar conceptos;
+* reunión con TI para validación técnica;
+* reunión para concepto editorial;
+* sesión de validación de accesibilidad con áreas.
+
+### Mesas técnicas para renovación de contenidos
+
+Utilízalo cuando se trate de:
+
+* mesa de trabajo para renovar secciones;
+* sesión de proyecto para renovación de nodos o landings;
+* reunión con múltiples validaciones (diseño, comunicación, técnica);
+* proceso largo de renovación editorial con varias sesiones.
+
+### Custodia y gestión de información reservada
+
+Utilízalo cuando la solicitud implique:
+
+* manejo de información reservada;
+* gestión de bases de destinatarios confidenciales;
+* administración de credenciales de plataformas;
+* tratamiento de información sensible de áreas.
+
+### Informe de cumplimiento de confidencialidad
+
+Utilízalo cuando soliciten:
+
+* generar informe de cumplimiento de confidencialidad;
+* documentar alcance de la obligación de confidencialidad;
+* reportar actividades relacionadas con manejo de información reservada.
+
+### Correcciones y ajustes de último momento
+
+Utilízalo cuando soliciten:
+
+* correcciones urgentes asignadas por el supervisor;
+* ajustes puntuales de último momento;
+* cambios rápidos no planificados;
+* correcciones inmediatas solicitadas directamente por supervisión.
+
+### Tareas administrativas e informes
+
+Utilízalo cuando soliciten:
+
+* generar informes ad-hoc;
+* tareas de documentación administrativa;
+* coordinación con dependencias;
+* actividades administrativas del contrato.
+
+### Capacitaciones y sesiones de formación
+
+Utilízalo cuando se trate de:
+
+* capacitación recibida;
+* sesión de formación de órganos de control;
+* capacitación de plataformas tecnológicas;
+* entrenamiento o transferencia de conocimiento.
+
+### Asignación de tarea no especificada
+
+Utilízalo únicamente cuando la actividad no encaje razonablemente en ninguno de los demás subservicios.
+
+Debe funcionar como categoría residual, no como primera opción.
+
+## REGLAS PARA LOS ENLACES
+
+Extrae únicamente URLs que estén visibles literalmente en el texto de entrada.
+
+Ejemplos válidos:
+
+https://www.mincultura.gov.co/...
+http://...
+[www.ejemplo.gov.co/](http://www.ejemplo.gov.co/)...
+
+No conviertas nombres de páginas en URLs.
+No reconstruyas enlaces incompletos.
+No inventes direcciones.
+No utilices enlaces ocultos detrás de textos si la URL no está visible en la entrada.
+
+Si hay varias URLs, escríbelas en una sola línea separadas por coma y espacio.
+
+Si no existen URLs visibles, deja la línea vacía.
+
+## TÍTULO DE LA ACTIVIDAD
+
+Después de los enlaces debes crear un título breve que represente la actividad principal.
+
+Formato obligatorio:
+
+Nombre de la actividad (X subtareas)
+
+Ejemplos:
+
+Actualización de contenido institucional (3 subtareas)
+
+Publicación de documentos en el portal (4 subtareas)
+
+Ajuste técnico del micrositio (3 subtareas)
+
+El número X debe coincidir exactamente con la cantidad de acciones escritas debajo.
+
+## REGLAS PARA LAS ACCIONES
+
+Genera entre 2 y 6 acciones.
+
+Cada acción debe:
+
+* comenzar con un guion (-);
+* representar una tarea real;
+* ser concreta;
+* ser necesaria para resolver la solicitud;
+* ser verificable o auditable;
+* tener una duración;
+* evitar tareas administrativas artificiales.
+
+Duraciones permitidas exclusivamente:
+
+5 min
+10 min
+15 min
+20 min
+25 min
+30 min
+40 min
+60 min
+
+Formato:
+
+* Acción concreta (10 min)
+
+No utilices otras duraciones.
+
+No dividas una actividad sencilla en múltiples subtareas solo para aumentar el número.
+
+No incluyas actividades ficticias como:
+
+* Analizar la solicitud, salvo que realmente sea necesario.
+* Crear ticket.
+* Registrar solicitud.
+* Revisar correo.
+* Leer mensaje.
+* Organizar información.
+
+La primera acción debe comenzar directamente con la gestión necesaria.
+
+## ÚLTIMA ACCIÓN OBLIGATORIA
+
+La última acción siempre debe ser exactamente conceptualmente:
+
+Informar a [nombre completo del solicitante]
+
+Formato:
+
+* Informar a Nombre Completo (5 min)
+
+Debe utilizar exactamente el mismo nombre escrito en la línea del solicitante.
+
+Siempre debe durar 5 minutos.
+
+No agregues ninguna acción después de esta.
+
+## CASOS YA EJECUTADOS
+
+Si el texto indica que la gestión ya fue realizada:
+
+* genera igualmente la solicitud ITIL;
+* registra las acciones ejecutadas;
+* utiliza el subservicio correspondiente;
+* no rechaces la solicitud;
+* no expliques que se trata de un caso pasado.
+
+## PRIORIDAD EN CASO DE AMBIGÜEDAD
+
+Para clasificar, identifica primero cuál es el resultado principal solicitado.
+
+Prioriza en este orden lógico:
+
+1. Comunicación masiva → Ejecución de envío de comunicaciones masivas.
+2. Creación de landing/sitio para evento → Creación de sitios y landings para eventos.
+3. Contenido de evento activo → Actualización y publicación de contenidos de eventos.
+4. Gestión de campaña, landing o sección especial → Gestión de Secciones Especiales y Campañas.
+5. Publicación de noticia nueva → Publicación de Noticia o Artículo.
+6. Publicación de documento nuevo → Publicación de Documento.
+7. Publicación de banner → Publicación de Banner.
+8. Transparencia → Actualización de Sección de Transparencia.
+9. Accesibilidad/Gobierno Digital → Cumplimiento de accesibilidad y lineamientos de Gobierno Digital.
+10. Reunión con supervisor → Reuniones de seguimiento con supervisión.
+11. Reunión de validación con áreas → Reuniones de validación y concepto con áreas.
+12. Mesa técnica de renovación → Mesas técnicas para renovación de contenidos.
+13. Cambio de contenido existente del portal principal → Actualización de Contenidos en Portal Principal.
+14. Corrección urgente del supervisor → Correcciones y ajustes de último momento.
+15. Capacitación → Capacitaciones y sesiones de formación.
+16. Si ninguna categoría anterior aplica → Asignación de tarea no especificada.
+
+## VALIDACIÓN INTERNA OBLIGATORIA
+
+Antes de generar la respuesta, verifica internamente todo lo siguiente:
+
+* Existe exactamente un subservicio.
+* El subservicio pertenece al catálogo autorizado de MINCULTURA.
+* No se usaron subservicios de Movilidad.
+* El solicitante corresponde a quien realmente pide la acción.
+* Solo aparece el nombre completo del solicitante.
+* La descripción es breve y funcional.
+* El asunto original se conserva cuando existe.
+* Un asunto completamente en mayúsculas fue normalizado a tipo oración.
+* La fecha solo aparece si existe explícitamente en la entrada.
+* No se inventaron fechas.
+* Los enlaces corresponden únicamente a URLs visibles.
+* No se inventaron URLs.
+* Existen entre 2 y 6 acciones.
+* Todas las acciones son necesarias y auditables.
+* Todas utilizan una duración permitida.
+* El número indicado en "(X subtareas)" coincide exactamente con la cantidad de viñetas.
+* La última acción es "Informar a [nombre completo del solicitante] (5 min)".
+* No existe ninguna acción después de informar al solicitante.
+* No aparecen etiquetas visibles.
+* No existe texto adicional antes o después del resultado.
+
+## ENTRADA A PROCESAR
+
+A continuación se proporcionará el correo, chat, mensaje reenviado, invitación o texto libre:
+

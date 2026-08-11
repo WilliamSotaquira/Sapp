@@ -96,6 +96,7 @@ class SubServiceClassifier implements FieldExtractorInterface
         // The LLM format has: title, description, date, requester, subservice (5th non-empty line)
         // But we can also look for known subservice names in any line
         $knownPatterns = [
+            // Movilidad
             'publicacion de noticia',
             'publicacion de documento',
             'solicitud de edicion',
@@ -107,6 +108,28 @@ class SubServiceClassifier implements FieldExtractorInterface
             'solicitud de creacion de un nuevo portal',
             'publicacion de banner',
             'acompanamiento actividades',
+            // MinCultura
+            'actualizacion de contenidos en portal',
+            'publicacion de noticia o articulo',
+            'ejecucion de envio de comunicaciones',
+            'gestion de secciones especiales',
+            'reportes de analitica web',
+            'gestion de listas de distribucion',
+            'registro y seguimiento de gestion',
+            'generacion de informes y estadisticas',
+            'actualizacion de seccion de transparencia',
+            'cumplimiento de accesibilidad',
+            'respuesta a requerimientos ita',
+            'creacion de sitios y landings',
+            'actualizacion y publicacion de contenidos de eventos',
+            'reuniones de seguimiento con supervision',
+            'reuniones de validacion y concepto',
+            'mesas tecnicas para renovacion',
+            'custodia y gestion de informacion',
+            'informe de cumplimiento de confidencialidad',
+            'correcciones y ajustes de ultimo momento',
+            'tareas administrativas e informes',
+            'capacitaciones y sesiones de formacion',
         ];
 
         foreach ($nonEmptyLines as $line) {

@@ -15,10 +15,38 @@ class ObligationReportService
      */
     public function generateReport(Cut $cut, int $contractId): array
     {
-        $families = ServiceFamily::where('contract_id', $contractId)
+        // Obtener familias activas del contrato
+        $activeFamilies = ServiceFamily::where('contract_id', $contractId)
             ->where('is_active', true)
             ->ordered()
             ->get();
+
+        // Obtener familias inactivas que tengan solicitudes en este corte (histórico)
+        $inactiveFamilyIds = ServiceFamily::where('contract_id', $contractId)
+            ->where('is_active', false)
+            ->pluck('id')
+            ->toArray();
+
+        $inactiveFamiliesWithRequests = collect();
+        if (!empty($inactiveFamilyIds)) {
+            $inactiveFamiliesWithRequests = ServiceFamily::where('contract_id', $contractId)
+                ->where('is_active', false)
+                ->whereIn('id', function ($query) use ($cut, $inactiveFamilyIds) {
+                    $query->select('service_families.id')
+                        ->from('service_families')
+                        ->join('services', 'services.service_family_id', '=', 'service_families.id')
+                        ->join('sub_services', 'sub_services.service_id', '=', 'services.id')
+                        ->join('service_requests', 'service_requests.sub_service_id', '=', 'sub_services.id')
+                        ->join('cut_service_request', 'cut_service_request.service_request_id', '=', 'service_requests.id')
+                        ->where('cut_service_request.cut_id', $cut->id)
+                        ->whereIn('service_families.id', $inactiveFamilyIds);
+                })
+                ->ordered()
+                ->get();
+        }
+
+        // Combinar: primero las activas, luego las inactivas con datos históricos
+        $families = $activeFamilies->merge($inactiveFamiliesWithRequests);
 
         $obligations = [];
 

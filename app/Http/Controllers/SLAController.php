@@ -58,17 +58,6 @@ class SLAController extends Controller
                 ->orderBy('name')
                 ->get();
 
-            \Log::info('Service Subservices for create form:', [
-                'count' => $serviceSubservices->count(),
-                'data' => $serviceSubservices->map(fn($item) => [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'service_family' => $item->serviceFamily->name ?? 'N/A',
-                    'service' => $item->service->name ?? 'N/A',
-                    'sub_service' => $item->subService->name ?? 'N/A'
-                ])->toArray()
-            ]);
-
             return view('slas.create', compact(
                 'serviceFamilies',
                 'serviceSubservices',
@@ -253,13 +242,9 @@ class SLAController extends Controller
     public function getSLAsBySubService($subServiceId)
     {
         try {
-            Log::info("=== OBTENIENDO SLAS PARA SUB-SERVICE ===");
-            Log::info("Sub-service ID: " . $subServiceId);
-
             // Verificar que el sub-servicio existe
             $subServiceModel = SubService::find($subServiceId);
             if (!$subServiceModel) {
-                Log::warning("Sub-service no encontrado: " . $subServiceId);
                 return response()->json([], 200);
             }
 
@@ -270,8 +255,6 @@ class SLAController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
-
-            Log::info("SLAs encontrados: " . $slas->count());
 
             return response()->json($slas);
         } catch (\Exception $e) {
@@ -290,9 +273,6 @@ class SLAController extends Controller
     public function storeFromModal(Request $request)
     {
         try {
-            Log::info('=== CREANDO SLA DESDE MODAL ===');
-            Log::info('Datos recibidos:', $request->all());
-
             // Validación básica
             $validated = $request->validate([
                 'name' => 'required|string|max:255',

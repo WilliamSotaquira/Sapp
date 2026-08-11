@@ -13,30 +13,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Prueba de OpenRouter con DeepSeek
-Route::get('/probar-openrouter', function (OpenRouterService $openRouter) {
-    $respuesta = $openRouter->chat(
-        'Responde solo: Sí, estoy funcionando desde Laravel usando OpenRouter y DeepSeek.'
-    );
-
-    return response()->json([
-        'respuesta' => $respuesta
-    ]);
-});
-
-// Chat dinámico con OpenRouter y DeepSeek
-Route::post('/chat-openrouter', function (Request $request, OpenRouterService $openRouter) {
-    $request->validate([
-        'message' => ['required', 'string', 'max:5000'],
-    ]);
-
-    $respuesta = $openRouter->chat($request->message);
-
-    return response()->json([
-        'respuesta' => $respuesta
-    ]);
-});
-
 // Consulta pública de solicitudes (sin autenticación)
 Route::prefix('consultar')
     ->name('public.tracking.')
@@ -125,6 +101,22 @@ Route::middleware('auth')->group(function () {
     // =========================================================================
 
     require __DIR__ . '/requirements.php';
+
+    // =========================================================================
+    // CHAT CON IA (OpenRouter + DeepSeek)
+    // =========================================================================
+
+    Route::post('/chat-openrouter', function (Request $request, OpenRouterService $openRouter) {
+        $request->validate([
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $respuesta = $openRouter->chat($request->message);
+
+        return response()->json([
+            'respuesta' => $respuesta
+        ]);
+    })->name('chat.openrouter');
 });
 
 // =============================================================================
