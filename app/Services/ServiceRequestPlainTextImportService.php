@@ -774,14 +774,38 @@ class ServiceRequestPlainTextImportService
         $normalizedOutput = mb_strtolower($llmOutput);
 
         $minCulturaSubServices = [
-            'ejecución de envío de comunicaciones masivas',
+            // Familia 1: Publicaciones en canales digitales
             'actualización de contenidos en portal principal',
-            'gestión de secciones especiales',
-            'desarrollo de nuevas funcionalidades web',
-            'mantenimiento de páginas y micrositios',
-            'gestión técnica de aplicativos web',
-            'ejecución de tareas técnicas o digitales específicas',
-            'coordinación de actualizaciones por área',
+            'publicación de noticia o artículo',
+            'publicación de documento',
+            'publicación de banner',
+            // Familia 2: Estrategia de comunicación digital
+            'ejecución de envío de comunicaciones masivas',
+            'gestión de secciones especiales y campañas',
+            'reportes de analítica web',
+            'gestión de listas de distribución y bases de destinatarios',
+            // Familia 3: Parrilla y estadísticas
+            'registro y seguimiento de gestión en sistema',
+            'generación de informes y estadísticas de gestión',
+            // Familia 4: Gobierno Digital
+            'actualización de sección de transparencia',
+            'cumplimiento de accesibilidad y lineamientos de gobierno digital',
+            'respuesta a requerimientos ita y mipg',
+            // Familia 5: Eventos
+            'creación de sitios y landings para eventos',
+            'actualización y publicación de contenidos de eventos',
+            // Familia 6: Reuniones
+            'reuniones de seguimiento con supervisión',
+            'reuniones de validación y concepto con áreas',
+            'mesas técnicas para renovación de contenidos',
+            // Familia 7: Confidencialidad
+            'custodia y gestión de información reservada',
+            'informe de cumplimiento de confidencialidad',
+            // Familia 8: Demás asignadas
+            'correcciones y ajustes de último momento',
+            'tareas administrativas e informes',
+            'capacitaciones y sesiones de formación',
+            'asignación de tarea no especificada',
         ];
 
         $movilidadSubServices = [
@@ -1052,15 +1076,38 @@ class ServiceRequestPlainTextImportService
         }
 
         $knownSubServices = [
-            // MinCultura
-            'Ejecución de envío de comunicaciones masivas',
+            // MinCultura - Familia 1: Publicaciones
             'Actualización de Contenidos en Portal Principal',
-            'Gestión de Secciones Especiales',
-            'Desarrollo de Nuevas Funcionalidades Web',
-            'Mantenimiento de Páginas y Micrositios',
-            'Gestión Técnica de Aplicativos Web',
-            'Ejecución de Tareas Técnicas o Digitales Específicas',
-            'Coordinación de Actualizaciones por Área',
+            'Publicación de Noticia o Artículo',
+            'Publicación de Documento',
+            'Publicación de Banner',
+            // MinCultura - Familia 2: Estrategia digital
+            'Ejecución de envío de comunicaciones masivas',
+            'Gestión de Secciones Especiales y Campañas',
+            'Reportes de Analítica Web',
+            'Gestión de listas de distribución y bases de destinatarios',
+            // MinCultura - Familia 3: Registro y estadísticas
+            'Registro y seguimiento de gestión en sistema',
+            'Generación de informes y estadísticas de gestión',
+            // MinCultura - Familia 4: Gobierno Digital
+            'Actualización de Sección de Transparencia',
+            'Cumplimiento de accesibilidad y lineamientos de Gobierno Digital',
+            'Respuesta a requerimientos ITA y MIPG',
+            // MinCultura - Familia 5: Eventos
+            'Creación de sitios y landings para eventos',
+            'Actualización y publicación de contenidos de eventos',
+            // MinCultura - Familia 6: Reuniones
+            'Reuniones de seguimiento con supervisión',
+            'Reuniones de validación y concepto con áreas',
+            'Mesas técnicas para renovación de contenidos',
+            // MinCultura - Familia 7: Confidencialidad
+            'Custodia y gestión de información reservada',
+            'Informe de cumplimiento de confidencialidad',
+            // MinCultura - Familia 8: Demás asignadas
+            'Correcciones y ajustes de último momento',
+            'Tareas administrativas e informes',
+            'Capacitaciones y sesiones de formación',
+            'Asignación de tarea no especificada',
             // Movilidad
             'Publicación de Noticia, PMT o Artículo',
             'Publicación de Documento',

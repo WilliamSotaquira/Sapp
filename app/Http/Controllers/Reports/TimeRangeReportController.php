@@ -332,8 +332,18 @@ class TimeRangeReportController extends Controller
                 throw new \Exception('Faltan datos de estadísticas');
             }
 
-            $pdf = Pdf::loadView('reports.time-range.pdf', $reportData)
-                ->setPaper('a4', 'landscape')
+            // Preparar datos compatibles con la estructura del reporte por familias
+            $user = auth()->user();
+            $pdfViewData = array_merge($reportData, [
+                'serviceRequests' => $reportData['requests'],
+                'generatedAt' => now(),
+                'generatedBy' => $user->name ?? 'Sistema',
+                'generatedByEmail' => $user->email ?? '',
+                'generatedByDependency' => '',
+            ]);
+
+            $pdf = Pdf::loadView('reports.time-range.pdf', $pdfViewData)
+                ->setPaper('a4', 'portrait')
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', false);
 
@@ -341,7 +351,6 @@ class TimeRangeReportController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Error generando PDF: ' . $e->getMessage());
-            Log::error('Trace: ' . $e->getTraceAsString());
             throw new \Exception('Error al generar el archivo PDF: ' . $e->getMessage());
         }
     }

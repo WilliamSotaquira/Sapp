@@ -228,7 +228,6 @@ class TimelineReportController extends ReportController
 
                     // Si hay un error con Excel (probablemente ZIP), ofrecer CSV como alternativa
                     if (str_contains($excelError->getMessage(), 'zip')) {
-                        \Log::info('Intentando exportación como CSV debido a problema con ZIP');
                         return $this->exportTimelineAsCSV($request, $filename);
                     }
 
@@ -376,7 +375,6 @@ class TimelineReportController extends ReportController
             $debugInfo['storage_exists'] = 'ERROR: ' . $e->getMessage();
         }
 
-        \Log::info('Debug Image Paths: ', $debugInfo);
         return $debugInfo;
     }
 
@@ -476,8 +474,6 @@ class TimelineReportController extends ReportController
             $ticketNumber = trim($request->input('ticket_number'));
             $format = $request->input('format', 'pdf');
 
-            \Log::info("Buscando ticket: {$ticketNumber} con formato: {$format}");
-
             // Buscar el ServiceRequest
             $serviceRequest = ServiceRequest::where('ticket_number', $ticketNumber)
                 ->reportable()
@@ -532,8 +528,6 @@ class TimelineReportController extends ReportController
                 return redirect()->route('reports.timeline.by-ticket')
                     ->with('error', "No se encontró ninguna solicitud con el número de ticket: {$ticketNumber}. Verifica que el número esté correcto.{$suggestion}");
             }
-
-            \Log::info("Ticket encontrado: ID {$serviceRequest->id}, Número: {$serviceRequest->ticket_number}");
 
             // Llamar al método de exportación existente con el ID y formato
             return $this->exportTimeline($serviceRequest->id, $format);

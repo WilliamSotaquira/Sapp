@@ -310,7 +310,19 @@ class CutController extends Controller
         }
 
         $families = ServiceFamily::query()
-            ->active()
+            ->where(function ($q) use ($cut) {
+                // Familias activas del contrato
+                $q->where('is_active', true);
+                // O familias inactivas que tengan solicitudes en este corte (histórico)
+                $q->orWhereIn('service_families.id', function ($sub) use ($cut) {
+                    $sub->select('services.service_family_id')
+                        ->from('services')
+                        ->join('sub_services', 'sub_services.service_id', '=', 'services.id')
+                        ->join('service_requests', 'service_requests.sub_service_id', '=', 'sub_services.id')
+                        ->join('cut_service_request', 'cut_service_request.service_request_id', '=', 'service_requests.id')
+                        ->where('cut_service_request.cut_id', $cut->id);
+                });
+            })
             ->when($cut->contract_id, fn($q) => $q->where('contract_id', $cut->contract_id))
             ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
                 $query->whereHas('contract', function ($q) use ($currentCompanyId) {
@@ -853,7 +865,17 @@ class CutController extends Controller
         $generatedByDependency = $request->user()?->getPositionForCompany($companyId);
 
         $families = ServiceFamily::query()
-            ->active()
+            ->where(function ($q) use ($cut) {
+                $q->where('is_active', true);
+                $q->orWhereIn('service_families.id', function ($sub) use ($cut) {
+                    $sub->select('services.service_family_id')
+                        ->from('services')
+                        ->join('sub_services', 'sub_services.service_id', '=', 'services.id')
+                        ->join('service_requests', 'service_requests.sub_service_id', '=', 'sub_services.id')
+                        ->join('cut_service_request', 'cut_service_request.service_request_id', '=', 'service_requests.id')
+                        ->where('cut_service_request.cut_id', $cut->id);
+                });
+            })
             ->when($cut->contract_id, fn($q) => $q->where('contract_id', $cut->contract_id))
             ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
                 $query->whereHas('contract', function ($q) use ($currentCompanyId) {

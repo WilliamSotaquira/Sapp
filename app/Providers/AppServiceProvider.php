@@ -17,17 +17,10 @@ class AppServiceProvider extends ServiceProvider
 
         // ========== DEFINICIÓN DE GATES/POLÍTICAS ==========
 
-        // ✅ AGREGAR ESTE GATE PARA ASIGNAR SOLICITUDES
+        // Gate para asignar solicitudes de servicio
+        // Solo administradores y técnicos pueden asignar
         Gate::define('assign-service-requests', function ($user) {
-            // ✅ PERMITIR TEMPORALMENTE A TODOS LOS USUARIOS
-            return true;
-
-            // ✅ DESPUÉS PUEDES RESTRINGIR POR:
-            // - ID de usuario específico
-            // return in_array($user->id, [1, 2, 3]);
-
-            // - O por cualquier lógica que necesites
-            // return $user->department === 'soporte';
+            return $user->isAdmin() || $user->isTechnician();
         });
 
         // ========== ALIASES PARA COMPATIBILIDAD ==========

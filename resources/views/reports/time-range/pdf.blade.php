@@ -1,225 +1,237 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reporte por Rango de Tiempo</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #000;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .section {
-            margin-bottom: 15px;
-            padding: 10px 0;
-        }
-
-        .section-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #ccc;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-        }
-
-        .info-item {
-            margin-bottom: 5px;
-        }
-
-        .info-label {
-            font-weight: bold;
-        }
-
-        .status {
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 11px;
-        }
-
-        .table th,
-        .table td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: left;
-        }
-
-        .table th {
-            font-weight: bold;
-            background-color: #f5f5f5;
-        }
-
-        .footer {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 10px;
-            border-top: 1px solid #ccc;
-            padding-top: 10px;
-        }
-
-        .no-data {
-            text-align: center;
-            font-style: italic;
-            padding: 20px;
-            color: #666;
-        }
-
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .stat-card {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 10px;
-            color: #666;
-        }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1f2937; margin: 0; }
+        .page { padding: 14px 16px; }
+        .main-title { font-size: 26px; font-weight: 700; color: #111827; letter-spacing: 0.1px; margin: 0 0 4px 0; }
+        .header-row { font-size: 12px; margin: 4px 0 0 0; line-height: 1.35; }
+        .subtitle { color: #4b5563; }
+        .subtitle-meta { color: #6b7280; }
+        .summary { color: #374151; }
+        .summary strong { color: #111827; }
+        .line { display: none; }
+        .family { margin-top: 10px; overflow: hidden; }
+        .family-head { background: #4b3f99; color: #fff; padding: 10px 12px; }
+        .family-head h2 { font-size: 18px; margin: 0 0 4px 0; font-weight: 700; letter-spacing: 0.1px; }
+        .family-head p { margin: 0; font-size: 11px; line-height: 1.45; color: #e9e7ff; }
+        .family-actions { margin-top: 4px; font-size: 11px; color: #f0efff; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+        th, td { border: 0; padding: 8px; vertical-align: top; }
+        thead tr > th,
+        tbody tr > td { border-bottom: 1px solid #d1d5db; }
+        thead tr:first-child > th,
+        tbody tr:first-child > td { border-top: 1px solid #d1d5db; }
+        thead tr > th:first-child,
+        tbody tr > td:first-child { border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; }
+        thead tr > th:last-child,
+        tbody tr > td:last-child { border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; }
+        th { background: #f3f4f6; text-align: center; font-size: 12px; font-weight: 700; color: #111827; letter-spacing: 0.1px; }
+        td { font-size: 11px; line-height: 1.45; color: #374151; }
+        .col-detail { width: 100%; }
+        .ticket { color: #6b7280; font-size: 10px; margin: 3px 0 0 0; }
+        .title { color: #111827; font-size: 14px; font-weight: 700; margin: 0 0 3px 0; line-height: 1.35; }
+        .section-title { margin: 10px 0 4px 0; font-size: 12px; font-weight: 700; color: #111827; }
+        .list { margin: 4px 0 0 0; padding: 0; list-style: none; }
+        .list li { margin: 0 0 2px 0; }
+        .products-row-title { font-weight: 700; color: #111827; margin: 0 0 4px 0; }
+        .group-start-spaced td { padding-top: 12px !important; border-top: 1px solid #d1d5db !important; }
+        .products-list { margin: 4px 0 0 0; padding: 0; list-style: none; }
+        .product-entry { margin: 0; padding: 6px 0; border-bottom: 1px solid #e5e7eb; }
+        .product-entry:last-child { border-bottom: 0; }
+        .product-name { display: block; word-break: break-word; font-size: 11px; color: #374151; }
+        .product-preview { margin-top: 6px; text-align: center; }
+        .product-image { display: inline-block; width: 390px; max-width: 390px; height: auto; max-height: 270px; border-radius: 2px; }
+        .group-spacer td { border: 0 !important; padding: 0 !important; height: 12px; line-height: 0; }
+        .muted { color: #6b7280; }
+        .empty { color: #9ca3af; }
     </style>
 </head>
 <body>
-    <!-- Encabezado -->
-    <div class="header">
-        <h1>REPORTE POR RANGO DE TIEMPO</h1>
-        <div><strong>Periodo:</strong> {{ $dateRange['start']->format('d/m/Y') }} - {{ $dateRange['end']->format('d/m/Y') }}</div>
-        <div><strong>Generado el:</strong> {{ now()->format('d/m/Y H:i') }}</div>
-    </div>
+@php
+    \Carbon\Carbon::setLocale('es');
 
-    <!-- Lista Completa de Solicitudes -->
-    <div class="section">
-        <div class="section-title">LISTADO COMPLETO DE SOLICITUDES ({{ $statistics['total'] }})</div>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Ticket</th>
-                    <th>Estado</th>
-                    <th>Título</th>
-                    <th>Familia / Servicio / Subservicio</th>
-                    <th>Solicitante</th>
-                    <th>Técnico</th>
-                    <th>Criticidad</th>
-                    <th>Creado</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($groupedData as $familyName => $requests)
-                    @foreach($requests as $request)
+    // Determinar titulo y rango
+    if (isset($cut) && $cut) {
+        $contractNumber = $cut->contract?->number ?? 'Reporte';
+        $monthLabel = $cut->start_date->translatedFormat('F Y');
+        $titleMonth = mb_convert_case($monthLabel, MB_CASE_TITLE, 'UTF-8');
+        $rangeStart = $cut->start_date->format('Y-m-d');
+        $rangeEnd = $cut->end_date->format('Y-m-d');
+    } else {
+        $contractNumber = 'Reporte por Rango';
+        $monthLabel = $dateRange['start']->translatedFormat('F Y');
+        $titleMonth = mb_convert_case($monthLabel, MB_CASE_TITLE, 'UTF-8');
+        $rangeStart = $dateRange['start']->format('Y-m-d');
+        $rangeEnd = $dateRange['end']->format('Y-m-d');
+    }
+
+    $generatedAtLabel = (isset($generatedAt) ? $generatedAt : now())->format('Y-m-d H:i');
+    $coordinator = $generatedBy ?? 'Sistema';
+
+    $cleanPdfText = function ($value) {
+        $text = (string) ($value ?? '');
+        $text = str_replace("\u{FFFD}", '', $text);
+        $text = preg_replace('/[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}]/u', '', $text);
+        $text = preg_replace('/\s{2,}/u', ' ', $text);
+        return trim((string) $text);
+    };
+@endphp
+
+<div class="page">
+    <p class="main-title">{{ $contractNumber }}: {{ $titleMonth }}</p>
+    <p class="subtitle header-row">{{ $coordinator }}</p>
+    @if(!empty($generatedByEmail) || !empty($generatedByDependency))
+        <p class="subtitle-meta header-row">
+            @if(!empty($generatedByEmail))
+                Correo: {{ $generatedByEmail }}
+            @endif
+            @if(!empty($generatedByEmail) && !empty($generatedByDependency))
+                |
+            @endif
+            @if(!empty($generatedByDependency))
+                Cargo: {{ $generatedByDependency }}
+            @endif
+        </p>
+    @endif
+    <p class="summary header-row">
+        <strong>Rango:</strong> {{ $rangeStart }} - {{ $rangeEnd }}
+        | <strong>Generado:</strong> {{ $generatedAtLabel }}
+    </p>
+    <p class="summary header-row"><strong>Total acciones:</strong> {{ $serviceRequests->count() }}</p>
+    <div class="line"></div>
+
+    @forelse($groupedData as $family => $requests)
+        @php
+            $familyModel = $requests->first()?->subService?->service?->family;
+            $familyDescription = $familyModel?->description ?: 'Sin descripcion registrada para esta familia.';
+        @endphp
+        <div class="family">
+            <div class="family-head">
+                <h2>{{ $cleanPdfText($family) }}</h2>
+                <p>{{ $cleanPdfText($familyDescription) }}</p>
+                <p class="family-actions">Total acciones: {{ $requests->count() }}</p>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-detail">Detalle de la solicitud</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($requests as $sr)
                         @php
-                            $fileEvidences = $request->evidences
-                                ->where('evidence_type', '!=', 'SISTEMA')
-                                ->where('file_path', '!=', null);
+                            $tasks = $sr->tasks ?? collect();
+                            $evidencesPerRequest = ($evidences ?? collect())->where('service_request_id', $sr->id)->values();
+                            $presentedProducts = $evidencesPerRequest
+                                ->map(function ($evidence) {
+                                    $fileName = trim((string) ($evidence->file_original_name ?? ''));
+                                    $filePath = trim((string) ($evidence->file_path ?? ''));
+
+                                    $name = $fileName !== '' ? $fileName : ($filePath !== '' ? basename($filePath) : null);
+                                    if (!$name) {
+                                        return null;
+                                    }
+
+                                    $isImage = (bool) ($evidence->is_image ?? false);
+                                    $imageSrc = null;
+                                    if ($isImage && $filePath !== '' && !preg_match('#^https?://#i', $filePath)) {
+                                        $normalized = ltrim($filePath, '/');
+                                        if (str_starts_with($normalized, 'public/')) {
+                                            $normalized = substr($normalized, 7);
+                                        }
+                                        if (str_starts_with($normalized, 'storage/')) {
+                                            $normalized = substr($normalized, 8);
+                                        }
+
+                                        $candidates = array_filter(array_unique([
+                                            $filePath,
+                                            $normalized,
+                                            $normalized ? ('evidences/' . basename($normalized)) : null,
+                                            basename($filePath) ? ('evidences/' . basename($filePath)) : null,
+                                        ]));
+
+                                        foreach ($candidates as $candidate) {
+                                            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($candidate)) {
+                                                try {
+                                                    $binary = \Illuminate\Support\Facades\Storage::disk('public')->get($candidate);
+                                                    $mime = $evidence->file_mime_type ?: \Illuminate\Support\Facades\Storage::disk('public')->mimeType($candidate);
+                                                    if ($binary !== null && $mime) {
+                                                        $imageSrc = 'data:' . $mime . ';base64,' . base64_encode($binary);
+                                                    }
+                                                } catch (\Throwable $e) {
+                                                    $imageSrc = null;
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    return [
+                                        'name' => $name,
+                                        'is_image' => $isImage,
+                                        'image_src' => $imageSrc,
+                                    ];
+                                })
+                                ->filter()
+                                ->values();
+
+                            $cleanResolutionNotes = trim((string) ($sr->resolution_notes ?? ''));
+                            if ($cleanResolutionNotes !== '') {
+                                $cleanResolutionNotes = preg_replace('/\s*===\s*CIERRE(?:\s+POR\s+VENCIMIENTO|\s+NORMAL)\s*===.*$/is', '', $cleanResolutionNotes);
+                                $cleanResolutionNotes = preg_replace('/^\s*Fecha\/Hora:.*$/im', '', $cleanResolutionNotes);
+                                $cleanResolutionNotes = preg_replace('/^\s*Usuario:\s*ID\s*\d+.*$/im', '', $cleanResolutionNotes);
+                                $cleanResolutionNotes = preg_replace('/\n{3,}/', "\n\n", trim((string) $cleanResolutionNotes));
+                            }
                         @endphp
-                        <tr>
-                            <td>{{ $request->id }}</td>
-                            <td>{{ $request->ticket_number }}</td>
-                            <td>{{ $request->status }}</td>
-                            <td>{{ $request->title ?? 'Sin titulo' }}</td>
-                            <td>
-                                {{ $familyName }} /
-                                {{ $request->subService->service->name ?? 'N/A' }} /
-                                {{ $request->subService->name ?? 'N/A' }}
+                        <tr class="{{ !$loop->first ? 'group-start-spaced' : '' }}">
+                            <td class="col-detail">
+                                <p class="title">{{ $cleanPdfText($sr->title) }}</p>
+                                <p class="ticket">Ticket: {{ $sr->ticket_number }}</p>
+                                @if(!empty($sr->description))
+                                    <p>{{ $cleanPdfText($sr->description) }}</p>
+                                @else
+                                    <p class="empty">Sin descripcion registrada.</p>
+                                @endif
+
+                                @if(!empty($cleanResolutionNotes))
+                                    <p class="section-title">Actividades ejecutadas</p>
+                                    <p>{!! nl2br(e($cleanPdfText($cleanResolutionNotes))) !!}</p>
+                                @endif
+
+                                @if($presentedProducts->count() > 0)
+                                    <p class="section-title">Productos presentados</p>
+                                    <ul class="products-list">
+                                        @foreach($presentedProducts as $product)
+                                            <li class="product-entry">
+                                                <span class="product-name">- {{ $cleanPdfText($product['name']) }}</span>
+                                                @if(!empty($product['is_image']) && !empty($product['image_src']))
+                                                    <div class="product-preview">
+                                                        <img src="{{ $product['image_src'] }}" alt="{{ $cleanPdfText($product['name']) }}" class="product-image">
+                                                    </div>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </td>
-                            <td>{{ $request->requester->name ?? 'N/A' }}</td>
-                            <td>{{ $request->assignedTechnician->name ?? 'Sin asignar' }}</td>
-                            <td>{{ $request->criticality_level ?? 'N/A' }}</td>
-                            <td>{{ $request->created_at->format('d/m/Y H:i') }}</td>
                         </tr>
-                        @if($request->tasks->count() > 0 || $fileEvidences->count() > 0)
-                            <tr>
-                                <td colspan="9">
-                                    <div style="display: grid; gap: 6px; font-size: 10px;">
-                                        @if($request->tasks->count() > 0)
-                                            <div>
-                                                <strong>Tareas ({{ $request->tasks->count() }}):</strong>
-                                                <ul style="margin: 4px 0 0 15px; padding: 0;">
-                                                    @foreach($request->tasks as $task)
-                                                        <li style="margin-bottom: 2px;">
-                                                            {{ $task->title ?? 'Sin título' }}
-                                                            @if(!empty($task->status))
-                                                                <span style="color:#555;">[{{ $task->status }}]</span>
-                                                            @endif
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                            </div>
-                                        @endif
-                                        @if($fileEvidences->count() > 0)
-                                            <div>
-                                                <strong>Archivos ({{ $fileEvidences->count() }}):</strong>
-                                                <ul style="margin: 4px 0 0 15px; padding: 0;">
-                                                    @foreach($fileEvidences as $evidence)
-                                                        @php
-                                                            $storedName = basename($evidence->file_path ?? '');
-                                                            $originalName = $evidence->file_original_name ?? $storedName ?? 'N/A';
-                                                        @endphp
-                                                        <li style="margin-bottom: 2px;">
-                                                            {{ Str::limit($storedName ?: $originalName, 70) }}
-                                                            @if($storedName && $storedName !== $originalName)
-                                                                <span style="color:#555;">({{ Str::limit($originalName, 40) }})</span>
-                                                            @endif
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </td>
+                        @if(!$loop->last)
+                            <tr class="group-spacer">
+                                <td></td>
                             </tr>
                         @endif
                     @endforeach
-                @empty
-                    <tr>
-                        <td colspan="11" class="no-data">No hay solicitudes en el rango seleccionado</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Pie de pagina -->
-    <div class="footer">
-        Reporte generado automaticamente por el Sistema de Gestion de Servicios
-    </div>
+                </tbody>
+            </table>
+        </div>
+    @empty
+        <p class="muted">No hay solicitudes para el rango seleccionado.</p>
+    @endforelse
+</div>
 </body>
 </html>

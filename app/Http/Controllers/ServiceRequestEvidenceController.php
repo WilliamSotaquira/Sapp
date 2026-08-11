@@ -38,12 +38,6 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function store(Request $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('🎯 === SERVICE REQUEST EVIDENCE CONTROLLER STORE CALLED ===');
-        \Log::info('Service Request ID: ' . $serviceRequest->id);
-        \Log::info('User ID: ' . auth()->id());
-        \Log::info('Request data:', $request->all());
-        \Log::info('Has files: ' . ($request->hasFile('files') ? 'YES' : 'NO'));
-
         $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
 
         // Permitir carga en proceso y cerrada

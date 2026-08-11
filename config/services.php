@@ -47,7 +47,7 @@ return [
 
     'llm' => [
         'enabled' => env('LLM_ENABLED', false),
-        'api_key' => env('LLM_API_KEY', env('OPENROUTER_API_KEY')),
+        'api_key' => env('LLM_API_KEY'),
         'model' => env('LLM_MODEL', 'deepseek/deepseek-chat-v3-0324'),
         'description_model' => env('LLM_DESCRIPTION_MODEL', 'deepseek/deepseek-chat-v3-0324'),
         'endpoint' => env('LLM_ENDPOINT', 'https://openrouter.ai/api/v1/chat/completions'),
@@ -57,7 +57,7 @@ return [
         'key' => env('OPENROUTER_API_KEY'),
         'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
         'model' => env('OPENROUTER_MODEL', '~openai/gpt-latest'),
-        'app_name' => env('OPENROUTER_APP_NAME', env('APP_NAME', 'SAPP')),
+        'app_name' => env('OPENROUTER_APP_NAME', 'SAPP'),
     ],
 
 ];

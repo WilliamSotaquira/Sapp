@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@plugin "@tailwindcss/forms";
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -8,6 +9,17 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Colores personalizados del proyecto (migrados de tailwind.config.js) */
+    --color-custom-primary: #E41E2A;
+    --color-custom-primary-dark: #AD1C22;
+    --color-custom-white: #FFFFFF;
+    --color-custom-black: #231F20;
+    --color-custom-gray-dark: #6D6E70;
+    --color-custom-gray-light: #F5F5F5;
+    --color-custom-gray-medium: #E5E5E5;
+    --color-custom-blue-dark: #0A3069;
+    --color-custom-yellow: #F2B705;
 }
 
 /* ==========================================================================

@@ -485,8 +485,6 @@ class ServiceRequestController extends Controller
 
     public function prefillFromPlainText(Request $request, ServiceRequestPlainTextImportService $plainTextImportService)
     {
-        \Log::info('=== prefillFromPlainText STARTED ===', ['text_length' => strlen($request->input('plain_text', ''))]);
-
         $validator = Validator::make($request->all(), [
             'plain_text' => ['required', 'string', 'min:20'],
             'operator_notes' => ['nullable', 'string', 'max:1000'],
@@ -1371,13 +1369,6 @@ class ServiceRequestController extends Controller
 
     public function close(Request $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('Intento de cierre', [
-            'service_request_id' => $serviceRequest->id,
-            'current_status' => $serviceRequest->status,
-            'user_id' => auth()->id(),
-            'closure_type' => $request->has('closure_type') ? $request->closure_type : 'desconocido',
-        ]);
-
         // Determinar el tipo de cierre basado en el estado actual
         $isVencimiento = $serviceRequest->status === 'PAUSADA';
         $isCierreNormal = $serviceRequest->status === 'RESUELTA';
@@ -1594,12 +1585,6 @@ class ServiceRequestController extends Controller
             \DB::commit();
             $serviceRequest->refresh();
 
-            \Log::info('Solicitud cerrada exitosamente', [
-                'service_request_id' => $serviceRequest->id,
-                'new_status' => $serviceRequest->status,
-                'closure_type' => $isVencimiento ? 'vencimiento' : 'normal',
-            ]);
-
             $message = $isVencimiento ? 'Solicitud cerrada correctamente por vencimiento' : 'Solicitud cerrada correctamente';
 
             return redirect()->route('service-requests.show', $serviceRequest->id)->with('success', $message);
@@ -1633,8 +1618,6 @@ class ServiceRequestController extends Controller
      */
     public function reopen(Request $request, ServiceRequest $serviceRequest)
     {
-        \Log::info('=== 🔄 REOPEN METHOD ===');
-
         $allowedStatuses = ['RESUELTA', 'CERRADA'];
 
         if (!in_array($serviceRequest->status, $allowedStatuses)) {
@@ -1652,8 +1635,6 @@ class ServiceRequestController extends Controller
                     'resolution_notes' => null, // Opcional: limpiar notas anteriores
                 ]);
             });
-
-            \Log::info('🎉 ÉXITO: Solicitud reabierta exitosamente');
 
             // Crear evidencia
             ServiceRequestEvidence::create([
@@ -1711,40 +1692,24 @@ class ServiceRequestController extends Controller
     public function getSlas(SubService $subService)
     {
         try {
-            Log::info('=== DEPURACIÓN GETSLAS INICIADA ===');
-            Log::info('SubService ID: ' . $subService->id);
-            Log::info('SubService Name: ' . $subService->name);
-
             $subService->load(['service']);
-            Log::info('Service ID: ' . ($subService->service ? $subService->service->id : 'NULL'));
-            Log::info('Service Name: ' . ($subService->service ? $subService->service->name : 'NULL'));
 
             if ($subService->service) {
                 $subService->service->load(['family']);
-                Log::info('Family ID: ' . ($subService->service->family ? $subService->service->family->id : 'NULL'));
-                Log::info('Family Name: ' . ($subService->service->family ? $subService->service->family->name : 'NULL'));
 
                 if ($subService->service->family) {
-                    $slasCount = $subService->service->family->serviceLevelAgreements()->where('is_active', true)->count();
-
-                    Log::info('SLAs activos encontrados: ' . $slasCount);
-
                     $slas = $subService->service->family
                         ->serviceLevelAgreements()
                         ->where('is_active', true)
                         ->get(['id', 'name', 'criticality_level', 'acceptance_time_minutes', 'response_time_minutes', 'resolution_time_minutes']);
 
-                    Log::info('SLAs devueltos: ' . $slas->toJson());
-
                     return response()->json($slas);
                 }
             }
 
-            Log::warning('No se pudo cargar SLAs - relaciones incompletas');
             return response()->json([]);
         } catch (\Exception $e) {
             Log::error('Error crítico en getSlas: ' . $e->getMessage());
-            Log::error($e->getTraceAsString());
             return response()->json([], 500);
         }
     }
@@ -1797,13 +1762,6 @@ class ServiceRequestController extends Controller
 
     public function quickAssign(Request $request, ServiceRequest $service_request)
     {
-        Log::info('QuickAssign llamado', [
-            'user_id' => auth()->id(),
-            'service_request_id' => $service_request->id,
-            'assigned_to' => $request->assigned_to,
-            'has_permission' => auth()->user()->can('assign-service-requests'),
-        ]);
-
         if (!auth()->user()->can('assign-service-requests')) {
             return response()->json(
                 [
@@ -1922,13 +1880,6 @@ class ServiceRequestController extends Controller
 
     public function quickAssignRequester(Request $request, ServiceRequest $service_request)
     {
-        Log::info('QuickAssignRequester llamado', [
-            'user_id' => auth()->id(),
-            'service_request_id' => $service_request->id,
-            'requester_id' => $request->requester_id,
-            'has_permission' => auth()->user()->can('assign-service-requests'),
-        ]);
-
         if (!auth()->user()->can('assign-service-requests')) {
             return response()->json(
                 [
