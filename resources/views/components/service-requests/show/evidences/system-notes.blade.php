@@ -3,15 +3,15 @@
 @php
     $systemNotes = $serviceRequest->evidences->whereIn('evidence_type', ['SISTEMA', 'COMENTARIO']);
     $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $canAddNote = !$isDead;
 @endphp
 
-@if($systemNotes->count() > 0)
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-4">
     <div class="{{ $isDead ? 'bg-gray-100 border-gray-300' : 'bg-gray-50 border-gray-200' }} px-5 py-3 border-b">
         <div class="flex items-center justify-between">
             <h3 class="text-base font-semibold text-gray-800 flex items-center">
                 <i class="fas fa-stream text-indigo-500 mr-2.5" aria-hidden="true"></i>
-                Línea de Tiempo
+                Seguimiento y Notas
             </h3>
             <span class="text-xs text-gray-500">
                 {{ $systemNotes->count() }} evento{{ $systemNotes->count() !== 1 ? 's' : '' }}
@@ -20,11 +20,64 @@
     </div>
 
     <div class="px-5 py-4">
+        {{-- Formulario rápido de notas --}}
+        @if($canAddNote)
+        <form action="{{ route('service-requests.evidences.quick-note', $serviceRequest) }}"
+              method="POST"
+              class="mb-4 pb-4 border-b border-gray-100"
+              id="quickNoteForm">
+            @csrf
+            <div class="flex gap-2 items-start">
+                <div class="flex-1">
+                    <textarea
+                        name="note_content"
+                        id="quickNoteInput"
+                        rows="2"
+                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none placeholder-gray-400 transition"
+                        placeholder="Agregar nota de seguimiento... (ej: Delegado a Laura, Verificado en producción, Pendiente confirmación)"
+                        maxlength="1000"
+                        aria-label="Nota de seguimiento"
+                    ></textarea>
+                    @error('note_content')
+                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        id="quickNoteSubmit"
+                        title="Registrar nota">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                    <span class="hidden sm:inline">Anotar</span>
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5">
+                <i class="fas fa-info-circle mr-1" aria-hidden="true"></i>
+                Las notas quedan registradas con fecha y hora en la línea de tiempo.
+            </p>
+        </form>
+        @endif
+
+        {{-- Mensajes de éxito/error --}}
+        @if(session('evidence_success'))
+            <div class="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center gap-2" role="alert">
+                <i class="fas fa-check-circle" aria-hidden="true"></i>
+                {{ session('evidence_success') }}
+            </div>
+        @endif
+        @if(session('evidence_error'))
+            <div class="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center gap-2" role="alert">
+                <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                {{ session('evidence_error') }}
+            </div>
+        @endif
+
+        {{-- Timeline de eventos --}}
+        @if($systemNotes->count() > 0)
         <div class="sr-timeline">
-            @foreach($systemNotes->sortBy('created_at')->values() as $index => $note)
+            @foreach($systemNotes->sortByDesc('created_at')->values() as $index => $note)
                 @php
-                    // Determine visual style per note content
                     $isSystem = $note->evidence_type === 'SISTEMA';
+                    $isComment = $note->evidence_type === 'COMENTARIO';
                     $title = $note->title ?? 'Evento';
 
                     // Detect type from title for icon/color
@@ -39,6 +92,7 @@
                         str_contains(strtolower($title), 'reasign') => ['icon' => 'fa-user-cog', 'color' => 'bg-violet-500', 'ring' => 'ring-violet-100'],
                         str_contains(strtolower($title), 'reabie') => ['icon' => 'fa-undo', 'color' => 'bg-orange-500', 'ring' => 'ring-orange-100'],
                         str_contains(strtolower($title), 'cancel') => ['icon' => 'fa-ban', 'color' => 'bg-red-600', 'ring' => 'ring-red-100'],
+                        str_contains(strtolower($title), 'nota de seguimiento') || $isComment => ['icon' => 'fa-sticky-note', 'color' => 'bg-indigo-500', 'ring' => 'ring-indigo-100'],
                         $isSystem => ['icon' => 'fa-cog', 'color' => 'bg-slate-400', 'ring' => 'ring-slate-100'],
                         default => ['icon' => 'fa-comment', 'color' => 'bg-purple-400', 'ring' => 'ring-purple-100'],
                     };
@@ -60,9 +114,14 @@
                     {{-- Content --}}
                     <div class="sr-timeline__content">
                         <div class="sr-timeline__header">
-                            <span class="sr-timeline__title">{{ $title }}</span>
+                            <span class="sr-timeline__title">
+                                {{ $title }}
+                                @if($isComment && isset($note->evidence_data['author']))
+                                    <span class="text-gray-400 font-normal">— {{ $note->evidence_data['author'] }}</span>
+                                @endif
+                            </span>
                             <time class="sr-timeline__time" datetime="{{ $note->created_at->toISOString() }}">
-                                {{ $note->created_at->format('d/m H:i') }}
+                                {{ $note->created_at->format('d/m/Y H:i') }}
                             </time>
                         </div>
                         @if($note->description)
@@ -72,6 +131,14 @@
                 </div>
             @endforeach
         </div>
+        @else
+            @if(!$canAddNote)
+            <p class="text-sm text-gray-400 text-center py-4">
+                <i class="fas fa-inbox mr-1" aria-hidden="true"></i>
+                Sin eventos registrados.
+            </p>
+            @endif
+        @endif
     </div>
 </div>
 
@@ -134,6 +201,7 @@
 .sr-timeline__dot.ring-orange-100 { box-shadow: 0 0 0 3px #ffedd5; }
 .sr-timeline__dot.ring-slate-100 { box-shadow: 0 0 0 3px #f1f5f9; }
 .sr-timeline__dot.ring-purple-100 { box-shadow: 0 0 0 3px #f3e8ff; }
+.sr-timeline__dot.ring-indigo-100 { box-shadow: 0 0 0 3px #e0e7ff; }
 
 /* Content */
 .sr-timeline__content {
@@ -197,4 +265,29 @@
 }
 </style>
 @endpush
-@endif
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('quickNoteForm');
+    const input = document.getElementById('quickNoteInput');
+    const submit = document.getElementById('quickNoteSubmit');
+
+    if (form && input && submit) {
+        // Deshabilitar botón si textarea vacío
+        function toggleSubmit() {
+            submit.disabled = input.value.trim().length < 3;
+        }
+        input.addEventListener('input', toggleSubmit);
+        toggleSubmit();
+
+        // Enviar con Ctrl+Enter
+        input.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter' && !submit.disabled) {
+                form.submit();
+            }
+        });
+    }
+});
+</script>
+@endpush

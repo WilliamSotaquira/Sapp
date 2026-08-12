@@ -23,6 +23,10 @@ Route::middleware(['auth'])->group(function () {
 // =============================================================================
 
 Route::prefix('service-requests/{service_request}/evidences')->name('service-requests.evidences.')->group(function () {
+    // Nota rápida de seguimiento (inline)
+    Route::post('/quick-note', [ServiceRequestEvidenceController::class, 'storeQuickNote'])
+        ->name('quick-note');
+
     // Crear evidencia
     Route::post('/', [ServiceRequestEvidenceController::class, 'store'])
         ->name('store');
