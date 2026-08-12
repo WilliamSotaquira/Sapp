@@ -326,6 +326,14 @@ class ServiceRequest extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Alertas operativas asociadas a esta solicitud.
+     */
+    public function operationalAlerts()
+    {
+        return $this->morphMany(OperationalAlert::class, 'alertable');
+    }
+
     public static function getCutEligibleStatuses(): array
     {
         return [
