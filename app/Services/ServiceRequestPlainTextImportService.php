@@ -810,12 +810,8 @@ class ServiceRequestPlainTextImportService
 
         $movilidadSubServices = [
             'publicación de noticia pmt o artículo',
-            'publicación de documento',
-            'solicitud de edición o ajuste de contenido',
             'solicitud de diseño gráfico',
-            'desarrollo configuración e implementación técnica',
             'reporte de enlace roto o contenido obsoleto',
-            'asignación de tarea no especificada',
         ];
 
         $isWorkspaceCultura = str_contains($normalizedWorkspace, 'cultura');
