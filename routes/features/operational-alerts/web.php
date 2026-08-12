@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\OperationalAlertController;
+use App\Http\Controllers\PerformanceMetricsController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -21,4 +22,12 @@ Route::prefix('operational-alerts')->name('operational-alerts.')->middleware(['a
 
     // API para badge de navegación
     Route::get('/api/unread-count', [OperationalAlertController::class, 'unreadCount'])->name('api.unread-count');
+});
+
+// =============================================================================
+// INDICADORES DE RENDIMIENTO
+// =============================================================================
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/performance-metrics', [PerformanceMetricsController::class, 'index'])->name('performance-metrics.index');
 });
