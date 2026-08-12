@@ -19,6 +19,7 @@
 /public/__ping.txt
 /storage/*.key
 /storage/backups
+/backups
 /storage/pail
 /vendor
 database/sapp.sql

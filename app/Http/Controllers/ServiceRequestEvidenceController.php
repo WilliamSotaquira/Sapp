@@ -171,6 +171,72 @@ class ServiceRequestEvidenceController extends Controller
     }
 
     /**
+     * Almacenar nota rápida de seguimiento (inline desde la vista show).
+     * Permite agregar notas tipo COMENTARIO en cualquier estado activo de la solicitud.
+     */
+    public function storeQuickNote(Request $request, ServiceRequest $serviceRequest)
+    {
+        $deadStatuses = ['CERRADA', 'CANCELADA', 'RECHAZADA'];
+
+        if (in_array($serviceRequest->status, $deadStatuses, true)) {
+            $message = 'No se pueden agregar notas de seguimiento a solicitudes cerradas, canceladas o rechazadas.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            return redirect()->back()->with('evidence_error', $message);
+        }
+
+        $request->validate([
+            'note_content' => 'required|string|min:3|max:1000',
+        ], [
+            'note_content.required' => 'La nota de seguimiento no puede estar vacía.',
+            'note_content.min' => 'La nota debe tener al menos 3 caracteres.',
+            'note_content.max' => 'La nota no puede exceder 1000 caracteres.',
+        ]);
+
+        try {
+            $note = ServiceRequestEvidence::create([
+                'service_request_id' => $serviceRequest->id,
+                'title' => 'Nota de seguimiento',
+                'description' => $request->input('note_content'),
+                'evidence_type' => 'COMENTARIO',
+                'user_id' => auth()->id(),
+                'evidence_data' => [
+                    'type' => 'quick_note',
+                    'author' => auth()->user()->name,
+                    'created_via' => 'inline_form',
+                ],
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Nota de seguimiento registrada.',
+                    'note' => [
+                        'id' => $note->id,
+                        'description' => $note->description,
+                        'created_at' => $note->created_at->format('d/m H:i'),
+                    ],
+                ]);
+            }
+
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('evidence_success', 'Nota de seguimiento registrada correctamente.');
+        } catch (\Exception $e) {
+            \Log::error('Error al guardar nota de seguimiento: ' . $e->getMessage());
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error al guardar la nota.'], 500);
+            }
+
+            return redirect()->back()->with('evidence_error', 'Error al guardar la nota de seguimiento.');
+        }
+    }
+
+    /**
      * Eliminar evidencia
      */
     public function destroy(ServiceRequest $serviceRequest, ServiceRequestEvidence $evidence)

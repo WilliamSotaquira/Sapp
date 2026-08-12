@@ -212,10 +212,10 @@
             </section>
         @endif
 
-        <!-- Notas y Comentarios del Sistema (Información complementaria) -->
+        <!-- Seguimiento y Notas (Bitácora operativa) -->
         <section class="sr-section sr-collapsible scroll-mt-16"
                  data-section-key="system-notes"
-                 data-priority="0">
+                 data-priority="1">
             <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />
         </section>
 
@@ -383,7 +383,7 @@
         'derived': 'Solicitudes Derivadas',
         'assignment-history': 'Historial de Asignación',
         'web-routes': 'Rutas Web',
-        'system-notes': 'Notas del Sistema'
+        'system-notes': 'Seguimiento y Notas'
     };
 
     // Load user preferences from localStorage
