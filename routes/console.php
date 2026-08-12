@@ -11,3 +11,8 @@ Artisan::command('inspire', function () {
 Schedule::command('evidence:clean-backups')->daily();
 
 Schedule::command('cuts:health-check')->dailyAt('07:00');
+
+// Motor de alertas operativas: evaluar solicitudes y tareas activas
+Schedule::command('alerts:generate')->dailyAt(
+    \App\Models\SystemSetting::get('alert.schedule_time', '07:00')
+)->withoutOverlapping()->appendOutputTo(storage_path('logs/alerts.log'));
