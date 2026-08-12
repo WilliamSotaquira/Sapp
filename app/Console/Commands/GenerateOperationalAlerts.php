@@ -46,7 +46,24 @@ class GenerateOperationalAlerts extends Command
             $this->info('📍 Evaluando todas las empresas');
         }
 
-        $this->info('⏱️  Iniciando evaluación...');
+        // 1. Detectar brechas SLA
+        $this->info('');
+        $this->info('🔍 Detectando brechas de SLA...');
+        $breachService = app(\App\Services\SlaBreachDetectionService::class);
+        $breachResult = $breachService->detect($companyId);
+
+        if ($breachResult['breaches_detected'] > 0) {
+            $this->info("   ⚠️  {$breachResult['breaches_detected']} brecha(s) registrada(s)");
+            foreach ($breachResult['summary'] as $type => $count) {
+                $this->info("      - {$type}: {$count}");
+            }
+        } else {
+            $this->info('   ✓ Sin nuevas brechas detectadas');
+        }
+
+        // 2. Evaluar alertas operativas
+        $this->info('');
+        $this->info('⏱️  Evaluando alertas operativas...');
         $this->info('');
 
         // Ejecutar evaluación
