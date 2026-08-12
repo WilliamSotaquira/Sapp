@@ -77,6 +77,9 @@ Route::middleware('auth')->group(function () {
     // Configuración del sistema
     require __DIR__ . '/features/settings/web.php';
 
+    // Alertas operativas
+    require __DIR__ . '/features/operational-alerts/web.php';
+
     // Módulo de Tiempos y Capacidad para Técnicos
     require __DIR__ . '/features/technician-module/web.php';
 
