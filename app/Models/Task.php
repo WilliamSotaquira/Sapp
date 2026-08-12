@@ -245,6 +245,14 @@ class Task extends Model
         return $this->hasMany(TaskHistory::class);
     }
 
+    /**
+     * Alertas operativas asociadas a esta tarea.
+     */
+    public function operationalAlerts()
+    {
+        return $this->morphMany(\App\Models\OperationalAlert::class, 'alertable');
+    }
+
     public function slaCompliance()
     {
         return $this->hasOne(SlaCompliance::class);
