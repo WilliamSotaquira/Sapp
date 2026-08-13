@@ -1429,10 +1429,9 @@ class ServiceRequestPlainTextImportService
         $pushCandidate($parsed['description'] ?? null);
         $pushCandidate(trim(((string) ($parsed['title'] ?? '')) . ' ' . ((string) ($parsed['description'] ?? ''))));
         $pushCandidate($this->inferFallbackSubServiceName($plainText, $parsed));
-        $pushCandidate('Reporte de Enlace Roto o Contenido Obsoleto');
-        $pushCandidate('Solicitud de Apoyo General');
-        $pushCandidate('Acompañamiento actividades desarrollo externo');
-        $pushCandidate('Actualización de Sección de Transparencia');
+        $pushCandidate('Correcciones y ajustes de último momento');
+        $pushCandidate('Actualización de Contenidos en Portal Principal');
+        $pushCandidate('Asignación de tarea no especificada');
 
         foreach (array_values(array_unique($candidates)) as $candidate) {
             $subService = $this->resolveSubService($candidate, $contractId);
@@ -1459,39 +1458,94 @@ class ServiceRequestPlainTextImportService
         }
 
         $keywordMap = [
-            'Reporte de Enlace Roto o Contenido Obsoleto' => [
-                'enlace roto',
-                'enlace anterior',
-                'portal antiguo',
-                'repositorio',
-                'contenido obsoleto',
-                'acceso al repositorio',
-            ],
             'Actualización de Sección de Transparencia' => [
                 'transparencia',
                 'acceso a la informacion',
                 'ley de transparencia',
                 'mipg',
+                'ita',
+                'numeral',
+                'seccion de transparencia',
             ],
-            'Acompañamiento actividades desarrollo externo' => [
-                'terceros',
-                'externo',
-                'desarrollo externo',
-                'acompanamiento',
+            'Publicación de Documento' => [
+                'publicar documento',
+                'subir archivo',
+                'adjuntar documento',
+                'cargar pdf',
+                'publicacion de documento',
+                'programa anual',
+                'plan anual',
+                'resolucion',
+                'manual',
             ],
-            'Solicitud de Apoyo General' => [
-                'reunion',
-                'presentacion',
-                'presentación',
-                'convoc',
-                'coordinacion',
-                'coordinación',
-                'apoyo',
+            'Publicación de Noticia o Artículo' => [
+                'noticia',
+                'articulo',
+                'nota informativa',
+                'comunicado',
+                'boletin',
+            ],
+            'Ejecución de envío de comunicaciones masivas' => [
+                'mailing',
+                'correo masivo',
+                'comunicacion masiva',
+                'envio masivo',
+                'boletin digital',
+                'base de datos de correo',
+            ],
+            'Actualización y publicación de contenidos de eventos' => [
+                'evento',
+                'foro',
+                'seminario',
+                'congreso',
+                'festival',
+                'agenda cultural',
+                'programacion',
+            ],
+            'Creación de sitios y landings para eventos' => [
+                'landing',
+                'micrositio',
+                'landing page',
+                'sitio del evento',
+                'pagina del evento',
+            ],
+            'Gestión de Secciones Especiales y Campañas' => [
+                'campana',
+                'seccion especial',
+                'seccion tematica',
+                'coleccion',
+            ],
+            'Reuniones de seguimiento con supervisión' => [
+                'reunion de seguimiento',
+                'comite de seguimiento',
+                'reunion ordinaria',
+                'reunion con supervisor',
+            ],
+            'Reuniones de validación y concepto con áreas' => [
                 'mesa de trabajo',
-                'socializacion',
-                'socialización',
-                'participacion',
-                'participación',
+                'reunion con area',
+                'validacion de contenido',
+                'concepto editorial',
+                'coordinacion con dependencia',
+            ],
+            'Correcciones y ajustes de último momento' => [
+                'urgente',
+                'correccion urgente',
+                'ajuste rapido',
+                'ultimo momento',
+                'inmediato',
+            ],
+            'Cumplimiento de accesibilidad y lineamientos de Gobierno Digital' => [
+                'accesibilidad',
+                'gobierno digital',
+                'lineamientos mintic',
+                'wcag',
+            ],
+            'Respuesta a requerimientos ITA y MIPG' => [
+                'requerimiento ita',
+                'requerimiento mipg',
+                'control interno',
+                'auditoria',
             ],
         ];
 
@@ -1815,7 +1869,7 @@ class ServiceRequestPlainTextImportService
         ];
 
         $parsed['sub_service_name'] = $this->inferFallbackSubServiceName($searchText, $parsed)
-            ?? 'Solicitud de Apoyo General';
+            ?? 'Asignación de tarea no especificada';
 
         return $parsed;
     }
