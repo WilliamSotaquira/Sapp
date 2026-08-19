@@ -1596,10 +1596,25 @@
             const menuRect = menu.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
-            const left = Math.min(event.clientX, viewportWidth - menuRect.width - 12);
-            const top = Math.min(event.clientY, viewportHeight - menuRect.height - 12);
-            menu.style.left = `${Math.max(8, left)}px`;
-            menu.style.top = `${Math.max(8, top)}px`;
+            let left = Math.min(event.clientX, viewportWidth - menuRect.width - 12);
+            let top = event.clientY;
+
+            // Posicionar el cursor sobre la primera acción visible
+            const firstVisible = menu.querySelector('[data-context-action]:not(.hidden)');
+            if (firstVisible) {
+                const itemOffset = firstVisible.offsetTop + (firstVisible.offsetHeight / 2);
+                top = event.clientY - itemOffset;
+            }
+
+            left = Math.max(8, left);
+            top = Math.max(8, top);
+            if (top + menuRect.height > viewportHeight) top = viewportHeight - menuRect.height - 12;
+
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+
+            // Focus first visible action
+            if (firstVisible) setTimeout(() => firstVisible.focus(), 50);
         };
 
         const scheduleTaskToToday = async (taskId) => {
