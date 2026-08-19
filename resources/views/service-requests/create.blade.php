@@ -2054,12 +2054,23 @@
             menu.style.top = '0px';
             var mw = menu.offsetWidth, mh = menu.offsetHeight;
             var px = (x + mw > vw) ? x - mw : x;
-            var py = (y + mh > vh) ? y - mh : y;
-            menu.style.left = Math.max(4, px) + 'px';
-            menu.style.top = Math.max(4, py) + 'px';
+            var py = y;
+
+            // Posicionar el menú para que el cursor quede sobre la acción primaria
+            var primary = menu.querySelector('.sr-create-ctx__item--primary');
+            if (primary) {
+                var primaryOffset = primary.offsetTop + (primary.offsetHeight / 2);
+                py = y - primaryOffset;
+            }
+
+            px = Math.max(4, px);
+            py = Math.max(4, py);
+            if (py + mh > vh) py = vh - mh - 8;
+
+            menu.style.left = px + 'px';
+            menu.style.top = py + 'px';
 
             setTimeout(function() {
-                var primary = menu.querySelector('.sr-create-ctx__item--primary');
                 if (primary) primary.focus();
             }, 60);
         }

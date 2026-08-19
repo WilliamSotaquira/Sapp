@@ -96,14 +96,21 @@
             y = window.innerHeight - rect.height - 8;
         }
 
+        // Posicionar el menú para que el cursor quede sobre la acción primaria
+        var primary = ctxMenu.querySelector('[data-ctx-primary]') || ctxMenu.querySelector('.context-menu-item');
+        if (primary) {
+            var primaryOffset = primary.offsetTop + (primary.offsetHeight / 2);
+            y = y - primaryOffset;
+            if (y < 4) y = 4;
+            if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 8;
+        }
+
         ctxMenu.style.left = x + 'px';
         ctxMenu.style.top = y + 'px';
 
         // Focus primary item (or first)
         setTimeout(function() {
-            var primary = ctxMenu.querySelector('[data-ctx-primary]');
-            var target = primary || ctxMenu.querySelector('.context-menu-item');
-            if (target) target.focus();
+            if (primary) primary.focus();
         }, 50);
     }
 

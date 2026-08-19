@@ -380,18 +380,23 @@
         posX = Math.max(4, posX);
         posY = Math.max(4, posY);
 
+        // Ajustar posición para que el cursor quede sobre la acción predeterminada
+        var defaultItem = menu.querySelector('[data-ctx-default]:not(.hidden)') || menu.querySelector('.sr-ctx__item:not(.hidden)');
+        if (defaultItem) {
+            var itemOffset = defaultItem.offsetTop + (defaultItem.offsetHeight / 2);
+            posY = y - itemOffset;
+            if (posY < 4) posY = 4;
+            if (posY + menuH > vh) posY = vh - menuH - 8;
+        }
+
         menu.style.left = posX + 'px';
         menu.style.top = posY + 'px';
         menu.style.visibility = '';
 
         // Focus the default (next step) item
         setTimeout(function() {
-            var defaultItem = menu.querySelector('[data-ctx-default]:not(.hidden)');
             if (defaultItem) {
                 defaultItem.focus();
-            } else {
-                var first = menu.querySelector('.sr-ctx__item:not(.hidden)');
-                if (first) first.focus();
             }
         }, 50);
     }
