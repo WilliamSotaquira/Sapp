@@ -1596,24 +1596,28 @@
             const menuRect = menu.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
-            let left = Math.min(event.clientX, viewportWidth - menuRect.width - 12);
-            let top = event.clientY;
+            const menuW = menu.offsetWidth;
+            const menuH = menu.offsetHeight;
 
             // Posicionar el cursor sobre la primera acción visible
             const firstVisible = menu.querySelector('[data-context-action]:not(.hidden)');
+            let left = x;
+            let top = y;
+
             if (firstVisible) {
-                const itemOffset = firstVisible.offsetTop + (firstVisible.offsetHeight / 2);
-                top = event.clientY - itemOffset;
+                const primaryCenterY = firstVisible.offsetTop + Math.round(firstVisible.offsetHeight / 2);
+                top = y - primaryCenterY;
+                left = x - 40;
             }
 
-            left = Math.max(8, left);
-            top = Math.max(8, top);
-            if (top + menuRect.height > viewportHeight) top = viewportHeight - menuRect.height - 12;
+            if (left + menuW > viewportWidth) left = viewportWidth - menuW - 12;
+            if (left < 8) left = 8;
+            if (top < 8) top = 8;
+            if (top + menuH > viewportHeight) top = viewportHeight - menuH - 12;
 
             menu.style.left = `${left}px`;
             menu.style.top = `${top}px`;
 
-            // Focus first visible action
             if (firstVisible) setTimeout(() => firstVisible.focus(), 50);
         };
 

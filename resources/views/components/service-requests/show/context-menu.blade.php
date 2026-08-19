@@ -360,34 +360,32 @@
         menu.classList.remove('hidden');
         isOpen = true;
 
-        // Position ensuring it stays in viewport
-        var rect = menu.getBoundingClientRect();
         var vw = window.innerWidth;
         var vh = window.innerHeight;
 
-        // Temporarily show to measure
-        menu.style.left = '0px';
+        // Posicionar fuera de vista para medir
+        menu.style.left = '-9999px';
         menu.style.top = '0px';
         menu.style.visibility = 'hidden';
-        menu.classList.remove('hidden');
 
         var menuW = menu.offsetWidth;
         var menuH = menu.offsetHeight;
 
-        var posX = x + menuW > vw ? x - menuW : x;
-        var posY = y + menuH > vh ? y - menuH : y;
-
-        posX = Math.max(4, posX);
-        posY = Math.max(4, posY);
-
-        // Ajustar posición para que el cursor quede sobre la acción predeterminada
+        // Calcular offset del item predeterminado
         var defaultItem = menu.querySelector('[data-ctx-default]:not(.hidden)') || menu.querySelector('.sr-ctx__item:not(.hidden)');
+        var posX = x;
+        var posY = y;
+
         if (defaultItem) {
-            var itemOffset = defaultItem.offsetTop + (defaultItem.offsetHeight / 2);
-            posY = y - itemOffset;
-            if (posY < 4) posY = 4;
-            if (posY + menuH > vh) posY = vh - menuH - 8;
+            var primaryCenterY = defaultItem.offsetTop + Math.round(defaultItem.offsetHeight / 2);
+            posY = y - primaryCenterY;
+            posX = x - 40;
         }
+
+        if (posX + menuW > vw) posX = vw - menuW - 8;
+        if (posX < 4) posX = 4;
+        if (posY < 4) posY = 4;
+        if (posY + menuH > vh) posY = vh - menuH - 8;
 
         menu.style.left = posX + 'px';
         menu.style.top = posY + 'px';

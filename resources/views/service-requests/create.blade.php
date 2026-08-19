@@ -2049,22 +2049,32 @@
             menu.classList.remove('hidden');
             menu.style.animation = 'scale-in 0.12s ease-out';
             isOpen = true;
-            var vw = window.innerWidth, vh = window.innerHeight;
-            menu.style.left = '0px';
-            menu.style.top = '0px';
-            var mw = menu.offsetWidth, mh = menu.offsetHeight;
-            var px = (x + mw > vw) ? x - mw : x;
-            var py = y;
 
-            // Posicionar el menú para que el cursor quede sobre la acción primaria
+            // Posicionar fuera de vista para medir
+            menu.style.left = '-9999px';
+            menu.style.top = '0px';
+
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var mw = menu.offsetWidth, mh = menu.offsetHeight;
+
+            // Calcular offset del item primario relativo al menú
             var primary = menu.querySelector('.sr-create-ctx__item--primary');
+            var py = y;
+            var px = x;
+
             if (primary) {
-                var primaryOffset = primary.offsetTop + (primary.offsetHeight / 2);
-                py = y - primaryOffset;
+                // Centrar verticalmente el cursor sobre el botón primario
+                var primaryCenterY = primary.offsetTop + Math.round(primary.offsetHeight / 2);
+                py = y - primaryCenterY;
+
+                // Mover el menú a la izquierda para que el cursor quede sobre el texto del botón
+                px = x - 40;
             }
 
-            px = Math.max(4, px);
-            py = Math.max(4, py);
+            // Ajustar si se sale del viewport
+            if (px + mw > vw) px = vw - mw - 8;
+            if (px < 4) px = 4;
+            if (py < 4) py = 4;
             if (py + mh > vh) py = vh - mh - 8;
 
             menu.style.left = px + 'px';
