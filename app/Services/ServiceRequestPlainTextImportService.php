@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Requester;
+use App\Models\StandardTask;
 use App\Models\SubService;
 use App\Services\SmartParser\LlmDescriptionGenerator;
 use App\Services\SmartParser\LlmTaskGenerator;
@@ -152,6 +153,11 @@ class ServiceRequestPlainTextImportService
             ];
         }
 
+        $tasksTemplate = $this->resolveTasksTemplateForSubService((int) $subService->id);
+        if ($tasksTemplate === 'subservice_standard') {
+            $tasks = []; // Se cargarán automáticamente desde StandardTask al crear la solicitud
+        }
+
         $payload = [
             'company_id' => $companyId,
             'requester_id' => $requesterResult['id'],
@@ -168,7 +174,7 @@ class ServiceRequestPlainTextImportService
             'due_date' => $parsed['due_date'] ?? null,
             'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
             'is_reportable' => true,
-            'tasks_template' => 'none',
+            'tasks_template' => $tasksTemplate,
             'tasks' => $tasks,
         ];
 
@@ -657,6 +663,11 @@ class ServiceRequestPlainTextImportService
             ];
         }
 
+        $tasksTemplate = $this->resolveTasksTemplateForSubService((int) $subService->id);
+        if ($tasksTemplate === 'subservice_standard') {
+            $tasks = []; // Se cargarán automáticamente desde StandardTask al crear la solicitud
+        }
+
         $payload = [
             'company_id' => $companyId,
             'requester_id' => $requesterResult['id'],
@@ -673,7 +684,7 @@ class ServiceRequestPlainTextImportService
             'due_date' => $parsed['due_date'] ?? null,
             'web_routes' => json_encode($parsed['web_routes'], JSON_UNESCAPED_UNICODE),
             'is_reportable' => true,
-            'tasks_template' => 'none',
+            'tasks_template' => $tasksTemplate,
             'tasks' => $tasks,
         ];
 
@@ -1286,8 +1297,8 @@ class ServiceRequestPlainTextImportService
                 'due_date' => null,
                 'web_routes' => json_encode(array_slice($urls, 0, 8)),
                 'is_reportable' => true,
-                'tasks_template' => 'none',
-                'tasks' => $tasks,
+                'tasks_template' => $this->resolveTasksTemplateForSubService($subServiceId),
+                'tasks' => $this->resolveTasksTemplateForSubService($subServiceId) === 'subservice_standard' ? [] : $tasks,
                 '__pending_requester_name' => $requesterPending ? $requesterName : null,
                 '__pending_requester_email' => null,
             ],
@@ -2208,6 +2219,22 @@ class ServiceRequestPlainTextImportService
         }
 
         return null;
+    }
+
+    /**
+     * Determina si un subservicio tiene StandardTasks predefinidas.
+     * Si las tiene, devuelve 'subservice_standard' para que se carguen automáticamente.
+     * Las tareas predefinidas incluyen información técnica (environment, complexity, technologies)
+     * que las tareas genéricas de la IA no tienen.
+     */
+    private function resolveTasksTemplateForSubService(int $subServiceId): string
+    {
+        $hasStandardTasks = StandardTask::query()
+            ->where('sub_service_id', $subServiceId)
+            ->active()
+            ->exists();
+
+        return $hasStandardTasks ? 'subservice_standard' : 'none';
     }
 
     private function isUnavailableMarker(string $text): bool
