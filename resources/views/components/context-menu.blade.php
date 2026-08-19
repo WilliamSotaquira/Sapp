@@ -87,28 +87,32 @@
     function show(x, y) {
         ctxMenu.classList.remove('hidden');
         isOpen = true;
-        var rect = ctxMenu.getBoundingClientRect();
 
-        if (x + rect.width > window.innerWidth) {
-            x = window.innerWidth - rect.width - 8;
-        }
-        if (y + rect.height > window.innerHeight) {
-            y = window.innerHeight - rect.height - 8;
-        }
+        // Posicionar fuera de vista para medir
+        ctxMenu.style.left = '-9999px';
+        ctxMenu.style.top = '0px';
 
-        // Posicionar el menú para que el cursor quede sobre la acción primaria
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+
         var primary = ctxMenu.querySelector('[data-ctx-primary]') || ctxMenu.querySelector('.context-menu-item');
+        var px = x;
+        var py = y;
+
         if (primary) {
-            var primaryOffset = primary.offsetTop + (primary.offsetHeight / 2);
-            y = y - primaryOffset;
-            if (y < 4) y = 4;
-            if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 8;
+            var primaryCenterY = primary.offsetTop + Math.round(primary.offsetHeight / 2);
+            py = y - primaryCenterY;
+            px = x - 40;
         }
 
-        ctxMenu.style.left = x + 'px';
-        ctxMenu.style.top = y + 'px';
+        if (px + mw > vw) px = vw - mw - 8;
+        if (px < 4) px = 4;
+        if (py < 4) py = 4;
+        if (py + mh > vh) py = vh - mh - 8;
 
-        // Focus primary item (or first)
+        ctxMenu.style.left = px + 'px';
+        ctxMenu.style.top = py + 'px';
+
         setTimeout(function() {
             if (primary) primary.focus();
         }, 50);
