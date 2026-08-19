@@ -1940,15 +1940,30 @@
 
     {{-- Context Menu --}}
     <div id="sr-create-ctx" class="hidden fixed z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1" role="menu" style="animation: ctx-scale-in 0.12s ease-out;">
-        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones</div>
-        <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="submit">
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones rápidas</div>
+        <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="paste-and-create">
+            <i class="fas fa-paste"></i>
+            <span>Pegar e interpretar</span>
+            <kbd class="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">↵</kbd>
+        </button>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="paste-only">
+            <i class="fas fa-clipboard"></i>
+            <span>Pegar texto</span>
+        </button>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="paste-and-review">
+            <i class="fas fa-eye"></i>
+            <span>Pegar y revisar</span>
+        </button>
+        <div class="my-1 border-t border-gray-100"></div>
+        <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Formulario</div>
+        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="submit">
             <i class="fas fa-paper-plane"></i>
             <span>Crear solicitud</span>
-            <kbd class="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">Tab</kbd>
+            <kbd class="ml-auto px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold">Tab</kbd>
         </button>
         <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="interpret">
             <i class="fas fa-magic"></i>
-            <span>Interpretar texto con IA</span>
+            <span>Ir al campo de texto</span>
         </button>
         <div class="my-1 border-t border-gray-100"></div>
         <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Ir a</div>
@@ -2057,6 +2072,30 @@
         function executeAction(action) {
             hide();
             switch (action) {
+                case 'paste-and-create':
+                    pasteFromClipboard(function() {
+                        // Después de pegar, ejecutar "Interpretar y Crear"
+                        var fastForm = document.querySelector('form[action$="interpret-and-store"]');
+                        if (fastForm) {
+                            var hiddenInput = fastForm.querySelector('input[name="plain_text"]');
+                            var textarea = document.getElementById('plain_text');
+                            if (hiddenInput && textarea) {
+                                hiddenInput.value = textarea.value;
+                            }
+                            fastForm.submit();
+                        }
+                    });
+                    break;
+                case 'paste-only':
+                    pasteFromClipboard();
+                    break;
+                case 'paste-and-review':
+                    pasteFromClipboard(function() {
+                        // Después de pegar, ejecutar "Revisar"
+                        var form = document.getElementById('aiInterpreterForm');
+                        if (form) form.submit();
+                    });
+                    break;
                 case 'submit':
                     if (storeForm) {
                         var submitBtn = storeForm.querySelector('button[type="submit"]');
@@ -2085,17 +2124,83 @@
                 case 'clear':
                     if (confirm('¿Limpiar todos los campos del formulario?')) {
                         if (storeForm) storeForm.reset();
+                        var textarea = document.getElementById('plain_text');
+                        if (textarea) textarea.value = '';
                     }
                     break;
             }
         }
 
+        /**
+         * Lee texto del portapapeles y lo coloca en el textarea principal.
+         * Si se pasa un callback, se ejecuta después de pegar exitosamente.
+         */
+        function pasteFromClipboard(onSuccess) {
+            var textarea = document.getElementById('plain_text');
+            if (!textarea) return;
+
+            // Asegurar que estamos en step 1 (la vista de pegar texto)
+            var alpineRoot = document.querySelector('[x-data]');
+            if (alpineRoot && alpineRoot.__x) {
+                alpineRoot.__x.$data.step = 1;
+            } else if (alpineRoot && window.Alpine) {
+                Alpine.evaluate(alpineRoot, 'step = 1');
+            }
+
+            navigator.clipboard.readText().then(function(text) {
+                if (!text || text.trim().length < 5) {
+                    showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
+                    return;
+                }
+
+                textarea.value = text.trim();
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+                // Actualizar Alpine model
+                if (alpineRoot && alpineRoot.__x) {
+                    alpineRoot.__x.$data.pasteText = text.trim();
+                    alpineRoot.__x.$data.interpreting = !!onSuccess;
+                } else if (alpineRoot && window.Alpine) {
+                    Alpine.evaluate(alpineRoot, "pasteText = '" + text.trim().replace(/'/g, "\\'").replace(/\n/g, "\\n") + "'");
+                    if (onSuccess) Alpine.evaluate(alpineRoot, 'interpreting = true');
+                }
+
+                textarea.focus();
+
+                if (onSuccess) {
+                    setTimeout(onSuccess, 100);
+                } else {
+                    showToast('Texto pegado (' + text.trim().length + ' caracteres)', 'success');
+                }
+            }).catch(function(err) {
+                // Fallback: si el navegador bloquea clipboard, enfocar el textarea para Ctrl+V manual
+                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                textarea.focus();
+                showToast('Permiso de portapapeles denegado. Usa Ctrl+V para pegar.', 'info');
+            });
+        }
+
+        function showToast(message, type) {
+            var toast = document.createElement('div');
+            var colors = { success: 'bg-green-600', warning: 'bg-amber-600', info: 'bg-blue-600' };
+            toast.className = 'fixed top-4 right-4 z-[99999] px-4 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg ' + (colors[type] || colors.info);
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
+            setTimeout(function() { toast.remove(); }, 2900);
+        }
+
         // Right-click on the page
         document.addEventListener('contextmenu', function(e) {
-            // Allow native menu on text inputs so user can paste
-            if (e.target.closest('input[type="text"], input[type="url"], input[type="email"], textarea, select')) return;
-            // Allow native on modals
+            // Allow native menu inside modals
             if (e.target.closest('[role="dialog"]')) return;
+            // Allow native menu on inputs in step 2 (the form) so user can paste normally
+            var inStep2 = document.querySelector('[x-data]');
+            var isStep2Active = false;
+            if (inStep2 && inStep2.__x) {
+                isStep2Active = inStep2.__x.$data.step === 2;
+            }
+            if (isStep2Active && e.target.closest('input[type="text"], input[type="url"], input[type="email"], textarea, select')) return;
 
             e.preventDefault();
             show(e.clientX, e.clientY);
