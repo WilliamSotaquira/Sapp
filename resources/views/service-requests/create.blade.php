@@ -1919,19 +1919,10 @@
     {{-- Context Menu --}}
     <div id="sr-create-ctx" class="hidden fixed z-[9999] min-w-[200px] max-w-[260px] bg-white border border-gray-200 rounded-xl shadow-lg p-1" role="menu" style="animation: ctx-scale-in 0.12s ease-out;">
         <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones rápidas</div>
-        {{-- Acción primaria: se actualiza dinámicamente según si hay texto --}}
-        <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="smart-primary" id="ctxPrimaryAction">
-            <i class="fas fa-bolt" id="ctxPrimaryIcon"></i>
-            <span id="ctxPrimaryLabel">Interpretar y crear</span>
+        <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="paste-and-create">
+            <i class="fas fa-paste"></i>
+            <span>Pegar e interpretar</span>
             <kbd class="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">↵</kbd>
-        </button>
-        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="paste-only" id="ctxPasteOnly">
-            <i class="fas fa-clipboard"></i>
-            <span>Pegar texto</span>
-        </button>
-        <button type="button" class="sr-create-ctx__item" role="menuitem" data-ctx-action="paste-and-review" id="ctxPasteReview">
-            <i class="fas fa-eye"></i>
-            <span>Pegar y revisar</span>
         </button>
         <div class="my-1 border-t border-gray-100"></div>
         <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Formulario</div>
@@ -2029,28 +2020,6 @@
             menu.style.animation = 'scale-in 0.12s ease-out';
             isOpen = true;
 
-            // Actualizar acción primaria según si ya hay texto en el textarea
-            var textarea = document.getElementById('plain_text');
-            var hasText = textarea && textarea.value.trim().length >= 20;
-            var primaryLabel = document.getElementById('ctxPrimaryLabel');
-            var primaryIcon = document.getElementById('ctxPrimaryIcon');
-            var pasteOnlyBtn = document.getElementById('ctxPasteOnly');
-            var pasteReviewBtn = document.getElementById('ctxPasteReview');
-
-            if (hasText) {
-                // Ya hay texto: la acción es interpretar directamente
-                if (primaryLabel) primaryLabel.textContent = 'Interpretar y crear';
-                if (primaryIcon) { primaryIcon.className = 'fas fa-bolt'; }
-                if (pasteOnlyBtn) pasteOnlyBtn.classList.add('hidden');
-                if (pasteReviewBtn) pasteReviewBtn.classList.add('hidden');
-            } else {
-                // No hay texto: la acción es pegar e interpretar
-                if (primaryLabel) primaryLabel.textContent = 'Pegar e interpretar';
-                if (primaryIcon) { primaryIcon.className = 'fas fa-paste'; }
-                if (pasteOnlyBtn) pasteOnlyBtn.classList.remove('hidden');
-                if (pasteReviewBtn) pasteReviewBtn.classList.remove('hidden');
-            }
-
             // Posicionar fuera de vista para medir
             menu.style.left = '-9999px';
             menu.style.top = '0px';
@@ -2094,36 +2063,6 @@
         function executeAction(action) {
             hide();
             switch (action) {
-                case 'smart-primary':
-                    // Si ya hay texto, interpretar directamente. Si no, pegar primero.
-                    var textarea = document.getElementById('plain_text');
-                    var hasText = textarea && textarea.value.trim().length >= 20;
-                    if (hasText) {
-                        // Ejecutar "Interpretar y Crear" directamente
-                        var fastForm = document.querySelector('form[action$="interpret-and-store"]');
-                        if (fastForm) {
-                            var hiddenInput = fastForm.querySelector('input[name="plain_text"]');
-                            if (hiddenInput && textarea) hiddenInput.value = textarea.value;
-                            var alpineRoot = document.querySelector('[x-data]');
-                            if (alpineRoot) {
-                                var alpineData = Alpine.$data(alpineRoot);
-                                if (alpineData) alpineData.interpreting = true;
-                            }
-                            fastForm.submit();
-                        }
-                    } else {
-                        // Pegar e interpretar
-                        pasteFromClipboard(function() {
-                            var fastForm = document.querySelector('form[action$="interpret-and-store"]');
-                            if (fastForm) {
-                                var hiddenInput = fastForm.querySelector('input[name="plain_text"]');
-                                var ta = document.getElementById('plain_text');
-                                if (hiddenInput && ta) hiddenInput.value = ta.value;
-                                fastForm.submit();
-                            }
-                        });
-                    }
-                    break;
                 case 'paste-and-create':
                     pasteFromClipboard(function() {
                         // Después de pegar, ejecutar "Interpretar y Crear"
@@ -2136,16 +2075,6 @@
                             }
                             fastForm.submit();
                         }
-                    });
-                    break;
-                case 'paste-only':
-                    pasteFromClipboard();
-                    break;
-                case 'paste-and-review':
-                    pasteFromClipboard(function() {
-                        // Después de pegar, ejecutar "Revisar"
-                        var form = document.getElementById('aiInterpreterForm');
-                        if (form) form.submit();
                     });
                     break;
                 case 'submit':
