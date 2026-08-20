@@ -95,7 +95,28 @@
             $selectedType = ($requestTypes ?? collect())->firstWhere('id', (int) $selectedRequestTypeId);
             $selectedSlug = $selectedType ? $selectedType->slug : '';
         }
-        $startAtStep2 = $errors->any() || $selectedRequestTypeId || !empty($parserPrefilledFields) || old('title');
+
+        // Step 3 = tarjeta resumen de confirmación (después de interpretar)
+        $showConfirmation = !empty($parserPrefilledFields) && session('success') && str_contains(session('success') ?? '', 'Texto interpretado');
+        $startAtStep2 = ($errors->any() || $selectedRequestTypeId || old('title')) && !$showConfirmation;
+        $startAtStep3 = $showConfirmation;
+
+        // Datos para la tarjeta resumen
+        $confirmTitle = old('title', '');
+        $confirmDescription = old('description', '');
+        $confirmCriticality = old('criticality_level', 'MEDIA');
+        $confirmSubServiceId = old('sub_service_id', '');
+        $confirmSubServiceName = '';
+        if ($confirmSubServiceId) {
+            $confirmSubServiceName = \App\Models\SubService::find($confirmSubServiceId)?->name ?? '';
+        }
+        $confirmRequesterName = '';
+        if (old('requester_id')) {
+            $confirmRequesterName = \App\Models\Requester::find(old('requester_id'))?->name ?? $pendingRequesterName;
+        }
+        $confirmTasks = old('tasks', []);
+        $confirmTaskCount = is_array($confirmTasks) ? count($confirmTasks) : 0;
+        $confirmTasksTemplate = old('tasks_template', 'none');
     @endphp
 
     @if ($errors->any())
@@ -132,7 +153,7 @@
     @endif
 
     {{-- ===== MAIN CONTENT WITH ALPINE.JS — AI-FIRST FLOW ===== --}}
-    <div x-data='{"step":{{ $startAtStep2 ? 2 : 1 }},"interpreting":false,"pasteText":{{ json_encode($plainTextImportValue ?: '') }},"operatorNotes":"","selectedTypeId":{{ json_encode($selectedRequestTypeId ?: '') }},"selectedTypeSlug":{{ json_encode($selectedSlug ?: '') }}}' class="max-w-4xl mx-auto">
+    <div x-data='{"step":{{ $startAtStep3 ? 3 : ($startAtStep2 ? 2 : 1) }},"interpreting":false,"pasteText":{{ json_encode($plainTextImportValue ?: '') }},"operatorNotes":"","selectedTypeId":{{ json_encode($selectedRequestTypeId ?: '') }},"selectedTypeSlug":{{ json_encode($selectedSlug ?: '') }}}' class="max-w-4xl mx-auto">
 
         {{-- ===== STATE 1: PASTE & INTERPRET (AI-first hero) ===== --}}
         <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
@@ -266,6 +287,99 @@
                 </div>
             </div>
         </div>
+
+        {{-- ===== STATE 3: CONFIRMATION CARD (after AI interpretation) ===== --}}
+        @if($showConfirmation)
+        <div x-show="step === 3" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+
+            <div class="flex flex-col items-center justify-center min-h-[50vh] py-12">
+                <div class="w-full max-w-lg">
+                    {{-- Header --}}
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-green-100 text-green-600 mb-3">
+                            <i class="fas fa-check-circle text-2xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-gray-800">Solicitud interpretada</h2>
+                        <p class="text-sm text-gray-500 mt-1">Verifica que la información sea correcta</p>
+                    </div>
+
+                    {{-- Tarjeta resumen --}}
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        {{-- Título --}}
+                        <div class="px-5 py-4 border-b border-gray-100">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Título</p>
+                            <p class="text-sm font-semibold text-gray-900">{{ $confirmTitle }}</p>
+                        </div>
+
+                        {{-- Grid de datos --}}
+                        <div class="grid grid-cols-2 divide-x divide-gray-100">
+                            <div class="px-5 py-3">
+                                <p class="text-xs font-medium text-gray-400 mb-1">Subservicio</p>
+                                <p class="text-xs font-semibold text-indigo-700">{{ $confirmSubServiceName }}</p>
+                            </div>
+                            <div class="px-5 py-3">
+                                <p class="text-xs font-medium text-gray-400 mb-1">Solicitante</p>
+                                <p class="text-xs font-semibold text-gray-800">{{ $confirmRequesterName ?: 'Pendiente de creación' }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100">
+                            <div class="px-5 py-3">
+                                <p class="text-xs font-medium text-gray-400 mb-1">Criticidad</p>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold
+                                    {{ $confirmCriticality === 'CRITICA' ? 'bg-red-100 text-red-800' : '' }}
+                                    {{ $confirmCriticality === 'ALTA' ? 'bg-orange-100 text-orange-800' : '' }}
+                                    {{ $confirmCriticality === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' : '' }}
+                                    {{ $confirmCriticality === 'BAJA' ? 'bg-blue-100 text-blue-800' : '' }}
+                                ">{{ $confirmCriticality }}</span>
+                            </div>
+                            <div class="px-5 py-3">
+                                <p class="text-xs font-medium text-gray-400 mb-1">Tareas</p>
+                                <p class="text-xs font-semibold text-gray-800">
+                                    @if($confirmTasksTemplate === 'subservice_standard')
+                                        <i class="fas fa-magic text-indigo-500 mr-1"></i> Predefinidas (plantilla)
+                                    @else
+                                        {{ $confirmTaskCount }} tarea{{ $confirmTaskCount !== 1 ? 's' : '' }}
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+
+                        {{-- Descripción (truncada) --}}
+                        @if($confirmDescription)
+                        <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+                            <p class="text-xs text-gray-600 line-clamp-2">{{ Str::limit($confirmDescription, 150) }}</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Acciones --}}
+                    <div class="flex items-center justify-between mt-5">
+                        <button type="button"
+                                @click="step = 2"
+                                class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                            <i class="fas fa-edit"></i>
+                            Editar
+                        </button>
+
+                        <button type="button"
+                                id="confirmCreateBtn"
+                                class="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all">
+                            <i class="fas fa-check"></i>
+                            Crear solicitud
+                        </button>
+                    </div>
+
+                    {{-- Volver a pegar --}}
+                    <div class="mt-4 text-center">
+                        <button type="button" @click="step = 1" class="text-xs text-gray-400 hover:text-gray-600 transition">
+                            ← Descartar y pegar otro texto
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
         {{-- ===== STATE 2: THE FORM ===== --}}
         <div x-show="step === 2" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
@@ -446,6 +560,20 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // --- Confirmation Card (State 3) ---
+        var confirmCreateBtn = document.getElementById('confirmCreateBtn');
+        if (confirmCreateBtn) {
+            confirmCreateBtn.addEventListener('click', function() {
+                var storeForm = document.querySelector('form[action$="/service-requests"][method="POST"]:not(#aiInterpreterForm):not(#switchWorkspaceForm)') ||
+                                document.querySelector('form[action*="service-requests.store"]');
+                if (storeForm) {
+                    confirmCreateBtn.disabled = true;
+                    confirmCreateBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Creando...';
+                    storeForm.submit();
+                }
+            });
+        }
+
         // --- AI Interpreter (State 1) ---
         const aiForm = document.getElementById('aiInterpreterForm');
         const plainTextInput = document.getElementById('plain_text');
