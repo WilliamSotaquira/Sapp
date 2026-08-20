@@ -351,6 +351,40 @@
                             <p class="text-xs text-gray-600 line-clamp-2">{{ Str::limit($confirmDescription, 150) }}</p>
                         </div>
                         @endif
+
+                        {{-- Lista de tareas --}}
+                        <div class="px-5 py-3 border-t border-gray-100">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Tareas</p>
+                            @if($confirmTasksTemplate === 'subservice_standard')
+                                @php
+                                    $standardTasks = \App\Models\StandardTask::where('sub_service_id', $confirmSubServiceId)
+                                        ->active()->ordered()->get();
+                                @endphp
+                                @forelse($standardTasks as $st)
+                                    <div class="flex items-center gap-2 py-1 {{ !$loop->last ? 'border-b border-gray-50' : '' }}">
+                                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">{{ $loop->iteration }}</span>
+                                        <span class="text-xs text-gray-700">{{ $st->title }}</span>
+                                        <span class="ml-auto text-[10px] text-gray-400">{{ $st->estimated_hours }}h</span>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-gray-400">Sin tareas predefinidas</p>
+                                @endforelse
+                            @elseif(is_array($confirmTasks) && count($confirmTasks) > 0)
+                                @foreach($confirmTasks as $task)
+                                    @if(is_array($task) && !empty($task['title']))
+                                    <div class="flex items-center gap-2 py-1 {{ !$loop->last ? 'border-b border-gray-50' : '' }}">
+                                        <span class="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-[10px] font-bold">{{ $loop->iteration }}</span>
+                                        <span class="text-xs text-gray-700">{{ $task['title'] }}</span>
+                                        @if(!empty($task['estimated_minutes']))
+                                            <span class="ml-auto text-[10px] text-gray-400">{{ $task['estimated_minutes'] }} min</span>
+                                        @endif
+                                    </div>
+                                    @endif
+                                @endforeach
+                            @else
+                                <p class="text-xs text-gray-400 italic">Se generará una tarea por defecto</p>
+                            @endif
+                        </div>
                     </div>
 
                     {{-- Acciones --}}
