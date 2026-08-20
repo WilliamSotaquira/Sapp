@@ -2153,66 +2153,53 @@
         }
 
         /**
-         * Lee texto del portapapeles y lo coloca en el textarea principal.
-         * Si se pasa un callback, se ejecuta después de pegar exitosamente.
+         * Pega texto del portapapeles en el textarea y ejecuta la acción.
          *
-         * La lectura del clipboard funciona porque se ejecuta dentro de un user gesture
-         * (el click en el botón del menú contextual).
+         * Usa execCommand('paste') que funciona en todos los navegadores
+         * porque opera sobre un elemento enfocado sin requerir permisos especiales.
          */
         function pasteFromClipboard(onSuccess) {
-            // Asegurar que estamos en step 1
+            // Asegurar step 1
             var alpineRoot = document.querySelector('[x-data]');
             if (alpineRoot) {
                 var alpineData = Alpine.$data(alpineRoot);
                 if (alpineData) alpineData.step = 1;
             }
 
-            // Intentar leer clipboard directamente (funciona en user gesture incluso en HTTP en Chrome)
-            if (navigator.clipboard && navigator.clipboard.readText) {
-                navigator.clipboard.readText().then(function(text) {
-                    if (text && text.trim().length >= 5) {
-                        requestAnimationFrame(function() {
-                            var textarea = document.getElementById('plain_text');
-                            if (textarea) applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
-                        });
-                    } else {
-                        showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
+            requestAnimationFrame(function() {
+                var textarea = document.getElementById('plain_text');
+                if (!textarea) return;
+
+                // Limpiar el textarea y enfocarlo
+                textarea.value = '';
+                textarea.focus();
+
+                // Ejecutar paste nativo del navegador
+                var pasted = document.execCommand('paste');
+
+                if (pasted && textarea.value.trim().length >= 5) {
+                    // execCommand('paste') funcionó
+                    applyPastedText(textarea, textarea.value.trim(), alpineRoot, onSuccess);
+                } else {
+                    // execCommand('paste') no funcionó o no pegó nada útil.
+                    // Escuchar evento paste: el usuario hace Ctrl+V y se dispara automáticamente.
+                    textarea.value = '';
+                    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    showToast('Ctrl+V para pegar y se ejecutará automáticamente', 'info');
+
+                    function onPaste(e) {
+                        textarea.removeEventListener('paste', onPaste);
+                        var text = (e.clipboardData || window.clipboardData).getData('text');
+                        if (text && text.trim().length >= 5) {
+                            e.preventDefault();
+                            applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                        }
                     }
-                }).catch(function() {
-                    // Si falla, usar fallback con Ctrl+V
-                    requestAnimationFrame(function() {
-                        var textarea = document.getElementById('plain_text');
-                        if (textarea) usePasteFallback(textarea, alpineRoot, onSuccess);
-                    });
-                });
-            } else {
-                // Navegador sin soporte de Clipboard API
-                requestAnimationFrame(function() {
-                    var textarea = document.getElementById('plain_text');
-                    if (textarea) usePasteFallback(textarea, alpineRoot, onSuccess);
-                });
-            }
-        }
-
-        /**
-         * Fallback: enfoca el textarea y escucha el evento paste.
-         */
-        function usePasteFallback(textarea, alpineRoot, onSuccess) {
-            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            textarea.focus();
-
-            showToast('Presiona Ctrl+V para pegar', 'info');
-
-            function onPaste(e) {
-                textarea.removeEventListener('paste', onPaste);
-                var text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text && text.trim().length >= 5) {
-                    e.preventDefault();
-                    applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                    textarea.addEventListener('paste', onPaste);
+                    setTimeout(function() { textarea.removeEventListener('paste', onPaste); }, 15000);
                 }
-            }
-            textarea.addEventListener('paste', onPaste);
-            setTimeout(function() { textarea.removeEventListener('paste', onPaste); }, 10000);
+            });
         }
 
         /**
