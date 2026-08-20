@@ -2155,6 +2155,10 @@
         /**
          * Lee texto del portapapeles y lo coloca en el textarea principal.
          * Si se pasa un callback, se ejecuta después de pegar exitosamente.
+         *
+         * Estrategia:
+         * 1. Intentar Clipboard API (funciona en HTTPS/localhost con permisos)
+         * 2. Fallback: enfocar textarea y esperar evento 'paste' del usuario (Ctrl+V)
          */
         function pasteFromClipboard(onSuccess) {
             var textarea = document.getElementById('plain_text');
@@ -2162,43 +2166,85 @@
 
             // Asegurar que estamos en step 1 (la vista de pegar texto)
             var alpineRoot = document.querySelector('[x-data]');
-            if (alpineRoot && alpineRoot.__x) {
-                alpineRoot.__x.$data.step = 1;
-            } else if (alpineRoot && window.Alpine) {
-                Alpine.evaluate(alpineRoot, 'step = 1');
+            if (alpineRoot) {
+                var alpineData = Alpine.$data(alpineRoot);
+                if (alpineData) alpineData.step = 1;
             }
 
-            navigator.clipboard.readText().then(function(text) {
-                if (!text || text.trim().length < 5) {
-                    showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
-                    return;
-                }
+            // Esperar un frame para que Alpine renderice step 1
+            requestAnimationFrame(function() {
+                textarea = document.getElementById('plain_text');
+                if (!textarea) return;
 
-                textarea.value = text.trim();
-                textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-                // Actualizar Alpine model
-                if (alpineRoot && alpineRoot.__x) {
-                    alpineRoot.__x.$data.pasteText = text.trim();
-                    alpineRoot.__x.$data.interpreting = !!onSuccess;
-                } else if (alpineRoot && window.Alpine) {
-                    Alpine.evaluate(alpineRoot, "pasteText = '" + text.trim().replace(/'/g, "\\'").replace(/\n/g, "\\n") + "'");
-                    if (onSuccess) Alpine.evaluate(alpineRoot, 'interpreting = true');
-                }
-
-                textarea.focus();
-
-                if (onSuccess) {
-                    setTimeout(onSuccess, 100);
+                // Intentar Clipboard API primero
+                if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
+                    navigator.clipboard.readText().then(function(text) {
+                        if (text && text.trim().length >= 5) {
+                            applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                        } else {
+                            showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
+                        }
+                    }).catch(function() {
+                        // Clipboard API falló, usar fallback
+                        usePasteFallback(textarea, alpineRoot, onSuccess);
+                    });
                 } else {
-                    showToast('Texto pegado (' + text.trim().length + ' caracteres)', 'success');
+                    // No hay Clipboard API o no es contexto seguro, usar fallback
+                    usePasteFallback(textarea, alpineRoot, onSuccess);
                 }
-            }).catch(function(err) {
-                // Fallback: si el navegador bloquea clipboard, enfocar el textarea para Ctrl+V manual
-                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                textarea.focus();
-                showToast('Permiso de portapapeles denegado. Usa Ctrl+V para pegar.', 'info');
             });
+        }
+
+        /**
+         * Fallback: enfoca el textarea y escucha el evento paste.
+         * El usuario debe presionar Ctrl+V una vez.
+         */
+        function usePasteFallback(textarea, alpineRoot, onSuccess) {
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            textarea.focus();
+            textarea.select();
+
+            showToast('Presiona Ctrl+V para pegar el texto', 'info');
+
+            // Escuchar un solo evento paste
+            function onPaste(e) {
+                textarea.removeEventListener('paste', onPaste);
+                var text = (e.clipboardData || window.clipboardData).getData('text');
+                if (text && text.trim().length >= 5) {
+                    e.preventDefault();
+                    applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                }
+            }
+            textarea.addEventListener('paste', onPaste);
+
+            // Timeout: si no pega en 10 segundos, limpiar listener
+            setTimeout(function() {
+                textarea.removeEventListener('paste', onPaste);
+            }, 10000);
+        }
+
+        /**
+         * Aplica el texto pegado al textarea y actualiza Alpine.
+         */
+        function applyPastedText(textarea, text, alpineRoot, onSuccess) {
+            textarea.value = text;
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // Actualizar Alpine model
+            if (alpineRoot) {
+                var alpineData = Alpine.$data(alpineRoot);
+                if (alpineData) {
+                    alpineData.pasteText = text;
+                    if (onSuccess) alpineData.interpreting = true;
+                }
+            }
+
+            if (onSuccess) {
+                showToast('Texto pegado. Procesando...', 'success');
+                setTimeout(onSuccess, 200);
+            } else {
+                showToast('Texto pegado (' + text.length + ' caracteres)', 'success');
+            }
         }
 
         function showToast(message, type) {
