@@ -2156,57 +2156,53 @@
          * Lee texto del portapapeles y lo coloca en el textarea principal.
          * Si se pasa un callback, se ejecuta después de pegar exitosamente.
          *
-         * Estrategia:
-         * 1. Intentar Clipboard API (funciona en HTTPS/localhost con permisos)
-         * 2. Fallback: enfocar textarea y esperar evento 'paste' del usuario (Ctrl+V)
+         * La lectura del clipboard funciona porque se ejecuta dentro de un user gesture
+         * (el click en el botón del menú contextual).
          */
         function pasteFromClipboard(onSuccess) {
-            var textarea = document.getElementById('plain_text');
-            if (!textarea) return;
-
-            // Asegurar que estamos en step 1 (la vista de pegar texto)
+            // Asegurar que estamos en step 1
             var alpineRoot = document.querySelector('[x-data]');
             if (alpineRoot) {
                 var alpineData = Alpine.$data(alpineRoot);
                 if (alpineData) alpineData.step = 1;
             }
 
-            // Esperar un frame para que Alpine renderice step 1
-            requestAnimationFrame(function() {
-                textarea = document.getElementById('plain_text');
-                if (!textarea) return;
-
-                // Intentar Clipboard API primero
-                if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
-                    navigator.clipboard.readText().then(function(text) {
-                        if (text && text.trim().length >= 5) {
-                            applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
-                        } else {
-                            showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
-                        }
-                    }).catch(function() {
-                        // Clipboard API falló, usar fallback
-                        usePasteFallback(textarea, alpineRoot, onSuccess);
+            // Intentar leer clipboard directamente (funciona en user gesture incluso en HTTP en Chrome)
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(function(text) {
+                    if (text && text.trim().length >= 5) {
+                        requestAnimationFrame(function() {
+                            var textarea = document.getElementById('plain_text');
+                            if (textarea) applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                        });
+                    } else {
+                        showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
+                    }
+                }).catch(function() {
+                    // Si falla, usar fallback con Ctrl+V
+                    requestAnimationFrame(function() {
+                        var textarea = document.getElementById('plain_text');
+                        if (textarea) usePasteFallback(textarea, alpineRoot, onSuccess);
                     });
-                } else {
-                    // No hay Clipboard API o no es contexto seguro, usar fallback
-                    usePasteFallback(textarea, alpineRoot, onSuccess);
-                }
-            });
+                });
+            } else {
+                // Navegador sin soporte de Clipboard API
+                requestAnimationFrame(function() {
+                    var textarea = document.getElementById('plain_text');
+                    if (textarea) usePasteFallback(textarea, alpineRoot, onSuccess);
+                });
+            }
         }
 
         /**
          * Fallback: enfoca el textarea y escucha el evento paste.
-         * El usuario debe presionar Ctrl+V una vez.
          */
         function usePasteFallback(textarea, alpineRoot, onSuccess) {
             textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
             textarea.focus();
-            textarea.select();
 
-            showToast('Presiona Ctrl+V para pegar el texto', 'info');
+            showToast('Presiona Ctrl+V para pegar', 'info');
 
-            // Escuchar un solo evento paste
             function onPaste(e) {
                 textarea.removeEventListener('paste', onPaste);
                 var text = (e.clipboardData || window.clipboardData).getData('text');
@@ -2216,21 +2212,16 @@
                 }
             }
             textarea.addEventListener('paste', onPaste);
-
-            // Timeout: si no pega en 10 segundos, limpiar listener
-            setTimeout(function() {
-                textarea.removeEventListener('paste', onPaste);
-            }, 10000);
+            setTimeout(function() { textarea.removeEventListener('paste', onPaste); }, 10000);
         }
 
         /**
-         * Aplica el texto pegado al textarea y actualiza Alpine.
+         * Aplica el texto pegado al textarea y ejecuta la acción.
          */
         function applyPastedText(textarea, text, alpineRoot, onSuccess) {
             textarea.value = text;
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-            // Actualizar Alpine model
             if (alpineRoot) {
                 var alpineData = Alpine.$data(alpineRoot);
                 if (alpineData) {
