@@ -1901,7 +1901,7 @@
         <div class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Acciones rápidas</div>
         <button type="button" class="sr-create-ctx__item sr-create-ctx__item--primary" role="menuitem" data-ctx-action="paste-and-create">
             <i class="fas fa-paste"></i>
-            <span>Pegar e interpretar</span>
+            <span>Pegar y revisar</span>
             <kbd class="ml-auto px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold">↵</kbd>
         </button>
         <div class="my-1 border-t border-gray-100"></div>
@@ -2045,15 +2045,13 @@
             switch (action) {
                 case 'paste-and-create':
                     pasteFromClipboard(function() {
-                        // Después de pegar, ejecutar "Interpretar y Crear"
-                        var fastForm = document.querySelector('form[action$="interpret-and-store"]');
-                        if (fastForm) {
-                            var hiddenInput = fastForm.querySelector('input[name="plain_text"]');
+                        // Después de pegar, ejecutar "Revisar" para confirmar antes de crear
+                        var form = document.getElementById('aiInterpreterForm');
+                        if (form) {
                             var textarea = document.getElementById('plain_text');
-                            if (hiddenInput && textarea) {
-                                hiddenInput.value = textarea.value;
+                            if (textarea && textarea.value.trim().length >= 20) {
+                                form.submit();
                             }
-                            fastForm.submit();
                         }
                     });
                     break;
