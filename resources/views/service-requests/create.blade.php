@@ -201,28 +201,6 @@
                             </div>
                         </div>
 
-                        {{-- Operator instructions (optional, collapsible) --}}
-                        <div class="mt-3" x-show="pasteText.length >= 20" x-cloak x-transition>
-                            <button type="button"
-                                    @click="$refs.operatorNotesField.classList.toggle('hidden'); if(!$refs.operatorNotesField.classList.contains('hidden')) $refs.operatorNotesInput.focus()"
-                                    class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors">
-                                <i class="fas fa-comment-dots text-[10px]"></i>
-                                <span>Agregar indicaciones para la IA</span>
-                                <i class="fas fa-chevron-down text-[8px]"></i>
-                            </button>
-                            <div x-ref="operatorNotesField" class="{{ old('operator_notes') ? '' : 'hidden' }} mt-2">
-                                <textarea
-                                    name="operator_notes"
-                                    x-ref="operatorNotesInput"
-                                    x-model="operatorNotes"
-                                    rows="2"
-                                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all resize-none"
-                                    placeholder="Ej: &quot;Ya fue resuelto, solo verificar publicación&quot; o &quot;Tomar solo el segundo correo del hilo&quot;"
-                                ></textarea>
-                                <p class="mt-1 text-[11px] text-gray-400">Estas indicaciones guían a la IA al interpretar el texto.</p>
-                            </div>
-                        </div>
-
                         {{-- Character count + submit --}}
                         <div class="mt-3 flex items-center justify-between">
                             <span class="text-sm tabular-nums transition-colors"
