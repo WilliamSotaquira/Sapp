@@ -451,26 +451,6 @@
         const plainTextInput = document.getElementById('plain_text');
         const openPlainTextImportModalStep2Btn = document.getElementById('openPlainTextImportModalStep2');
 
-        // Auto-paste from clipboard on page load (if step 1 is active)
-        (async function autoClipboardPaste() {
-            const stepEl = document.querySelector('[x-data]');
-            if (!stepEl || !plainTextInput) return;
-            // Only attempt auto-paste if textarea is empty and we're on step 1
-            if (plainTextInput.value.trim()) return;
-
-            if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function' || !window.isSecureContext) return;
-
-            try {
-                const clipboardText = await navigator.clipboard.readText();
-                if (clipboardText && clipboardText.trim() && clipboardText.trim().length >= 20) {
-                    plainTextInput.value = clipboardText.replace(/\r\n/g, '\n');
-                    plainTextInput.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            } catch (e) {
-                // Clipboard permission denied, that's fine — user will paste manually
-            }
-        })();
-
         // "Pegar e interpretar" button in step 2 — clipboard auto-submit
         async function importPlainTextFromClipboard() {
             if (!plainTextInput || !aiForm) return;
