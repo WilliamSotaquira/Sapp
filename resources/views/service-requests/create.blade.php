@@ -2154,9 +2154,7 @@
 
         /**
          * Pega texto del portapapeles en el textarea y ejecuta la acción.
-         *
-         * Usa execCommand('paste') que funciona en todos los navegadores
-         * porque opera sobre un elemento enfocado sin requerir permisos especiales.
+         * Con HTTPS, la Clipboard API funciona directamente con un solo clic.
          */
         function pasteFromClipboard(onSuccess) {
             // Asegurar step 1
@@ -2170,36 +2168,38 @@
                 var textarea = document.getElementById('plain_text');
                 if (!textarea) return;
 
-                // Limpiar el textarea y enfocarlo
-                textarea.value = '';
-                textarea.focus();
-
-                // Ejecutar paste nativo del navegador
-                var pasted = document.execCommand('paste');
-
-                if (pasted && textarea.value.trim().length >= 5) {
-                    // execCommand('paste') funcionó
-                    applyPastedText(textarea, textarea.value.trim(), alpineRoot, onSuccess);
-                } else {
-                    // execCommand('paste') no funcionó o no pegó nada útil.
-                    // Escuchar evento paste: el usuario hace Ctrl+V y se dispara automáticamente.
-                    textarea.value = '';
-                    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                    showToast('Ctrl+V para pegar y se ejecutará automáticamente', 'info');
-
-                    function onPaste(e) {
-                        textarea.removeEventListener('paste', onPaste);
-                        var text = (e.clipboardData || window.clipboardData).getData('text');
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    navigator.clipboard.readText().then(function(text) {
                         if (text && text.trim().length >= 5) {
-                            e.preventDefault();
                             applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                        } else {
+                            showToast('El portapapeles está vacío o tiene muy poco texto.', 'warning');
                         }
-                    }
-                    textarea.addEventListener('paste', onPaste);
-                    setTimeout(function() { textarea.removeEventListener('paste', onPaste); }, 15000);
+                    }).catch(function() {
+                        // Fallback si el usuario deniega el permiso
+                        textarea.focus();
+                        showToast('Ctrl+V para pegar y se ejecutará automáticamente', 'info');
+                        listenForPaste(textarea, alpineRoot, onSuccess);
+                    });
+                } else {
+                    textarea.focus();
+                    showToast('Ctrl+V para pegar y se ejecutará automáticamente', 'info');
+                    listenForPaste(textarea, alpineRoot, onSuccess);
                 }
             });
+        }
+
+        function listenForPaste(textarea, alpineRoot, onSuccess) {
+            function onPaste(e) {
+                textarea.removeEventListener('paste', onPaste);
+                var text = (e.clipboardData || window.clipboardData).getData('text');
+                if (text && text.trim().length >= 5) {
+                    e.preventDefault();
+                    applyPastedText(textarea, text.trim(), alpineRoot, onSuccess);
+                }
+            }
+            textarea.addEventListener('paste', onPaste);
+            setTimeout(function() { textarea.removeEventListener('paste', onPaste); }, 15000);
         }
 
         /**
