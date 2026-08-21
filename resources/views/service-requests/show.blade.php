@@ -213,7 +213,7 @@
         @endif
 
         <!-- Seguimiento y Notas (Bitácora operativa) -->
-        <section class="sr-section sr-collapsible scroll-mt-16"
+        <section id="sr-section-system-notes" class="sr-section sr-collapsible scroll-mt-16"
                  data-section-key="system-notes"
                  data-priority="1">
             <x-service-requests.show.evidences.system-notes :serviceRequest="$serviceRequest" />

@@ -51,23 +51,40 @@ class ServiceRequestEvidenceController extends Controller
             $savedCount = 0;
             $messages = [];
 
-            // Process link if provided
+            // Process link(s) if provided — supports multiple URLs separated by newlines, commas, or spaces
             if ($request->filled('link_url')) {
-                $request->validate([
-                    'link_url' => 'url|max:2048',
-                ]);
+                $rawInput = $request->input('link_url');
 
-                ServiceRequestEvidence::create([
-                    'service_request_id' => $serviceRequest->id,
-                    'title' => 'Enlace - ' . now()->format('d/m/Y H:i'),
-                    'description' => $request->input('link_url'),
-                    'evidence_type' => 'ENLACE',
-                    'evidence_data' => ['url' => $request->input('link_url')],
-                    'user_id' => auth()->id(),
-                ]);
+                // Separar por líneas, comas o espacios (preservando URLs completas)
+                $urls = preg_split('/[\r\n,]+/', $rawInput);
+                $urls = array_values(array_filter(array_map(function ($url) {
+                    $url = trim($url);
+                    // Limpiar espacios internos que puedan separar una URL de basura
+                    if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                        // Tomar solo la parte URL (hasta el primer espacio)
+                        $parts = preg_split('/\s+/', $url, 2);
+                        return $parts[0] ?? '';
+                    }
+                    return '';
+                }, $urls)));
 
-                $savedCount++;
-                $messages[] = 'Enlace agregado';
+                foreach ($urls as $url) {
+                    if (filter_var($url, FILTER_VALIDATE_URL) && mb_strlen($url) <= 2048) {
+                        ServiceRequestEvidence::create([
+                            'service_request_id' => $serviceRequest->id,
+                            'title' => 'Enlace - ' . now()->format('d/m/Y H:i'),
+                            'description' => $url,
+                            'evidence_type' => 'ENLACE',
+                            'evidence_data' => ['url' => $url],
+                            'user_id' => auth()->id(),
+                        ]);
+                        $savedCount++;
+                    }
+                }
+
+                if ($savedCount > 0) {
+                    $messages[] = $savedCount . ' enlace(s) agregado(s)';
+                }
             }
 
             // Process files if provided
@@ -104,19 +121,19 @@ class ServiceRequestEvidenceController extends Controller
 
             // If nothing was submitted
             if ($savedCount === 0 && !$request->hasFile('files') && !$request->filled('link_url')) {
-                return redirect()->back()->with('evidence_error', 'No se seleccionaron archivos ni enlaces.');
+                return redirect()->to($this->backUrlWithAnchor($serviceRequest, 'sr-section-evidences'))->with('evidence_error', 'No se seleccionaron archivos ni enlaces.');
             }
 
             if ($savedCount > 0) {
-                return redirect()->back()->with('evidence_success', implode(' · ', $messages));
+                return redirect()->to($this->backUrlWithAnchor($serviceRequest, 'sr-section-evidences'))->with('evidence_success', implode(' · ', $messages));
             }
 
-            return redirect()->back()->with('evidence_error', 'No se pudieron guardar las evidencias.');
+            return redirect()->to($this->backUrlWithAnchor($serviceRequest, 'sr-section-evidences'))->with('evidence_error', 'No se pudieron guardar las evidencias.');
         } catch (\Exception $e) {
             \Log::error('❌ STORE EVIDENCE ERROR: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
             return redirect()
-                ->back()
+                ->to($this->backUrlWithAnchor($serviceRequest, 'sr-section-evidences'))
                 ->with('evidence_error', 'Error al subir archivos: ' . $e->getMessage());
         }
     }
@@ -223,7 +240,7 @@ class ServiceRequestEvidenceController extends Controller
             }
 
             return redirect()
-                ->route('service-requests.show', $serviceRequest)
+                ->to($this->backUrlWithAnchor($serviceRequest, 'sr-section-system-notes'))
                 ->with('evidence_success', 'Nota de seguimiento registrada correctamente.');
         } catch (\Exception $e) {
             \Log::error('Error al guardar nota de seguimiento: ' . $e->getMessage());
@@ -282,5 +299,14 @@ class ServiceRequestEvidenceController extends Controller
                 ->back()
                 ->with('error', 'Error al eliminar la evidencia: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Genera la URL de retorno con ancla para mantener la posición de scroll.
+     */
+    private function backUrlWithAnchor(ServiceRequest $serviceRequest, string $anchor): string
+    {
+        $baseUrl = route('service-requests.show', $serviceRequest);
+        return $baseUrl . '#' . $anchor;
     }
 }
