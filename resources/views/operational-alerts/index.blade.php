@@ -113,23 +113,23 @@
     <div class="space-y-2">
         @forelse($alerts as $alert)
             @php
-                $severityColors = [
-                    'critica' => 'border-l-red-600 bg-red-50/30',
-                    'alta' => 'border-l-red-400 bg-red-50/20',
-                    'media' => 'border-l-gray-400 bg-gray-50/30',
-                    'baja' => 'border-l-gray-300 bg-white',
+                $severityStyles = [
+                    'critica' => ['border' => 'border-l-red-600', 'bg' => 'bg-red-50', 'icon_bg' => 'bg-red-600', 'icon_text' => 'text-white', 'label' => 'bg-red-600 text-white'],
+                    'alta' => ['border' => 'border-l-red-400', 'bg' => 'bg-red-50/50', 'icon_bg' => 'bg-red-100', 'icon_text' => 'text-red-600', 'label' => 'bg-red-100 text-red-700'],
+                    'media' => ['border' => 'border-l-gray-500', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-200', 'icon_text' => 'text-gray-600', 'label' => 'bg-gray-200 text-gray-700'],
+                    'baja' => ['border' => 'border-l-gray-300', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-100', 'icon_text' => 'text-gray-400', 'label' => 'bg-gray-100 text-gray-500'],
                 ];
-                $borderClass = $severityColors[$alert->severity] ?? 'border-l-gray-300';
+                $style = $severityStyles[$alert->severity] ?? $severityStyles['baja'];
                 $typeInfo = $alert->alert_type_info;
             @endphp
 
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 border-l-4 {{ $borderClass }} p-4 {{ !$alert->is_read ? 'ring-1 ring-gray-200' : '' }} transition hover:shadow-md cursor-pointer"
+            <div class="{{ $style['bg'] }} rounded-lg shadow-sm border border-gray-200 border-l-[5px] {{ $style['border'] }} p-4 {{ !$alert->is_read ? 'font-medium' : 'opacity-80' }} transition hover:shadow-md cursor-pointer"
                  id="alert-{{ $alert->id }}"
                  onclick="if(!event.target.closest('form') && !event.target.closest('button')) { @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class) window.location='{{ route('service-requests.show', $alert->alertable_id) }}' @endif }">
                 <div class="flex items-start gap-3">
-                    {{-- Icono --}}
-                    <div class="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                        <i class="fas {{ $typeInfo['icon'] }} text-gray-600 text-sm" aria-hidden="true"></i>
+                    {{-- Icono con color de severidad --}}
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full {{ $style['icon_bg'] }} flex items-center justify-center">
+                        <i class="fas {{ $typeInfo['icon'] }} {{ $style['icon_text'] }} text-xs" aria-hidden="true"></i>
                     </div>
 
                     {{-- Contenido --}}
@@ -138,30 +138,26 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-semibold text-gray-900">{{ $alert->title }}</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold {{ $style['label'] }}">
+                                        {{ strtoupper(mb_substr($alert->severity_info['label'], 0, 1)) }}
+                                    </span>
                                     @if(!$alert->is_read)
-                                        <span class="inline-block w-2 h-2 rounded-full bg-red-500" title="Sin leer"></span>
+                                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500" title="Sin leer"></span>
                                     @endif
                                 </div>
                                 <p class="text-xs text-gray-600 mt-0.5">{{ $alert->message }}</p>
 
                                 {{-- Metadatos --}}
-                                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                                <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
                                     <span>
-                                        <i class="fas fa-clock mr-1" aria-hidden="true"></i>
-                                        {{ $alert->alert_at->format('d/m/Y H:i') }}
+                                        <i class="fas fa-clock mr-0.5" aria-hidden="true"></i>
+                                        {{ $alert->alert_at->format('d/m H:i') }}
                                     </span>
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
-                                        {{ $alert->severity === 'critica' ? 'bg-red-100 text-red-700' : '' }}
-                                        {{ $alert->severity === 'alta' ? 'bg-red-50 text-red-600' : '' }}
-                                        {{ $alert->severity === 'media' ? 'bg-gray-100 text-gray-700' : '' }}
-                                        {{ $alert->severity === 'baja' ? 'bg-gray-50 text-gray-500' : '' }}
-                                    ">
-                                        {{ $alert->severity_info['label'] }}
-                                    </span>
+                                    <span>{{ $alert->alert_type_info['label'] }}</span>
                                     @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class)
-                                        <span class="text-red-600">
-                                            <i class="fas fa-external-link-alt mr-0.5" aria-hidden="true"></i>
-                                            Ver solicitud
+                                        <span class="text-red-600 font-medium">
+                                            <i class="fas fa-arrow-right mr-0.5" aria-hidden="true"></i>
+                                            Ir a solicitud
                                         </span>
                                     @endif
                                 </div>
