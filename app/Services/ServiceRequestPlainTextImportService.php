@@ -781,70 +781,13 @@ class ServiceRequestPlainTextImportService
     private function validateWorkspaceConsistency(string $llmOutput, string $workspaceName): void
     {
         // This method validates the LLM output (kept as secondary check)
-        $normalizedWorkspace = mb_strtolower(trim($workspaceName));
-        $normalizedOutput = mb_strtolower($llmOutput);
+        // La validación por nombre de subservicio fue removida — resolveCreationContext
+        // se encarga de verificar que el subservicio pertenezca al contrato activo.
 
-        $minCulturaSubServices = [
-            // Familia 1: Publicaciones en canales digitales
-            'actualización de contenidos en portal principal',
-            'publicación de noticia o artículo',
-            'publicación de documento',
-            'publicación de banner',
-            // Familia 2: Estrategia de comunicación digital
-            'ejecución de envío de comunicaciones masivas',
-            'gestión de secciones especiales y campañas',
-            'reportes de analítica web',
-            'gestión de listas de distribución y bases de destinatarios',
-            // Familia 3: Parrilla y estadísticas
-            'registro y seguimiento de gestión en sistema',
-            'generación de informes y estadísticas de gestión',
-            // Familia 4: Gobierno Digital
-            'actualización de sección de transparencia',
-            'cumplimiento de accesibilidad y lineamientos de gobierno digital',
-            'respuesta a requerimientos ita y mipg',
-            // Familia 5: Eventos
-            'creación de sitios y landings para eventos',
-            'actualización y publicación de contenidos de eventos',
-            // Familia 6: Reuniones
-            'reuniones de seguimiento con supervisión',
-            'reuniones de validación y concepto con áreas',
-            'mesas técnicas para renovación de contenidos',
-            // Familia 7: Confidencialidad
-            'custodia y gestión de información reservada',
-            'informe de cumplimiento de confidencialidad',
-            // Familia 8: Demás asignadas
-            'correcciones y ajustes de último momento',
-            'tareas administrativas e informes',
-            'capacitaciones y sesiones de formación',
-            'asignación de tarea no especificada',
-        ];
-
-        $movilidadSubServices = [
-            'publicación de noticia pmt o artículo',
-            'solicitud de diseño gráfico',
-            'reporte de enlace roto o contenido obsoleto',
-        ];
-
-        $isWorkspaceCultura = str_contains($normalizedWorkspace, 'cultura');
-        $isWorkspaceMovilidad = str_contains($normalizedWorkspace, 'movilidad');
-
-        if ($isWorkspaceCultura) {
-            foreach ($movilidadSubServices as $ss) {
-                if (str_contains($normalizedOutput, $ss)) {
-                    throw ValidationException::withMessages([
-                        'plain_text' => 'La solicitud parece pertenecer a Movilidad, pero el espacio de trabajo activo es Cultura. Cambia al espacio de trabajo correcto antes de interpretar esta solicitud.',
-                    ]);
-                }
-            }
-        } elseif ($isWorkspaceMovilidad) {
-            foreach ($minCulturaSubServices as $ss) {
-                if (str_contains($normalizedOutput, $ss)) {
-                    throw ValidationException::withMessages([
-                        'plain_text' => 'La solicitud parece pertenecer a MinCultura, pero el espacio de trabajo activo es Movilidad. Cambia al espacio de trabajo correcto antes de interpretar esta solicitud.',
-                    ]);
-                }
-            }
-        }
+        // Nota: la validación de pertenencia al workspace se realiza en resolveCreationContext
+        // que verifica que el subservicio pertenezca al contrato activo de la empresa.
+        // La validación cruzada por nombre de subservicio fue removida porque ambos workspaces
+        // comparten nombres similares (ej: "Publicación de Documento" existe en ambos).
     }
 
     /**
