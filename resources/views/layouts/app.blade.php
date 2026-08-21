@@ -637,15 +637,30 @@
                             </a>
                         @endif
 
-                        {{-- Campana de alertas --}}
-                        <a href="{{ route('operational-alerts.index') }}"
-                           class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 transition"
-                           title="Alertas operativas"
-                           id="navAlertBell">
-                            <i class="fas fa-bell text-base text-white/90"></i>
-                            <span id="navAlertBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-0.5">
-                            </span>
-                        </a>
+                        {{-- Campana de alertas con dropdown --}}
+                        <div class="relative" id="alertBellWrapper">
+                            <button type="button"
+                               class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 transition"
+                               title="Alertas operativas"
+                               id="navAlertBell">
+                                <i class="fas fa-bell text-base text-white/90"></i>
+                                <span id="navAlertBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-0.5">
+                                </span>
+                            </button>
+
+                            {{-- Dropdown de alertas recientes --}}
+                            <div id="alertDropdown" class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                                <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                                    <span class="text-sm font-semibold text-gray-800">Alertas recientes</span>
+                                    <a href="{{ route('operational-alerts.index') }}" class="text-xs text-red-600 hover:text-red-700 font-medium">Ver todas</a>
+                                </div>
+                                <div id="alertDropdownList" class="max-h-[300px] overflow-y-auto">
+                                    <div class="px-4 py-6 text-center text-xs text-gray-400">
+                                        <i class="fas fa-spinner fa-spin mr-1"></i> Cargando...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {{-- Usuario --}}
                         <div class="flex items-center gap-2 bg-red-700/80 pl-3 pr-1.5 py-1.5 rounded-lg">
@@ -1067,7 +1082,13 @@
     <script>
     (function() {
         var badge = document.getElementById('navAlertBadge');
-        if (!badge) return;
+        var bell = document.getElementById('navAlertBell');
+        var dropdown = document.getElementById('alertDropdown');
+        var dropdownList = document.getElementById('alertDropdownList');
+        var wrapper = document.getElementById('alertBellWrapper');
+        if (!badge || !bell) return;
+
+        var isOpen = false;
 
         function updateAlertBadge() {
             fetch('{{ route("operational-alerts.api.unread-count") }}', {
@@ -1087,8 +1108,63 @@
             .catch(function() {});
         }
 
+        function loadRecentAlerts() {
+            fetch('{{ route("operational-alerts.api.recent") }}', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.alerts || data.alerts.length === 0) {
+                    dropdownList.innerHTML = '<div class="px-4 py-6 text-center text-xs text-gray-400">Sin alertas pendientes</div>';
+                    return;
+                }
+                var html = '';
+                data.alerts.forEach(function(alert) {
+                    html += '<a href="' + (alert.url || '#') + '" class="block px-4 py-3 border-l-4 ' + alert.border_class + ' hover:bg-gray-50 transition border-b border-gray-50">';
+                    html += '<p class="text-sm font-medium text-gray-900 leading-tight">' + alert.title + '</p>';
+                    html += '<p class="text-xs text-gray-500 mt-0.5 line-clamp-1">' + alert.message + '</p>';
+                    html += '<p class="text-[10px] text-gray-400 mt-1">' + alert.time + '</p>';
+                    html += '</a>';
+                });
+                dropdownList.innerHTML = html;
+            })
+            .catch(function() {
+                dropdownList.innerHTML = '<div class="px-4 py-6 text-center text-xs text-red-400">Error al cargar</div>';
+            });
+        }
+
+        function toggleDropdown() {
+            isOpen = !isOpen;
+            if (isOpen) {
+                dropdown.classList.remove('hidden');
+                loadRecentAlerts();
+            } else {
+                dropdown.classList.add('hidden');
+            }
+        }
+
+        bell.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        });
+
+        document.addEventListener('click', function(e) {
+            if (isOpen && wrapper && !wrapper.contains(e.target)) {
+                isOpen = false;
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isOpen) {
+                isOpen = false;
+                dropdown.classList.add('hidden');
+            }
+        });
+
         updateAlertBadge();
-        setInterval(updateAlertBadge, 60000); // Actualizar cada minuto
+        setInterval(updateAlertBadge, 60000);
     })();
     </script>
 

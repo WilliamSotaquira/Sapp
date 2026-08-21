@@ -22,6 +22,7 @@ Route::prefix('operational-alerts')->name('operational-alerts.')->middleware(['a
 
     // API para badge de navegación
     Route::get('/api/unread-count', [OperationalAlertController::class, 'unreadCount'])->name('api.unread-count');
+    Route::get('/api/recent', [OperationalAlertController::class, 'recent'])->name('api.recent');
 });
 
 // =============================================================================
