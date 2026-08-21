@@ -249,6 +249,12 @@
     <!-- Menú contextual (clic derecho) -->
     <x-service-requests.show.context-menu :serviceRequest="$serviceRequest" :technicians="$technicians" />
 
+    <!-- Modales de workflow (fuera del header para posicionamiento correcto) -->
+    @if(in_array($serviceRequest->status, ['RESUELTA', 'CERRADA']))
+        @include('components.service-requests.show.header.reopen-modal', ['serviceRequest' => $serviceRequest])
+        @include('components.service-requests.show.header.close-modal', ['serviceRequest' => $serviceRequest])
+    @endif
+
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection
