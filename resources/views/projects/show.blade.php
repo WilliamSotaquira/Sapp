@@ -24,6 +24,10 @@
            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
             <i class="fas fa-edit" aria-hidden="true"></i> Editar
         </a>
+        <a href="{{ route('projects.report', $project) }}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+            <i class="fas fa-file-alt" aria-hidden="true"></i> Informe
+        </a>
     </div>
 
     {{-- Mensajes --}}
