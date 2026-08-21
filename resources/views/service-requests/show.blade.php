@@ -134,7 +134,10 @@
                  data-priority="{{ in_array('service-info', $prioritySections) ? '1' : '0' }}">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <x-service-requests.show.info-cards.service-info :serviceRequest="$serviceRequest" />
-                <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
+                <div class="space-y-4">
+                    <x-service-requests.show.info-cards.assignment-info :serviceRequest="$serviceRequest" />
+                    <x-service-requests.show.info-cards.project-link :serviceRequest="$serviceRequest" />
+                </div>
             </div>
         </section>
 
