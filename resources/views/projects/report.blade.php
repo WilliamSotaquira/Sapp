@@ -50,7 +50,7 @@
             <div class="text-[10px] text-gray-500">Tareas</div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-            <div class="text-xl font-bold text-indigo-700">{{ $data['summary']['total_hours'] }}h</div>
+            <div class="text-xl font-bold text-red-700">{{ $data['summary']['total_hours'] }}h</div>
             <div class="text-[10px] text-gray-500">Invertidas</div>
         </div>
         <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">

@@ -4,17 +4,11 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-    {{-- Encabezado --}}
+    {{-- Acciones --}}
     <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <i class="fas fa-project-diagram text-indigo-600" aria-hidden="true"></i>
-                Proyectos
-            </h1>
-            <p class="text-sm text-gray-600 mt-1">Gestión de proyectos de desarrollo y esfuerzos agrupados</p>
-        </div>
+        <p class="text-sm text-gray-600">Gestión de proyectos de desarrollo y esfuerzos agrupados</p>
         <a href="{{ route('projects.create') }}"
-           class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
+           class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition">
             <i class="fas fa-plus" aria-hidden="true"></i>
             Nuevo proyecto
         </a>
@@ -39,11 +33,11 @@
         <form method="GET" class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[200px]">
                 <input type="text" name="search" value="{{ request('search') }}"
-                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+                       class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200 focus:border-red-400"
                        placeholder="Buscar por nombre, código o descripción...">
             </div>
             <div>
-                <select name="status" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200">
+                <select name="status" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200">
                     <option value="">Todos los estados</option>
                     @foreach(\App\Models\Project::getStatusOptions() as $key => $label)
                         <option value="{{ $key }}" {{ request('status') === $key ? 'selected' : '' }}>{{ $label }}</option>
@@ -63,11 +57,11 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($projects as $project)
             <a href="{{ route('projects.show', $project) }}"
-               class="block bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all p-5 group">
+               class="block bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-red-200 transition-all p-5 group">
                 {{-- Header --}}
                 <div class="flex items-start justify-between mb-3">
                     <div>
-                        <h3 class="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition line-clamp-2">{{ $project->name }}</h3>
+                        <h3 class="text-sm font-bold text-gray-900 group-hover:text-red-700 transition line-clamp-2">{{ $project->name }}</h3>
                         <p class="text-xs text-gray-400 mt-0.5">{{ $project->code }}</p>
                     </div>
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-{{ $project->status_color }}-100 text-{{ $project->status_color }}-700">
@@ -87,7 +81,7 @@
                         <span class="font-semibold">{{ $project->progress }}%</span>
                     </div>
                     <div class="w-full bg-gray-100 rounded-full h-2">
-                        <div class="bg-indigo-500 h-2 rounded-full transition-all" style="width: {{ $project->progress }}%"></div>
+                        <div class="bg-red-500 h-2 rounded-full transition-all" style="width: {{ $project->progress }}%"></div>
                     </div>
                 </div>
 
@@ -104,7 +98,7 @@
                 <i class="fas fa-project-diagram text-4xl text-gray-300 mb-3" aria-hidden="true"></i>
                 <p class="text-gray-600 font-medium">No hay proyectos</p>
                 <p class="text-xs text-gray-400 mt-1">Crea tu primer proyecto para agrupar solicitudes relacionadas.</p>
-                <a href="{{ route('projects.create') }}" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition">
+                <a href="{{ route('projects.create') }}" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
                     <i class="fas fa-plus" aria-hidden="true"></i> Crear proyecto
                 </a>
             </div>

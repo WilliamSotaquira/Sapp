@@ -36,11 +36,11 @@
         .primary-nav-link {
             display: flex;
             align-items: center;
-            gap: 0.35rem;
+            gap: 0.4rem;
             font-weight: 500;
-            font-size: 0.82rem;
+            font-size: 0.8125rem;
             border-radius: 0.75rem;
-            padding: 0.45rem 0.7rem;
+            padding: 0.5rem 0.85rem;
             white-space: nowrap;
             transition: background-color 0.2s ease, transform 0.2s ease;
         }
@@ -353,11 +353,11 @@
                 ],
             ],
             [
-                'key' => 'projects',
-                'label' => 'Proyectos',
-                'icon' => 'fas fa-project-diagram',
+                'key' => 'management',
+                'label' => 'Gestión',
+                'icon' => 'fas fa-th-large',
                 'type' => 'dropdown',
-                'match' => ['projects.*', 'operational-alerts.*', 'performance-metrics.*'],
+                'match' => ['projects.*', 'operational-alerts.*', 'performance-metrics.*', 'tasks.*', 'standard-tasks.*', 'technician-schedule.*', 'technicians.*'],
                 'links' => [
                     [
                         'route' => 'projects.index',
@@ -376,6 +376,18 @@
                         'label' => 'Indicadores',
                         'icon' => 'fas fa-chart-line',
                         'match' => ['performance-metrics.*'],
+                    ],
+                    [
+                        'route' => 'tasks.index',
+                        'label' => 'Tareas',
+                        'icon' => 'fas fa-check-square',
+                        'match' => ['tasks.*'],
+                    ],
+                    [
+                        'route' => 'technician-schedule.index',
+                        'label' => 'Calendario',
+                        'icon' => 'fas fa-calendar-alt',
+                        'match' => ['technician-schedule.index'],
                     ],
                 ],
             ],
@@ -443,54 +455,9 @@
                 ],
             ],
             [
-                'key' => 'technicians',
-                'label' => 'Técnicos',
-                'icon' => 'fas fa-user-cog',
-                'type' => 'dropdown',
-                'match' => ['technicians.*', 'tasks.*', 'standard-tasks.*', 'technician-schedule.*'],
-                'links' => [
-                    [
-                        'route' => 'technician-schedule.my-agenda',
-                        'label' => 'Mi Agenda',
-                        'icon' => 'fas fa-clipboard-list',
-                        'match' => ['technician-schedule.my-agenda'],
-                    ],
-                    [
-                        'route' => 'technician-schedule.index',
-                        'label' => 'Calendario',
-                        'icon' => 'fas fa-calendar-alt',
-                        'match' => ['technician-schedule.index'],
-                    ],
-                    [
-                        'route' => 'technician-schedule.team-capacity',
-                        'label' => 'Capacidad del Equipo',
-                        'icon' => 'fas fa-chart-line',
-                        'match' => ['technician-schedule.team-capacity'],
-                    ],
-                    [
-                        'route' => 'tasks.index',
-                        'label' => 'Tareas',
-                        'icon' => 'fas fa-tasks',
-                        'match' => ['tasks.*'],
-                    ],
-                    [
-                        'route' => 'standard-tasks.index',
-                        'label' => 'Tareas Predefinidas',
-                        'icon' => 'fas fa-layer-group',
-                        'match' => ['standard-tasks.*'],
-                    ],
-                    [
-                        'route' => 'technicians.index',
-                        'label' => 'Gestión de Técnicos',
-                        'icon' => 'fas fa-users-cog',
-                        'match' => ['technicians.*'],
-                    ],
-                ],
-            ],
-            [
                 'key' => 'catalogs',
-                'label' => 'Catálogos',
-                'icon' => 'fas fa-list-alt',
+                'label' => 'Configuración',
+                'icon' => 'fas fa-cog',
                 'type' => 'dropdown',
                 'match' => ['requester-management.*', 'companies.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*', 'users.*'],
                 'links' => [
@@ -606,7 +573,7 @@
 
                     @auth
                         <!-- Menú para desktop -->
-                        <div class="hidden lg:flex items-center space-x-0.5 xl:space-x-1">
+                        <div class="hidden lg:flex items-center space-x-1">
                             @foreach ($navSections as $section)
                                 @php
                                     $sectionActive = $isSectionActive($section['match'] ?? []);

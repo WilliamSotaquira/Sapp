@@ -25,7 +25,7 @@
             <i class="fas fa-edit" aria-hidden="true"></i> Editar
         </a>
         <a href="{{ route('projects.report', $project) }}"
-           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
             <i class="fas fa-file-alt" aria-hidden="true"></i> Informe
         </a>
     </div>
@@ -78,7 +78,7 @@
                 <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
                     <path class="text-gray-100" stroke="currentColor" stroke-width="3" fill="none"
                           d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                    <path class="text-indigo-500" stroke="currentColor" stroke-width="3" fill="none"
+                    <path class="text-red-500" stroke="currentColor" stroke-width="3" fill="none"
                           stroke-dasharray="{{ $project->progress }}, 100" stroke-linecap="round"
                           d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
                 </svg>
@@ -92,7 +92,7 @@
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
         <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                <i class="fas fa-clipboard-list text-indigo-500" aria-hidden="true"></i>
+                <i class="fas fa-clipboard-list text-red-500" aria-hidden="true"></i>
                 Solicitudes del proyecto
             </h2>
             <span class="text-xs text-gray-400">{{ $project->serviceRequests->count() }} vinculadas</span>
@@ -119,7 +119,7 @@
 
                         {{-- Info --}}
                         <div class="flex-1 min-w-0">
-                            <a href="{{ route('service-requests.show', $sr) }}" class="text-sm font-medium text-gray-900 hover:text-indigo-700 transition line-clamp-1">
+                            <a href="{{ route('service-requests.show', $sr) }}" class="text-sm font-medium text-gray-900 hover:text-red-700 transition line-clamp-1">
                                 {{ $sr->title }}
                             </a>
                             <div class="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
@@ -156,7 +156,7 @@
     {{-- Vincular solicitud --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <i class="fas fa-link text-indigo-500" aria-hidden="true"></i>
+            <i class="fas fa-link text-red-500" aria-hidden="true"></i>
             Vincular solicitud existente
         </h3>
 
@@ -165,14 +165,14 @@
                 @csrf
                 <div class="flex-1">
                     <select name="service_request_id" required
-                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400">
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200 focus:border-red-400">
                         <option value="">Seleccionar solicitud...</option>
                         @foreach($availableRequests as $sr)
                             <option value="{{ $sr->id }}">{{ $sr->ticket_number }} — {{ Str::limit($sr->title, 60) }} [{{ $sr->status }}]</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
+                <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition">
                     <i class="fas fa-link" aria-hidden="true"></i> Vincular
                 </button>
             </form>
