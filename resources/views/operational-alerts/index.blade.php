@@ -40,25 +40,25 @@
             <div class="text-2xl font-bold text-gray-900">{{ $summary['total'] }}</div>
             <div class="text-xs text-gray-500">Total activas</div>
         </div>
-        <div class="bg-red-600 rounded-lg p-3 text-center text-white">
-            <div class="text-2xl font-bold">{{ $summary['by_severity']['critica'] }}</div>
-            <div class="text-xs text-red-100">Críticas</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-red-600">{{ $summary['by_severity']['critica'] }}</div>
+            <div class="text-xs text-gray-500">Críticas</div>
         </div>
-        <div class="bg-orange-500 rounded-lg p-3 text-center text-white">
-            <div class="text-2xl font-bold">{{ $summary['by_severity']['alta'] }}</div>
-            <div class="text-xs text-orange-100">Altas</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-orange-600">{{ $summary['by_severity']['alta'] }}</div>
+            <div class="text-xs text-gray-500">Altas</div>
         </div>
-        <div class="bg-yellow-400 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-yellow-900">{{ $summary['by_severity']['media'] }}</div>
-            <div class="text-xs text-yellow-800">Medias</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-yellow-600">{{ $summary['by_severity']['media'] }}</div>
+            <div class="text-xs text-gray-500">Medias</div>
         </div>
-        <div class="bg-blue-500 rounded-lg p-3 text-center text-white">
-            <div class="text-2xl font-bold">{{ $summary['by_severity']['baja'] }}</div>
-            <div class="text-xs text-blue-100">Bajas</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ $summary['by_severity']['baja'] }}</div>
+            <div class="text-xs text-gray-500">Bajas</div>
         </div>
-        <div class="bg-gray-800 rounded-lg p-3 text-center text-white">
-            <div class="text-2xl font-bold">{{ $summary['unread'] }}</div>
-            <div class="text-xs text-gray-300">Sin leer</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ $summary['unread'] }}</div>
+            <div class="text-xs text-gray-500">Sin leer</div>
         </div>
     </div>
 
@@ -114,85 +114,63 @@
         @forelse($alerts as $alert)
             @php
                 $severityStyles = [
-                    'critica' => ['border' => 'border-l-red-600', 'bg' => 'bg-red-50', 'icon_bg' => 'bg-red-600', 'icon_text' => 'text-white', 'label' => 'bg-red-600 text-white'],
-                    'alta' => ['border' => 'border-l-orange-500', 'bg' => 'bg-orange-50', 'icon_bg' => 'bg-orange-500', 'icon_text' => 'text-white', 'label' => 'bg-orange-500 text-white'],
-                    'media' => ['border' => 'border-l-yellow-400', 'bg' => 'bg-yellow-50', 'icon_bg' => 'bg-yellow-400', 'icon_text' => 'text-yellow-900', 'label' => 'bg-yellow-400 text-yellow-900'],
-                    'baja' => ['border' => 'border-l-blue-400', 'bg' => 'bg-blue-50', 'icon_bg' => 'bg-blue-500', 'icon_text' => 'text-white', 'label' => 'bg-blue-100 text-blue-700'],
+                    'critica' => ['border' => 'border-l-red-600', 'dot' => 'bg-red-600', 'label_text' => 'text-red-600'],
+                    'alta' => ['border' => 'border-l-orange-500', 'dot' => 'bg-orange-500', 'label_text' => 'text-orange-600'],
+                    'media' => ['border' => 'border-l-yellow-500', 'dot' => 'bg-yellow-500', 'label_text' => 'text-yellow-600'],
+                    'baja' => ['border' => 'border-l-blue-400', 'dot' => 'bg-blue-400', 'label_text' => 'text-blue-600'],
                 ];
                 $style = $severityStyles[$alert->severity] ?? $severityStyles['baja'];
                 $typeInfo = $alert->alert_type_info;
             @endphp
 
-            <div class="{{ $style['bg'] }} rounded-lg shadow-sm border border-gray-200 border-l-[5px] {{ $style['border'] }} p-4 {{ !$alert->is_read ? 'font-medium' : 'opacity-80' }} transition hover:shadow-md cursor-pointer"
+            <div class="bg-white rounded-lg border border-gray-200 border-l-4 {{ $style['border'] }} p-4 {{ !$alert->is_read ? '' : 'opacity-60' }} transition hover:shadow-sm cursor-pointer"
                  id="alert-{{ $alert->id }}"
                  onclick="if(!event.target.closest('form') && !event.target.closest('button')) { @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class) window.location='{{ route('service-requests.show', $alert->alertable_id) }}' @endif }">
                 <div class="flex items-start gap-3">
-                    {{-- Icono con color de severidad --}}
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full {{ $style['icon_bg'] }} flex items-center justify-center">
-                        <i class="fas {{ $typeInfo['icon'] }} {{ $style['icon_text'] }} text-xs" aria-hidden="true"></i>
-                    </div>
-
                     {{-- Contenido --}}
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-semibold text-gray-900">{{ $alert->title }}</span>
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold {{ $style['label'] }}">
-                                        {{ strtoupper(mb_substr($alert->severity_info['label'], 0, 1)) }}
-                                    </span>
-                                    @if(!$alert->is_read)
-                                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500" title="Sin leer"></span>
-                                    @endif
-                                </div>
-                                <p class="text-xs text-gray-600 mt-0.5">{{ $alert->message }}</p>
-
-                                {{-- Metadatos --}}
-                                <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
-                                    <span>
-                                        <i class="fas fa-clock mr-0.5" aria-hidden="true"></i>
-                                        {{ $alert->alert_at->format('d/m H:i') }}
-                                    </span>
-                                    <span>{{ $alert->alert_type_info['label'] }}</span>
-                                    @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class)
-                                        <span class="text-red-600 font-medium">
-                                            <i class="fas fa-arrow-right mr-0.5" aria-hidden="true"></i>
-                                            Ir a solicitud
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
-
-                            {{-- Acciones --}}
-                            <div class="flex items-center gap-1 flex-shrink-0">
-                                @if(!$alert->is_read)
-                                    <form action="{{ route('operational-alerts.mark-read', $alert) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="p-1.5 text-gray-400 hover:text-blue-600 rounded transition" title="Marcar como leída">
-                                            <i class="fas fa-eye text-xs" aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                @endif
-
-                                @if(!$alert->is_resolved)
-                                    <form action="{{ route('operational-alerts.resolve', $alert) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="p-1.5 text-gray-400 hover:text-green-600 rounded transition" title="Resolver">
-                                            <i class="fas fa-check text-xs" aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                @endif
-
-                                @if(!$alert->is_dismissed)
-                                    <form action="{{ route('operational-alerts.dismiss', $alert) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="p-1.5 text-gray-400 hover:text-gray-600 rounded transition" title="Descartar">
-                                            <i class="fas fa-times text-xs" aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                @endif
-                            </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-gray-900">{{ $alert->title }}</span>
+                            <span class="text-[10px] font-bold {{ $style['label_text'] }}">{{ strtoupper(mb_substr($alert->severity_info['label'], 0, 1)) }}</span>
+                            @if(!$alert->is_read)
+                                <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                            @endif
                         </div>
+                        <p class="text-xs text-gray-500 mt-1">{{ $alert->message }}</p>
+                        <div class="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
+                            <span>{{ $alert->alert_at->format('d/m H:i') }}</span>
+                            <span>{{ $typeInfo['label'] }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Acciones --}}
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        @if(!$alert->is_read)
+                            <form action="{{ route('operational-alerts.mark-read', $alert) }}" method="POST" class="inline">
+                                @csrf
+                                <button type="submit" class="p-1.5 text-gray-300 hover:text-gray-600 rounded transition" title="Marcar como leída">
+                                    <i class="fas fa-eye text-xs" aria-hidden="true"></i>
+                                </button>
+                            </form>
+                        @endif
+
+                        @if(!$alert->is_resolved)
+                            <form action="{{ route('operational-alerts.resolve', $alert) }}" method="POST" class="inline">
+                                @csrf
+                                <button type="submit" class="p-1.5 text-gray-300 hover:text-green-600 rounded transition" title="Resolver">
+                                    <i class="fas fa-check text-xs" aria-hidden="true"></i>
+                                </button>
+                            </form>
+                        @endif
+
+                        @if(!$alert->is_dismissed)
+                            <form action="{{ route('operational-alerts.dismiss', $alert) }}" method="POST" class="inline">
+                                @csrf
+                                <button type="submit" class="p-1.5 text-gray-300 hover:text-red-500 rounded transition" title="Descartar">
+                                    <i class="fas fa-times text-xs" aria-hidden="true"></i>
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>
