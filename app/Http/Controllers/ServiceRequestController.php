@@ -1624,37 +1624,46 @@ class ServiceRequestController extends Controller
             return redirect()->back()->with('error', 'La solicitud no puede ser reabierta desde el estado actual.');
         }
 
+        $request->validate([
+            'reopen_reason' => 'required|string|min:10|max:1000',
+        ], [
+            'reopen_reason.required' => 'Debes indicar el motivo de la reapertura.',
+            'reopen_reason.min' => 'El motivo debe tener al menos 10 caracteres.',
+        ]);
+
+        $previousStatus = $serviceRequest->status;
+        $reopenReason = $request->input('reopen_reason');
+
         try {
             ServiceRequest::withoutEvents(function () use ($serviceRequest) {
                 $serviceRequest->update([
                     'status' => 'EN_PROCESO',
-                    'reopened_at' => now(),
-                    // Limpiar campos de finalización
                     'resolved_at' => null,
                     'closed_at' => null,
-                    'resolution_notes' => null, // Opcional: limpiar notas anteriores
                 ]);
             });
 
-            // Crear evidencia
+            // Registrar la reapertura como evidencia del sistema
             ServiceRequestEvidence::create([
                 'service_request_id' => $serviceRequest->id,
                 'title' => 'Solicitud Reabierta',
-                'description' => 'La solicitud ha sido reabierta para trabajo adicional.',
+                'description' => $reopenReason,
                 'evidence_type' => 'SISTEMA',
-                'created_by' => auth()->id(),
+                'user_id' => auth()->id(),
                 'evidence_data' => [
                     'action' => 'REOPENED',
                     'reopened_by' => auth()->id(),
+                    'reopened_by_name' => auth()->user()->name,
                     'reopened_at' => now()->toISOString(),
-                    'previous_status' => $serviceRequest->status,
+                    'previous_status' => $previousStatus,
                     'new_status' => 'EN_PROCESO',
+                    'reason' => $reopenReason,
                 ],
             ]);
 
-            return redirect()->route('service-requests.show', $serviceRequest)->with('success', '¡Solicitud reabierta correctamente!');
+            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud reabierta. Registra las correcciones necesarias.');
         } catch (\Exception $e) {
-            \Log::error('❌ ERROR al reabrir: ' . $e->getMessage());
+            \Log::error('Error al reabrir solicitud: ' . $e->getMessage());
             return redirect()
                 ->back()
                 ->with('error', 'Error al reabrir la solicitud: ' . $e->getMessage());
