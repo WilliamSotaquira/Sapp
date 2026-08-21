@@ -92,10 +92,15 @@
                         <p class="mt-1 text-xs text-gray-400" id="resolution-hint-{{ $serviceRequest->id }}">Mínimo 10 caracteres.</p>
                     </div>
 
-                    {{-- Email reply (auto-generated) --}}
+                    {{-- Email reply (opcional, bajo demanda) --}}
                     <div>
                         <div class="flex items-center justify-between mb-1">
-                            <label class="block text-sm font-medium text-gray-700">Respuesta para correo</label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="toggle-email-reply-{{ $serviceRequest->id }}"
+                                       class="rounded border-gray-300 text-red-600 focus:ring-red-200"
+                                       onchange="toggleEmailReplySection('{{ $serviceRequest->id }}', this.checked)">
+                                <span class="text-sm font-medium text-gray-700">Generar respuesta para correo</span>
+                            </label>
                             <button type="button"
                                     id="btn-generate-email-reply-{{ $serviceRequest->id }}"
                                     class="hidden inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition"
@@ -104,25 +109,27 @@
                                 <i class="fas fa-redo mr-1"></i>Regenerar
                             </button>
                         </div>
-                        <div id="email-reply-box-{{ $serviceRequest->id }}" class="hidden">
-                            <div class="relative">
-                                <div id="email-reply-text-{{ $serviceRequest->id }}"
-                                     class="w-full px-3 py-2 border border-blue-200 rounded-lg text-gray-800 bg-blue-50 text-sm leading-relaxed whitespace-pre-wrap min-h-[50px] max-h-[120px] overflow-y-auto"></div>
-                                <button type="button"
-                                        id="btn-copy-email-reply-{{ $serviceRequest->id }}"
-                                        onclick="copyEmailReply('{{ $serviceRequest->id }}')"
-                                        class="absolute top-2 right-2 inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
-                                        title="Copiar">
-                                    <i class="fas fa-copy mr-1"></i>Copiar
-                                </button>
+                        <div id="email-reply-section-{{ $serviceRequest->id }}" class="hidden">
+                            <div id="email-reply-box-{{ $serviceRequest->id }}" class="hidden">
+                                <div class="relative">
+                                    <div id="email-reply-text-{{ $serviceRequest->id }}"
+                                         class="w-full px-3 py-2 border border-blue-200 rounded-lg text-gray-800 bg-blue-50 text-sm leading-relaxed whitespace-pre-wrap min-h-[50px] max-h-[120px] overflow-y-auto"></div>
+                                    <button type="button"
+                                            id="btn-copy-email-reply-{{ $serviceRequest->id }}"
+                                            onclick="copyEmailReply('{{ $serviceRequest->id }}')"
+                                            class="absolute top-2 right-2 inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+                                            title="Copiar">
+                                        <i class="fas fa-copy mr-1"></i>Copiar
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400" id="email-reply-hint-{{ $serviceRequest->id }}">
+                                    Listo para pegar en tu correo.
+                                </p>
                             </div>
-                            <p class="mt-1 text-xs text-gray-400" id="email-reply-hint-{{ $serviceRequest->id }}">
-                                Listo para pegar en tu correo.
+                            <p class="text-xs text-gray-400 hidden" id="email-reply-loading-{{ $serviceRequest->id }}">
+                                <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta...
                             </p>
                         </div>
-                        <p class="text-xs text-gray-400 hidden" id="email-reply-loading-{{ $serviceRequest->id }}">
-                            <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta...
-                        </p>
                     </div>
                 </div>
 
@@ -374,21 +381,38 @@
 })();
 
 /**
- * Auto-genera ambas respuestas al abrir el modal.
+ * Auto-genera la descripción de resolución al abrir el modal.
+ * La respuesta de correo solo se genera bajo demanda (toggle).
  */
 function initResolveModal(serviceRequestId, onComplete) {
     const textarea = document.getElementById(`resolution_description_${serviceRequestId}`);
 
     if (textarea && !textarea.value.trim()) {
-        generateResolutionWithAI(serviceRequestId, true, function() {
-            generateEmailReply(serviceRequestId, true, onComplete);
-        });
+        generateResolutionWithAI(serviceRequestId, true, onComplete);
     } else {
         const btnRes = document.getElementById(`btn-generate-resolution-${serviceRequestId}`);
-        const btnEmail = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
         if (btnRes) btnRes.classList.remove('hidden');
+        if (onComplete) onComplete();
+    }
+}
+
+/**
+ * Toggle para mostrar/ocultar y generar la respuesta de correo.
+ */
+function toggleEmailReplySection(serviceRequestId, enabled) {
+    const section = document.getElementById(`email-reply-section-${serviceRequestId}`);
+    const btnEmail = document.getElementById(`btn-generate-email-reply-${serviceRequestId}`);
+
+    if (enabled) {
+        if (section) section.classList.remove('hidden');
+        // Generar solo si no se ha generado antes
+        const box = document.getElementById(`email-reply-box-${serviceRequestId}`);
+        if (box && box.classList.contains('hidden')) {
+            generateEmailReply(serviceRequestId, true);
+        }
         if (btnEmail) btnEmail.classList.remove('hidden');
-        generateEmailReply(serviceRequestId, true, onComplete);
+    } else {
+        if (section) section.classList.add('hidden');
     }
 }
 

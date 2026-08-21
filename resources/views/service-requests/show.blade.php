@@ -779,7 +779,7 @@
         loader.innerHTML = '<div class="bg-white rounded-lg shadow-xl px-8 py-6 flex flex-col items-center gap-3">'
             + '<i class="fas fa-spinner fa-spin text-2xl text-green-600"></i>'
             + '<p class="text-sm font-medium text-gray-700">Preparando resolución...</p>'
-            + '<p class="text-xs text-gray-400">Generando descripción y respuesta de correo</p>'
+            + '<p class="text-xs text-gray-400">Generando descripción de resolución</p>'
             + '</div>';
         document.body.appendChild(loader);
         document.body.classList.add('overflow-hidden');
