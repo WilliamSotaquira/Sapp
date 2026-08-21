@@ -148,28 +148,25 @@
                         @endif
                     </dd>
                 </div>
-            </div>
-
-            {{-- Proyecto asociado --}}
-            <div class="mt-3 pt-3 border-t border-gray-100">
-                @php
-                    $linkedProject = $serviceRequest->project;
-                @endphp
-                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proyecto</dt>
-                <dd class="mt-1">
-                    @if($linkedProject)
-                        <a href="{{ route('projects.show', $linkedProject) }}"
-                           class="text-sm font-medium text-red-700 hover:text-red-900 transition flex items-center gap-1.5">
-                            <i class="fas fa-project-diagram text-xs"></i>
-                            {{ $linkedProject->name }}
-                        </a>
-                    @else
-                        <button type="button" onclick="openModal('link-project-modal-{{ $serviceRequest->id }}')"
-                                class="text-sm text-red-600 hover:text-red-800 font-medium transition">
-                            <i class="fas fa-link mr-1 text-xs"></i>Vincular a proyecto
-                        </button>
-                    @endif
-                </dd>
+                {{-- Proyecto --}}
+                <div>
+                    @php $linkedProject = $serviceRequest->project; @endphp
+                    <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proyecto</dt>
+                    <dd class="mt-1">
+                        @if($linkedProject)
+                            <a href="{{ route('projects.show', $linkedProject) }}"
+                               class="text-sm font-medium text-red-700 hover:text-red-900 transition flex items-center gap-1.5">
+                                <i class="fas fa-project-diagram text-xs"></i>
+                                {{ $linkedProject->name }}
+                            </a>
+                        @else
+                            <button type="button" onclick="openModal('link-project-modal-{{ $serviceRequest->id }}')"
+                                    class="text-sm text-red-600 hover:text-red-800 font-medium transition">
+                                <i class="fas fa-link mr-1 text-xs"></i>Vincular a proyecto
+                            </button>
+                        @endif
+                    </dd>
+                </div>
             </div>
         </dl>
     </div>
