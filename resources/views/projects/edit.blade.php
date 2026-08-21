@@ -1,104 +1,86 @@
 @extends('layouts.app')
 
-@section('title', 'Editar ' . $project->name . ' - SDM')
+@section('title', 'Editar Proyecto')
 
 @section('content')
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Editar Proyecto: {{ $project->name }}</h1>
-    <a href="{{ route('projects.show', $project) }}" class="btn btn-secondary">
-        <i class="fas fa-arrow-left me-2"></i>Volver
-    </a>
-</div>
+<div class="max-w-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{{ route('projects.show', $project) }}" class="text-gray-400 hover:text-gray-600 transition">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">Editar: {{ $project->name }}</h1>
+    </div>
 
-<div class="card">
-    <div class="card-body">
-        <form action="{{ route('projects.update', $project) }}" method="POST">
+    <form action="{{ route('projects.update', $project) }}" method="POST" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        @csrf
+        @method('PUT')
+
+        @if($errors->any())
+            <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <ul class="list-disc list-inside">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        {{-- Nombre --}}
+        <div class="mb-4">
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nombre del proyecto <span class="text-red-500">*</span></label>
+            <input type="text" id="name" name="name" value="{{ old('name', $project->name) }}" required
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400">
+        </div>
+
+        {{-- Descripción --}}
+        <div class="mb-4">
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <textarea id="description" name="description" rows="3"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none">{{ old('description', $project->description) }}</textarea>
+        </div>
+
+        {{-- Estado y fechas --}}
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div>
+                <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <select id="status" name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200">
+                    @foreach(\App\Models\Project::getStatusOptions() as $key => $label)
+                        <option value="{{ $key }}" {{ old('status', $project->status) === $key ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Fecha inicio</label>
+                <input type="date" id="start_date" name="start_date" value="{{ old('start_date', $project->start_date?->format('Y-m-d')) }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200">
+            </div>
+            <div>
+                <label for="expected_end_date" class="block text-sm font-medium text-gray-700 mb-1">Fecha estimada fin</label>
+                <input type="date" id="expected_end_date" name="expected_end_date" value="{{ old('expected_end_date', $project->expected_end_date?->format('Y-m-d')) }}"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-200">
+            </div>
+        </div>
+
+        {{-- Acciones --}}
+        <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+            <a href="{{ route('projects.show', $project) }}" class="text-sm text-gray-500 hover:text-gray-700">Cancelar</a>
+            <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
+                <i class="fas fa-save" aria-hidden="true"></i> Guardar cambios
+            </button>
+        </div>
+    </form>
+
+    {{-- Zona de peligro --}}
+    @if(!$project->serviceRequests()->exists())
+    <div class="mt-6 p-4 border border-red-200 rounded-lg bg-red-50">
+        <p class="text-xs text-red-700 mb-2 font-medium">Zona de peligro</p>
+        <form action="{{ route('projects.destroy', $project) }}" method="POST" class="inline"
+              onsubmit="return confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')">
             @csrf
-            @method('PUT')
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Nombre *</label>
-                        <input type="text" class="form-control @error('name') is-invalid @enderror"
-                               id="name" name="name" value="{{ old('name', $project->name) }}" required>
-                        @error('name')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="code" class="form-label">Código *</label>
-                        <input type="text" class="form-control @error('code') is-invalid @enderror"
-                               id="code" name="code" value="{{ old('code', $project->code) }}" required>
-                        @error('code')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Descripción</label>
-                        <textarea class="form-control @error('description') is-invalid @enderror"
-                                  id="description" name="description" rows="4">{{ old('description', $project->description) }}</textarea>
-                        @error('description')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="mb-3">
-                        <label for="start_date" class="form-label">Fecha de Inicio *</label>
-                        <input type="date" class="form-control @error('start_date') is-invalid @enderror"
-                               id="start_date" name="start_date"
-                               value="{{ old('start_date', $project->start_date->format('Y-m-d')) }}" required>
-                        @error('start_date')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="end_date" class="form-label">Fecha de Fin</label>
-                        <input type="date" class="form-control @error('end_date') is-invalid @enderror"
-                               id="end_date" name="end_date"
-                               value="{{ old('end_date', $project->end_date ? $project->end_date->format('Y-m-d') : '') }}">
-                        @error('end_date')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="budget" class="form-label">Presupuesto</label>
-                        <input type="number" step="0.01" class="form-control @error('budget') is-invalid @enderror"
-                               id="budget" name="budget" value="{{ old('budget', $project->budget) }}">
-                        @error('budget')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="status" class="form-label">Estado *</label>
-                        <select class="form-select @error('status') is-invalid @enderror"
-                                id="status" name="status" required>
-                            <option value="active" {{ old('status', $project->status) == 'active' ? 'selected' : '' }}>Activo</option>
-                            <option value="on_hold" {{ old('status', $project->status) == 'on_hold' ? 'selected' : '' }}>En Pausa</option>
-                            <option value="completed" {{ old('status', $project->status) == 'completed' ? 'selected' : '' }}>Completado</option>
-                            <option value="cancelled" {{ old('status', $project->status) == 'cancelled' ? 'selected' : '' }}>Cancelado</option>
-                        </select>
-                        @error('status')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-
-            <div class="text-end">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-2"></i>Actualizar Proyecto
-                </button>
-                <a href="{{ route('projects.show', $project) }}" class="btn btn-secondary">Cancelar</a>
-            </div>
+            @method('DELETE')
+            <button type="submit" class="text-xs text-red-600 hover:text-red-800 underline">Eliminar proyecto</button>
         </form>
     </div>
+    @endif
 </div>
 @endsection

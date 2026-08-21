@@ -80,6 +80,9 @@ Route::middleware('auth')->group(function () {
     // Alertas operativas
     require __DIR__ . '/features/operational-alerts/web.php';
 
+    // Gestión de proyectos
+    require __DIR__ . '/features/projects/web.php';
+
     // Módulo de Tiempos y Capacidad para Técnicos
     require __DIR__ . '/features/technician-module/web.php';
 

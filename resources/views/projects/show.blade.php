@@ -1,224 +1,180 @@
 @extends('layouts.app')
 
-@section('title', $project->name . ' - SDM')
+@section('title', $project->name)
 
 @section('content')
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">{{ $project->name }} <small class="text-muted">{{ $project->code }}</small></h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ route('projects.edit', $project) }}" class="btn btn-outline-secondary me-2">
-            <i class="fas fa-edit me-2"></i>Editar
-        </a>
-        <a href="{{ route('projects.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Volver
+<div class="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    {{-- Encabezado --}}
+    <div class="flex items-start justify-between mb-6">
+        <div>
+            <div class="flex items-center gap-3 mb-1">
+                <a href="{{ route('projects.index') }}" class="text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                </a>
+                <h1 class="text-2xl font-bold text-gray-900">{{ $project->name }}</h1>
+            </div>
+            <div class="flex items-center gap-3 ml-8">
+                <span class="text-xs text-gray-400 font-mono">{{ $project->code }}</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-{{ $project->status_color }}-100 text-{{ $project->status_color }}-700">
+                    {{ $project->status_label }}
+                </span>
+            </div>
+        </div>
+        <a href="{{ route('projects.edit', $project) }}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+            <i class="fas fa-edit" aria-hidden="true"></i> Editar
         </a>
     </div>
-</div>
 
-<div class="row">
-    <!-- Información del Proyecto -->
-    <div class="col-lg-8">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Información del Proyecto</h5>
-            </div>
-            <div class="card-body">
-                @if($project->description)
-                <div class="mb-3">
-                    <strong>Descripción:</strong>
-                    <p class="mb-0">{{ $project->description }}</p>
+    {{-- Mensajes --}}
+    @if(session('success'))
+        <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center gap-2" role="alert">
+            <i class="fas fa-check-circle" aria-hidden="true"></i>
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2" role="alert">
+            <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+            {{ session('error') }}
+        </div>
+    @endif
+
+    {{-- Info del proyecto + progreso --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        {{-- Datos del proyecto --}}
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            @if($project->description)
+                <p class="text-sm text-gray-600 mb-4">{{ $project->description }}</p>
+            @endif
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                <div>
+                    <p class="text-gray-400 mb-0.5">Inicio</p>
+                    <p class="font-semibold text-gray-700">{{ $project->start_date?->format('d/m/Y') ?? '—' }}</p>
                 </div>
-                @endif
+                <div>
+                    <p class="text-gray-400 mb-0.5">Fin estimado</p>
+                    <p class="font-semibold text-gray-700">{{ $project->expected_end_date?->format('d/m/Y') ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-400 mb-0.5">Creado por</p>
+                    <p class="font-semibold text-gray-700">{{ $project->creator?->name ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-gray-400 mb-0.5">Solicitudes</p>
+                    <p class="font-semibold text-gray-700">{{ $project->serviceRequests->count() }}</p>
+                </div>
+            </div>
+        </div>
 
-                <div class="row">
-                    <div class="col-md-4">
-                        <strong>Estado:</strong>
-                        <br>
+        {{-- Progreso --}}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col items-center justify-center">
+            <div class="relative w-24 h-24 mb-3">
+                <svg class="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                    <path class="text-gray-100" stroke="currentColor" stroke-width="3" fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    <path class="text-indigo-500" stroke="currentColor" stroke-width="3" fill="none"
+                          stroke-dasharray="{{ $project->progress }}, 100" stroke-linecap="round"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                </svg>
+                <span class="absolute inset-0 flex items-center justify-center text-lg font-bold text-gray-900">{{ $project->progress }}%</span>
+            </div>
+            <p class="text-xs text-gray-500">Progreso general</p>
+        </div>
+    </div>
+
+    {{-- Solicitudes vinculadas --}}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-clipboard-list text-indigo-500" aria-hidden="true"></i>
+                Solicitudes del proyecto
+            </h2>
+            <span class="text-xs text-gray-400">{{ $project->serviceRequests->count() }} vinculadas</span>
+        </div>
+
+        @if($project->serviceRequests->isNotEmpty())
+            <div class="divide-y divide-gray-100">
+                @foreach($project->serviceRequests as $sr)
+                    <div class="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 transition">
+                        {{-- Status dot --}}
                         @php
-                            $statusColors = [
-                                'active' => 'success',
-                                'completed' => 'primary',
-                                'cancelled' => 'danger',
-                                'on_hold' => 'warning'
-                            ];
+                            $srColor = match($sr->status) {
+                                'PENDIENTE' => 'gray',
+                                'ACEPTADA' => 'blue',
+                                'EN_PROCESO' => 'indigo',
+                                'RESUELTA' => 'green',
+                                'CERRADA' => 'emerald',
+                                'PAUSADA' => 'amber',
+                                'CANCELADA' => 'red',
+                                default => 'gray',
+                            };
                         @endphp
-                        <span class="badge bg-{{ $statusColors[$project->status] }}">
-                            {{ ucfirst(str_replace('_', ' ', $project->status)) }}
+                        <span class="w-2.5 h-2.5 rounded-full bg-{{ $srColor }}-500 flex-shrink-0"></span>
+
+                        {{-- Info --}}
+                        <div class="flex-1 min-w-0">
+                            <a href="{{ route('service-requests.show', $sr) }}" class="text-sm font-medium text-gray-900 hover:text-indigo-700 transition line-clamp-1">
+                                {{ $sr->title }}
+                            </a>
+                            <div class="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                                <span class="font-mono">{{ $sr->ticket_number }}</span>
+                                <span>{{ $sr->subService?->name }}</span>
+                            </div>
+                        </div>
+
+                        {{-- Status --}}
+                        <span class="text-[10px] font-semibold text-{{ $srColor }}-700 bg-{{ $srColor }}-50 px-2 py-0.5 rounded">
+                            {{ $sr->status }}
                         </span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Progreso:</strong>
-                        <br>
-                        <div class="progress" style="height: 20px;">
-                            <div class="progress-bar" role="progressbar"
-                                 style="width: {{ $project->progress }}%">
-                                {{ $project->progress }}%
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Requerimientos:</strong>
-                        <br>
-                        <span class="badge bg-info">{{ $project->requirements->count() }} total</span>
-                        <span class="badge bg-warning">{{ $project->active_requirements_count }} activos</span>
-                    </div>
-                </div>
 
-                <div class="row mt-3">
-                    <div class="col-md-4">
-                        <strong>Fecha de Inicio:</strong>
-                        <p class="mb-0">{{ $project->start_date->format('d/m/Y') }}</p>
+                        {{-- Desvincular --}}
+                        <form action="{{ route('projects.unlink-request', [$project, $sr]) }}" method="POST" class="flex-shrink-0"
+                              onsubmit="return confirm('¿Desvincular esta solicitud del proyecto?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="p-1 text-gray-300 hover:text-red-500 transition" title="Desvincular">
+                                <i class="fas fa-unlink text-xs" aria-hidden="true"></i>
+                            </button>
+                        </form>
                     </div>
-                    <div class="col-md-4">
-                        <strong>Fecha de Fin:</strong>
-                        <p class="mb-0">
-                            @if($project->end_date)
-                                {{ $project->end_date->format('d/m/Y') }}
-                            @else
-                                <span class="text-muted">No definida</span>
-                            @endif
-                        </p>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Presupuesto:</strong>
-                        <p class="mb-0">
-                            @if($project->budget)
-                                ${{ number_format($project->budget, 2) }}
-                            @else
-                                <span class="text-muted">No definido</span>
-                            @endif
-                        </p>
-                    </div>
-                </div>
+                @endforeach
             </div>
-        </div>
-
-        <!-- Requerimientos del Proyecto -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Requerimientos del Proyecto</h5>
+        @else
+            <div class="px-5 py-8 text-center">
+                <p class="text-sm text-gray-400">No hay solicitudes vinculadas a este proyecto.</p>
+                <p class="text-xs text-gray-300 mt-1">Usa el formulario de abajo para vincular solicitudes existentes.</p>
             </div>
-            <div class="card-body">
-                @if($requirements->count() > 0)
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Código</th>
-                                    <th>Título</th>
-                                    <th>Prioridad</th>
-                                    <th>Estado</th>
-                                    <th>Fecha Límite</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($requirements as $requirement)
-                                <tr>
-                                    <td><strong>{{ $requirement->code }}</strong></td>
-                                    <td>{{ Str::limit($requirement->title, 50) }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ $requirement->getPriorityColor() }}">
-                                            {{ ucfirst($requirement->priority) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @php
-                                            $statusColors = [
-                                                'pending' => 'warning',
-                                                'in_progress' => 'info',
-                                                'completed' => 'success',
-                                                'cancelled' => 'danger'
-                                            ];
-                                        @endphp
-                                        <span class="badge bg-{{ $statusColors[$requirement->status] }}">
-                                            {{ ucfirst(str_replace('_', ' ', $requirement->status)) }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if($requirement->due_date)
-                                            {{ $requirement->due_date->format('d/m/Y') }}
-                                        @else
-                                            <span class="text-muted">No definida</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <a href="{{ route('requirements.show', $requirement) }}"
-                                           class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="text-muted">
-                            Mostrando {{ $requirements->firstItem() }} - {{ $requirements->lastItem() }} de {{ $requirements->total() }} registros
-                        </div>
-                        {{ $requirements->links() }}
-                    </div>
-                @else
-                    <p class="text-muted text-center">No hay requerimientos en este proyecto</p>
-                @endif
-            </div>
-        </div>
+        @endif
     </div>
 
-    <!-- Información Adicional -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Estadísticas</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <strong>Fecha de Creación:</strong>
-                    <p class="mb-0">{{ $project->created_at->format('d/m/Y H:i') }}</p>
-                </div>
+    {{-- Vincular solicitud --}}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <i class="fas fa-link text-indigo-500" aria-hidden="true"></i>
+            Vincular solicitud existente
+        </h3>
 
-                <div class="mb-3">
-                    <strong>Última Actualización:</strong>
-                    <p class="mb-0">{{ $project->updated_at->format('d/m/Y H:i') }}</p>
-                </div>
-
-                <div class="mb-3">
-                    <strong>Duración:</strong>
-                    <p class="mb-0">
-                        @if($project->end_date)
-                            {{ $project->start_date->diffInDays($project->end_date) }} días
-                        @else
-                            <span class="text-muted">En curso</span>
-                        @endif
-                    </p>
-                </div>
-
-                <div class="mb-3">
-                    <strong>Requerimientos por Estado:</strong>
-                    <div class="mt-2">
-                        @php
-                            $statusCounts = $project->requirements->groupBy('status')->map->count();
-                        @endphp
-                        @foreach($statusCounts as $status => $count)
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>{{ ucfirst(str_replace('_', ' ', $status)) }}:</span>
-                                <span class="badge bg-{{ $statusColors[$status] ?? 'secondary' }}">{{ $count }}</span>
-                            </div>
+        @if($availableRequests->isNotEmpty())
+            <form action="{{ route('projects.link-request', $project) }}" method="POST" class="flex items-end gap-3">
+                @csrf
+                <div class="flex-1">
+                    <select name="service_request_id" required
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400">
+                        <option value="">Seleccionar solicitud...</option>
+                        @foreach($availableRequests as $sr)
+                            <option value="{{ $sr->id }}">{{ $sr->ticket_number }} — {{ Str::limit($sr->title, 60) }} [{{ $sr->status }}]</option>
                         @endforeach
-                    </div>
+                    </select>
                 </div>
-
-                <form action="{{ route('projects.progress.update', $project) }}" method="POST" class="mt-3">
-                    @csrf
-                    @method('PATCH')
-                    <button type="submit" class="btn btn-outline-primary btn-sm w-100">
-                        <i class="fas fa-sync-alt me-2"></i>Recalcular Progreso
-                    </button>
-                </form>
-            </div>
-        </div>
+                <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
+                    <i class="fas fa-link" aria-hidden="true"></i> Vincular
+                </button>
+            </form>
+        @else
+            <p class="text-xs text-gray-400">No hay solicitudes disponibles para vincular (todas están cerradas o ya vinculadas a un proyecto).</p>
+        @endif
     </div>
 </div>
 @endsection
