@@ -355,28 +355,35 @@ class ServiceRequestController extends Controller
             $linksSection = "\n\nENLACES DE EVIDENCIA DISPONIBLES (incluir en el correo como referencia):\n{$linksList}";
         }
 
-        $prompt = "Redacta un correo electrónico profesional e institucional para responder a la persona que hizo esta solicitud. El texto se copiará y pegará directamente en un correo.\n\n";
-        $prompt .= "LO QUE EL USUARIO PIDIÓ:\n";
-        $prompt .= "- {$serviceRequest->title}\n";
-        $prompt .= "- " . Str::limit($serviceRequest->description, 200) . "\n\n";
-        $prompt .= "LO QUE SE HIZO (información interna de tareas, NO copiar textualmente):\n{$tasksSummary}\n";
+        $prompt = "Eres el webmaster del Ministerio de Cultura de Colombia. Redacta un correo profesional para responder a quien solicitó esta gestión. El texto será copiado y pegado directamente como cuerpo de un correo electrónico.\n\n";
+        $prompt .= "SOLICITUD ORIGINAL:\n";
+        $prompt .= "Asunto: {$serviceRequest->title}\n";
+        $prompt .= "Detalle: " . Str::limit($serviceRequest->description, 300) . "\n";
+        $prompt .= "Solicitante: " . ($serviceRequest->requester?->name ?? 'N/A') . "\n\n";
+        $prompt .= "GESTIÓN REALIZADA (información interna para contexto, NO copiar textualmente):\n{$tasksSummary}\n";
         $prompt .= $linksSection . "\n\n";
-        $prompt .= "ESTRUCTURA DEL CORREO:\n";
-        $prompt .= "1. Saludo cordial breve (ejemplo: 'Cordial saludo,')\n";
-        $prompt .= "2. Cuerpo: describir qué se hizo y el resultado concreto (3 a 5 oraciones).\n";
-        $prompt .= "3. Si hay enlaces de evidencia, incluirlos de forma natural como referencia para que el destinatario pueda consultar o verificar el resultado. NO usar la palabra 'evidencia'. Usar frases como: 'La publicación se encuentra disponible en:', 'Puede consultarse en el siguiente enlace:', 'El resultado puede verificarse en:'.\n";
-        $prompt .= "4. Cierre cordial breve en primera persona del singular (ejemplo: 'Quedo atento ante cualquier inquietud.')\n\n";
-        $prompt .= "INSTRUCCIONES DE REDACCIÓN:\n";
-        $prompt .= "- Escribe en tercera persona o forma impersonal: 'Se realizó...', 'Se completó...', 'Fue publicado...'.\n";
-        $prompt .= "- Tono profesional, institucional y cordial.\n";
-        $prompt .= "- Describe el RESULTADO concreto: qué quedó publicado, actualizado, configurado o disponible.\n";
-        $prompt .= "- Si hay enlaces de evidencia, inclúyelos como URLs completas. NO uses la palabra 'evidencia' al mencionarlos. Usa frases naturales como 'Puede consultarse en:', 'La publicación está disponible en:', 'El material se encuentra en el siguiente enlace:'.\n";
-        $prompt .= "- Extensión total del correo: 5 a 8 oraciones. Conciso pero completo.\n";
-        $prompt .= "- Usa verbos en pasado: fue publicado, se actualizó, quedó disponible, se realizó la configuración.\n";
-        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica interna, mencionar tickets/sistemas internos, frases coloquiales.\n";
-        $prompt .= "- NO incluyas firma ni datos del remitente.\n";
-        $prompt .= "- Formato: texto plano, sin viñetas ni Markdown. Los enlaces van como URLs completas en línea.\n";
-        $prompt .= "- Idioma: español.\n";
+        $prompt .= "ESTRUCTURA OBLIGATORIA DEL CORREO:\n\n";
+        $prompt .= "1. SALUDO: 'Cordial saludo,' (siempre así, sin nombre del destinatario)\n\n";
+        $prompt .= "2. CONTEXTO (1 oración): Mencionar brevemente qué se solicitó, referenciando el tema sin repetir literalmente el asunto.\n";
+        $prompt .= "   Ejemplo: 'En atención a su solicitud relacionada con la publicación del documento X en la sección de transparencia...'\n\n";
+        $prompt .= "3. RESULTADO (2-3 oraciones): Describir qué se hizo y cuál es el resultado concreto. Usar verbos en pasado impersonal.\n";
+        $prompt .= "   - Qué acción se ejecutó: 'se realizó la actualización...', 'fue publicado el documento...', 'se configuró el acceso...'\n";
+        $prompt .= "   - Dónde queda disponible o cuál es el resultado visible para el solicitante.\n\n";
+        $prompt .= "4. ENLACES (si hay): Incluir los URLs como referencia para verificación.\n";
+        $prompt .= "   Usar frases como: 'La publicación puede consultarse en:', 'El contenido se encuentra disponible en el siguiente enlace:'\n";
+        $prompt .= "   Los enlaces van como URLs completas, cada uno en su propia línea.\n\n";
+        $prompt .= "5. CIERRE: Una oración de disponibilidad + despedida.\n";
+        $prompt .= "   Ejemplo: 'Quedo atento ante cualquier observación o ajuste adicional que se requiera.'\n\n";
+        $prompt .= "REGLAS DE REDACCIÓN:\n";
+        $prompt .= "- Tono: profesional, institucional, cordial. Como un funcionario público serio y eficiente.\n";
+        $prompt .= "- Persona gramatical: impersonal o tercera persona para las acciones ('se realizó', 'fue actualizado'). Primera persona singular para el cierre ('quedo atento').\n";
+        $prompt .= "- Extensión: entre 6 y 10 oraciones en total. Ni telegráfico ni extenso.\n";
+        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica, mencionar sistemas internos (SAPP, tickets), frases coloquiales, emojis.\n";
+        $prompt .= "- PROHIBIDO: la palabra 'evidencia'. Usar 'soporte', 'referencia', 'enlace de consulta'.\n";
+        $prompt .= "- PROHIBIDO: incluir firma, cargo, teléfono o datos del remitente.\n";
+        $prompt .= "- PROHIBIDO: incluir asunto, RE:, FW: o encabezados de correo.\n";
+        $prompt .= "- Formato: texto plano, sin Markdown, sin viñetas, sin negritas. Solo texto corrido con saltos de párrafo.\n";
+        $prompt .= "- Idioma: español colombiano formal.\n";
 
 
         try {
