@@ -631,8 +631,8 @@
                                     <i class="fas fa-building text-base text-white/80"></i>
                                 @endif
                                 <div class="min-w-0 hidden lg:block">
-                                    <p class="text-xs font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
-                                    <p class="text-[10px] text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
+                                    <p class="text-sm font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
+                                    <p class="text-xs text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
                                 </div>
                             </a>
                         @endif
