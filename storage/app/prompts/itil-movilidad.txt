@@ -62,31 +62,77 @@ Reglas obligatorias:
 
 Catálogo de subservicios Movilidad:
 
-Publicación de Noticia, PMT o Artículo
-Publicación de Documento
-Solicitud de Edición o Ajuste de Contenido
-Solicitud de Diseño Gráfico
-Desarrollo, Configuración e Implementación Técnica
-Reporte de Enlace Roto o Contenido Obsoleto
-Asignación de Tarea No Especificada
+Error o Problema con Contenido Publicado
+Reorganización de Estructura Web
 Solicitud de Desarrollo de Micrositio Web
-Solicitud de Creación de un Nuevo Portal Web
-Publicacion de Banner en el Home Principal
+Solicitud de Diseño Gráfico
+Solicitud de Edición o Ajuste de Contenido
+Actualización de Sección de Transparencia
+Asesoría en MIPG y Lineamientos
+Generación de Reportes de MIPG
+Publicación por Ley de Transparencia
+Consulta de Estado de Solicitud
+Reporte de Demora en Publicación
+Solicitud de Publicación
 Acompañamiento actividades desarrollo externo
+Actualización Masiva de Datos
+Optimización de Estilos y Plantillas
+Reporte de Inconsistencia en Calidad
+Reporte de Enlace Roto o Contenido Obsoleto
+Reporte de Error en Contenido Publicado
+Reportes de Analítica Web
+Solicitud de Eliminación o Retiro de Contenido
+Validación Previa a Publicación
+Falla en Proceso de Publicación
+Publicacion de Banner en el Home Principal
+Publicación de Documento
+Publicación de Noticia, PMT o Artículo
+Asignación de Tarea Ad-Hoc
+Reporte de Indisponibilidad
+Solicitud de Despliegue en Locación
+Asignación de Tarea No Especificada
+Solicitud de Apoyo General
+Desarrollo, Configuración e Implementación Técnica
+Diseño de Arquitectura de Información y Experiencia de Usuario (UX/UI)
+Plan de Migración y Carga Masiva de Contenido Inicial
+Problema o Incidencia Técnica durante el Desarrollo del Proyecto
+Solicitud de Creación de un Nuevo Portal Web
 
 Criterios de clasificación Movilidad:
 
-- Si piden publicar boletín, noticia, PMT, artículo, nota o contenido editorial, usa Publicación de Noticia, PMT o Artículo.
-- Si piden publicar PDF, informe, resolución, circular, documento o archivo descargable, usa Publicación de Documento.
-- Si piden cambiar texto, enlaces, etiquetas, botones, formularios, nombres, datos puntuales, perfiles o secciones existentes, usa Solicitud de Edición o Ajuste de Contenido.
-- Si piden crear QR, piezas gráficas, botones gráficos, recursos visuales, banners, volantes, insumos gráficos o elementos visuales nuevos, usa Solicitud de Diseño Gráfico.
-- Si solo piden ubicar o publicar una pieza ya diseñada, clasifica por publicación, no por diseño.
-- Si piden usuarios, permisos, CMS, accesos, código, implementación, configuración, desarrollo o ajuste técnico, usa Desarrollo, Configuración e Implementación Técnica.
-- Si reportan enlaces rotos, vencidos, caídos, erróneos u obsoletos, usa Reporte de Enlace Roto o Contenido Obsoleto.
-- Si piden crear un micrositio nuevo o una landing page temática, usa Solicitud de Desarrollo de Micrositio Web.
-- Si piden crear un portal web completamente nuevo, usa Solicitud de Creación de un Nuevo Portal Web.
-- Si piden publicar un banner en la página principal, usa Publicacion de Banner en el Home Principal.
-- Si la solicitud es ambigua o no encaja claramente en otro subservicio, usa Asignación de Tarea No Especificada.
+- Si piden publicar boletín, noticia, PMT, artículo, nota o contenido editorial → Publicación de Noticia, PMT o Artículo.
+- Si piden publicar PDF, informe, resolución, circular, documento, archivo o pieza descargable → Publicación de Documento.
+- Si piden publicar contenido general en la web o intranet sin ser noticia ni documento → Solicitud de Publicación.
+- Si piden cambiar texto, enlaces, botones, datos, perfiles o contenido existente → Solicitud de Edición o Ajuste de Contenido.
+- Si reportan error en contenido ya publicado (dato mal, texto incorrecto) → Error o Problema con Contenido Publicado.
+- Si reportan error visible después de una publicación → Reporte de Error en Contenido Publicado.
+- Si piden crear QR, piezas gráficas, banners como diseño, insumos gráficos → Solicitud de Diseño Gráfico.
+- Si solo piden ubicar o publicar un banner ya diseñado en el home → Publicacion de Banner en el Home Principal.
+- Si piden actualizar sección de transparencia, Ley 1712, acceso a información → Actualización de Sección de Transparencia.
+- Si piden publicar algo por mandato de Ley de Transparencia → Publicación por Ley de Transparencia.
+- Si consultan sobre MIPG o lineamientos de gobierno digital → Asesoría en MIPG y Lineamientos.
+- Si piden reportes de cumplimiento MIPG → Generación de Reportes de MIPG.
+- Si reportan enlaces rotos, caídos, vencidos u obsoletos → Reporte de Enlace Roto o Contenido Obsoleto.
+- Si piden crear micrositio, landing page o sección temática nueva → Solicitud de Desarrollo de Micrositio Web.
+- Si piden crear un portal web completamente nuevo → Solicitud de Creación de un Nuevo Portal Web.
+- Si piden diseñar arquitectura de información o UX/UI → Diseño de Arquitectura de Información y Experiencia de Usuario (UX/UI).
+- Si piden migrar contenido masivo o carga inicial de datos → Plan de Migración y Carga Masiva de Contenido Inicial.
+- Si reportan falla técnica durante un desarrollo en curso → Problema o Incidencia Técnica durante el Desarrollo del Proyecto.
+- Si piden desarrollo, código, implementación técnica, configuración de CMS o permisos → Desarrollo, Configuración e Implementación Técnica.
+- Si piden reorganizar estructura de secciones o navegación web → Reorganización de Estructura Web.
+- Si piden actualizar datos masivamente (múltiples registros) → Actualización Masiva de Datos.
+- Si piden optimizar estilos, CSS, plantillas o diseño visual existente → Optimización de Estilos y Plantillas.
+- Si reportan inconsistencia en calidad de contenido → Reporte de Inconsistencia en Calidad.
+- Si piden métricas web, estadísticas de visitas o informes de analítica → Reportes de Analítica Web.
+- Si piden eliminar o retirar contenido del portal → Solicitud de Eliminación o Retiro de Contenido.
+- Si piden validar contenido antes de publicar → Validación Previa a Publicación.
+- Si reportan falla en un proceso de publicación (no pudo publicarse) → Falla en Proceso de Publicación.
+- Si piden consultar estado de una solicitud previa → Consulta de Estado de Solicitud.
+- Si reportan demora en una publicación pendiente → Reporte de Demora en Publicación.
+- Si requieren acompañamiento a desarrollo hecho por terceros → Acompañamiento actividades desarrollo externo.
+- Si es tarea puntual asignada por supervisor sin categoría clara → Asignación de Tarea Ad-Hoc.
+- Si es solicitud de apoyo general sin categoría específica → Solicitud de Apoyo General.
+- Si nada encaja → Asignación de Tarea No Especificada.
 - Si el caso ya fue ejecutado, genera igualmente la solicitud como registro formal.
 
 Antes de responder, valida:
