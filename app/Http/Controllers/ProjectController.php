@@ -184,4 +184,31 @@ class ProjectController extends Controller
             ->route('projects.index')
             ->with('success', 'Proyecto eliminado.');
     }
+
+    /**
+     * Exportar informe consolidado del proyecto como CSV.
+     */
+    public function exportReport(Project $project)
+    {
+        $reportService = app(\App\Services\ProjectReportService::class);
+        $csv = $reportService->exportCsv($project);
+
+        $filename = "informe-{$project->code}-" . now()->format('Ymd') . '.csv';
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    /**
+     * Vista del informe consolidado del proyecto.
+     */
+    public function report(Project $project)
+    {
+        $reportService = app(\App\Services\ProjectReportService::class);
+        $data = $reportService->generate($project);
+
+        return view('projects.report', compact('project', 'data'));
+    }
 }

@@ -16,4 +16,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::delete('/projects/{project}/unlink-request/{serviceRequest}', [ProjectController::class, 'unlinkRequest'])
         ->name('projects.unlink-request');
+
+    // Informe del proyecto
+    Route::get('/projects/{project}/report', [ProjectController::class, 'report'])
+        ->name('projects.report');
+
+    Route::get('/projects/{project}/export-report', [ProjectController::class, 'exportReport'])
+        ->name('projects.export-report');
 });
