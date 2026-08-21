@@ -374,7 +374,13 @@
                         'route' => 'operational-alerts.index',
                         'label' => 'Alertas Operativas',
                         'icon' => 'fas fa-bell',
-                        'match' => ['operational-alerts.*'],
+                        'match' => ['operational-alerts.index'],
+                    ],
+                    [
+                        'route' => 'operational-alerts.reminders',
+                        'label' => 'Recordatorios',
+                        'icon' => 'fas fa-clock',
+                        'match' => ['operational-alerts.reminders'],
                     ],
                     [
                         'route' => 'performance-metrics.index',

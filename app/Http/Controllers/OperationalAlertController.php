@@ -171,12 +171,12 @@ class OperationalAlertController extends Controller
     }
 
     /**
-     * Crear un recordatorio manual para una solicitud.
+     * Crear un recordatorio manual (con o sin solicitud vinculada).
      */
     public function createReminder(Request $request)
     {
         $request->validate([
-            'service_request_id' => 'required|exists:service_requests,id',
+            'service_request_id' => 'nullable|exists:service_requests,id',
             'reminder_date' => 'required|date|after_or_equal:today',
             'reminder_note' => 'required|string|min:3|max:500',
         ], [
@@ -186,28 +186,80 @@ class OperationalAlertController extends Controller
             'reminder_note.min' => 'La nota debe tener al menos 3 caracteres.',
         ]);
 
-        $sr = \App\Models\ServiceRequest::findOrFail($request->input('service_request_id'));
+        $srId = $request->input('service_request_id');
+        $sr = $srId ? \App\Models\ServiceRequest::find($srId) : null;
 
-        OperationalAlert::create([
-            'alertable_type' => \App\Models\ServiceRequest::class,
-            'alertable_id' => $sr->id,
+        $message = $request->input('reminder_note');
+        if ($sr) {
+            $message .= " — {$sr->ticket_number}";
+        }
+
+        $data = [
             'alert_type' => OperationalAlert::TYPE_REMINDER,
             'severity' => OperationalAlert::SEVERITY_LOW,
             'title' => 'Recordatorio',
-            'message' => $request->input('reminder_note') . " — {$sr->ticket_number}",
+            'message' => $message,
             'metadata' => [
                 'created_by' => auth()->id(),
                 'created_by_name' => auth()->user()->name,
                 'note' => $request->input('reminder_note'),
-                'ticket' => $sr->ticket_number,
+                'ticket' => $sr?->ticket_number,
             ],
             'alert_at' => \Carbon\Carbon::parse($request->input('reminder_date'))->startOfDay()->setHour(7),
-        ]);
+        ];
+
+        if ($sr) {
+            $data['alertable_type'] = \App\Models\ServiceRequest::class;
+            $data['alertable_id'] = $sr->id;
+        } else {
+            // Recordatorio general: vinculado al usuario como referencia
+            $data['alertable_type'] = \App\Models\User::class;
+            $data['alertable_id'] = auth()->id();
+        }
+
+        OperationalAlert::create($data);
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'message' => 'Recordatorio creado.']);
         }
 
         return back()->with('success', 'Recordatorio programado para ' . \Carbon\Carbon::parse($request->input('reminder_date'))->format('d/m/Y') . '.');
+    }
+
+    /**
+     * Vista de recordatorios (activos + futuros programados).
+     */
+    public function reminders()
+    {
+        $active = OperationalAlert::reminders()
+            ->active()
+            ->where('alert_at', '<=', now())
+            ->orderBy('alert_at', 'desc')
+            ->get();
+
+        $scheduled = OperationalAlert::reminders()
+            ->scheduledFuture()
+            ->orderBy('alert_at', 'asc')
+            ->get();
+
+        return view('operational-alerts.reminders', compact('active', 'scheduled'));
+    }
+
+    /**
+     * Eliminar/cancelar un recordatorio pendiente.
+     */
+    public function destroyReminder(OperationalAlert $alert)
+    {
+        if ($alert->alert_type !== OperationalAlert::TYPE_REMINDER) {
+            return back()->with('error', 'Solo se pueden eliminar recordatorios.');
+        }
+
+        $alert->delete();
+
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', 'Recordatorio eliminado.');
     }
 }
