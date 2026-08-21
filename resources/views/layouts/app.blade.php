@@ -138,10 +138,12 @@
             display: flex;
             align-items: flex-start;
             gap: 0.5rem;
-            padding: 0.6rem 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
             transition: background-color 0.2s ease;
             white-space: normal;
-            line-height: 1.25;
+            line-height: 1.3;
             width: 100%;
             box-sizing: border-box;
             word-break: break-word;
