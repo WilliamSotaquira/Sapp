@@ -199,6 +199,10 @@
                 Asociar a proyecto
             </button>
         @endif
+        <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-modal="reminder-modal-{{ $serviceRequest->id }}">
+            <i class="fas fa-bell sr-ctx__icon" aria-hidden="true"></i>
+            Crear recordatorio
+        </button>
         <a href="{{ route('service-requests.create') }}" class="sr-ctx__item" role="menuitem">
             <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
             Crear nueva solicitud

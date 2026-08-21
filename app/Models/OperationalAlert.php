@@ -50,6 +50,7 @@ class OperationalAlert extends Model
     const TYPE_OVERDUE_RESOLUTION = 'overdue_resolution';
     const TYPE_PENDING_ACCEPTANCE = 'pending_acceptance';
     const TYPE_BLOCKED_TASK = 'blocked_task';
+    const TYPE_REMINDER = 'reminder';
 
     // Severidades
     const SEVERITY_CRITICAL = 'critica';
@@ -109,6 +110,12 @@ class OperationalAlert extends Model
             'color' => 'orange',
             'description' => 'Una tarea lleva demasiado tiempo bloqueada',
         ],
+        self::TYPE_REMINDER => [
+            'label' => 'Recordatorio',
+            'icon' => 'fa-bell',
+            'color' => 'blue',
+            'description' => 'Recordatorio manual programado',
+        ],
     ];
 
     /**
@@ -148,7 +155,7 @@ class OperationalAlert extends Model
 
     public function scopeUnread($query)
     {
-        return $query->where('is_read', false)->where('is_dismissed', false);
+        return $query->where('is_read', false)->where('is_dismissed', false)->where('alert_at', '<=', now());
     }
 
     public function scopeOfType($query, string $type)

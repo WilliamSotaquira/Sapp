@@ -301,6 +301,45 @@
         @endif
     @endif
 
+    <!-- Modal de crear recordatorio -->
+    <div id="reminder-modal-{{ $serviceRequest->id }}"
+         class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+         role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-semibold text-gray-900">
+                    <i class="fas fa-bell text-red-500 mr-1.5"></i>Crear recordatorio
+                </h3>
+                <button type="button" onclick="closeModal('reminder-modal-{{ $serviceRequest->id }}')"
+                        class="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form action="{{ route('operational-alerts.reminder.store') }}" method="POST">
+                @csrf
+                <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Cuándo recordar?</label>
+                    <input type="date" name="reminder_date" required min="{{ now()->format('Y-m-d') }}"
+                           value="{{ now()->addDay()->format('Y-m-d') }}"
+                           class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200 focus:border-red-400">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nota</label>
+                    <textarea name="reminder_note" rows="2" required minlength="3" maxlength="500"
+                              class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200 focus:border-red-400 resize-none"
+                              placeholder="Ej: Verificar con Laura si publicó el archivo"></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition">
+                        Programar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection

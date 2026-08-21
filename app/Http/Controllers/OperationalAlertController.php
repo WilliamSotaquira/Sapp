@@ -169,4 +169,45 @@ class OperationalAlertController extends Controller
 
         return response()->json(['alerts' => $items]);
     }
+
+    /**
+     * Crear un recordatorio manual para una solicitud.
+     */
+    public function createReminder(Request $request)
+    {
+        $request->validate([
+            'service_request_id' => 'required|exists:service_requests,id',
+            'reminder_date' => 'required|date|after_or_equal:today',
+            'reminder_note' => 'required|string|min:3|max:500',
+        ], [
+            'reminder_date.required' => 'Selecciona una fecha para el recordatorio.',
+            'reminder_date.after_or_equal' => 'La fecha debe ser hoy o posterior.',
+            'reminder_note.required' => 'Escribe una nota para el recordatorio.',
+            'reminder_note.min' => 'La nota debe tener al menos 3 caracteres.',
+        ]);
+
+        $sr = \App\Models\ServiceRequest::findOrFail($request->input('service_request_id'));
+
+        OperationalAlert::create([
+            'alertable_type' => \App\Models\ServiceRequest::class,
+            'alertable_id' => $sr->id,
+            'alert_type' => OperationalAlert::TYPE_REMINDER,
+            'severity' => OperationalAlert::SEVERITY_LOW,
+            'title' => 'Recordatorio',
+            'message' => $request->input('reminder_note') . " — {$sr->ticket_number}",
+            'metadata' => [
+                'created_by' => auth()->id(),
+                'created_by_name' => auth()->user()->name,
+                'note' => $request->input('reminder_note'),
+                'ticket' => $sr->ticket_number,
+            ],
+            'alert_at' => \Carbon\Carbon::parse($request->input('reminder_date'))->startOfDay()->setHour(7),
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Recordatorio creado.']);
+        }
+
+        return back()->with('success', 'Recordatorio programado para ' . \Carbon\Carbon::parse($request->input('reminder_date'))->format('d/m/Y') . '.');
+    }
 }
