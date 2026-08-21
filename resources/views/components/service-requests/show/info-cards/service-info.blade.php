@@ -154,17 +154,48 @@
             <div class="mt-3 pt-3 border-t border-gray-100">
                 @php
                     $linkedProject = $serviceRequest->project;
+                    $inlineProjects = $linkedProject ? null : \App\Models\Project::where('company_id', (int) session('current_company_id'))
+                        ->active()->orderBy('name')->get(['id', 'name']);
                 @endphp
                 <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proyecto</dt>
                 <dd class="mt-1">
                     @if($linkedProject)
-                        <a href="{{ route('projects.show', $linkedProject) }}"
-                           class="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-900 transition">
-                            <i class="fas fa-project-diagram text-xs"></i>
-                            {{ $linkedProject->name }}
-                        </a>
+                        <div class="flex items-center justify-between">
+                            <a href="{{ route('projects.show', $linkedProject) }}"
+                               class="text-sm font-medium text-red-700 hover:text-red-900 transition flex items-center gap-1.5">
+                                <i class="fas fa-project-diagram text-xs"></i>
+                                {{ $linkedProject->name }}
+                            </a>
+                            <form action="{{ route('projects.unlink-request', [$linkedProject, $serviceRequest]) }}" method="POST" class="inline"
+                                  onsubmit="return confirm('¿Desvincular del proyecto?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-gray-300 hover:text-red-500 transition" title="Desvincular">
+                                    <i class="fas fa-unlink text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    @elseif($inlineProjects && $inlineProjects->isNotEmpty())
+                        <form method="POST" class="flex items-center gap-2">
+                            @csrf
+                            <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
+                            <select name="project_id" required
+                                    class="flex-1 text-sm border border-gray-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-red-200 focus:border-red-400"
+                                    onchange="if(this.value) this.closest('form').action='/projects/'+this.value+'/link-request'">
+                                <option value="">Seleccionar proyecto...</option>
+                                @foreach($inlineProjects as $p)
+                                    <option value="{{ $p->id }}">{{ $p->name }}</option>
+                                @endforeach
+                            </select>
+                            <button type="submit" class="px-2.5 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </form>
                     @else
-                        <p class="text-sm text-gray-400">Sin proyecto asociado</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-400">Sin proyecto</span>
+                            <a href="{{ route('projects.create') }}" class="text-xs text-red-600 hover:underline">Crear</a>
+                        </div>
                     @endif
                 </dd>
             </div>
