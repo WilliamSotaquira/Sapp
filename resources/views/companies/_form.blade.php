@@ -169,3 +169,54 @@
         </div>
     </div>
 </div>
+
+{{-- Panel de replicación (solo al crear) --}}
+@if(!$company && isset($companies) && $companies->count() > 0)
+<div class="mt-6 pt-6 border-t border-gray-200">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <i class="fas fa-clone text-blue-500"></i>
+        Replicar desde otra entidad (opcional)
+    </h3>
+    <p class="text-xs text-gray-500 mb-4">Si la nueva entidad comparte estructura con una existente, podés copiar datos para no empezar de cero.</p>
+
+    <div class="mb-4">
+        <label for="clone_from" class="block text-sm font-medium text-gray-700 mb-1">Entidad de origen</label>
+        <select id="clone_from" name="clone_from"
+                class="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500"
+                onchange="document.getElementById('cloneOptions').classList.toggle('hidden', !this.value)">
+            <option value="">No replicar</option>
+            @foreach($companies as $c)
+                <option value="{{ $c->id }}">{{ $c->name }}</option>
+            @endforeach
+        </select>
+    </div>
+
+    <div id="cloneOptions" class="hidden space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-xs font-medium text-blue-800 mb-2">Selecciona qué datos copiar:</p>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="clone_structure" value="1" checked
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-200">
+            <span><strong>Familias, Servicios y Subservicios</strong> — estructura del catálogo con SLAs</span>
+        </label>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="clone_requesters" value="1" checked
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-200">
+            <span><strong>Solicitantes</strong> — personas que realizan solicitudes</span>
+        </label>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="clone_technicians" value="1" checked
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-200">
+            <span><strong>Técnicos</strong> — usuarios asignables al workspace</span>
+        </label>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="clone_departments" value="1"
+                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-200">
+            <span><strong>Departamentos</strong> — estructura organizacional</span>
+        </label>
+    </div>
+</div>
+@endif
