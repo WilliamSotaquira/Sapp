@@ -621,18 +621,18 @@
                         @if(isset($currentWorkspace))
                             {{-- Workspace badge compacto --}}
                             <a href="{{ route('workspaces.select') }}"
-                               class="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition max-w-[160px]"
+                               class="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
                                title="{{ $workspaceDisplayName }} - {{ $activeContractLabel }}">
                                 @if ($workspaceLogo)
-                                    <div class="flex items-center justify-center w-6 h-6 rounded bg-white shrink-0">
-                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1rem] max-h-[1rem] object-contain">
+                                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white shrink-0">
+                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.75rem] max-h-[1.75rem] object-contain">
                                     </div>
                                 @else
-                                    <i class="fas fa-building text-xs text-white/80"></i>
+                                    <i class="fas fa-building text-base text-white/80"></i>
                                 @endif
                                 <div class="min-w-0 hidden lg:block">
-                                    <p class="text-[11px] font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
-                                    <p class="text-[9px] text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
+                                    <p class="text-xs font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
+                                    <p class="text-[10px] text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
                                 </div>
                             </a>
                         @endif
