@@ -21,7 +21,8 @@ class CompanyController extends Controller
 
     public function create()
     {
-        return view('companies.create');
+        $companies = Company::orderBy('name')->get(['id', 'name']);
+        return view('companies.create', compact('companies'));
     }
 
     public function store(Request $request)
@@ -32,7 +33,48 @@ class CompanyController extends Controller
             $validated['logo_path'] = $request->file('logo')->store('company-logos', 'public');
         }
 
-        Company::create($validated);
+        $company = Company::create($validated);
+
+        // Si se seleccionó replicar desde otra entidad
+        if ($request->filled('clone_from') && $request->input('clone_from') !== '') {
+            $sourceId = (int) $request->input('clone_from');
+            $options = [
+                'structure' => $request->boolean('clone_structure'),
+                'requesters' => $request->boolean('clone_requesters'),
+                'technicians' => $request->boolean('clone_technicians'),
+                'departments' => $request->boolean('clone_departments'),
+            ];
+
+            if (array_filter($options)) {
+                // El clone de estructura necesita un contrato destino
+                // Si no hay contrato, se crea uno automáticamente
+                if ($options['structure'] && !$company->active_contract_id) {
+                    $sourceCompany = Company::find($sourceId);
+                    $contractId = \App\Models\Contract::insertGetId([
+                        'company_id' => $company->id,
+                        'name' => $company->name,
+                        'number' => 'AUTO-' . now()->format('Ymd'),
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $company->update(['active_contract_id' => $contractId]);
+                }
+
+                $cloneService = app(\App\Services\WorkspaceCloneService::class);
+                $results = $cloneService->clone($sourceId, $company->id, $options);
+
+                $messages = [];
+                if (isset($results['structure'])) $messages[] = "{$results['structure']} subservicios";
+                if (isset($results['requesters'])) $messages[] = "{$results['requesters']} solicitantes";
+                if (isset($results['technicians'])) $messages[] = "{$results['technicians']} técnicos";
+                if (isset($results['departments'])) $messages[] = "{$results['departments']} departamentos";
+
+                return redirect()
+                    ->route('companies.index')
+                    ->with('success', 'Entidad creada. Replicados: ' . implode(', ', $messages) . '.');
+            }
+        }
 
         return redirect()
             ->route('companies.index')
