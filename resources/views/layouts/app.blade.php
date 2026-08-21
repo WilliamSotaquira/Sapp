@@ -616,66 +616,47 @@
                 <div class="flex items-center space-x-1 sm:space-x-2 lg:space-x-4">
                     @auth
                         @if(isset($currentWorkspace))
-                            {{-- Compact workspace badge for tablets --}}
+                            {{-- Workspace badge compacto --}}
                             <a href="{{ route('workspaces.select') }}"
-                               class="hidden md:flex xl:hidden items-center justify-center w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 transition"
+                               class="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition max-w-[160px]"
                                title="{{ $workspaceDisplayName }} - {{ $activeContractLabel }}">
                                 @if ($workspaceLogo)
-                                    <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-white">
-                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.25rem] max-h-[1.25rem] object-contain">
+                                    <div class="flex items-center justify-center w-6 h-6 rounded bg-white shrink-0">
+                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1rem] max-h-[1rem] object-contain">
                                     </div>
                                 @else
-                                    <i class="fas fa-building text-sm text-white/90"></i>
+                                    <i class="fas fa-building text-xs text-white/80"></i>
                                 @endif
-                            </a>
-
-                            {{-- Full workspace badge for large screens --}}
-                            <a href="{{ route('workspaces.select') }}"
-                               class="hidden xl:flex items-center max-w-[180px] px-2 py-1.5 rounded-xl border border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition"
-                               title="Cambiar entidad activa">
-                                <div class="flex items-center gap-2 w-full">
-                                    @if ($workspaceLogo)
-                                        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-white ring-1 ring-black/10 shrink-0">
-                                            <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.75rem] max-h-[1.75rem] object-contain">
-                                        </div>
-                                    @else
-                                        <div class="flex items-center justify-center w-9 h-9 rounded-lg ring-1 ring-white/20 shrink-0" style="background-color: {{ $workspaceAccentBg }}; color: #ffffff;">
-                                            <i class="fas fa-building text-sm"></i>
-                                        </div>
-                                    @endif
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-[13px] font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
-                                        <p class="text-[11px] text-white/80 leading-none truncate">{{ $activeContractLabel }}</p>
-                                    </div>
+                                <div class="min-w-0 hidden lg:block">
+                                    <p class="text-[11px] font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
+                                    <p class="text-[9px] text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
                                 </div>
                             </a>
                         @endif
 
                         {{-- Campana de alertas --}}
                         <a href="{{ route('operational-alerts.index') }}"
-                           class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 transition"
+                           class="relative flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 transition"
                            title="Alertas operativas"
                            id="navAlertBell">
-                            <i class="fas fa-bell text-sm text-white/90"></i>
-                            <span id="navAlertBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-white text-red-600 text-[10px] font-bold border-2 border-red-600">
+                            <i class="fas fa-bell text-xs text-white/90"></i>
+                            <span id="navAlertBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-1">
                             </span>
                         </a>
 
-                        <div
-                            class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
-                            <i class="fas fa-user-circle text-sm sm:text-base"></i>
-                            <span
-                                class="hidden sm:inline text-sm lg:text-base truncate max-w-[80px] lg:max-w-[120px]">{{ Auth::user()->name }}</span>
+                        {{-- Usuario --}}
+                        <div class="flex items-center gap-1.5 bg-red-700/80 pl-2 pr-1 py-1 rounded-lg">
+                            <i class="fas fa-user-circle text-xs text-white/80"></i>
+                            <span class="text-xs font-medium text-white truncate max-w-[100px] hidden sm:inline">{{ Auth::user()->name }}</span>
+                            <form method="POST" action="{{ route('logout') }}" class="inline">
+                                @csrf
+                                <button type="submit"
+                                    class="ml-1 w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 transition text-white/80 hover:text-white"
+                                    title="Cerrar sesión">
+                                    <i class="fas fa-sign-out-alt text-[10px]"></i>
+                                </button>
+                            </form>
                         </div>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit"
-                                class="hover:bg-red-700 px-2 sm:px-3 py-1 sm:py-2 rounded transition-all duration-300 hover:scale-105 text-sm md:text-base"
-                                title="Cerrar sesión">
-                                <i class="fas fa-sign-out-alt"></i>
-                                <span class="hidden lg:inline ml-1">Salir</span>
-                            </button>
-                        </form>
 
                         <!-- Botón menú móvil -->
                         <button type="button"
