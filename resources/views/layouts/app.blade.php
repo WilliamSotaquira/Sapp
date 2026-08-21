@@ -36,10 +36,11 @@
         .primary-nav-link {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.35rem;
             font-weight: 500;
+            font-size: 0.82rem;
             border-radius: 0.75rem;
-            padding: 0.5rem 0.9rem;
+            padding: 0.45rem 0.7rem;
             white-space: nowrap;
             transition: background-color 0.2s ease, transform 0.2s ease;
         }
@@ -355,21 +356,19 @@
                 'key' => 'projects',
                 'label' => 'Proyectos',
                 'icon' => 'fas fa-project-diagram',
-                'type' => 'link',
-                'route' => 'projects.index',
-                'match' => ['projects.*'],
-            ],
-            [
-                'key' => 'alerts',
-                'label' => 'Alertas',
-                'icon' => 'fas fa-bell',
                 'type' => 'dropdown',
-                'match' => ['operational-alerts.*', 'performance-metrics.*'],
+                'match' => ['projects.*', 'operational-alerts.*', 'performance-metrics.*'],
                 'links' => [
+                    [
+                        'route' => 'projects.index',
+                        'label' => 'Proyectos',
+                        'icon' => 'fas fa-project-diagram',
+                        'match' => ['projects.*'],
+                    ],
                     [
                         'route' => 'operational-alerts.index',
                         'label' => 'Alertas Operativas',
-                        'icon' => 'fas fa-exclamation-triangle',
+                        'icon' => 'fas fa-bell',
                         'match' => ['operational-alerts.*'],
                     ],
                     [
@@ -586,7 +585,7 @@
     <!-- Navigation -->
     <nav class="bg-red-600 text-white shadow-lg border-b-4" id="mainNavigation"
         style="border-bottom-color: {{ $workspaceAccent }};">
-        <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
+        <div class="w-full px-2 sm:px-4 lg:px-6">
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
@@ -607,7 +606,7 @@
 
                     @auth
                         <!-- Menú para desktop -->
-                        <div class="hidden lg:flex items-center space-x-1 xl:space-x-2">
+                        <div class="hidden lg:flex items-center space-x-0.5 xl:space-x-1">
                             @foreach ($navSections as $section)
                                 @php
                                     $sectionActive = $isSectionActive($section['match'] ?? []);
