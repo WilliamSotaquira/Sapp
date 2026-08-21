@@ -1173,8 +1173,13 @@ class ServiceRequestPlainTextImportService
         $familyId = null;
         $slaId = null;
         if ($subServiceName !== '') {
+            $activeContractId = (int) (\App\Models\Company::find((int) session('current_company_id'))?->active_contract_id ?? 0);
+
             $subService = SubService::query()
                 ->where('is_active', true)
+                ->whereHas('service.family', function ($q) use ($activeContractId) {
+                    $q->where('contract_id', $activeContractId)->where('is_active', true);
+                })
                 ->where(function ($q) use ($subServiceName) {
                     $lower = mb_strtolower($subServiceName);
                     $q->whereRaw('LOWER(name) = ?', [$lower])
