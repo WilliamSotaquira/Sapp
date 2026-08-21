@@ -350,12 +350,6 @@
         ])
     @endif
     @if ($currentStatus === 'RESUELTA' || $currentStatus === 'CERRADA')
-        @include('components.service-requests.show.header.reopen-modal', [
-            'serviceRequest' => $serviceRequest,
-        ])
-        {{-- ✅ AGREGAR CLOSE-MODAL --}}
-        @include('components.service-requests.show.header.close-modal', [
-            'serviceRequest' => $serviceRequest,
-        ])
+        {{-- Modal se renderiza al final de show.blade.php para evitar problemas de posicionamiento --}}
     @endif
 @endif
