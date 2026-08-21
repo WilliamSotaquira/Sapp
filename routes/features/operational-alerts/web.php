@@ -22,6 +22,8 @@ Route::prefix('operational-alerts')->name('operational-alerts.')->middleware(['a
 
     // Recordatorios
     Route::post('/reminder', [OperationalAlertController::class, 'createReminder'])->name('reminder.store');
+    Route::get('/reminders', [OperationalAlertController::class, 'reminders'])->name('reminders');
+    Route::delete('/reminder/{alert}', [OperationalAlertController::class, 'destroyReminder'])->name('reminder.destroy');
 
     // API para badge de navegación
     Route::get('/api/unread-count', [OperationalAlertController::class, 'unreadCount'])->name('api.unread-count');

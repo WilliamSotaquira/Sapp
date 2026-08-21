@@ -193,6 +193,16 @@ class OperationalAlert extends Model
         return $query->where('alert_at', '>=', now()->subDays($days));
     }
 
+    public function scopeReminders($query)
+    {
+        return $query->where('alert_type', self::TYPE_REMINDER);
+    }
+
+    public function scopeScheduledFuture($query)
+    {
+        return $query->where('alert_at', '>', now())->where('is_resolved', false)->where('is_dismissed', false);
+    }
+
     // ==================== MÉTODOS ====================
 
     /**
