@@ -35,30 +35,30 @@
     @endif
 
     {{-- Resumen rápido --}}
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-            <div class="text-2xl font-bold text-gray-900">{{ $summary['total'] }}</div>
-            <div class="text-xs text-gray-500">Total activas</div>
+    <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+        <div class="bg-red-600 rounded-lg p-3 text-center text-white">
+            <div class="text-2xl font-bold">{{ $summary['total'] }}</div>
+            <div class="text-xs text-red-100">Total activas</div>
         </div>
-        <div class="bg-red-50 rounded-lg border border-red-200 p-3 text-center">
-            <div class="text-2xl font-bold text-red-700">{{ $summary['by_severity']['critica'] }}</div>
-            <div class="text-xs text-red-600">Críticas</div>
+        <div class="bg-red-700 rounded-lg p-3 text-center text-white">
+            <div class="text-2xl font-bold">{{ $summary['by_severity']['critica'] }}</div>
+            <div class="text-xs text-red-200">Críticas</div>
         </div>
-        <div class="bg-red-50/50 rounded-lg border border-red-100 p-3 text-center">
-            <div class="text-2xl font-bold text-red-600">{{ $summary['by_severity']['alta'] }}</div>
-            <div class="text-xs text-red-500">Altas</div>
+        <div class="bg-red-500 rounded-lg p-3 text-center text-white">
+            <div class="text-2xl font-bold">{{ $summary['by_severity']['alta'] }}</div>
+            <div class="text-xs text-red-100">Altas</div>
         </div>
-        <div class="bg-gray-100 rounded-lg border border-gray-200 p-3 text-center">
-            <div class="text-2xl font-bold text-gray-700">{{ $summary['by_severity']['media'] }}</div>
+        <div class="bg-white rounded-lg border-2 border-gray-300 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-800">{{ $summary['by_severity']['media'] }}</div>
             <div class="text-xs text-gray-500">Medias</div>
         </div>
-        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 text-center">
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
             <div class="text-2xl font-bold text-gray-500">{{ $summary['by_severity']['baja'] }}</div>
             <div class="text-xs text-gray-400">Bajas</div>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-            <div class="text-2xl font-bold text-gray-900">{{ $summary['unread'] }}</div>
-            <div class="text-xs text-gray-500">Sin leer</div>
+        <div class="bg-gray-900 rounded-lg p-3 text-center text-white">
+            <div class="text-2xl font-bold">{{ $summary['unread'] }}</div>
+            <div class="text-xs text-gray-300">Sin leer</div>
         </div>
     </div>
 
@@ -99,7 +99,7 @@
                 </select>
             </div>
 
-            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
+            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition">
                 <i class="fas fa-filter" aria-hidden="true"></i> Filtrar
             </button>
 
@@ -115,9 +115,9 @@
             @php
                 $severityStyles = [
                     'critica' => ['border' => 'border-l-red-600', 'bg' => 'bg-red-50', 'icon_bg' => 'bg-red-600', 'icon_text' => 'text-white', 'label' => 'bg-red-600 text-white'],
-                    'alta' => ['border' => 'border-l-red-400', 'bg' => 'bg-red-50/50', 'icon_bg' => 'bg-red-100', 'icon_text' => 'text-red-600', 'label' => 'bg-red-100 text-red-700'],
-                    'media' => ['border' => 'border-l-gray-500', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-200', 'icon_text' => 'text-gray-600', 'label' => 'bg-gray-200 text-gray-700'],
-                    'baja' => ['border' => 'border-l-gray-300', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-100', 'icon_text' => 'text-gray-400', 'label' => 'bg-gray-100 text-gray-500'],
+                    'alta' => ['border' => 'border-l-red-400', 'bg' => 'bg-white', 'icon_bg' => 'bg-red-500', 'icon_text' => 'text-white', 'label' => 'bg-red-100 text-red-700'],
+                    'media' => ['border' => 'border-l-gray-800', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-700', 'icon_text' => 'text-white', 'label' => 'bg-gray-700 text-white'],
+                    'baja' => ['border' => 'border-l-gray-300', 'bg' => 'bg-white', 'icon_bg' => 'bg-gray-200', 'icon_text' => 'text-gray-500', 'label' => 'bg-gray-200 text-gray-600'],
                 ];
                 $style = $severityStyles[$alert->severity] ?? $severityStyles['baja'];
                 $typeInfo = $alert->alert_type_info;
