@@ -48,6 +48,9 @@
             ['label' => 'Cerrar Solicitud', 'icon' => 'fa-lock', 'modal' => 'close-modal-'.$serviceRequest->id],
             ['label' => 'Reabrir', 'icon' => 'fa-undo', 'modal' => 'reopen-modal-'.$serviceRequest->id],
         ],
+        'CERRADA' => [
+            ['label' => 'Reabrir Solicitud', 'icon' => 'fa-undo', 'modal' => 'reopen-modal-'.$serviceRequest->id],
+        ],
         default => [],
     };
 
