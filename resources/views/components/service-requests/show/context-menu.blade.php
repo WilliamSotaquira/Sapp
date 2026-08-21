@@ -183,6 +183,22 @@
     {{-- Quick actions --}}
     <div class="sr-ctx__group">
         <div class="sr-ctx__group-label">Rápido</div>
+        @php
+            $ctxProject = $serviceRequest->project;
+            $ctxAvailableProjects = \App\Models\Project::where('company_id', (int) session('current_company_id'))
+                ->active()->orderBy('name')->get(['id', 'name']);
+        @endphp
+        @if($ctxProject)
+            <a href="{{ route('projects.show', $ctxProject) }}" class="sr-ctx__item" role="menuitem">
+                <i class="fas fa-project-diagram sr-ctx__icon" aria-hidden="true"></i>
+                Proyecto: {{ Str::limit($ctxProject->name, 25) }}
+            </a>
+        @elseif($ctxAvailableProjects->isNotEmpty())
+            <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-modal="link-project-modal-{{ $serviceRequest->id }}">
+                <i class="fas fa-project-diagram sr-ctx__icon" aria-hidden="true"></i>
+                Asociar a proyecto
+            </button>
+        @endif
         <a href="{{ route('service-requests.create') }}" class="sr-ctx__item" role="menuitem">
             <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
             Crear nueva solicitud

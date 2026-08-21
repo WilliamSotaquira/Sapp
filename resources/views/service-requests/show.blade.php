@@ -255,6 +255,52 @@
         @include('components.service-requests.show.header.close-modal', ['serviceRequest' => $serviceRequest])
     @endif
 
+    <!-- Modal de asociar a proyecto -->
+    @if(!$serviceRequest->project_id)
+        @php
+            $modalProjects = \App\Models\Project::where('company_id', (int) session('current_company_id'))
+                ->active()->orderBy('name')->get(['id', 'name', 'code']);
+        @endphp
+        @if($modalProjects->isNotEmpty())
+        <div id="link-project-modal-{{ $serviceRequest->id }}"
+             class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+             role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+            <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-base font-semibold text-gray-900">Asociar a proyecto</h3>
+                    <button type="button" onclick="closeModal('link-project-modal-{{ $serviceRequest->id }}')"
+                            class="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form method="POST" id="linkProjectModalForm">
+                    @csrf
+                    <input type="hidden" name="service_request_id" value="{{ $serviceRequest->id }}">
+                    <div class="mb-4">
+                        <select name="project_id" id="modalProjectSelector" required
+                                class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-200 focus:border-red-400">
+                            <option value="">Seleccionar proyecto...</option>
+                            @foreach($modalProjects as $p)
+                                <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->code }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <a href="{{ route('projects.create') }}" class="text-xs text-gray-500 hover:text-red-600">
+                            <i class="fas fa-plus mr-1"></i>Crear proyecto
+                        </a>
+                        <button type="submit"
+                                onclick="var sel = document.getElementById('modalProjectSelector'); if(sel.value) { this.closest('form').action = '/projects/' + sel.value + '/link-request'; return true; } return false;"
+                                class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition">
+                            Vincular
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        @endif
+    @endif
+
     <!-- Modal de vista previa para evidencias -->
     <x-service-requests.show.evidences.evidence-preview />
 @endsection
