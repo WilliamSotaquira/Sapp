@@ -682,6 +682,16 @@
                             </a>
                         @endif
 
+                        {{-- Campana de alertas --}}
+                        <a href="{{ route('operational-alerts.index') }}"
+                           class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 transition"
+                           title="Alertas operativas"
+                           id="navAlertBell">
+                            <i class="fas fa-bell text-sm text-white/90"></i>
+                            <span id="navAlertBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-white text-red-600 text-[10px] font-bold border-2 border-red-600">
+                            </span>
+                        </a>
+
                         <div
                             class="flex items-center space-x-1 sm:space-x-2 bg-red-700 px-2 sm:px-3 py-1 rounded-full transition-all duration-300 hover:bg-red-800 hover:scale-105">
                             <i class="fas fa-user-circle text-sm sm:text-base"></i>
@@ -1100,6 +1110,35 @@
 
     @yield('scripts')
     @stack('scripts')
+
+    {{-- Alert badge updater --}}
+    <script>
+    (function() {
+        var badge = document.getElementById('navAlertBadge');
+        if (!badge) return;
+
+        function updateAlertBadge() {
+            fetch('{{ route("operational-alerts.api.unread-count") }}', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.unread > 0) {
+                    badge.textContent = data.unread > 99 ? '99+' : data.unread;
+                    badge.classList.remove('hidden');
+                    badge.classList.add('flex');
+                } else {
+                    badge.classList.add('hidden');
+                    badge.classList.remove('flex');
+                }
+            })
+            .catch(function() {});
+        }
+
+        updateAlertBadge();
+        setInterval(updateAlertBadge, 60000); // Actualizar cada minuto
+    })();
+    </script>
 
     <script src="//unpkg.com/alpinejs" defer></script>
 </body>
