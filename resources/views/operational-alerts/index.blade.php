@@ -4,15 +4,9 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-    {{-- Encabezado --}}
+    {{-- Acciones --}}
     <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <i class="fas fa-bell text-indigo-600" aria-hidden="true"></i>
-                Alertas Operativas
-            </h1>
-            <p class="text-sm text-gray-600 mt-1">Monitoreo de solicitudes y tareas que requieren atención</p>
-        </div>
+        <p class="text-sm text-gray-600">Monitoreo de solicitudes y tareas que requieren atención</p>
         <div class="flex items-center gap-2">
             <form action="{{ route('operational-alerts.mark-all-read') }}" method="POST" class="inline">
                 @csrf
@@ -50,21 +44,21 @@
             <div class="text-2xl font-bold text-red-700">{{ $summary['by_severity']['critica'] }}</div>
             <div class="text-xs text-red-600">Críticas</div>
         </div>
-        <div class="bg-orange-50 rounded-lg border border-orange-200 p-3 text-center">
-            <div class="text-2xl font-bold text-orange-700">{{ $summary['by_severity']['alta'] }}</div>
-            <div class="text-xs text-orange-600">Altas</div>
+        <div class="bg-red-50/50 rounded-lg border border-red-100 p-3 text-center">
+            <div class="text-2xl font-bold text-red-600">{{ $summary['by_severity']['alta'] }}</div>
+            <div class="text-xs text-red-500">Altas</div>
         </div>
-        <div class="bg-yellow-50 rounded-lg border border-yellow-200 p-3 text-center">
-            <div class="text-2xl font-bold text-yellow-700">{{ $summary['by_severity']['media'] }}</div>
-            <div class="text-xs text-yellow-600">Medias</div>
+        <div class="bg-gray-100 rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-700">{{ $summary['by_severity']['media'] }}</div>
+            <div class="text-xs text-gray-500">Medias</div>
         </div>
-        <div class="bg-blue-50 rounded-lg border border-blue-200 p-3 text-center">
-            <div class="text-2xl font-bold text-blue-700">{{ $summary['by_severity']['baja'] }}</div>
-            <div class="text-xs text-blue-600">Bajas</div>
+        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-500">{{ $summary['by_severity']['baja'] }}</div>
+            <div class="text-xs text-gray-400">Bajas</div>
         </div>
-        <div class="bg-indigo-50 rounded-lg border border-indigo-200 p-3 text-center">
-            <div class="text-2xl font-bold text-indigo-700">{{ $summary['unread'] }}</div>
-            <div class="text-xs text-indigo-600">Sin leer</div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+            <div class="text-2xl font-bold text-gray-900">{{ $summary['unread'] }}</div>
+            <div class="text-xs text-gray-500">Sin leer</div>
         </div>
     </div>
 
@@ -120,21 +114,22 @@
         @forelse($alerts as $alert)
             @php
                 $severityColors = [
-                    'critica' => 'border-l-red-500 bg-red-50/50',
-                    'alta' => 'border-l-orange-500 bg-orange-50/30',
-                    'media' => 'border-l-yellow-500 bg-yellow-50/20',
-                    'baja' => 'border-l-blue-500 bg-blue-50/20',
+                    'critica' => 'border-l-red-600 bg-red-50/30',
+                    'alta' => 'border-l-red-400 bg-red-50/20',
+                    'media' => 'border-l-gray-400 bg-gray-50/30',
+                    'baja' => 'border-l-gray-300 bg-white',
                 ];
                 $borderClass = $severityColors[$alert->severity] ?? 'border-l-gray-300';
                 $typeInfo = $alert->alert_type_info;
             @endphp
 
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 border-l-4 {{ $borderClass }} p-4 {{ !$alert->is_read ? 'ring-1 ring-indigo-100' : '' }} transition hover:shadow-md"
-                 id="alert-{{ $alert->id }}">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 border-l-4 {{ $borderClass }} p-4 {{ !$alert->is_read ? 'ring-1 ring-gray-200' : '' }} transition hover:shadow-md cursor-pointer"
+                 id="alert-{{ $alert->id }}"
+                 onclick="if(!event.target.closest('form') && !event.target.closest('button')) { @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class) window.location='{{ route('service-requests.show', $alert->alertable_id) }}' @endif }">
                 <div class="flex items-start gap-3">
                     {{-- Icono --}}
-                    <div class="flex-shrink-0 w-9 h-9 rounded-full bg-{{ $typeInfo['color'] }}-100 flex items-center justify-center">
-                        <i class="fas {{ $typeInfo['icon'] }} text-{{ $typeInfo['color'] }}-600 text-sm" aria-hidden="true"></i>
+                    <div class="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                        <i class="fas {{ $typeInfo['icon'] }} text-gray-600 text-sm" aria-hidden="true"></i>
                     </div>
 
                     {{-- Contenido --}}
@@ -144,7 +139,7 @@
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-semibold text-gray-900">{{ $alert->title }}</span>
                                     @if(!$alert->is_read)
-                                        <span class="inline-block w-2 h-2 rounded-full bg-indigo-500" title="Sin leer"></span>
+                                        <span class="inline-block w-2 h-2 rounded-full bg-red-500" title="Sin leer"></span>
                                     @endif
                                 </div>
                                 <p class="text-xs text-gray-600 mt-0.5">{{ $alert->message }}</p>
@@ -155,17 +150,19 @@
                                         <i class="fas fa-clock mr-1" aria-hidden="true"></i>
                                         {{ $alert->alert_at->format('d/m/Y H:i') }}
                                     </span>
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-{{ $alert->severity_color }}-100 text-{{ $alert->severity_color }}-700">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
+                                        {{ $alert->severity === 'critica' ? 'bg-red-100 text-red-700' : '' }}
+                                        {{ $alert->severity === 'alta' ? 'bg-red-50 text-red-600' : '' }}
+                                        {{ $alert->severity === 'media' ? 'bg-gray-100 text-gray-700' : '' }}
+                                        {{ $alert->severity === 'baja' ? 'bg-gray-50 text-gray-500' : '' }}
+                                    ">
                                         {{ $alert->severity_info['label'] }}
                                     </span>
-                                    @if($alert->alertable)
-                                        @if($alert->alertable_type === \App\Models\ServiceRequest::class)
-                                            <a href="{{ route('service-requests.show', $alert->alertable_id) }}"
-                                               class="text-indigo-600 hover:text-indigo-800 underline">
-                                                <i class="fas fa-external-link-alt mr-0.5" aria-hidden="true"></i>
-                                                Ver solicitud
-                                            </a>
-                                        @endif
+                                    @if($alert->alertable && $alert->alertable_type === \App\Models\ServiceRequest::class)
+                                        <span class="text-red-600">
+                                            <i class="fas fa-external-link-alt mr-0.5" aria-hidden="true"></i>
+                                            Ver solicitud
+                                        </span>
                                     @endif
                                 </div>
                             </div>
