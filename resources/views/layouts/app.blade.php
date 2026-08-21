@@ -352,6 +352,35 @@
                 ],
             ],
             [
+                'key' => 'projects',
+                'label' => 'Proyectos',
+                'icon' => 'fas fa-project-diagram',
+                'type' => 'link',
+                'route' => 'projects.index',
+                'match' => ['projects.*'],
+            ],
+            [
+                'key' => 'alerts',
+                'label' => 'Alertas',
+                'icon' => 'fas fa-bell',
+                'type' => 'dropdown',
+                'match' => ['operational-alerts.*', 'performance-metrics.*'],
+                'links' => [
+                    [
+                        'route' => 'operational-alerts.index',
+                        'label' => 'Alertas Operativas',
+                        'icon' => 'fas fa-exclamation-triangle',
+                        'match' => ['operational-alerts.*'],
+                    ],
+                    [
+                        'route' => 'performance-metrics.index',
+                        'label' => 'Indicadores',
+                        'icon' => 'fas fa-chart-line',
+                        'match' => ['performance-metrics.*'],
+                    ],
+                ],
+            ],
+            [
                 'key' => 'reports',
                 'label' => 'Reportes',
                 'icon' => 'fas fa-chart-bar',
