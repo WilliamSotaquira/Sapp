@@ -20,6 +20,9 @@ Route::prefix('operational-alerts')->name('operational-alerts.')->middleware(['a
     // Acciones masivas
     Route::post('/mark-all-read', [OperationalAlertController::class, 'markAllAsRead'])->name('mark-all-read');
 
+    // Recordatorios
+    Route::post('/reminder', [OperationalAlertController::class, 'createReminder'])->name('reminder.store');
+
     // API para badge de navegación
     Route::get('/api/unread-count', [OperationalAlertController::class, 'unreadCount'])->name('api.unread-count');
     Route::get('/api/recent', [OperationalAlertController::class, 'recent'])->name('api.recent');
