@@ -130,4 +130,43 @@ class OperationalAlertController extends Controller
             'critical' => $critical,
         ]);
     }
+
+    /**
+     * API: obtener las 5 alertas más recientes sin leer (para dropdown de campana).
+     */
+    public function recent()
+    {
+        $alerts = OperationalAlert::active()
+            ->unread()
+            ->with('alertable')
+            ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
+            ->orderBy('alert_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        $items = $alerts->map(function ($alert) {
+            $severityColors = [
+                'critica' => 'border-l-red-600',
+                'alta' => 'border-l-orange-500',
+                'media' => 'border-l-yellow-500',
+                'baja' => 'border-l-blue-400',
+            ];
+            $url = null;
+            if ($alert->alertable_type === \App\Models\ServiceRequest::class) {
+                $url = route('service-requests.show', $alert->alertable_id);
+            }
+
+            return [
+                'id' => $alert->id,
+                'title' => $alert->title,
+                'message' => \Illuminate\Support\Str::limit($alert->message, 80),
+                'severity' => $alert->severity,
+                'border_class' => $severityColors[$alert->severity] ?? 'border-l-gray-300',
+                'time' => $alert->alert_at->diffForHumans(short: true),
+                'url' => $url,
+            ];
+        });
+
+        return response()->json(['alerts' => $items]);
+    }
 }
