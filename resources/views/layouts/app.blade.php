@@ -36,22 +36,22 @@
         .primary-nav-link {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.5rem;
             font-weight: 500;
-            font-size: 0.8125rem;
+            font-size: 0.9375rem;
             border-radius: 0.5rem;
-            padding: 0.45rem 0.7rem;
+            padding: 0.55rem 0.9rem;
             white-space: nowrap;
-            min-height: 2rem;
+            min-height: 2.25rem;
             transition: background-color 0.2s ease;
         }
 
         .primary-nav-link i,
         .dropdown-menu a i,
         .mobile-nav-link i {
-            width: 1rem;
+            width: 1.125rem;
             text-align: center;
-            font-size: 0.75rem;
+            font-size: 0.875rem;
         }
 
         .primary-nav-link:hover {
@@ -140,10 +140,10 @@
             display: flex;
             align-items: flex-start;
             gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            font-size: 0.8125rem;
+            padding: 0.6rem 1rem;
+            font-size: 0.9375rem;
             font-weight: 500;
-            min-height: 2rem;
+            min-height: 2.25rem;
             transition: background-color 0.2s ease;
             white-space: normal;
             line-height: 1.3;
@@ -639,23 +639,23 @@
 
                         {{-- Campana de alertas --}}
                         <a href="{{ route('operational-alerts.index') }}"
-                           class="relative flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 transition"
+                           class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 transition"
                            title="Alertas operativas"
                            id="navAlertBell">
-                            <i class="fas fa-bell text-sm text-white/90"></i>
+                            <i class="fas fa-bell text-base text-white/90"></i>
                             <span id="navAlertBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-0.5">
                             </span>
                         </a>
 
                         {{-- Usuario --}}
-                        <div class="flex items-center gap-1.5 bg-red-700/80 pl-2.5 pr-1 py-1 rounded-lg">
-                            <span class="text-xs font-medium text-white truncate max-w-[110px] hidden sm:inline">{{ Auth::user()->name }}</span>
+                        <div class="flex items-center gap-2 bg-red-700/80 pl-3 pr-1.5 py-1.5 rounded-lg">
+                            <span class="text-sm font-medium text-white truncate max-w-[130px] hidden sm:inline">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('logout') }}" class="inline">
                                 @csrf
                                 <button type="submit"
-                                    class="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 transition text-white/80 hover:text-white"
+                                    class="w-7 h-7 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 transition text-white/80 hover:text-white"
                                     title="Cerrar sesión">
-                                    <i class="fas fa-sign-out-alt text-[10px]"></i>
+                                    <i class="fas fa-sign-out-alt text-xs"></i>
                                 </button>
                             </form>
                         </div>
