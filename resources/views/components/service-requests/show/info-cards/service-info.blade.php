@@ -149,6 +149,25 @@
                     </dd>
                 </div>
             </div>
+
+            {{-- Proyecto asociado --}}
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                @php
+                    $linkedProject = $serviceRequest->project;
+                @endphp
+                <dt class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proyecto</dt>
+                <dd class="mt-1">
+                    @if($linkedProject)
+                        <a href="{{ route('projects.show', $linkedProject) }}"
+                           class="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-900 transition">
+                            <i class="fas fa-project-diagram text-xs"></i>
+                            {{ $linkedProject->name }}
+                        </a>
+                    @else
+                        <p class="text-sm text-gray-400">Sin proyecto asociado</p>
+                    @endif
+                </dd>
+            </div>
         </dl>
     </div>
 </div>
