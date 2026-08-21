@@ -137,6 +137,16 @@
         ],
         'CERRADA' => [
             [
+                'action' => 'reopen',
+                'route' => 'reopen-modal',
+                'icon' => 'undo',
+                'method' => 'MODAL',
+                'label' => 'Reabrir Solicitud',
+                'condition' => true,
+                'appearance' => 'soft',
+                'modal_id' => 'reopen-modal-' . $serviceRequest->id,
+            ],
+            [
                 'action' => 'create-service',
                 'route' => 'service-requests.create',
                 'icon' => 'plus-circle',
@@ -339,7 +349,7 @@
             'serviceRequest' => $serviceRequest,
         ])
     @endif
-    @if ($currentStatus === 'RESUELTA')
+    @if ($currentStatus === 'RESUELTA' || $currentStatus === 'CERRADA')
         @include('components.service-requests.show.header.reopen-modal', [
             'serviceRequest' => $serviceRequest,
         ])
