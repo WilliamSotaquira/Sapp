@@ -13,7 +13,27 @@ class OperationalAlertController extends Controller
      */
     public function index(Request $request)
     {
+        $companyId = (int) session('current_company_id');
+
         $query = OperationalAlert::with('alertable')
+            ->where(function ($q) use ($companyId) {
+                $q->where(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\ServiceRequest::class)
+                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], function ($srQ) use ($companyId) {
+                            $srQ->withoutGlobalScopes()->where('company_id', $companyId);
+                        });
+                })->orWhere(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\Task::class)
+                        ->whereHasMorph('alertable', [\App\Models\Task::class], function ($taskQ) use ($companyId) {
+                            $taskQ->whereHas('serviceRequest', function ($srQ) use ($companyId) {
+                                $srQ->withoutGlobalScopes()->where('company_id', $companyId);
+                            });
+                        });
+                })->orWhere(function ($sub) {
+                    // Recordatorios generales (vinculados a User, no a SR)
+                    $sub->where('alertable_type', \App\Models\User::class);
+                });
+            })
             ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
             ->orderBy('alert_at', 'desc');
 
@@ -122,8 +142,21 @@ class OperationalAlertController extends Controller
      */
     public function unreadCount()
     {
-        $count = OperationalAlert::active()->unread()->count();
-        $critical = OperationalAlert::active()->critical()->count();
+        $companyId = (int) session('current_company_id');
+
+        $baseQuery = OperationalAlert::active()->unread()
+            ->where(function ($q) use ($companyId) {
+                $q->where(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\ServiceRequest::class)
+                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
+                })->orWhere(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\Task::class)
+                        ->whereHasMorph('alertable', [\App\Models\Task::class], fn ($t) => $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId)));
+                })->orWhere('alertable_type', \App\Models\User::class);
+            });
+
+        $count = (clone $baseQuery)->count();
+        $critical = (clone $baseQuery)->critical()->count();
 
         return response()->json([
             'unread' => $count,
@@ -136,9 +169,20 @@ class OperationalAlertController extends Controller
      */
     public function recent()
     {
+        $companyId = (int) session('current_company_id');
+
         $alerts = OperationalAlert::active()
             ->unread()
             ->with('alertable')
+            ->where(function ($q) use ($companyId) {
+                $q->where(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\ServiceRequest::class)
+                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
+                })->orWhere(function ($sub) use ($companyId) {
+                    $sub->where('alertable_type', \App\Models\Task::class)
+                        ->whereHasMorph('alertable', [\App\Models\Task::class], fn ($t) => $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId)));
+                })->orWhere('alertable_type', \App\Models\User::class);
+            })
             ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
             ->orderBy('alert_at', 'desc')
             ->limit(5)
