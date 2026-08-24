@@ -764,8 +764,21 @@
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
         <!-- Flash Messages (toast flotante para evitar salto de layout) -->
-        @if (!($__env->hasSection('disableGlobalFlash')) && (session('success') || session('error')))
+        @if (!($__env->hasSection('disableGlobalFlash')) && (session('success') || session('error') || session('info')))
             <div class="fixed top-20 right-4 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md space-y-2">
+                @if (session('info'))
+                    <div class="alert-flash flex items-start gap-3 bg-blue-100 border border-blue-400 text-blue-800 px-3 sm:px-4 py-2 sm:py-3 rounded shadow-lg text-sm sm:text-base"
+                        role="status" aria-live="polite">
+                        <div class="flex-1">
+                            <i class="fas fa-exchange-alt mr-1"></i> {{ session('info') }}
+                        </div>
+                        <button type="button" class="text-blue-800/70 hover:text-blue-900" aria-label="Cerrar"
+                            data-flash-close>
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                @endif
+
                 @if (session('success'))
                     <div class="alert-flash flex items-start gap-3 bg-green-100 border border-green-400 text-green-800 px-3 sm:px-4 py-2 sm:py-3 rounded shadow-lg text-sm sm:text-base"
                         role="status" aria-live="polite">
