@@ -138,6 +138,52 @@ class ServiceRequest extends Model
     }
 
     /**
+     * Resolve the route model binding, with auto-switch de workspace.
+     *
+     * Si la solicitud no pertenece al workspace actual pero el usuario
+     * tiene acceso a la empresa dueña, se cambia automáticamente el workspace en sesión.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $field = $field ?? $this->getRouteKeyName();
+
+        // 1. Intentar resolver normalmente (con el scope de workspace actual)
+        $model = $this->newQuery()->where($field, $value)->first();
+
+        if ($model) {
+            return $model;
+        }
+
+        // 2. Buscar sin el scope de workspace
+        $model = $this->newQueryWithoutScope('workspace')->where($field, $value)->first();
+
+        if (!$model) {
+            abort(404);
+        }
+
+        // 3. Verificar que el usuario autenticado tenga acceso a la empresa de la solicitud
+        $user = auth()->user();
+
+        if (!$user) {
+            abort(404);
+        }
+
+        $hasAccess = $user->companies()->where('companies.id', $model->company_id)->exists();
+
+        if (!$hasAccess) {
+            abort(403, 'No tienes acceso a esta solicitud de servicio.');
+        }
+
+        // 4. Auto-switch: cambiar el workspace en sesión
+        session(['current_company_id' => $model->company_id]);
+
+        $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');
+        session()->flash('info', "Se cambió automáticamente al entorno «{$companyName}» para mostrar esta solicitud.");
+
+        return $model;
+    }
+
+    /**
      * Boot del modelo
      */
     protected static function boot()

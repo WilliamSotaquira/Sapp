@@ -638,9 +638,9 @@
         if (!toastEl) return;
         toastEl.textContent = message || '';
         toastEl.className = 'fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ' +
-            ((type === 'error') ? 'bg-red-600' : 'bg-green-600');
+            ((type === 'error') ? 'bg-red-600' : (type === 'info') ? 'bg-blue-600' : 'bg-green-600');
         toastEl.classList.remove('hidden');
-        setTimeout(function(){ toastEl.classList.add('hidden'); }, 3000);
+        setTimeout(function(){ toastEl.classList.add('hidden'); }, 5000);
     }
 
     var backToTopButton = document.getElementById('backToTopButton');
@@ -675,6 +675,11 @@
     }
 
     var currentUrl = new URL(window.location.href);
+    var initialInfoMessage = @json(session('info'));
+    if (initialInfoMessage) {
+        announce(initialInfoMessage);
+        toast(initialInfoMessage, 'info');
+    }
     var initialSuccessMessage = @json(session('success'));
     if (initialSuccessMessage) {
         announce(initialSuccessMessage);
