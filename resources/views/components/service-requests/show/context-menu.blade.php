@@ -55,14 +55,6 @@
     };
 
     // Navigation sections
-    $navSections = [
-        ['id' => 'sr-section-description', 'label' => 'Descripción', 'icon' => 'fa-align-left'],
-        ['id' => 'sr-section-service-info', 'label' => 'Servicio', 'icon' => 'fa-concierge-bell'],
-        ['id' => 'sr-section-timelines', 'label' => 'Tiempos', 'icon' => 'fa-clock'],
-        ['id' => 'sr-section-evidences', 'label' => 'Evidencias', 'icon' => 'fa-images'],
-        ['id' => 'sr-section-tasks', 'label' => 'Tareas', 'icon' => 'fa-tasks'],
-        ['id' => 'sr-section-actions', 'label' => 'Acciones', 'icon' => 'fa-cog'],
-    ];
 @endphp
 
 <!-- Context Menu -->
@@ -144,12 +136,12 @@
         </div>
     @endif
 
-    {{-- Other workflow actions --}}
-    @if (!$isDeadState && count($workflowActions) > ($allRequirementsMet ? 1 : 0))
+    {{-- Other workflow actions (skip the first one since it's already in "Siguiente paso") --}}
+    @if (!$isDeadState && count($workflowActions) > 1)
         <div class="sr-ctx__group">
             <div class="sr-ctx__group-label">Acciones</div>
             @foreach ($workflowActions as $index => $action)
-                @if ($allRequirementsMet && $index === 0) @continue @endif
+                @if ($index === 0) @continue @endif
                 {{-- Skip "Resolver Solicitud" when it's handled dynamically in next-step --}}
                 @if ($status === 'EN_PROCESO' && $hasEvidence && $index === 0) @continue @endif
                 @if (isset($action['modal']))
@@ -168,21 +160,46 @@
         </div>
     @endif
 
-    {{-- Navigate section --}}
-    <div class="sr-ctx__group">
-        <div class="sr-ctx__group-label">Ir a</div>
-        @foreach ($navSections as $section)
-            <button type="button" class="sr-ctx__item" role="menuitem"
-                    data-ctx-scroll="{{ $section['id'] }}">
-                <i class="fas {{ $section['icon'] }} sr-ctx__icon" aria-hidden="true"></i>
-                {{ $section['label'] }}
-            </button>
-        @endforeach
-    </div>
-
-    {{-- Quick actions --}}
+    {{-- Acciones rápidas --}}
     <div class="sr-ctx__group">
         <div class="sr-ctx__group-label">Rápido</div>
+        @if(!$isDeadState)
+            @php
+                $unscheduledTask = $serviceRequest->tasks()
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->where(function($q) { $q->whereNull('scheduled_date')->orWhereDate('scheduled_date', '<', today()); })
+                    ->first();
+                $scheduledTodayTask = $serviceRequest->tasks()
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->whereDate('scheduled_date', today())
+                    ->first();
+            @endphp
+            @if($unscheduledTask)
+                <button type="button" class="sr-ctx__item" role="menuitem"
+                        data-ctx-action="schedule-today"
+                        data-schedule-url="{{ route('tasks.schedule-quick', $unscheduledTask) }}"
+                        data-csrf="{{ csrf_token() }}">
+                    <i class="fas fa-calendar-day sr-ctx__icon" aria-hidden="true"></i>
+                    Programar tarea para hoy
+                </button>
+            @elseif($scheduledTodayTask)
+                <button type="button" class="sr-ctx__item" role="menuitem"
+                        data-ctx-action="clear-schedule"
+                        data-schedule-url="{{ route('tasks.clear-schedule', $scheduledTodayTask) }}"
+                        data-csrf="{{ csrf_token() }}">
+                    <i class="fas fa-calendar-xmark sr-ctx__icon" aria-hidden="true"></i>
+                    Desprogramar tarea
+                </button>
+            @endif
+        @endif
+        <a href="{{ route('service-requests.create') }}" class="sr-ctx__item" role="menuitem">
+            <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
+            Nueva solicitud
+        </a>
+        <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-modal="reminder-modal-{{ $serviceRequest->id }}">
+            <i class="fas fa-bell sr-ctx__icon" aria-hidden="true"></i>
+            Crear recordatorio
+        </button>
         @php
             $ctxProject = $serviceRequest->project;
             $ctxAvailableProjects = \App\Models\Project::where('company_id', (int) session('current_company_id'))
@@ -199,18 +216,6 @@
                 Asociar a proyecto
             </button>
         @endif
-        <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-modal="reminder-modal-{{ $serviceRequest->id }}">
-            <i class="fas fa-bell sr-ctx__icon" aria-hidden="true"></i>
-            Crear recordatorio
-        </button>
-        <a href="{{ route('service-requests.create') }}" class="sr-ctx__item" role="menuitem">
-            <i class="fas fa-plus-circle sr-ctx__icon" aria-hidden="true"></i>
-            Crear nueva solicitud
-        </a>
-        <a href="{{ route('service-requests.index') }}" class="sr-ctx__item" role="menuitem">
-            <i class="fas fa-list sr-ctx__icon" aria-hidden="true"></i>
-            Ver todas las solicitudes
-        </a>
         <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-action="copy-ticket">
             <i class="fas fa-copy sr-ctx__icon" aria-hidden="true"></i>
             Copiar ticket
@@ -218,6 +223,19 @@
         <a href="{{ route('service-requests.edit', $serviceRequest) }}" class="sr-ctx__item" role="menuitem">
             <i class="fas fa-edit sr-ctx__icon" aria-hidden="true"></i>
             Editar solicitud
+        </a>
+    </div>
+
+    {{-- Navegación --}}
+    <div class="sr-ctx__group">
+        <div class="sr-ctx__group-label">Ir a</div>
+        <a href="{{ route('service-requests.index') }}" class="sr-ctx__item" role="menuitem">
+            <i class="fas fa-list sr-ctx__icon" aria-hidden="true"></i>
+            Todas las solicitudes
+        </a>
+        <a href="{{ route('my-space.index') }}" class="sr-ctx__item" role="menuitem">
+            <i class="fas fa-house sr-ctx__icon" aria-hidden="true"></i>
+            Inicio
         </a>
         <button type="button" class="sr-ctx__item" role="menuitem" data-ctx-action="scroll-top">
             <i class="fas fa-arrow-up sr-ctx__icon" aria-hidden="true"></i>
@@ -514,6 +532,24 @@
         if (action === 'scroll-top') {
             hide();
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        if (action === 'schedule-today' || action === 'clear-schedule') {
+            hide();
+            var url = item.dataset.scheduleUrl;
+            var csrf = item.dataset.csrf;
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            form.style.display = 'none';
+            var token = document.createElement('input');
+            token.type = 'hidden';
+            token.name = '_token';
+            token.value = csrf;
+            form.appendChild(token);
+            document.body.appendChild(form);
+            form.submit();
             return;
         }
 

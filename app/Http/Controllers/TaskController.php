@@ -992,31 +992,74 @@ class TaskController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user->isAdmin() && optional($task->technician)->user_id !== $user->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes permisos para agendar esta tarea.',
-            ], 403);
+        // Cargar la SR sin global scope para evitar filtro de workspace
+        $serviceRequest = ServiceRequest::withoutGlobalScopes()->find($task->service_request_id);
+
+        // Permisos: admin, técnico de la tarea, asignado a la SR, o tarea/SR sin asignar (cualquiera la puede tomar)
+        $taskHasOwner = !empty($task->technician_id);
+        $srHasOwner = !empty($serviceRequest?->assigned_to);
+
+        if ($taskHasOwner || $srHasOwner) {
+            // Si ya tiene dueño, solo el dueño o admin pueden reprogramar
+            if (!$user->isAdmin()
+                && optional($task->technician)->user_id !== $user->id
+                && optional($serviceRequest)->assigned_to !== $user->id) {
+                if ($request->expectsJson()) {
+                    return response()->json(['success' => false, 'message' => 'No tienes permisos para agendar esta tarea.'], 403);
+                }
+                return back()->with('error', 'No tienes permisos para agendar esta tarea.');
+            }
         }
 
+        // === AUTO-TRANSICIÓN: programar para hoy implica aceptar y tomar la solicitud ===
+        if ($serviceRequest) {
+            // Auto-asignar técnico si no tiene
+            if (empty($serviceRequest->assigned_to)) {
+                $serviceRequest->update(['assigned_to' => $user->id]);
+            }
+
+            // Auto-aceptar si está pendiente
+            if ($serviceRequest->status === 'PENDIENTE') {
+                $serviceRequest->update([
+                    'status' => 'ACEPTADA',
+                    'accepted_at' => now(),
+                ]);
+                $serviceRequest->refresh();
+            }
+
+            // Auto-iniciar si está aceptada
+            if ($serviceRequest->status === 'ACEPTADA') {
+                $serviceRequest->update([
+                    'status' => 'EN_PROCESO',
+                ]);
+            }
+        }
+
+        // Auto-asignar técnico a la tarea si no tiene
         if (empty($task->technician_id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'La tarea no tiene técnico asignado.',
-            ], 422);
+            $technician = \App\Models\Technician::where('user_id', $user->id)->first();
+            if (!$technician) {
+                $technician = \App\Models\Technician::create([
+                    'user_id' => $user->id,
+                    'status' => 'active',
+                    'availability_status' => 'available',
+                ]);
+            }
+            $task->update(['technician_id' => $technician->id]);
+            $task->refresh();
+        }
+
+        $technician = Technician::find($task->technician_id);
+        if (!$technician) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'No se pudo resolver el técnico.'], 422);
+            }
+            return back()->with('error', 'No se pudo resolver el técnico.');
         }
 
         $validated = $request->validate([
             'scheduled_date' => 'nullable|date',
         ]);
-
-        $technician = Technician::find($task->technician_id);
-        if (!$technician) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No se encontró el técnico asignado.',
-            ], 404);
-        }
 
         $nowUi = $this->nowInUiTimezone();
         $minAllowed = $nowUi->copy()->addMinutes(5);
@@ -1080,6 +1123,10 @@ class TaskController extends Controller
         $task->addHistory('rescheduled', $user->id, 'Tarea agendada desde tareas abiertas.');
 
         $this->assignmentService->createScheduleBlock($task);
+
+        if (!$request->expectsJson()) {
+            return back()->with('success', "Tarea \"{$task->title}\" programada para hoy a las {$scheduledAt->format('H:i')}.");
+        }
 
         return response()->json([
             'success' => true,

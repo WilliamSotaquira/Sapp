@@ -36,12 +36,18 @@ Route::middleware('auth')->group(function () {
         ->name('workspaces.switch');
 
     // =========================================================================
-    // DASHBOARD PRINCIPAL
+    // DASHBOARD PRINCIPAL (redirige a Mi Espacio)
     // =========================================================================
 
     Route::get('/dashboard', function () {
-        return view('dashboard');
+        return redirect()->route('my-space.index');
     })->middleware('verified')->name('dashboard');
+
+    // =========================================================================
+    // MI ESPACIO — Centro de Trabajo Personal (cross-workspace)
+    // =========================================================================
+
+    require __DIR__ . '/features/my-space/web.php';
 
     // =========================================================================
     // FEATURES DEL SISTEMA

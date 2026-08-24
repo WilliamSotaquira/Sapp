@@ -74,7 +74,42 @@
                 @endif
             </div>
 
-            <div class="flex-shrink-0">
+            <div class="flex-shrink-0 flex items-center gap-2">
+                @if(!in_array($statusKey, ['completed', 'cancelled']))
+                    @if(!$task->scheduled_date || !$task->scheduled_date->isToday())
+                        {{-- No programada para hoy: mostrar "Hoy" --}}
+                        <form action="{{ route('tasks.schedule-quick', $task) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors duration-200"
+                                title="Programar para hoy">
+                                <i class="fas fa-calendar-day"></i>
+                                <span>Hoy</span>
+                            </button>
+                        </form>
+                    @else
+                        {{-- Ya programada para hoy: mostrar Reprogramar y Desprogramar --}}
+                        <form action="{{ route('tasks.schedule-quick', $task) }}" method="POST" class="inline" x-data>
+                            @csrf
+                            <input type="date" name="scheduled_date" min="{{ now()->addDay()->format('Y-m-d') }}" class="sr-only" x-ref="srDatePicker{{ $task->id }}" onchange="this.form.submit()">
+                            <button type="button" @click="$refs.srDatePicker{{ $task->id }}.showPicker()"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
+                                title="Mover a otro día">
+                                <i class="fas fa-calendar-arrow-down"></i>
+                                <span>Mover</span>
+                            </button>
+                        </form>
+                        <form action="{{ route('tasks.clear-schedule', $task) }}" method="POST" class="inline">
+                            @csrf
+                            <button type="submit"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors duration-200"
+                                title="Quitar de la programación">
+                                <i class="fas fa-calendar-xmark"></i>
+                                <span>Quitar</span>
+                            </button>
+                        </form>
+                    @endif
+                @endif
                 <a href="{{ route('tasks.show', $task) }}"
                     class="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors duration-200"
                     title="Ver detalle">

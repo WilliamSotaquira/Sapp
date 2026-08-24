@@ -355,6 +355,12 @@
                         'icon' => 'fas fa-clipboard-list',
                         'match' => ['technician-schedule.my-agenda'],
                     ],
+                    [
+                        'route' => 'my-space.meetings',
+                        'label' => 'Reuniones',
+                        'icon' => 'fas fa-users',
+                        'match' => ['my-space.meetings'],
+                    ],
                 ],
             ],
             [
@@ -538,10 +544,10 @@
             return request()->routeIs(...(array) $patterns);
         };
 
-        $workspaceName = $currentWorkspace->name ?? '';
+        $workspaceName = $currentWorkspace?->name ?? '';
         $workspaceDisplayName = $workspaceName;
         $workspaceKey = Str::lower($workspaceName);
-        $workspaceAccent = $currentWorkspace->primary_color ?? '#DC2626';
+        $workspaceAccent = $currentWorkspace?->primary_color ?? '#DC2626';
         $workspaceAccentBg = $workspaceAccent . '1A';
         $workspaceLogo = !empty($currentWorkspace?->logo_path) ? asset('storage/' . $currentWorkspace->logo_path) : null;
         $activeContract = $currentWorkspace?->activeContract;
@@ -567,7 +573,7 @@
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
                 <!-- Logo y menú principal -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <a href="{{ url('/dashboard') }}"
+                    <a href="{{ route('my-space.index') }}"
                         class="text-xl font-bold flex items-center logo-container logo-particles" id="logoLink">
                         <!-- Icono grande para escritorio con efectos -->
                         <div class="logo-border-animation mr-2">
