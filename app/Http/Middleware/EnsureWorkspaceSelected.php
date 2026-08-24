@@ -31,7 +31,7 @@ class EnsureWorkspaceSelected
                 $currentId = $companies->first()->id;
                 $request->session()->put('current_company_id', $currentId);
             } else {
-                if (!$request->routeIs('workspaces.select', 'workspaces.switch', 'profile.*', 'logout')) {
+                if (!$request->routeIs('workspaces.select', 'workspaces.switch', 'profile.*', 'logout', 'my-space.*')) {
                     return redirect()->route('workspaces.select');
                 }
             }
