@@ -272,7 +272,14 @@
                         $srUrl = $currentWorkspace ? route('service-requests.show', $sr) : null;
                         $familyName = $sr->subService?->service?->family?->name;
                     @endphp
-                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 {{ $critColors[$sr->criticality_level] ?? 'bg-white' }} p-4 hover:shadow-md transition">
+                    <div class="group relative bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 {{ $critColors[$sr->criticality_level] ?? 'bg-white' }} p-4 hover:shadow-md transition"
+                         style="cursor: context-menu;"
+                         data-sr-id="{{ $sr->id }}"
+                         data-sr-ticket="{{ $sr->ticket_number }}"
+                         data-sr-status="{{ $sr->status }}"
+                         data-sr-url="{{ $srUrl ?? '' }}"
+                         @contextmenu.prevent="openContextMenu($event)"
+                         title="Clic derecho para acciones rápidas">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
                                 @if($srUrl)
@@ -309,11 +316,19 @@
                                         @endif
                                     </span>
                                 @endif
-                                @if($srUrl)
-                                    <a href="{{ $srUrl }}" class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" aria-label="Ver solicitud">
-                                        <i class="fas fa-arrow-right text-xs"></i>
-                                    </a>
-                                @endif
+                                <div class="flex items-center gap-1">
+                                    <button type="button"
+                                            @click.stop="openContextMenuFromButton($event)"
+                                            class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                                            aria-label="Acciones rápidas" title="Acciones rápidas">
+                                        <i class="fas fa-ellipsis-vertical text-xs"></i>
+                                    </button>
+                                    @if($srUrl)
+                                        <a href="{{ $srUrl }}" class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" aria-label="Ver solicitud" title="Ver detalle">
+                                            <i class="fas fa-arrow-right text-xs"></i>
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -935,6 +950,158 @@
             </div>
         </div>
     @endif
+
+    {{-- ===== MENÚ CONTEXTUAL (clic derecho / botón ⋮ sobre solicitudes) ===== --}}
+    <div x-show="contextMenu.open"
+         style="display: none;"
+         @click.outside="closeContextMenu()"
+         @keydown.escape.window="closeContextMenu()"
+         x-transition:enter="transition ease-out duration-100"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left"
+         :style="`display:${contextMenu.open ? 'block':'none'}; top:${contextMenu.y}px; left:${contextMenu.x}px;`"
+         role="menu" aria-label="Acciones rápidas de solicitud">
+
+        {{-- Encabezado --}}
+        <div class="px-3 py-2 border-b border-gray-100 mb-1">
+            <p class="text-xs font-mono font-semibold text-indigo-600 truncate" x-text="contextMenu.item.ticket"></p>
+            <p class="text-[11px] text-gray-400" x-text="contextMenu.item.status ? contextMenu.item.status.replace('_',' ') : ''"></p>
+        </div>
+
+        {{-- Vista normal del menú --}}
+        <div x-show="!contextMenu.confirming">
+            {{-- Ver detalle --}}
+            <button type="button" x-show="contextMenu.item.url" @click="goTo(contextMenu.item.url)"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
+                <i class="fas fa-eye w-4 text-center text-gray-400"></i> Ver detalle
+            </button>
+
+            {{-- Aceptar (solo PENDIENTE) --}}
+            <button type="button" x-show="contextMenu.item.status === 'PENDIENTE'"
+                    @click="askConfirm('accept', 'PATCH', 'Aceptar')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition text-left" role="menuitem">
+                <i class="fas fa-check w-4 text-center text-gray-400"></i> Aceptar
+            </button>
+
+            {{-- Iniciar (solo ACEPTADA / REABIERTO) --}}
+            <button type="button" x-show="['ACEPTADA','REABIERTO'].includes(contextMenu.item.status)"
+                    @click="askConfirm('start', 'PATCH', 'Iniciar trabajo')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
+                <i class="fas fa-play w-4 text-center text-gray-400"></i> Iniciar trabajo
+            </button>
+
+            {{-- Pausar (solo EN_PROCESO) --}}
+            <button type="button" x-show="contextMenu.item.status === 'EN_PROCESO'"
+                    @click="askConfirm('pause', 'POST', 'Pausar')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition text-left" role="menuitem">
+                <i class="fas fa-pause w-4 text-center text-gray-400"></i> Pausar
+            </button>
+
+            {{-- Reanudar (solo PAUSADA) --}}
+            <button type="button" x-show="contextMenu.item.status === 'PAUSADA'"
+                    @click="askConfirm('resume', 'POST', 'Reanudar')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-green-50 hover:text-green-700 transition text-left" role="menuitem">
+                <i class="fas fa-play w-4 text-center text-gray-400"></i> Reanudar
+            </button>
+
+            {{-- Reasignar (navega al formulario) --}}
+            <button type="button" x-show="contextMenu.item.url"
+                    @click="goTo('{{ url('service-requests') }}/' + contextMenu.item.id + '/reassign')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
+                <i class="fas fa-user-pen w-4 text-center text-gray-400"></i> Reasignar
+            </button>
+
+            <div class="border-t border-gray-100 my-1"></div>
+
+            {{-- Copiar número de ticket --}}
+            <button type="button" @click="copyTicket(contextMenu.item.ticket)"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
+                <i class="w-4 text-center" :class="contextMenu.copied ? 'fas fa-check text-green-500' : 'fas fa-copy text-gray-400'"></i>
+                <span x-text="contextMenu.copied ? 'Copiado' : 'Copiar N° de ticket'"></span>
+            </button>
+        </div>
+
+        {{-- Vista de confirmación --}}
+        <div x-show="contextMenu.confirming" class="px-3 py-2">
+            <p class="text-sm text-gray-700 mb-3">
+                ¿Confirmas <span class="font-semibold" x-text="contextMenu.confirmLabel"></span> esta solicitud?
+            </p>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="confirmAction()"
+                        class="flex-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition">
+                    Confirmar
+                </button>
+                <button type="button" @click="contextMenu.confirming = false"
+                        class="flex-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 transition">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== MENÚ CONTEXTUAL DE TAREAS (avanzar flujo) ===== --}}
+    <div x-show="taskMenu.open"
+         style="display: none;"
+         @click.outside="closeTaskMenu()"
+         @keydown.escape.window="closeTaskMenu()"
+         x-transition:enter="transition ease-out duration-100"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left"
+         :style="`display:${taskMenu.open ? 'block':'none'}; top:${taskMenu.y}px; left:${taskMenu.x}px;`"
+         role="menu" aria-label="Acciones rápidas de tarea">
+
+        {{-- Encabezado --}}
+        <div class="px-3 py-2 border-b border-gray-100 mb-1">
+            <p class="text-xs font-mono font-semibold text-indigo-600 truncate" x-text="taskMenu.item.code"></p>
+            <p class="text-[11px] text-gray-400 capitalize" x-text="taskMenu.item.status ? taskMenu.item.status.replace('_',' ') : ''"></p>
+        </div>
+
+        {{-- Flujo principal: paso al siguiente proceso --}}
+        {{-- Iniciar (pending / confirmed) --}}
+        <button type="button" x-show="['pending','confirmed'].includes(taskMenu.item.status)"
+                @click="runTaskAction(taskMenu.item.id, 'start')"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition text-left" role="menuitem">
+            <i class="fas fa-play w-4 text-center text-blue-500"></i> Iniciar tarea
+        </button>
+
+        {{-- Completar (pending / confirmed / in_progress) --}}
+        <button type="button" x-show="['pending','confirmed','in_progress'].includes(taskMenu.item.status)"
+                @click="runTaskAction(taskMenu.item.id, 'complete')"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-green-50 hover:text-green-700 transition text-left" role="menuitem">
+            <i class="fas fa-check w-4 text-center text-green-500"></i> Completar tarea
+        </button>
+
+        {{-- Programar para hoy (si no está programada) --}}
+        <button type="button" x-show="taskMenu.item.scheduled !== '1'"
+                @click="scheduleTaskToday(taskMenu.item.id)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition text-left" role="menuitem">
+            <i class="fas fa-calendar-day w-4 text-center text-amber-500"></i> Programar para hoy
+        </button>
+
+        {{-- Quitar de programación (si está programada) --}}
+        <button type="button" x-show="taskMenu.item.scheduled === '1'"
+                @click="clearTaskSchedule(taskMenu.item.id)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
+            <i class="fas fa-calendar-xmark w-4 text-center text-gray-400"></i> Quitar de la agenda
+        </button>
+
+        <div class="border-t border-gray-100 my-1"></div>
+
+        {{-- Ver detalle --}}
+        <button type="button" @click="goTo(taskMenu.item.url)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
+            <i class="fas fa-eye w-4 text-center text-gray-400"></i> Ver detalle
+        </button>
+
+        {{-- Copiar código --}}
+        <button type="button" @click="copyTaskCode(taskMenu.item.code)"
+                class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
+            <i class="w-4 text-center" :class="taskMenu.copied ? 'fas fa-check text-green-500' : 'fas fa-copy text-gray-400'"></i>
+            <span x-text="taskMenu.copied ? 'Copiado' : 'Copiar código'"></span>
+        </button>
+    </div>
 </div>
 
 @push('styles')
@@ -956,6 +1123,179 @@ function mySpaceApp() {
             today_completed: {{ $stats['today_completed'] }},
             active_alerts: {{ $stats['active_alerts'] }},
             reminders_due: {{ $stats['reminders_due'] }},
+        },
+        contextMenu: {
+            open: false, x: 0, y: 0, copied: false,
+            confirming: false, pendingAction: null, pendingMethod: null, confirmLabel: '',
+            item: { id: null, ticket: '', status: '', url: null }
+        },
+        // Extrae los datos de la tarjeta (elemento con data-sr-*)
+        readCardData(cardEl) {
+            return {
+                id: cardEl.dataset.srId,
+                ticket: cardEl.dataset.srTicket || '',
+                status: cardEl.dataset.srStatus || '',
+                url: cardEl.dataset.srUrl || null,
+            };
+        },
+        positionMenu(clientX, clientY) {
+            const menuW = 240, menuH = 340;
+            let x = clientX, y = clientY;
+            if (x + menuW > window.innerWidth) x = window.innerWidth - menuW - 8;
+            if (y + menuH > window.innerHeight) y = window.innerHeight - menuH - 8;
+            this.contextMenu.x = Math.max(8, x);
+            this.contextMenu.y = Math.max(8, y);
+        },
+        resetMenuState(item) {
+            this.contextMenu.item = item;
+            this.contextMenu.confirming = false;
+            this.contextMenu.copied = false;
+        },
+        // Apertura por clic derecho
+        openContextMenu(event) {
+            const card = event.currentTarget;
+            this.resetMenuState(this.readCardData(card));
+            this.positionMenu(event.clientX, event.clientY);
+            this.$nextTick(() => { this.contextMenu.open = true; });
+        },
+        // Apertura por botón ⋮ (posiciona junto al botón)
+        openContextMenuFromButton(event) {
+            const card = event.currentTarget.closest('[data-sr-id]');
+            if (!card) return;
+            this.resetMenuState(this.readCardData(card));
+            const rect = event.currentTarget.getBoundingClientRect();
+            this.positionMenu(rect.left - 200, rect.bottom + 4);
+            this.$nextTick(() => { this.contextMenu.open = true; });
+        },
+        closeContextMenu() {
+            this.contextMenu.open = false;
+            this.contextMenu.confirming = false;
+        },
+        goTo(url) {
+            this.closeContextMenu();
+            if (url) window.location.href = url;
+        },
+        // Pide confirmación en lugar de ejecutar de inmediato
+        askConfirm(action, method, label) {
+            this.contextMenu.pendingAction = action;
+            this.contextMenu.pendingMethod = method;
+            this.contextMenu.confirmLabel = label;
+            this.contextMenu.confirming = true;
+        },
+        confirmAction() {
+            this.runAction(this.contextMenu.item.id, this.contextMenu.pendingAction, this.contextMenu.pendingMethod);
+        },
+        runAction(id, action, method) {
+            this.closeContextMenu();
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{{ url('service-requests') }}/${id}/${action}`;
+
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = '_token';
+            csrf.value = '{{ csrf_token() }}';
+            form.appendChild(csrf);
+
+            if (method !== 'POST') {
+                const spoof = document.createElement('input');
+                spoof.type = 'hidden';
+                spoof.name = '_method';
+                spoof.value = method;
+                form.appendChild(spoof);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        },
+        async copyTicket(ticket) {
+            try {
+                await navigator.clipboard.writeText(ticket);
+                this.contextMenu.copied = true;
+                setTimeout(() => { this.closeContextMenu(); }, 700);
+            } catch (e) {
+                this.closeContextMenu();
+            }
+        },
+
+        // ===== MENÚ CONTEXTUAL DE TAREAS =====
+        taskMenu: {
+            open: false, x: 0, y: 0, copied: false,
+            item: { id: null, code: '', status: '', scheduled: '0', url: null }
+        },
+        readTaskData(cardEl) {
+            return {
+                id: cardEl.dataset.taskId,
+                code: cardEl.dataset.taskCode || '',
+                status: cardEl.dataset.taskStatus || '',
+                scheduled: cardEl.dataset.taskScheduled || '0',
+                url: cardEl.dataset.taskUrl || null,
+            };
+        },
+        positionTaskMenu(clientX, clientY) {
+            const menuW = 240, menuH = 340;
+            let x = clientX, y = clientY;
+            if (x + menuW > window.innerWidth) x = window.innerWidth - menuW - 8;
+            if (y + menuH > window.innerHeight) y = window.innerHeight - menuH - 8;
+            this.taskMenu.x = Math.max(8, x);
+            this.taskMenu.y = Math.max(8, y);
+        },
+        openTaskMenu(event) {
+            // Cerrar el menú de solicitudes si estuviera abierto
+            this.contextMenu.open = false;
+            const card = event.currentTarget;
+            this.taskMenu.item = this.readTaskData(card);
+            this.taskMenu.copied = false;
+            this.positionTaskMenu(event.clientX, event.clientY);
+            this.$nextTick(() => { this.taskMenu.open = true; });
+        },
+        openTaskMenuFromButton(event) {
+            this.contextMenu.open = false;
+            const card = event.currentTarget.closest('[data-task-id]');
+            if (!card) return;
+            this.taskMenu.item = this.readTaskData(card);
+            this.taskMenu.copied = false;
+            const rect = event.currentTarget.getBoundingClientRect();
+            this.positionTaskMenu(rect.left - 200, rect.bottom + 4);
+            this.$nextTick(() => { this.taskMenu.open = true; });
+        },
+        closeTaskMenu() {
+            this.taskMenu.open = false;
+        },
+        // Envía un POST a una acción de flujo de tarea (start/complete)
+        runTaskAction(id, action) {
+            this.closeTaskMenu();
+            this.submitForm(`{{ url('inicio/tasks') }}/${id}/${action}`);
+        },
+        scheduleTaskToday(id) {
+            this.closeTaskMenu();
+            this.submitForm(`{{ url('tasks') }}/${id}/schedule-quick`);
+        },
+        clearTaskSchedule(id) {
+            this.closeTaskMenu();
+            this.submitForm(`{{ url('tasks') }}/${id}/clear-schedule`);
+        },
+        async copyTaskCode(code) {
+            try {
+                await navigator.clipboard.writeText(code);
+                this.taskMenu.copied = true;
+                setTimeout(() => { this.closeTaskMenu(); }, 700);
+            } catch (e) {
+                this.closeTaskMenu();
+            }
+        },
+        // Helper genérico para enviar formularios POST con CSRF
+        submitForm(action) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = action;
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = '_token';
+            csrf.value = '{{ csrf_token() }}';
+            form.appendChild(csrf);
+            document.body.appendChild(form);
+            form.submit();
         },
         init() {
             @if($stats['today_tasks'] === 0 && $stats['overdue_tasks'] > 0)
