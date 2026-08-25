@@ -136,6 +136,7 @@ class ServiceRequest extends Model
             self::STATUS_CANCELLED => 'Cancelada',
             self::STATUS_PAUSED => 'Pausada',
             self::STATUS_REOPENED => 'Reabierto',
+            self::STATUS_ARCHIVED => 'Archivada',
         ];
     }
 
