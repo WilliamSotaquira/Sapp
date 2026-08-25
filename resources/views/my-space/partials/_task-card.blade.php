@@ -46,7 +46,6 @@
                         <h4 class="{{ $compact ? 'text-sm' : 'text-base' }} font-semibold text-gray-900 line-clamp-1">{{ $task->title }}</h4>
                     @endif
                     <div class="flex items-center gap-2 mt-1 flex-wrap">
-                        <span class="text-xs text-gray-500 font-mono">{{ $task->task_code }}</span>
                         @if($task->serviceRequest)
                             @if($srUrl)
                                 <a href="{{ $srUrl }}" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition">{{ $task->serviceRequest->ticket_number }}</a>
@@ -137,7 +136,6 @@
                     @if($task->is_critical)
                         <span class="px-2 py-0.5 rounded text-xs font-bold uppercase bg-rose-100 text-rose-700">Crítica</span>
                     @endif
-                    <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 capitalize">{{ str_replace('_',' ',$task->status) }}</span>
                 </div>
             @endif
         </div>
