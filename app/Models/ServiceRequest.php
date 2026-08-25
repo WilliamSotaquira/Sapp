@@ -171,14 +171,20 @@ class ServiceRequest extends Model
             abort(404);
         }
 
-        $hasAccess = $user->companies()->where('companies.id', $model->company_id)->exists();
+        // El usuario tiene acceso si pertenece a la empresa dueña
+        // O si es el técnico asignado a la solicitud (su propio trabajo).
+        $belongsToCompany = $user->companies()->where('companies.id', $model->company_id)->exists();
+        $isAssignee = (int) $model->assigned_to === (int) $user->id;
 
-        if (!$hasAccess) {
+        if (!$belongsToCompany && !$isAssignee) {
             abort(403, 'No tienes acceso a esta solicitud de servicio.');
         }
 
-        // 4. Auto-switch: cambiar el workspace usando WorkspaceContext
-        app(WorkspaceContext::class)->switchTo($model->company_id);
+        // 4. Auto-switch solo si el usuario pertenece a la empresa.
+        // Si es solo el asignado (no pertenece a la empresa), no cambiamos su workspace activo.
+        if ($belongsToCompany) {
+            app(WorkspaceContext::class)->switchTo($model->company_id);
+        }
 
         $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');
         session()->flash('info', "Se cambió automáticamente al entorno «{$companyName}» para mostrar esta solicitud.");

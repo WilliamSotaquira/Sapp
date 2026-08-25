@@ -20,11 +20,21 @@
     ];
     $style = $priorityStyles[$task->priority] ?? 'border-l-gray-300 bg-white';
     $icon = $statusIcons[$task->status] ?? 'far fa-circle text-gray-400';
-    $taskUrl = $currentWorkspace ? route('tasks.show', $task) : null;
-    $srUrl = ($currentWorkspace && $task->serviceRequest) ? route('service-requests.show', $task->service_request_id) : null;
+    // Task no tiene scope de workspace: la navegación es segura sin depender de $currentWorkspace.
+    $taskUrl = route('tasks.show', $task);
+    // La SR sí depende del workspace; el enlace hace auto-switch al abrirse.
+    $srUrl = $task->serviceRequest ? route('service-requests.show', $task->service_request_id) : null;
 @endphp
 
-<div class="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all border-l-4 {{ $style }} {{ $compact ? 'px-4 py-3' : 'p-5' }}">
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all border-l-4 {{ $style }} {{ $compact ? 'px-4 py-3' : 'p-5' }}"
+     style="cursor: context-menu;"
+     data-task-id="{{ $task->id }}"
+     data-task-code="{{ $task->task_code }}"
+     data-task-status="{{ $task->status }}"
+     data-task-scheduled="{{ $task->scheduled_date ? '1' : '0' }}"
+     data-task-url="{{ route('tasks.show', $task) }}"
+     @contextmenu.prevent="openTaskMenu($event)"
+     title="Clic derecho para acciones rápidas">
     <div class="flex items-start gap-3">
         <div class="pt-1"><i class="{{ $icon }} text-lg"></i></div>
         <div class="flex-1 min-w-0">
@@ -93,13 +103,22 @@
                                 <button type="submit" class="w-8 h-8 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 transition" title="Completar"><i class="fas fa-check text-sm"></i></button>
                             </form>
                         @endif
+                        {{-- Acciones rápidas (menú) --}}
+                        <button type="button" @click.stop="openTaskMenuFromButton($event)"
+                                class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Acciones rápidas" aria-label="Acciones rápidas">
+                            <i class="fas fa-ellipsis-vertical text-sm"></i>
+                        </button>
                         {{-- Ver detalle --}}
-                        @if($taskUrl)
-                            <a href="{{ $taskUrl }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Ver detalle"><i class="fas fa-arrow-right text-sm"></i></a>
-                        @endif
+                        <a href="{{ $taskUrl }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Ver detalle"><i class="fas fa-arrow-right text-sm"></i></a>
                     </div>
-                @elseif($taskUrl)
-                    <a href="{{ $taskUrl }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition shrink-0" title="Ver detalle"><i class="fas fa-arrow-right text-sm"></i></a>
+                @else
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" @click.stop="openTaskMenuFromButton($event)"
+                                class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Acciones rápidas" aria-label="Acciones rápidas">
+                            <i class="fas fa-ellipsis-vertical text-sm"></i>
+                        </button>
+                        <a href="{{ $taskUrl }}" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Ver detalle"><i class="fas fa-arrow-right text-sm"></i></a>
+                    </div>
                 @endif
             </div>
 
