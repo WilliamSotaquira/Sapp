@@ -45,6 +45,7 @@ trait ServiceRequestAccessors
             self::STATUS_RESOLVED => 'success',
             self::STATUS_CLOSED => 'secondary',
             self::STATUS_CANCELLED => 'danger',
+            self::STATUS_ARCHIVED => 'slate',
         ];
 
         return $colors[$this->status] ?? 'secondary';

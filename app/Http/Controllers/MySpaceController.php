@@ -102,7 +102,7 @@ class MySpaceController extends Controller
         // =====================================================================
         $myServiceRequests = ServiceRequest::withoutGlobalScope('workspace')
             ->where('assigned_to', $user->id)
-            ->whereNotIn('status', ['CERRADA', 'CANCELADA'])
+            ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA', 'ARCHIVADA'])
             ->with(['subService:id,name,service_id', 'subService.service:id,name,service_family_id', 'subService.service.family:id,name', 'company:id,name'])
             ->orderByRaw("FIELD(status, 'EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO', 'RESUELTA')")
             ->orderByRaw("FIELD(criticality_level, 'CRITICA', 'ALTA', 'MEDIA', 'BAJA')")

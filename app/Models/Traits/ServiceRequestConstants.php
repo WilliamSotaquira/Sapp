@@ -12,6 +12,7 @@ trait ServiceRequestConstants
     const STATUS_CANCELLED = 'CANCELADA';
     const STATUS_PAUSED = 'PAUSADA';
     const STATUS_REOPENED = 'REABIERTO';
+    const STATUS_ARCHIVED = 'ARCHIVADA';
 
     const TYPE_SYSTEM = 'SISTEMA';
     const TYPE_STEP_BY_STEP = 'PASO_A_PASO';
