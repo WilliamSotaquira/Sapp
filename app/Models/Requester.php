@@ -3,6 +3,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToWorkspace;
 use App\Support\DepartmentOptions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,11 +11,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Requester extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToWorkspace;
 
     public static function getDepartmentOptions(?int $companyId = null): array
     {
-        $companyId = $companyId ?: (int) session('current_company_id');
+        $companyId = $companyId ?: (int) app(\App\Services\WorkspaceContext::class)->id();
         $catalogOptions = Department::query()
             ->when($companyId > 0, function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
@@ -34,7 +35,7 @@ class Requester extends Model
             }
         }
 
-        $companyOptions = static::withoutGlobalScopes()
+        $companyOptions = static::acrossWorkspaces()
             ->when($companyId > 0, function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })
@@ -67,18 +68,6 @@ class Requester extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::addGlobalScope('workspace', function ($query) {
-            $companyId = session('current_company_id');
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
-        });
-    }
 
     /**
      * Relación con ServiceRequests

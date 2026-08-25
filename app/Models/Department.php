@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Department extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToWorkspace;
 
     protected $fillable = [
         'company_id',
@@ -19,16 +20,6 @@ class Department extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
-
-    protected static function booted()
-    {
-        static::addGlobalScope('workspace', function ($query) {
-            $companyId = session('current_company_id');
-            if ($companyId) {
-                $query->where('company_id', $companyId);
-            }
-        });
-    }
 
     public function company()
     {

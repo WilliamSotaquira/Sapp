@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Project extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToWorkspace;
 
     const STATUS_ACTIVE = 'active';
     const STATUS_IN_PROGRESS = 'in_progress';
@@ -78,11 +79,6 @@ class Project extends Model
     public function scopeActive($query)
     {
         return $query->whereIn('status', [self::STATUS_ACTIVE, self::STATUS_IN_PROGRESS]);
-    }
-
-    public function scopeForCompany($query, int $companyId)
-    {
-        return $query->where('company_id', $companyId);
     }
 
     // ==================== ACCESSORS ====================

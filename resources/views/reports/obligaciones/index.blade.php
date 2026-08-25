@@ -163,6 +163,7 @@
                 @forelse($familyExportRequirements as $familyRequirement)
                     <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                         <label for="family-link-{{ $familyRequirement['id'] }}" class="block text-sm font-semibold text-gray-900">
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold mr-1">{{ $familyRequirement['sort_order'] }}</span>
                             {{ $familyRequirement['name'] }}
                         </label>
                         <p class="mt-1 text-xs text-gray-500">Directorio en la nube donde reposará la información de esta familia.</p>
