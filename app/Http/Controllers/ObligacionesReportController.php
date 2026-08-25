@@ -110,6 +110,7 @@ class ObligacionesReportController extends Controller
                 return [
                     'id' => (int) ($family?->id ?? 0),
                     'name' => $serviceName,
+                    'sort_order' => (int) ($family?->sort_order ?? 0),
                     'requires_link' => $items->contains(function ($serviceRequest) {
                         return $this->serviceRequestHasFileEvidence($serviceRequest);
                     }),
@@ -117,6 +118,7 @@ class ObligacionesReportController extends Controller
                 ];
             })
             ->filter(fn ($family) => $family['id'] > 0 && ($family['requires_link'] ?? false))
+            ->sortBy('sort_order')
             ->values();
 
         return view('reports.obligaciones.index', [

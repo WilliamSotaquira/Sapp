@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class WorkspaceController extends Controller
 {
+    public function __construct(
+        protected WorkspaceContext $workspace
+    ) {}
+
     public function select(Request $request): View
     {
         $user = $request->user();
@@ -25,7 +30,7 @@ class WorkspaceController extends Controller
 
         return view('workspaces.select', [
             'companies' => $companies,
-            'currentCompanyId' => $request->session()->get('current_company_id'),
+            'currentCompanyId' => $this->workspace->id(),
         ]);
     }
 
@@ -43,7 +48,7 @@ class WorkspaceController extends Controller
             return back()->with('error', 'No tienes acceso a esa entidad.');
         }
 
-        $request->session()->put('current_company_id', $companyId);
+        $this->workspace->switchTo($companyId);
 
         // Si viene un redirect_to específico (ej: desde el intérprete de texto), usarlo
         $redirectTo = $request->input('redirect_to');

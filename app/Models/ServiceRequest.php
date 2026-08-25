@@ -6,18 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Technician;
+use App\Models\Traits\BelongsToWorkspace;
 use App\Models\Traits\ServiceRequestConstants;
 use App\Models\Traits\ServiceRequestScopes;
 use App\Models\Traits\ServiceRequestWorkflow;
 use App\Models\Traits\ServiceRequestAccessors;
 use App\Models\Traits\ServiceRequestUtilities;
 use App\Services\ServiceRequestService;
+use App\Services\WorkspaceContext;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 
 class ServiceRequest extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToWorkspace;
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
     public const ENTRY_CHANNEL_CORPORATE_EMAIL = 'email_corporativo';
@@ -174,8 +176,8 @@ class ServiceRequest extends Model
             abort(403, 'No tienes acceso a esta solicitud de servicio.');
         }
 
-        // 4. Auto-switch: cambiar el workspace en sesión
-        session(['current_company_id' => $model->company_id]);
+        // 4. Auto-switch: cambiar el workspace usando WorkspaceContext
+        app(WorkspaceContext::class)->switchTo($model->company_id);
 
         $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');
         session()->flash('info', "Se cambió automáticamente al entorno «{$companyName}» para mostrar esta solicitud.");
@@ -190,12 +192,8 @@ class ServiceRequest extends Model
     {
         parent::boot();
 
-        static::addGlobalScope('workspace', function ($query) {
-            $companyId = session('current_company_id');
-            if ($companyId) {
-                $query->where($query->getModel()->qualifyColumn('company_id'), $companyId);
-            }
-        });
+        // El global scope 'workspace' y auto-asignación de company_id
+        // los provee el trait BelongsToWorkspace automáticamente.
 
         // Generar ticket_number automáticamente al crear
         static::creating(function ($model) {

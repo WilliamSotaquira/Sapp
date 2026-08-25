@@ -7,9 +7,18 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use App\Models\ServiceRequest;
 use App\Observers\ServiceRequestObserver;
+use App\Services\WorkspaceContext;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * Registrar servicios en el contenedor.
+     */
+    public function register(): void
+    {
+        $this->app->singleton(WorkspaceContext::class);
+    }
+
     public function boot()
     {
         // Registrar Observer para ServiceRequest

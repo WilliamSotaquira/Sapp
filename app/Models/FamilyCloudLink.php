@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class FamilyCloudLink extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToWorkspace;
 
     protected $fillable = [
         'company_id',
