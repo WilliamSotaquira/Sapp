@@ -953,15 +953,18 @@
 
     {{-- ===== MENÚ CONTEXTUAL (clic derecho / botón ⋮ sobre solicitudes) ===== --}}
     <div x-show="contextMenu.open"
+         x-ref="srMenu"
          style="display: none;"
          @click.outside="closeContextMenu()"
          @keydown.escape.window="closeContextMenu()"
+         @keydown.down.prevent="focusMenuItem($refs.srMenu, 1)"
+         @keydown.up.prevent="focusMenuItem($refs.srMenu, -1)"
          x-transition:enter="transition ease-out duration-100"
          x-transition:enter-start="opacity-0 scale-95"
          x-transition:enter-end="opacity-100 scale-100"
-         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left"
+         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left focus:outline-none"
          :style="`display:${contextMenu.open ? 'block':'none'}; top:${contextMenu.y}px; left:${contextMenu.x}px;`"
-         role="menu" aria-label="Acciones rápidas de solicitud">
+         role="menu" aria-label="Acciones rápidas de solicitud" tabindex="-1">
 
         {{-- Encabezado --}}
         <div class="px-3 py-2 border-b border-gray-100 mb-1">
@@ -971,48 +974,80 @@
 
         {{-- Vista normal del menú --}}
         <div x-show="!contextMenu.confirming">
-            {{-- Ver detalle --}}
-            <button type="button" x-show="contextMenu.item.url" @click="goTo(contextMenu.item.url)"
-                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
-                <i class="fas fa-eye w-4 text-center text-gray-400"></i> Ver detalle
-            </button>
+            {{-- === ACCIONES DIRECTAS (sin datos obligatorios): confirmación inline === --}}
 
-            {{-- Aceptar (solo PENDIENTE) --}}
+            {{-- Aceptar (solo PENDIENTE) — POST directo, auto-asigna al usuario --}}
             <button type="button" x-show="contextMenu.item.status === 'PENDIENTE'"
                     @click="askConfirm('accept', 'PATCH', 'Aceptar')"
                     class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition text-left" role="menuitem">
-                <i class="fas fa-check w-4 text-center text-gray-400"></i> Aceptar
+                <i class="fas fa-check w-4 text-center text-blue-500"></i> Aceptar
             </button>
 
-            {{-- Iniciar (solo ACEPTADA / REABIERTO) --}}
-            <button type="button" x-show="['ACEPTADA','REABIERTO'].includes(contextMenu.item.status)"
+            {{-- Iniciar (solo ACEPTADA, con técnico) — POST directo --}}
+            <button type="button" x-show="contextMenu.item.status === 'ACEPTADA'"
                     @click="askConfirm('start', 'PATCH', 'Iniciar trabajo')"
                     class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
-                <i class="fas fa-play w-4 text-center text-gray-400"></i> Iniciar trabajo
+                <i class="fas fa-play w-4 text-center text-indigo-500"></i> Iniciar trabajo
             </button>
 
-            {{-- Pausar (solo EN_PROCESO) --}}
-            <button type="button" x-show="contextMenu.item.status === 'EN_PROCESO'"
-                    @click="askConfirm('pause', 'POST', 'Pausar')"
-                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition text-left" role="menuitem">
-                <i class="fas fa-pause w-4 text-center text-gray-400"></i> Pausar
-            </button>
-
-            {{-- Reanudar (solo PAUSADA) --}}
+            {{-- Reanudar (solo PAUSADA) — POST directo --}}
             <button type="button" x-show="contextMenu.item.status === 'PAUSADA'"
                     @click="askConfirm('resume', 'POST', 'Reanudar')"
                     class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-green-50 hover:text-green-700 transition text-left" role="menuitem">
-                <i class="fas fa-play w-4 text-center text-gray-400"></i> Reanudar
+                <i class="fas fa-play w-4 text-center text-green-500"></i> Reanudar
             </button>
 
-            {{-- Reasignar (navega al formulario) --}}
-            <button type="button" x-show="contextMenu.item.url"
+            {{-- === ACCIONES CON DATOS OBLIGATORIOS: navegan al detalle (modal) === --}}
+
+            {{-- Resolver (solo EN_PROCESO) — requiere notas/evidencia → abre el detalle --}}
+            <button type="button" x-show="contextMenu.item.status === 'EN_PROCESO'"
+                    @click="goToAction(contextMenu.item.url, 'resolve')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-green-50 hover:text-green-700 transition text-left" role="menuitem">
+                <i class="fas fa-check-circle w-4 text-center text-green-500"></i> Resolver
+            </button>
+
+            {{-- Pausar (solo EN_PROCESO) — requiere razón → abre el detalle --}}
+            <button type="button" x-show="contextMenu.item.status === 'EN_PROCESO'"
+                    @click="goToAction(contextMenu.item.url, 'pause')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition text-left" role="menuitem">
+                <i class="fas fa-pause w-4 text-center text-amber-500"></i> Pausar
+            </button>
+
+            {{-- Rechazar (solo PENDIENTE) — requiere razón → abre el detalle --}}
+            <button type="button" x-show="contextMenu.item.status === 'PENDIENTE'"
+                    @click="goToAction(contextMenu.item.url, 'reject')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-rose-50 hover:text-rose-700 transition text-left" role="menuitem">
+                <i class="fas fa-times-circle w-4 text-center text-rose-500"></i> Rechazar
+            </button>
+
+            {{-- Cerrar (RESUELTA / PAUSADA) — requiere datos → abre el detalle --}}
+            <button type="button" x-show="['RESUELTA','PAUSADA'].includes(contextMenu.item.status)"
+                    @click="goToAction(contextMenu.item.url, 'close')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
+                <i class="fas fa-lock w-4 text-center text-gray-400"></i> Cerrar
+            </button>
+
+            {{-- Reabrir (RESUELTA / CERRADA) — requiere razón → abre el detalle --}}
+            <button type="button" x-show="['RESUELTA','CERRADA'].includes(contextMenu.item.status)"
+                    @click="goToAction(contextMenu.item.url, 'reopen')"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition text-left" role="menuitem">
+                <i class="fas fa-undo w-4 text-center text-orange-500"></i> Reabrir
+            </button>
+
+            {{-- Reasignar (PENDIENTE / ACEPTADA / EN_PROCESO / PAUSADA) — navega al formulario --}}
+            <button type="button" x-show="['PENDIENTE','ACEPTADA','EN_PROCESO','PAUSADA'].includes(contextMenu.item.status)"
                     @click="goTo('{{ url('service-requests') }}/' + contextMenu.item.id + '/reassign')"
                     class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-gray-100 transition text-left" role="menuitem">
                 <i class="fas fa-user-pen w-4 text-center text-gray-400"></i> Reasignar
             </button>
 
             <div class="border-t border-gray-100 my-1"></div>
+
+            {{-- Ver detalle --}}
+            <button type="button" x-show="contextMenu.item.url" @click="goTo(contextMenu.item.url)"
+                    class="w-full flex items-center gap-2.5 px-3 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left" role="menuitem">
+                <i class="fas fa-eye w-4 text-center text-gray-400"></i> Ver detalle
+            </button>
 
             {{-- Copiar número de ticket --}}
             <button type="button" @click="copyTicket(contextMenu.item.ticket)"
@@ -1028,8 +1063,8 @@
                 ¿Confirmas <span class="font-semibold" x-text="contextMenu.confirmLabel"></span> esta solicitud?
             </p>
             <div class="flex items-center gap-2">
-                <button type="button" @click="confirmAction()"
-                        class="flex-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition">
+                <button type="button" @click="confirmAction()" data-confirm-btn
+                        class="flex-1 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition focus:outline-none focus:ring-2 focus:ring-indigo-400">
                     Confirmar
                 </button>
                 <button type="button" @click="contextMenu.confirming = false"
@@ -1042,15 +1077,18 @@
 
     {{-- ===== MENÚ CONTEXTUAL DE TAREAS (avanzar flujo) ===== --}}
     <div x-show="taskMenu.open"
+         x-ref="taskMenu"
          style="display: none;"
          @click.outside="closeTaskMenu()"
          @keydown.escape.window="closeTaskMenu()"
+         @keydown.down.prevent="focusMenuItem($refs.taskMenu, 1)"
+         @keydown.up.prevent="focusMenuItem($refs.taskMenu, -1)"
          x-transition:enter="transition ease-out duration-100"
          x-transition:enter-start="opacity-0 scale-95"
          x-transition:enter-end="opacity-100 scale-100"
-         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left"
+         class="fixed z-[9999] w-60 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 border border-gray-200 py-1.5 text-sm origin-top-left focus:outline-none"
          :style="`display:${taskMenu.open ? 'block':'none'}; top:${taskMenu.y}px; left:${taskMenu.x}px;`"
-         role="menu" aria-label="Acciones rápidas de tarea">
+         role="menu" aria-label="Acciones rápidas de tarea" tabindex="-1">
 
         {{-- Encabezado --}}
         <div class="px-3 py-2 border-b border-gray-100 mb-1">
@@ -1111,6 +1149,16 @@
     .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    /* Cursor y foco visible en las acciones de los menús contextuales */
+    [role="menu"] [role="menuitem"] {
+        cursor: pointer;
+    }
+    [role="menu"] [role="menuitem"]:focus,
+    [role="menu"] [role="menuitem"]:focus-visible {
+        outline: none;
+        background-color: rgb(238 242 255); /* indigo-50 */
+        color: rgb(67 56 202); /* indigo-700 */
+    }
 </style>
 @endpush
 
@@ -1156,7 +1204,10 @@ function mySpaceApp() {
             const card = event.currentTarget;
             this.resetMenuState(this.readCardData(card));
             this.positionMenu(event.clientX, event.clientY);
-            this.$nextTick(() => { this.contextMenu.open = true; });
+            this.$nextTick(() => {
+                this.contextMenu.open = true;
+                this.$nextTick(() => this.focusFirstItem(this.$refs.srMenu));
+            });
         },
         // Apertura por botón ⋮ (posiciona junto al botón)
         openContextMenuFromButton(event) {
@@ -1165,7 +1216,10 @@ function mySpaceApp() {
             this.resetMenuState(this.readCardData(card));
             const rect = event.currentTarget.getBoundingClientRect();
             this.positionMenu(rect.left - 200, rect.bottom + 4);
-            this.$nextTick(() => { this.contextMenu.open = true; });
+            this.$nextTick(() => {
+                this.contextMenu.open = true;
+                this.$nextTick(() => this.focusFirstItem(this.$refs.srMenu));
+            });
         },
         closeContextMenu() {
             this.contextMenu.open = false;
@@ -1175,12 +1229,24 @@ function mySpaceApp() {
             this.closeContextMenu();
             if (url) window.location.href = url;
         },
+        // Navega al detalle de la solicitud indicando qué acción abrir (modal con datos obligatorios)
+        goToAction(url, action) {
+            this.closeContextMenu();
+            if (!url) return;
+            const sep = url.includes('?') ? '&' : '?';
+            window.location.href = `${url}${sep}action=${action}`;
+        },
         // Pide confirmación en lugar de ejecutar de inmediato
         askConfirm(action, method, label) {
             this.contextMenu.pendingAction = action;
             this.contextMenu.pendingMethod = method;
             this.contextMenu.confirmLabel = label;
             this.contextMenu.confirming = true;
+            // Llevar el foco al botón Confirmar
+            this.$nextTick(() => {
+                const btn = this.$refs.srMenu?.querySelector('[data-confirm-btn]');
+                if (btn) btn.focus();
+            });
         },
         confirmAction() {
             this.runAction(this.contextMenu.item.id, this.contextMenu.pendingAction, this.contextMenu.pendingMethod);
@@ -1247,7 +1313,10 @@ function mySpaceApp() {
             this.taskMenu.item = this.readTaskData(card);
             this.taskMenu.copied = false;
             this.positionTaskMenu(event.clientX, event.clientY);
-            this.$nextTick(() => { this.taskMenu.open = true; });
+            this.$nextTick(() => {
+                this.taskMenu.open = true;
+                this.$nextTick(() => this.focusFirstItem(this.$refs.taskMenu));
+            });
         },
         openTaskMenuFromButton(event) {
             this.contextMenu.open = false;
@@ -1257,7 +1326,10 @@ function mySpaceApp() {
             this.taskMenu.copied = false;
             const rect = event.currentTarget.getBoundingClientRect();
             this.positionTaskMenu(rect.left - 200, rect.bottom + 4);
-            this.$nextTick(() => { this.taskMenu.open = true; });
+            this.$nextTick(() => {
+                this.taskMenu.open = true;
+                this.$nextTick(() => this.focusFirstItem(this.$refs.taskMenu));
+            });
         },
         closeTaskMenu() {
             this.taskMenu.open = false;
@@ -1296,6 +1368,32 @@ function mySpaceApp() {
             form.appendChild(csrf);
             document.body.appendChild(form);
             form.submit();
+        },
+
+        // ===== FOCO / NAVEGACIÓN POR TECLADO EN MENÚS =====
+        // Devuelve solo las acciones visibles del menú (no las ocultas por x-show)
+        visibleMenuItems(menuEl) {
+            if (!menuEl) return [];
+            return Array.from(menuEl.querySelectorAll('[role="menuitem"]'))
+                .filter(el => el.offsetParent !== null && !el.disabled);
+        },
+        // Enfoca la primera acción al abrir el menú
+        focusFirstItem(menuEl) {
+            const items = this.visibleMenuItems(menuEl);
+            if (items.length) items[0].focus();
+        },
+        // Mueve el foco entre acciones con las flechas (con wrap-around)
+        focusMenuItem(menuEl, direction) {
+            const items = this.visibleMenuItems(menuEl);
+            if (!items.length) return;
+            const current = document.activeElement;
+            let index = items.indexOf(current);
+            if (index === -1) {
+                index = direction > 0 ? 0 : items.length - 1;
+            } else {
+                index = (index + direction + items.length) % items.length;
+            }
+            items[index].focus();
         },
         init() {
             @if($stats['today_tasks'] === 0 && $stats['overdue_tasks'] > 0)

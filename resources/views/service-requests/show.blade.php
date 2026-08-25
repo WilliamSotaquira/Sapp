@@ -1055,6 +1055,46 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Service Request Show page loaded - Evidences system ready');
 
+            // Abrir automáticamente el modal indicado por ?action= (desde el menú contextual del Centro de Gestión)
+            (function openActionFromQuery() {
+                const params = new URLSearchParams(window.location.search);
+                const action = params.get('action');
+                if (!action) return;
+
+                const srId = @json($serviceRequest->id);
+                const status = @json($serviceRequest->status);
+
+                // Mapear cada acción a su modal, respetando el estado válido
+                const actionModals = {
+                    resolve: { modal: 'resolve-modal-' + srId, validStatus: ['EN_PROCESO'] },
+                    pause:   { modal: 'pause-modal-' + srId,   validStatus: ['EN_PROCESO'] },
+                    reject:  { modal: 'reject-modal-' + srId,  validStatus: ['PENDIENTE'] },
+                    reopen:  { modal: 'reopen-modal-' + srId,  validStatus: ['RESUELTA','CERRADA'] },
+                };
+
+                // "Cerrar" usa modal distinto según el estado: RESUELTA → close, PAUSADA → vencimiento
+                if (action === 'close') {
+                    actionModals.close = status === 'PAUSADA'
+                        ? { modal: 'vencimiento-modal-' + srId, validStatus: ['PAUSADA'] }
+                        : { modal: 'close-modal-' + srId, validStatus: ['RESUELTA'] };
+                }
+
+                const cfg = actionModals[action];
+                if (!cfg || !cfg.validStatus.includes(status)) return;
+
+                // Esperar a que openModal y el DOM del modal estén disponibles
+                setTimeout(() => {
+                    const modalEl = document.getElementById(cfg.modal);
+                    if (modalEl && typeof openModal === 'function') {
+                        openModal(cfg.modal);
+                        // Limpiar el query param para no re-abrir al recargar
+                        params.delete('action');
+                        const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                        window.history.replaceState({}, '', clean);
+                    }
+                }, 300);
+            })();
+
             const evidenceCount = @json($serviceRequest->evidences?->count() ?? 0);
             if (evidenceCount > 0) {
                 console.log('Evidencias cargadas:', evidenceCount);
