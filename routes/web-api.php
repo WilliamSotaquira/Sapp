@@ -191,10 +191,25 @@ Route::prefix('api')->name('api.')->group(function () {
             $page = max(1, (int)$request->get('page', 1));
             $perPage = (int)$request->get('per_page', 20);
             $perPage = max(5, min(50, $perPage));
-            $currentCompanyId = (int) session('current_company_id');
+
+            // El filtro se orienta por CONTRATO. Prioridad:
+            // 1) contract_id explícito (selector de creación)
+            // 2) contrato activo del workspace en sesión (compatibilidad)
+            $requestedContractId = (int) $request->get('contract_id', 0);
             $activeContractId = null;
-            if ($currentCompanyId) {
-                $activeContractId = \App\Models\Company::where('id', $currentCompanyId)->value('active_contract_id');
+
+            if ($requestedContractId > 0) {
+                // Validar que el contrato exista y esté activo antes de usarlo.
+                $activeContractId = (int) (\App\Models\Contract::where('id', $requestedContractId)
+                    ->where('is_active', true)
+                    ->value('id') ?? 0) ?: null;
+            }
+
+            if (!$activeContractId) {
+                $currentCompanyId = (int) session('current_company_id');
+                if ($currentCompanyId) {
+                    $activeContractId = \App\Models\Company::where('id', $currentCompanyId)->value('active_contract_id');
+                }
             }
 
             $query = SubService::query()
@@ -207,12 +222,7 @@ Route::prefix('api')->name('api.')->group(function () {
                     'slas'
                 ]);
 
-            if ($currentCompanyId) {
-                $query->whereHas('service.family.contract', function ($q) use ($currentCompanyId) {
-                    $q->where('company_id', $currentCompanyId);
-                });
-            }
-
+            // Filtrar estrictamente por el contrato resuelto (fuente de verdad de la entidad).
             if (!empty($activeContractId)) {
                 $query->whereHas('service.family', function ($q) use ($activeContractId) {
                     $q->where('contract_id', $activeContractId);

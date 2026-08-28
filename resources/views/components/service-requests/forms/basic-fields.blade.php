@@ -1322,10 +1322,14 @@
                                 dataType: 'json',
                                 delay: 250,
                                 data: function(params) {
+                                    // Orientar la búsqueda al contrato elegido en el selector (si existe).
+                                    var contractEl = document.getElementById('contract_selector');
+                                    var contractId = contractEl ? contractEl.value : '';
                                     return {
                                         term: params.term || '',
                                         page: params.page || 1,
                                         per_page: 20,
+                                        contract_id: contractId || '',
                                     };
                                 },
                                 processResults: function(payload, params) {
