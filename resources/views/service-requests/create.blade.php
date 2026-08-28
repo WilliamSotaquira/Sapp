@@ -153,7 +153,7 @@
     @endif
 
     {{-- ===== MAIN CONTENT WITH ALPINE.JS — AI-FIRST FLOW ===== --}}
-    <div x-data='{"step":{{ $startAtStep3 ? 3 : ($startAtStep2 ? 2 : 1) }},"interpreting":false,"pasteText":{{ json_encode($plainTextImportValue ?: '') }},"operatorNotes":"","selectedTypeId":{{ json_encode($selectedRequestTypeId ?: '') }},"selectedTypeSlug":{{ json_encode($selectedSlug ?: '') }}}' class="max-w-4xl mx-auto">
+    <div x-data='{"step":{{ $startAtStep3 ? 3 : ($startAtStep2 ? 2 : 1) }},"interpreting":false,"pasteText":{{ json_encode($plainTextImportValue ?: '') }},"operatorNotes":"","selectedTypeId":{{ json_encode($selectedRequestTypeId ?: '') }},"selectedTypeSlug":{{ json_encode($selectedSlug ?: '') }},"selectedContractId":{{ json_encode((string) old('contract_id', $defaultContractId ?? '')) }}}' class="max-w-4xl mx-auto">
 
         {{-- ===== STATE 1: PASTE & INTERPRET (AI-first hero) ===== --}}
         <div x-show="step === 1" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
@@ -170,10 +170,30 @@
                     </p>
                 </div>
 
+                {{-- Selector de contrato (unidad de cumplimiento) --}}
+                <div class="w-full max-w-2xl mb-4">
+                    <label for="contract_selector" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-file-contract mr-1 text-gray-400"></i>Contrato
+                    </label>
+                    <select id="contract_selector" x-model="selectedContractId"
+                            class="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all">
+                        <option value="">Selecciona un contrato...</option>
+                        @foreach($activeContracts as $contract)
+                            <option value="{{ $contract->id }}">
+                                {{ $contract->company->name ?? 'Sin entidad' }} — {{ $contract->number }}{{ $contract->name ? ' · ' . $contract->name : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">
+                        Define la entidad y el catálogo de la solicitud. La IA buscará el servicio dentro de este contrato.
+                    </p>
+                </div>
+
                 {{-- Paste form --}}
                 <div class="w-full max-w-2xl">
                     <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" id="aiInterpreterForm" x-on:submit="interpreting = true">
                         @csrf
+                        <input type="hidden" name="contract_id" :value="selectedContractId">
 
                         @if (session('plain_text_import_error'))
                             <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -202,10 +222,10 @@
                                 id="plain_text"
                                 rows="10"
                                 x-model="pasteText"
-                                x-on:keydown.ctrl.enter.prevent="if(!$event.shiftKey && pasteText.length >= 20) { interpreting = true; $el.closest('form').submit(); }"
-                                x-on:keydown.ctrl.shift.enter.prevent="if(pasteText.length >= 20) { interpreting = true; $refs.fastCreateForm.submit(); }"
-                                x-on:keydown.meta.enter.prevent="if(!$event.shiftKey && pasteText.length >= 20) { interpreting = true; $el.closest('form').submit(); }"
-                                x-on:keydown.meta.shift.enter.prevent="if(pasteText.length >= 20) { interpreting = true; $refs.fastCreateForm.submit(); }"
+                                x-on:keydown.ctrl.enter.prevent="if(!$event.shiftKey && pasteText.length >= 20 && selectedContractId) { interpreting = true; $el.closest('form').submit(); }"
+                                x-on:keydown.ctrl.shift.enter.prevent="if(pasteText.length >= 20 && selectedContractId) { interpreting = true; $refs.fastCreateForm.submit(); }"
+                                x-on:keydown.meta.enter.prevent="if(!$event.shiftKey && pasteText.length >= 20 && selectedContractId) { interpreting = true; $el.closest('form').submit(); }"
+                                x-on:keydown.meta.shift.enter.prevent="if(pasteText.length >= 20 && selectedContractId) { interpreting = true; $refs.fastCreateForm.submit(); }"
                                 class="w-full rounded-2xl border-2 border-gray-200 px-5 py-4 text-base text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all duration-200 resize-none"
                                 placeholder="Pega aquí el correo, mensaje de WhatsApp o texto de la solicitud..."
                                 required
@@ -232,7 +252,7 @@
                             <div class="flex items-center gap-2">
                                 <button
                                     type="submit"
-                                    :disabled="pasteText.length < 20"
+                                    :disabled="pasteText.length < 20 || !selectedContractId"
                                     x-ref="interpretBtn"
                                     class="inline-flex items-center gap-2 rounded-xl bg-white border-2 border-blue-300 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                                 >
@@ -243,9 +263,9 @@
 
                                 <button
                                     type="button"
-                                    :disabled="pasteText.length < 20"
+                                    :disabled="pasteText.length < 20 || !selectedContractId"
                                     x-ref="fastCreateBtn"
-                                    @click="if(pasteText.length >= 20) { interpreting = true; $refs.fastCreateForm.submit(); }"
+                                    @click="if(pasteText.length >= 20 && selectedContractId) { interpreting = true; $refs.fastCreateForm.submit(); }"
                                     class="inline-flex items-center gap-2.5 rounded-xl bg-green-600 px-6 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600 transition-all duration-200 shadow-md hover:shadow-lg"
                                 >
                                     <i class="fas fa-bolt" x-show="!interpreting"></i>
@@ -265,6 +285,13 @@
                             <i class="fas fa-info-circle mr-1"></i>
                             Se requieren al menos 20 caracteres para interpretar el texto.
                         </div>
+
+                        {{-- Contract required warning --}}
+                        <div x-show="!selectedContractId && pasteText.length >= 20" x-cloak
+                             class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            <i class="fas fa-file-contract mr-1"></i>
+                            Selecciona el contrato antes de interpretar la solicitud.
+                        </div>
                     </form>
 
                     {{-- Hidden fast-create form --}}
@@ -272,6 +299,7 @@
                         @csrf
                         <input type="hidden" name="plain_text" :value="pasteText">
                         <input type="hidden" name="operator_notes" :value="operatorNotes">
+                        <input type="hidden" name="contract_id" :value="selectedContractId">
                     </form>
 
                     {{-- Manual link --}}

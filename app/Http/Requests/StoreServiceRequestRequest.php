@@ -163,21 +163,19 @@ class StoreServiceRequestRequest extends FormRequest
 
             $subServiceId = $this->input('sub_service_id');
             $familyId = $this->input('family_id');
-            $companyId = $this->input('company_id') ?: session('current_company_id');
-            $activeContractId = $companyId
-                ? \App\Models\Company::where('id', $companyId)->value('active_contract_id')
-                : null;
 
             if ($subServiceId) {
-                $subService = \App\Models\SubService::with('service.family')->find($subServiceId);
+                $subService = \App\Models\SubService::with('service.family.contract')->find($subServiceId);
                 $family = $subService?->service?->family;
+
+                // El subservicio DEBE pertenecer a un contrato válido (fuente de verdad de la entidad).
+                // La entidad/contrato de la solicitud se derivan de aquí en el servicio de creación.
+                if (!$family || !$family->contract_id) {
+                    $validator->errors()->add('sub_service_id', 'El subservicio seleccionado no está asociado a un contrato válido.');
+                }
 
                 if ($familyId && $family && (string) $family->id !== (string) $familyId) {
                     $validator->errors()->add('family_id', 'La familia no corresponde al subservicio seleccionado.');
-                }
-
-                if ($activeContractId && $family && (string) $family->contract_id !== (string) $activeContractId) {
-                    $validator->errors()->add('sub_service_id', 'El subservicio no pertenece al contrato activo del espacio de trabajo.');
                 }
 
                 $slaId = $this->input('sla_id');
@@ -207,11 +205,13 @@ class StoreServiceRequestRequest extends FormRequest
                 }
             }
 
+            // Validar el solicitante contra la entidad derivada del subservicio (fuente de verdad).
             $requesterId = $this->input('requester_id');
-            if ($requesterId && $companyId) {
+            $derivedCompanyId = $family?->contract?->company_id;
+            if ($requesterId && $derivedCompanyId) {
                 $requesterCompanyId = \App\Models\Requester::where('id', $requesterId)->value('company_id');
-                if ($requesterCompanyId && (string) $requesterCompanyId !== (string) $companyId) {
-                    $validator->errors()->add('requester_id', 'El solicitante no pertenece al espacio de trabajo actual.');
+                if ($requesterCompanyId && (string) $requesterCompanyId !== (string) $derivedCompanyId) {
+                    $validator->errors()->add('requester_id', 'El solicitante no pertenece a la entidad del subservicio seleccionado.');
                 }
             }
 

@@ -478,6 +478,30 @@ class ServiceRequestController extends Controller
     }
 
     /**
+     * Resuelve la entidad (company_id) para interpretar texto, orientada por contrato.
+     *
+     * Prioridad:
+     *  1) contract_id explícito del selector (debe estar activo) -> company del contrato
+     *  2) contrato activo del workspace en sesión (compatibilidad)
+     */
+    private function resolveCompanyForInterpretation(Request $request): int
+    {
+        $contractId = (int) $request->input('contract_id', 0);
+
+        if ($contractId > 0) {
+            $companyId = (int) (\App\Models\Contract::where('id', $contractId)
+                ->where('is_active', true)
+                ->value('company_id') ?? 0);
+
+            if ($companyId > 0) {
+                return $companyId;
+            }
+        }
+
+        return (int) session('current_company_id', 0);
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create(Request $request)
@@ -513,11 +537,11 @@ class ServiceRequestController extends Controller
         $validated = $validator->validated();
         $operatorNotes = trim($validated['operator_notes'] ?? '');
 
-        $companyId = (int) session('current_company_id');
+        $companyId = $this->resolveCompanyForInterpretation($request);
         if ($companyId <= 0) {
             return redirect()
                 ->route('service-requests.create')
-                ->with('error', 'No hay un espacio de trabajo activo para interpretar el texto pegado.');
+                ->with('error', 'Selecciona un contrato válido para interpretar el texto pegado.');
         }
 
         try {
@@ -609,11 +633,11 @@ class ServiceRequestController extends Controller
         $validated = $validator->validated();
         $operatorNotes = trim($validated['operator_notes'] ?? '');
 
-        $companyId = (int) session('current_company_id');
+        $companyId = $this->resolveCompanyForInterpretation($request);
         if ($companyId <= 0) {
             return redirect()
                 ->route('service-requests.create')
-                ->with('error', 'No hay un espacio de trabajo activo para interpretar el texto pegado.');
+                ->with('error', 'Selecciona un contrato válido para interpretar el texto pegado.');
         }
 
         try {

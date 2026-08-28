@@ -653,36 +653,90 @@ class ServiceRequestService
     }
 
     /**
-     * Blindaje de consistencia multi-entidad para creaciones por servicio/API/scripts.
-     * Evita crear solicitudes con requester, subservicio o SLA de otra entidad.
+     * Deriva de forma AUTORITATIVA la entidad y el contrato reales a partir del subservicio.
+     *
+     * El catálogo (sub_service -> family -> contract -> company) es la única fuente de verdad:
+     * el contrato al que pertenece el subservicio define company_id y contract_id de la solicitud,
+     * sin importar el workspace activo ni lo que venga del formulario. Esto elimina de raíz el
+     * riesgo de guardar una solicitud bajo una entidad que no corresponde a su subservicio.
+     *
+     * @return array{contract_id:int, company_id:int}
      */
-    private function assertEntityConsistency(array $data): void
+    private function deriveEntityFromSubService(int $subServiceId): array
     {
-        $companyId = (int) ($data['company_id'] ?? 0);
-        $requesterId = (int) ($data['requester_id'] ?? 0);
-        $subServiceId = (int) ($data['sub_service_id'] ?? 0);
-        $criticality = (string) ($data['criticality_level'] ?? 'MEDIA');
-        $slaId = (int) ($data['sla_id'] ?? 0);
+        $row = DB::table('sub_services as ss')
+            ->join('services as s', 's.id', '=', 'ss.service_id')
+            ->join('service_families as sf', 'sf.id', '=', 's.service_family_id')
+            ->join('contracts as ct', 'ct.id', '=', 'sf.contract_id')
+            ->where('ss.id', $subServiceId)
+            ->select('ct.id as contract_id', 'ct.company_id as company_id')
+            ->first();
 
-        if ($companyId <= 0 || $requesterId <= 0 || $subServiceId <= 0) {
-            return;
-        }
-
-        $requesterCompanyId = (int) (Requester::withoutGlobalScopes()
-            ->where('id', $requesterId)
-            ->value('company_id') ?? 0);
-
-        if ($requesterCompanyId > 0 && $requesterCompanyId !== $companyId) {
+        if (!$row) {
             throw ValidationException::withMessages([
-                'requester_id' => 'El solicitante no pertenece a la entidad seleccionada.',
+                'sub_service_id' => 'El subservicio seleccionado no está asociado a un contrato válido.',
             ]);
         }
 
+        return [
+            'contract_id' => (int) $row->contract_id,
+            'company_id' => (int) $row->company_id,
+        ];
+    }
+
+    /**
+     * Blindaje de consistencia multi-entidad para creaciones por servicio/API/scripts.
+     *
+     * Recibe $data por referencia para poder alinear company_id/contract_id/sla_id a la
+     * fuente de verdad del catálogo antes de persistir.
+     */
+    private function assertEntityConsistency(array &$data): void
+    {
+        $requesterId = (int) ($data['requester_id'] ?? 0);
+        $subServiceId = (int) ($data['sub_service_id'] ?? 0);
+        $criticality = (string) ($data['criticality_level'] ?? 'MEDIA');
+
+        if ($subServiceId <= 0) {
+            return;
+        }
+
+        // 1. Fuente de verdad: derivar entidad/contrato reales del subservicio.
+        $derived = $this->deriveEntityFromSubService($subServiceId);
+        $companyId = $derived['company_id'];
+
+        // 2. Guarda dura: si el formulario envió una entidad distinta a la del subservicio,
+        //    se alinea a la del catálogo (evita el mismatch multi-entidad).
+        $submittedCompany = (int) ($data['company_id'] ?? 0);
+        if ($submittedCompany > 0 && $submittedCompany !== $companyId) {
+            Log::warning('company_id enviado difiere del contrato del subservicio; se alinea al catálogo.', [
+                'submitted_company_id' => $submittedCompany,
+                'derived_company_id' => $companyId,
+                'sub_service_id' => $subServiceId,
+            ]);
+        }
+
+        $data['company_id'] = $companyId;
+        $data['contract_id'] = $derived['contract_id'];
+
+        // 3. El solicitante debe pertenecer a la entidad derivada.
+        if ($requesterId > 0) {
+            $requesterCompanyId = (int) (Requester::withoutGlobalScopes()
+                ->where('id', $requesterId)
+                ->value('company_id') ?? 0);
+
+            if ($requesterCompanyId > 0 && $requesterCompanyId !== $companyId) {
+                throw ValidationException::withMessages([
+                    'requester_id' => 'El solicitante no pertenece a la entidad del subservicio seleccionado.',
+                ]);
+            }
+        }
+
+        // 4. Resolver contexto (familia/servicio/SLA/corte) contra la entidad correcta.
         try {
             $context = $this->resolveCreationContext($companyId, $subServiceId, $criticality);
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
-                'sub_service_id' => 'El subservicio no pertenece al contrato activo de la entidad seleccionada.',
+                'sub_service_id' => 'El subservicio no pertenece al contrato activo de su entidad.',
             ]);
         }
 
@@ -692,16 +746,17 @@ class ServiceRequestService
             ]);
         }
 
-        if ($slaId > 0 && (int) ($context['sla_id'] ?? 0) !== $slaId) {
-            // Si el SLA del formulario no coincide con el resuelto por contexto,
-            // usar el SLA resuelto automáticamente en lugar de rechazar la solicitud.
-            // Esto ocurre cuando el SLA del formulario fue pre-llenado con una criticidad diferente.
-            Log::info('SLA del formulario difiere del contexto resuelto, usando SLA del contexto.', [
-                'form_sla_id' => $slaId,
-                'context_sla_id' => $context['sla_id'] ?? null,
-                'sub_service_id' => $subServiceId,
-                'criticality' => $criticality,
-            ]);
+        // 5. Alinear el SLA al resuelto por contexto (ahora sí surte efecto: $data por referencia).
+        $slaId = (int) ($data['sla_id'] ?? 0);
+        if ((int) ($context['sla_id'] ?? 0) > 0 && $slaId !== (int) $context['sla_id']) {
+            if ($slaId > 0) {
+                Log::info('SLA del formulario difiere del contexto resuelto, usando SLA del contexto.', [
+                    'form_sla_id' => $slaId,
+                    'context_sla_id' => $context['sla_id'],
+                    'sub_service_id' => $subServiceId,
+                    'criticality' => $criticality,
+                ]);
+            }
             $data['sla_id'] = (int) $context['sla_id'];
         }
     }
@@ -993,6 +1048,18 @@ class ServiceRequestService
             ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
             : null;
 
+        // Contratos activos agrupados por entidad, para el selector de creación.
+        // El contrato es la unidad de cumplimiento: define la entidad y el catálogo de la solicitud.
+        $activeContracts = \App\Models\Contract::query()
+            ->where('is_active', true)
+            ->with('company:id,name')
+            ->orderBy('company_id')
+            ->orderBy('number')
+            ->get(['id', 'company_id', 'number', 'name']);
+
+        // Contrato preseleccionado: el activo del workspace actual (si aplica).
+        $defaultContractId = $currentCompany?->active_contract_id;
+
         return [
             // Se deja vacío para usar Select2 AJAX y evitar enviar listas enormes.
             'subServices' => collect(),
@@ -1003,6 +1070,8 @@ class ServiceRequestService
                 ->get(['id', 'name', 'email', 'department', 'company_id']),
             'companies' => \App\Models\Company::orderBy('name')->get(),
             'currentCompany' => $currentCompany,
+            'activeContracts' => $activeContracts,
+            'defaultContractId' => $defaultContractId,
             'requestTypes' => \App\Models\RequestType::active()->orderBy('name')->get(['id', 'slug', 'name']),
             'criticalityLevels' => ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'],
             'complexityLevels' => ['BAJA', 'MEDIA', 'ALTA'],
