@@ -417,7 +417,7 @@ class Task extends Model
             'started_at' => $startedAt,
             'completed_at' => $completedAt,
             'actual_duration_minutes' => $duration,
-            'actual_hours' => round($duration / 60, 2),
+            'actual_hours' => $this->safeActualHoursFromMinutes($duration),
             'evidence_completed' => $this->evidence_completed,
         ]);
 
@@ -430,6 +430,23 @@ class Task extends Model
         if ($this->serviceRequest) {
             $this->serviceRequest->updateStatusFromTasks();
         }
+    }
+
+    /**
+     * Máximo valor almacenable en la columna actual_hours (decimal(4,1) => 999.9).
+     */
+    public const MAX_ACTUAL_HOURS = 999.9;
+
+    /**
+     * Convierte minutos a horas de forma segura para la columna actual_hours:
+     * redondea a 1 decimal y acota al máximo permitido por el esquema (999.9),
+     * evitando errores "Out of range" cuando el tiempo transcurrido es muy grande.
+     */
+    public function safeActualHoursFromMinutes(int $minutes): float
+    {
+        $hours = round($minutes / 60, 1);
+
+        return min($hours, self::MAX_ACTUAL_HOURS);
     }
 
     public function calculateActualDurationMinutes(?Carbon $completedAt = null): int

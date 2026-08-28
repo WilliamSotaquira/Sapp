@@ -1186,8 +1186,24 @@ class TaskController extends Controller
     /**
      * Ver tarea
      */
-    public function show(Task $task)
+    public function show(Request $request, Task $task)
     {
+        // Persistir la URL de origen (de dónde llegó el usuario a esta tarea) para el botón "Volver".
+        // Solo se actualiza cuando el referrer NO es la propia tarea, para que sobreviva a los
+        // redirects de las acciones (completar/iniciar) que devuelven a esta misma página.
+        $sessionKey = "task_back_url_{$task->id}";
+        $referer = $request->headers->get('referer');
+        $taskUrl = route('tasks.show', $task);
+
+        if ($referer
+            && $referer !== $taskUrl
+            && !str_contains($referer, "/tasks/{$task->id}")
+            && str_starts_with($referer, url('/'))) {
+            $request->session()->put($sessionKey, $referer);
+        }
+
+        $backUrl = $request->session()->get($sessionKey, route('tasks.index'));
+
         $task->load([
             'technician.user',
             'serviceRequest.requester',
@@ -1203,7 +1219,7 @@ class TaskController extends Controller
             'checklists'
         ]);
 
-        return view('tasks.show', compact('task'));
+        return view('tasks.show', compact('task', 'backUrl'));
     }
 
     /**
@@ -1475,7 +1491,7 @@ class TaskController extends Controller
             $minutes = (int) $validated['actual_duration_minutes'];
             $task->update([
                 'actual_duration_minutes' => $minutes,
-                'actual_hours' => round($minutes / 60, 2),
+                'actual_hours' => $task->safeActualHoursFromMinutes($minutes),
             ]);
         }
 
