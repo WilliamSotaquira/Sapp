@@ -141,7 +141,6 @@ class CutController extends Controller
         // Count eligible requests that would fall in this range
         $requestCount = ServiceRequest::query()
             ->eligibleForCutAssignment()
-            ->where('company_id', $currentCompanyId)
             ->whereHas('subService.service.family', function ($fq) use ($activeContract) {
                 $fq->where('contract_id', $activeContract->id);
             })
@@ -579,10 +578,7 @@ class CutController extends Controller
                 $q->where('contract_id', $cut->contract_id);
             });
         }
-        $currentCompanyId = (int) session('current_company_id');
-        if ($currentCompanyId) {
-            $serviceRequestsQuery->where('company_id', $currentCompanyId);
-        }
+        // ServiceRequest ya scopea por contrato activo (global scope 'workspace').
 
         if ($search !== '') {
             $serviceRequestsQuery->where(function ($q) use ($search) {
@@ -686,7 +682,6 @@ class CutController extends Controller
 
         $serviceRequest = ServiceRequest::query()
             ->where('ticket_number', $ticketNumber)
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->first();
 
         if (!$serviceRequest) {
@@ -1043,7 +1038,6 @@ class CutController extends Controller
 
         $query = ServiceRequest::query()
             ->eligibleForCutAssignment()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->when($cut->contract_id, function ($q) use ($cut) {
                 $q->whereHas('subService.service.family', function ($fq) use ($cut) {
                     $fq->where('contract_id', $cut->contract_id);

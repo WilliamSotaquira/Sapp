@@ -95,7 +95,6 @@ class OperationalOverviewController extends Controller
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
         ->reportable()
-        ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('status')
         ->get();
@@ -121,7 +120,6 @@ class OperationalOverviewController extends Controller
             {$avgExpr} as avg_resolution_hours
         ")
         ->reportable()
-        ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('criticality_level')
         ->get();
@@ -150,7 +148,6 @@ class OperationalOverviewController extends Controller
             {$avgExpr} as avg_resolution_hours
         ")
         ->reportable()
-        ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
         ->where('created_at', '>=', now()->subMonths($months))
         ->groupBy('month')
         ->orderBy('month')

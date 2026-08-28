@@ -107,7 +107,6 @@ class ServicesSlaController extends Controller
         $requests = ServiceRequest::query()
             ->with(['sla', 'subService.service.family.contract', 'requester'])
             ->reportable()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->when($requesterId, fn($q) => $q->where('requester_id', $requesterId))
             ->when($department, function ($q) use ($department) {
@@ -163,7 +162,6 @@ class ServicesSlaController extends Controller
         ->leftJoin('contracts', 'service_families.contract_id', '=', 'contracts.id')
         ->leftJoin('requesters', 'service_requests.requester_id', '=', 'requesters.id')
         ->whereBetween('service_requests.created_at', [$dateRange['start'], $dateRange['end']])
-        ->when($currentCompanyId, fn($q) => $q->where('service_requests.company_id', $currentCompanyId))
         ->when($requesterId, fn($q) => $q->where('service_requests.requester_id', $requesterId))
         ->when($department !== null && $department !== '', fn($q) => $q->where('requesters.department', $department))
         ->whereNull('service_requests.deleted_at')

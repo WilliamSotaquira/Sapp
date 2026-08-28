@@ -14,9 +14,9 @@ class SlaReportController extends ReportController
     {
         $dateRange = $this->getDateRange($request);
 
+        // ServiceRequest ya scopea por contrato activo (global scope 'workspace').
         $slaCompliance = ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')
@@ -45,9 +45,9 @@ class SlaReportController extends ReportController
      */
     public function getSlaComplianceData($dateRange)
     {
+        // ServiceRequest ya scopea por contrato activo (global scope 'workspace').
         return ServiceRequest::with(['sla.serviceFamily', 'subService.service'])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get()
             ->groupBy('sla.serviceFamily.name')
