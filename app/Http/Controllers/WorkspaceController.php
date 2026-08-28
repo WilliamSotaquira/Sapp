@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Contract;
 use App\Services\WorkspaceContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,39 +17,66 @@ class WorkspaceController extends Controller
     public function select(Request $request): View
     {
         $user = $request->user();
-        $companies = $user->companies()
-            ->with('activeContract:id,number,name')
-            ->orderBy('name')
-            ->get([
-                'companies.id',
-                'companies.name',
-                'companies.logo_path',
-                'companies.primary_color',
-                'companies.alternate_color',
-                'companies.active_contract_id',
-            ]);
+
+        // IDs de las entidades a las que el usuario tiene acceso.
+        $companyIds = $user->companies()->pluck('companies.id');
+
+        // Contratos activos de esas entidades, agrupados por entidad.
+        // El contrato es la unidad de trabajo; la entidad es el agrupador.
+        $contracts = Contract::query()
+            ->where('is_active', true)
+            ->whereIn('company_id', $companyIds)
+            ->with('company:id,name,logo_path,primary_color,alternate_color')
+            ->orderBy('company_id')
+            ->orderBy('number')
+            ->get(['id', 'company_id', 'number', 'name']);
+
+        $contractsByCompany = $contracts->groupBy('company_id');
 
         return view('workspaces.select', [
-            'companies' => $companies,
-            'currentCompanyId' => $this->workspace->id(),
+            'contractsByCompany' => $contractsByCompany,
+            'currentContractId' => $this->workspace->contractId(),
         ]);
     }
 
     public function switch(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $companies = $user->companies()->get(['companies.id']);
 
         $request->validate([
-            'company_id' => 'required|integer',
+            'contract_id' => 'nullable|integer',
+            'company_id' => 'nullable|integer',
         ]);
 
-        $companyId = (int) $request->input('company_id');
-        if (!$companies->contains('id', $companyId)) {
-            return back()->with('error', 'No tienes acceso a esa entidad.');
+        $companyIds = $user->companies()->pluck('companies.id');
+        $contractId = (int) $request->input('contract_id', 0);
+
+        // Compatibilidad: si llega company_id (selectores legacy), resolver su contrato activo.
+        if ($contractId <= 0 && $request->filled('company_id')) {
+            $companyId = (int) $request->input('company_id');
+            $contractId = (int) (Contract::where('company_id', $companyId)
+                ->where('is_active', true)
+                ->when(
+                    \App\Models\Company::whereKey($companyId)->value('active_contract_id'),
+                    fn ($q, $activeId) => $q->where('id', $activeId)
+                )
+                ->value('id')
+                ?? Contract::where('company_id', $companyId)->where('is_active', true)->value('id')
+                ?? 0);
         }
 
-        $this->workspace->switchTo($companyId);
+        // El contrato debe estar activo y pertenecer a una entidad del usuario.
+        $contract = Contract::query()
+            ->where('id', $contractId)
+            ->where('is_active', true)
+            ->whereIn('company_id', $companyIds)
+            ->first();
+
+        if (!$contract) {
+            return back()->with('error', 'No tienes acceso a ese contrato o no está activo.');
+        }
+
+        $this->workspace->switchToContract($contract->id);
 
         // Si viene un redirect_to específico (ej: desde el intérprete de texto), usarlo
         $redirectTo = $request->input('redirect_to');
@@ -62,9 +90,9 @@ class WorkspaceController extends Controller
                 ]);
             }
 
-            return redirect($redirectTo)->with('success', 'Espacio de trabajo cambiado. Interpreta el texto de nuevo.');
+            return redirect($redirectTo)->with('success', 'Contrato cambiado. Interpreta el texto de nuevo.');
         }
 
-        return redirect()->intended(route('dashboard'))->with('success', 'Entidad activa actualizada.');
+        return redirect()->intended(route('dashboard'))->with('success', 'Contrato activo actualizado.');
     }
 }
