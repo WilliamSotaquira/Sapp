@@ -13,7 +13,7 @@
         'rescheduled' => ['bg' => 'bg-orange-600', 'light' => 'bg-orange-50 text-orange-700 border-orange-200', 'icon' => 'fa-calendar-alt', 'label' => 'Reprogramada']
     ];
     $status = $statusConfig[$task->status] ?? $statusConfig['pending'];
-    
+
     $priorityConfig = [
         'critical' => ['color' => 'red', 'label' => 'Crítica', 'icon' => 'fa-exclamation-circle'],
         'high' => ['color' => 'orange', 'label' => 'Alta', 'icon' => 'fa-arrow-up'],
@@ -23,13 +23,13 @@
         'urgent' => ['color' => 'red', 'label' => 'Crítica', 'icon' => 'fa-exclamation-circle']
     ];
     $priority = $priorityConfig[$task->priority] ?? $priorityConfig['medium'];
-    
+
     $completedSubtasks = $task->subtasks->filter(function($subtask) {
         return $subtask->is_completed || $subtask->status === 'completed';
     })->count();
     $totalSubtasks = $task->subtasks->count();
     $progressPercent = $totalSubtasks > 0 ? round(($completedSubtasks / $totalSubtasks) * 100) : 0;
-    
+
     $isOverdue = $task->due_date && $task->due_date->isPast() && !in_array($task->status, ['completed', 'cancelled']);
     $isDueSoon = $task->due_date && $task->due_date->isFuture() && $task->due_date->diffInHours(now()) <= 24;
 @endphp
@@ -114,9 +114,9 @@
                         <h1 class="text-xl font-semibold text-gray-900">{{ $task->title }}</h1>
                     </div>
                 </div>
-                
+
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <a href="{{ route('tasks.edit', $task) }}" 
+                    <a href="{{ route('tasks.edit', $task) }}"
                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
                         <i class="fas fa-pencil-alt mr-2 text-gray-400"></i>Editar
                     </a>
@@ -130,14 +130,14 @@
                             <i class="fas fa-trash-alt mr-2"></i>Eliminar
                         </button>
                     </form>
-                    <a href="{{ route('tasks.index') }}" 
+                    <a href="{{ $backUrl ?? route('tasks.index') }}"
                        class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
                         <i class="fas fa-arrow-left mr-2 text-gray-400"></i>Volver
                     </a>
                 </div>
             </div>
         </div>
-        
+
         <!-- Meta Info Bar -->
         <div class="px-6 py-3 bg-gray-50 flex flex-wrap items-center gap-6 text-sm">
             <div class="flex items-center gap-2 text-gray-600">
@@ -214,12 +214,12 @@
                             <p class="text-xs text-gray-400 mt-1">Arrastra el icono de puntos para cambiar el orden.</p>
                         @endif
                     </div>
-                    <button onclick="toggleSubtaskForm()" 
+                    <button onclick="toggleSubtaskForm()"
                             class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
                         <i class="fas fa-plus mr-1.5"></i>Agregar
                     </button>
                 </div>
-                
+
                 <!-- Progress Bar -->
                 @if($totalSubtasks > 0)
                 <div class="px-5 py-3 bg-gray-50 border-b border-gray-100">
@@ -231,14 +231,14 @@
                     </div>
                 </div>
                 @endif
-                
+
                 <!-- Add Form -->
                 <div id="subtaskForm" class="hidden px-5 py-4 bg-blue-50 border-b border-blue-100">
                     <form action="{{ route('tasks.subtasks.store', $task) }}" method="POST" class="flex flex-wrap gap-2">
                         @csrf
                         <input type="text" name="title" placeholder="Descripción de la subtarea..." required
                                class="flex-1 min-w-[200px] rounded border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                        <input type="number" name="estimated_minutes" value="25" min="5" step="5" 
+                        <input type="number" name="estimated_minutes" value="25" min="5" step="5"
                                class="w-20 rounded border-gray-300 text-sm text-center" title="Minutos">
                         <select name="priority" class="rounded border-gray-300 text-sm">
                             <option value="low">Baja</option>
@@ -253,7 +253,7 @@
                         </button>
                     </form>
                 </div>
-                
+
                 <!-- Subtasks List -->
                 <div id="subtasksList"
                      class="divide-y divide-gray-100"
@@ -279,7 +279,7 @@
                                     <i class="fas fa-check text-xs"></i>
                                 @endif
                             </button>
-                            
+
                             <div class="flex-1 min-w-0">
                                 <p class="subtask-title text-sm {{ $subtask->isCompleted() ? 'line-through text-gray-400' : 'text-gray-900' }}">
                                     {{ $subtask->title }}
@@ -291,7 +291,7 @@
                                     @endif
                                 </div>
                             </div>
-                            
+
                             @php
                                 $subtaskPriorityLabels = ['high' => 'Alta', 'medium' => 'Media', 'low' => 'Baja'];
                             @endphp
@@ -309,7 +309,7 @@
                                     data-url="{{ route('tasks.subtasks.update', [$task, $subtask]) }}">
                                 <i class="fas fa-pen text-xs"></i>
                             </button>
-                            
+
                             <button type="button"
                                     class="subtask-delete opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all p-1"
                                     data-task-id="{{ $task->id }}"
@@ -394,7 +394,7 @@
                             </button>
                         </form>
                     @endif
-                    
+
                     @if($task->status === 'in_progress')
                         <form action="{{ route('tasks.complete', $task) }}" method="POST">
                             @csrf
@@ -403,13 +403,13 @@
                                 Completar Tarea
                             </button>
                         </form>
-                        
+
                         <button onclick="showBlockModal()" class="w-full flex items-center justify-center gap-2 border border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100 py-2.5 px-4 rounded-md text-sm font-medium transition">
                             <i class="fas fa-ban"></i>
                             Reportar Bloqueo
                         </button>
                     @endif
-                    
+
                     @if($task->status === 'blocked')
                         <form action="{{ route('tasks.unblock', $task) }}" method="POST">
                             @csrf
@@ -480,7 +480,7 @@
                             {{ $task->serviceRequest?->requester?->name ?? '—' }}
                         </span>
                     </div>
-                    <a href="{{ route('service-requests.show', $task->service_request_id) }}" 
+                    <a href="{{ route('service-requests.show', $task->service_request_id) }}"
                        class="px-5 py-3 flex items-center justify-between gap-4 hover:bg-gray-50 transition">
                         <span class="text-sm text-gray-500">Solicitud</span>
                         <span class="text-sm font-medium text-right text-blue-600 hover:underline">
@@ -550,11 +550,11 @@
                       class="w-full rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
                       placeholder="Ej: Esperando accesos, dependencia de otro equipo..."></textarea>
             <div class="flex gap-3 mt-5">
-                <button type="button" onclick="hideBlockModal()" 
+                <button type="button" onclick="hideBlockModal()"
                         class="flex-1 py-2 px-4 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-md text-sm font-medium transition">
                     Cancelar
                 </button>
-                <button type="submit" 
+                <button type="submit"
                         class="flex-1 py-2 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition">
                     Confirmar Bloqueo
                 </button>
@@ -657,19 +657,19 @@ function updateProgressBar() {
     const total = allSubtasks.length;
     const completed = completedSubtasks.length;
     const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    
+
     // Actualizar barra de progreso
     const progressBar = document.getElementById('subtasksProgressBar');
     if (progressBar) {
         progressBar.style.width = `${percent}%`;
     }
-    
+
     // Actualizar porcentaje
     const percentText = document.getElementById('subtasksProgressPercent');
     if (percentText) {
         percentText.textContent = `${percent}%`;
     }
-    
+
     // Actualizar contador de subtareas
     const subtaskCounter = document.getElementById('subtasksCounter');
     if (subtaskCounter) {
@@ -827,9 +827,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const subtaskId = this.dataset.subtaskId;
             const item = document.getElementById(`subtask-item-${subtaskId}`);
             const isCompleted = this.classList.contains('bg-blue-600');
-            
+
             this.disabled = true;
-            
+
             fetch(url, {
                 method: 'POST',
                 headers: {
@@ -852,7 +852,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.success) {
                     const title = item.querySelector('.subtask-title');
-                    
+
                     if (data.is_completed) {
                         this.classList.remove('border-gray-300');
                         this.classList.add('bg-blue-600', 'border-blue-600', 'text-white');
@@ -868,10 +868,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         title.classList.add('text-gray-900');
                         showToast('Subtarea marcada como pendiente', 'info');
                     }
-                    
+
                     // Actualizar barra de progreso
                     updateProgressBar();
-                    
+
                     if (data.status_changed) {
                         setTimeout(() => window.location.reload(), 500);
                     }
@@ -890,11 +890,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.subtask-delete').forEach(button => {
         button.addEventListener('click', function() {
             if (!confirm('¿Eliminar esta subtarea?')) return;
-            
+
             const url = this.dataset.url;
             const subtaskId = this.dataset.subtaskId;
             const item = document.getElementById(`subtask-item-${subtaskId}`);
-            
+
             fetch(url, {
                 method: 'DELETE',
                 headers: {
