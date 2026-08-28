@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Contract;
 use App\Services\WorkspaceContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -21,39 +22,53 @@ class EnsureWorkspaceSelected
         }
 
         $user = $request->user();
-        $companies = $user->companies()
-            ->orderBy('name')
-            ->get(['companies.id', 'companies.name', 'companies.active_contract_id']);
+        $companyIds = $user->companies()->pluck('companies.id');
 
-        $currentId = $this->workspace->id();
+        // Contratos activos de las entidades del usuario (unidad de trabajo).
+        $contracts = Contract::query()
+            ->where('is_active', true)
+            ->whereIn('company_id', $companyIds)
+            ->with('company:id,name,active_contract_id,primary_color,alternate_color,contrast_color,logo_path')
+            ->orderBy('company_id')
+            ->orderBy('number')
+            ->get(['id', 'company_id', 'number', 'name']);
 
-        // Validar que el workspace en sesión siga perteneciendo al usuario
-        if ($currentId && !$companies->contains('id', $currentId)) {
-            session()->forget('current_company_id');
+        $currentContractId = $this->workspace->contractId();
+
+        // Validar que el contrato activo siga siendo accesible por el usuario.
+        if ($currentContractId && !$contracts->contains('id', $currentContractId)) {
+            session()->forget(['current_contract_id', 'current_company_id']);
             $this->workspace->reset();
-            $currentId = null;
+            $currentContractId = null;
         }
 
-        if (!$currentId) {
-            if ($companies->count() === 1) {
-                // Auto-seleccionar si solo tiene una entidad
-                $currentId = $companies->first()->id;
-                $this->workspace->switchTo($currentId);
+        if (!$currentContractId) {
+            if ($contracts->count() === 1) {
+                // Auto-seleccionar si solo hay un contrato disponible.
+                $currentContractId = $contracts->first()->id;
+                $this->workspace->switchToContract($currentContractId);
             } else {
-                // Redirigir a selección de workspace
+                // Redirigir a selección de contrato.
                 if (!$request->routeIs('workspaces.select', 'workspaces.switch', 'profile.*', 'logout', 'my-space.*')) {
                     return redirect()->route('workspaces.select');
                 }
             }
         }
 
-        // Compartir datos de workspace a todas las vistas
-        $currentWorkspace = $currentId
-            ? $this->workspace->company()
+        // Contrato activo y su entidad (para theming, personas, catálogo).
+        $currentContract = $currentContractId
+            ? $contracts->firstWhere('id', $currentContractId)
             : null;
 
+        // $currentWorkspace se mantiene como la Company (compatibilidad con vistas/theming existentes),
+        // derivada del contrato activo.
+        $currentWorkspace = $currentContract?->company;
+
+        View::share('currentContract', $currentContract);
         View::share('currentWorkspace', $currentWorkspace);
-        View::share('userWorkspaces', $companies);
+        View::share('userContracts', $contracts);
+        // Compatibilidad: algunas vistas aún usan $userWorkspaces (lista de entidades).
+        View::share('userWorkspaces', $contracts->pluck('company')->unique('id')->values());
 
         return $next($request);
     }
