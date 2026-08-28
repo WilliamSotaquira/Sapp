@@ -22,6 +22,12 @@ class ServiceRequest extends Model
     use HasFactory, SoftDeletes, BelongsToWorkspace;
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
+    /**
+     * La solicitud es la unidad de cumplimiento: se scopea por CONTRATO, no por entidad.
+     * (Requester/Department/Project siguen por company_id.)
+     */
+    protected static string $workspaceScopeColumn = 'contract_id';
+
     public const ENTRY_CHANNEL_CORPORATE_EMAIL = 'email_corporativo';
     public const ENTRY_CHANNEL_DIGITAL_EMAIL = 'email_digital';
     public const ENTRY_CHANNEL_WHATSAPP = 'whatsapp';
@@ -180,10 +186,14 @@ class ServiceRequest extends Model
             abort(403, 'No tienes acceso a esta solicitud de servicio.');
         }
 
-        // 4. Auto-switch solo si el usuario pertenece a la empresa.
-        // Si es solo el asignado (no pertenece a la empresa), no cambiamos su workspace activo.
+        // 4. Auto-switch al CONTRATO de la solicitud, solo si el usuario pertenece a la empresa.
+        // Si es solo el asignado (no pertenece a la empresa), no cambiamos su contexto.
         if ($belongsToCompany) {
-            app(WorkspaceContext::class)->switchTo($model->company_id);
+            if ($model->contract_id) {
+                app(WorkspaceContext::class)->switchToContract((int) $model->contract_id);
+            } else {
+                app(WorkspaceContext::class)->switchTo((int) $model->company_id);
+            }
         }
 
         $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');

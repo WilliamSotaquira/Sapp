@@ -6,49 +6,80 @@ use App\Services\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Trait para modelos que pertenecen a un workspace (empresa).
+ * Trait para modelos con scope de workspace.
  *
- * Agrega automáticamente:
- * - Global scope que filtra por company_id del workspace activo
- * - Auto-asignación de company_id al crear registros
- * - Relación company()
+ * Por defecto scopea por company_id (entidad), que es lo correcto para
+ * personas y organización (Requester, Department, Project, etc.).
  *
- * Uso: `use BelongsToWorkspace;` en cualquier modelo con columna company_id.
+ * Un modelo puede optar por scope a nivel de CONTRATO declarando:
+ *     protected static string $workspaceScopeColumn = 'contract_id';
+ * En ese caso el filtro y la auto-asignación usan el contrato activo.
+ *
+ * Uso: `use BelongsToWorkspace;`
  */
 trait BelongsToWorkspace
 {
+    /**
+     * Columna por la que se scopea. Se resuelve del modelo si define
+     * $workspaceScopeColumn; si no, 'company_id' (comportamiento por defecto).
+     */
+    public static function workspaceScopeColumn(): string
+    {
+        return property_exists(static::class, 'workspaceScopeColumn')
+            ? static::$workspaceScopeColumn
+            : 'company_id';
+    }
+
+    /**
+     * Valor del contexto activo según la columna de scope:
+     *  - contract_id  -> contrato activo
+     *  - company_id   -> entidad activa (derivada del contrato)
+     */
+    protected static function workspaceScopeValue(): ?int
+    {
+        $ctx = app(WorkspaceContext::class);
+
+        return static::workspaceScopeColumn() === 'contract_id'
+            ? $ctx->contractId()
+            : $ctx->companyId();
+    }
+
     public static function bootBelongsToWorkspace(): void
     {
-        // Global scope: filtrar automáticamente por workspace activo
+        // Global scope: filtrar automáticamente por el contexto activo.
         static::addGlobalScope('workspace', function (Builder $query) {
-            $companyId = app(WorkspaceContext::class)->id();
+            $value = static::workspaceScopeValue();
 
-            if ($companyId) {
-                $query->where($query->getModel()->qualifyColumn('company_id'), $companyId);
+            if ($value) {
+                $column = static::workspaceScopeColumn();
+                $query->where($query->getModel()->qualifyColumn($column), $value);
             }
         });
 
-        // Auto-asignar company_id al crear si no se proporcionó
+        // Auto-asignar la columna de scope al crear si no se proporcionó.
         static::creating(function ($model) {
-            if (empty($model->company_id)) {
-                $model->company_id = app(WorkspaceContext::class)->id();
+            $column = static::workspaceScopeColumn();
+
+            if (empty($model->{$column})) {
+                $model->{$column} = static::workspaceScopeValue();
             }
         });
     }
 
     /**
-     * Inicializar el trait (setear valores por defecto si es necesario).
+     * Inicializar el trait (casts por defecto).
      */
     public function initializeBelongsToWorkspace(): void
     {
-        // Asegurar que company_id sea integer en casts
-        if (!array_key_exists('company_id', $this->casts ?? [])) {
-            $this->casts['company_id'] = 'integer';
+        $column = static::workspaceScopeColumn();
+
+        if (!array_key_exists($column, $this->casts ?? [])) {
+            $this->casts[$column] = 'integer';
         }
     }
 
     /**
-     * Relación con la empresa/workspace.
+     * Relación con la empresa/workspace (entidad).
      */
     public function workspace(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
@@ -57,11 +88,12 @@ trait BelongsToWorkspace
 
     /**
      * Scope para consultar en un workspace específico (sin depender de la sesión).
+     * Usa la columna de scope del modelo (company_id o contract_id).
      */
-    public function scopeForWorkspace(Builder $query, int $companyId): Builder
+    public function scopeForWorkspace(Builder $query, int $value): Builder
     {
         return $query->withoutGlobalScope('workspace')
-            ->where($this->qualifyColumn('company_id'), $companyId);
+            ->where($this->qualifyColumn(static::workspaceScopeColumn()), $value);
     }
 
     /**
