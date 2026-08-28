@@ -90,8 +90,7 @@ class SearchAnalysisController extends Controller
         // Build query
         $query = ServiceRequest::query()
             ->with(['subService.service.family', 'requester'])
-            ->reportable()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId));
+            ->reportable();
 
         // Apply search terms (OR logic between terms)
         if (!empty($searchTerms)) {
@@ -226,8 +225,7 @@ class SearchAnalysisController extends Controller
         // Build query (same logic as search)
         $query = ServiceRequest::query()
             ->with(['subService.service.family', 'requester'])
-            ->reportable()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId));
+            ->reportable();
 
         if (!empty($searchTerms)) {
             $query->where(function ($q) use ($searchTerms) {

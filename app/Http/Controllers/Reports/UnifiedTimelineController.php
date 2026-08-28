@@ -26,7 +26,6 @@ class UnifiedTimelineController extends Controller
 
         $query = ServiceRequest::with(['subService.service.family', 'requester', 'assignee', 'sla'])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->orderBy('created_at', 'desc');
 
@@ -58,7 +57,6 @@ class UnifiedTimelineController extends Controller
             'breachLogs'
         ])
         ->reportable()
-        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->findOrFail($id);
 
         $timelineEvents = $serviceRequest->getTimelineEvents();
@@ -91,12 +89,9 @@ class UnifiedTimelineController extends Controller
             return redirect()->route('reports.timeline.index');
         }
 
-        $companyId = (int) session('current_company_id');
-
-        // Search for matching service requests
+        // ServiceRequest ya scopea por contrato activo (global scope 'workspace').
         $matches = ServiceRequest::query()
             ->reportable()
-            ->when($companyId, fn($q) => $q->where('company_id', $companyId))
             ->where('ticket_number', 'LIKE', "%{$ticket}%")
             ->get();
 
@@ -132,7 +127,6 @@ class UnifiedTimelineController extends Controller
                 'breachLogs'
             ])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->findOrFail($id);
 
             $timelineEvents = $serviceRequest->getTimelineEvents();

@@ -276,7 +276,6 @@ class ReportController extends Controller
         $requests = ServiceRequest::query()
             ->with(['sla', 'subService.service.family.contract'])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->get();
 
@@ -310,7 +309,6 @@ class ReportController extends Controller
             ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
         ")
         ->reportable()
-        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('status')
         ->get();
@@ -327,7 +325,6 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
-        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
         ->groupBy('criticality_level')
         ->get()
@@ -359,7 +356,6 @@ class ReportController extends Controller
         ->leftJoin('contracts', 'service_families.contract_id', '=', 'contracts.id')
         ->leftJoin('requesters', 'service_requests.requester_id', '=', 'requesters.id')
         ->whereBetween('service_requests.created_at', [$dateRange['start'], $dateRange['end']])
-        ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')))
         ->when($requesterId, fn($q) => $q->where('service_requests.requester_id', $requesterId))
         ->when($department !== null && $department !== '', fn($q) => $q->where('requesters.department', $department))
         ->whereNull('service_requests.deleted_at')
@@ -455,7 +451,6 @@ class ReportController extends Controller
             AVG(TIMESTAMPDIFF(HOUR, COALESCE(responded_at, created_at), COALESCE(resolved_at, NOW()))) as avg_resolution_hours
         ")
         ->reportable()
-        ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
         ->where('created_at', '>=', now()->subMonths($months))
         ->groupBy('month')
         ->orderBy('month')

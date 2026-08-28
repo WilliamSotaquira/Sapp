@@ -185,8 +185,7 @@ class TimeRangeReportController extends Controller
                     'evidences.uploadedBy',
                     'tasks',
                     'sla'
-                ])
-                ->when((int) session('current_company_id'), fn($q) => $q->where('service_requests.company_id', (int) session('current_company_id')));
+                ]);
         } else {
             // Manual date range: filter by created_at
             $query = ServiceRequest::with([
@@ -198,7 +197,6 @@ class TimeRangeReportController extends Controller
                 'sla'
             ])
             ->reportable()
-            ->when((int) session('current_company_id'), fn($q) => $q->where('company_id', (int) session('current_company_id')))
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
         }
 
