@@ -1228,6 +1228,8 @@ class ServiceRequestPlainTextImportService
         // Deduplicate URLs
         $urls = array_values(array_unique($urls));
 
+        $tasksTemplate = $this->resolveTasksTemplateForSubService($subServiceId);
+
         return [
             'payload' => [
                 'company_id' => (int) $company->id,
@@ -1245,8 +1247,8 @@ class ServiceRequestPlainTextImportService
                 'due_date' => null,
                 'web_routes' => json_encode(array_slice($urls, 0, 8)),
                 'is_reportable' => true,
-                'tasks_template' => $this->resolveTasksTemplateForSubService($subServiceId),
-                'tasks' => $this->resolveTasksTemplateForSubService($subServiceId) === 'subservice_standard' ? [] : $tasks,
+                'tasks_template' => $tasksTemplate,
+                'tasks' => $tasksTemplate === 'subservice_standard' ? [] : $tasks,
                 '__pending_requester_name' => $requesterPending ? $requesterName : null,
                 '__pending_requester_email' => null,
             ],
@@ -2175,8 +2177,13 @@ class ServiceRequestPlainTextImportService
      * Las tareas predefinidas incluyen información técnica (environment, complexity, technologies)
      * que las tareas genéricas de la IA no tienen.
      */
-    private function resolveTasksTemplateForSubService(int $subServiceId): string
+    private function resolveTasksTemplateForSubService(?int $subServiceId): string
     {
+        // Sin subservicio resuelto no puede haber plantilla de tareas estándar.
+        if (empty($subServiceId)) {
+            return 'none';
+        }
+
         $hasStandardTasks = StandardTask::query()
             ->where('sub_service_id', $subServiceId)
             ->active()
