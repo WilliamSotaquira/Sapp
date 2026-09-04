@@ -152,20 +152,22 @@
             </div>
         </section>
 
+        <!-- Tareas Asociadas -->
+        {{-- Orden lógico del proceso: primero se ejecutan/confirman las tareas, --}}
+        {{-- y luego se sube la evidencia que las respalda (importante para auditoría). --}}
+        <section id="sr-section-tasks"
+                 class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="tasks"
+                 data-priority="{{ in_array('tasks', $prioritySections) ? '1' : '0' }}">
+            <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
+        </section>
+
         <!-- Sistema de Evidencias -->
         <section id="sr-section-evidences"
                  class="sr-section sr-collapsible scroll-mt-16"
                  data-section-key="evidences"
                  data-priority="{{ in_array('evidences', $prioritySections) ? '1' : '0' }}">
             <x-service-requests.show.evidences.evidence-gallery :serviceRequest="$serviceRequest" />
-        </section>
-
-        <!-- Tareas Asociadas -->
-        <section id="sr-section-tasks"
-                 class="sr-section sr-collapsible scroll-mt-16"
-                 data-section-key="tasks"
-                 data-priority="{{ in_array('tasks', $prioritySections) ? '1' : '0' }}">
-            <x-service-requests.show.content.tasks-panel :serviceRequest="$serviceRequest" />
         </section>
 
         <!-- Meeting Sections (only for type "reunion") -->
