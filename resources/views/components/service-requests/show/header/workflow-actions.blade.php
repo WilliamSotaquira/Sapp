@@ -68,6 +68,16 @@
                 'appearance' => 'soft',
                 'route_params' => $serviceRequest,
             ],
+            [
+                'action' => 'finalize-non-viable',
+                'route' => 'finalize-non-viable-modal',
+                'icon' => 'ban',
+                'method' => 'MODAL',
+                'label' => 'Finalizar (No viable)',
+                'condition' => true,
+                'appearance' => 'warning-soft',
+                'modal_id' => 'finalize-non-viable-modal-' . $serviceRequest->id,
+            ],
         ],
         'EN_PROCESO' => [
             [
@@ -90,6 +100,16 @@
                 'appearance' => 'warning-soft',
                 'modal_id' => 'pause-modal-' . $serviceRequest->id,
             ],
+            [
+                'action' => 'finalize-non-viable',
+                'route' => 'finalize-non-viable-modal',
+                'icon' => 'ban',
+                'method' => 'MODAL',
+                'label' => 'Finalizar (No viable)',
+                'condition' => true,
+                'appearance' => 'warning-soft',
+                'modal_id' => 'finalize-non-viable-modal-' . $serviceRequest->id,
+            ],
         ],
         'PAUSADA' => [
             [
@@ -111,6 +131,16 @@
                 'condition' => true,
                 'appearance' => 'danger-soft',
                 'modal_id' => 'vencimiento-modal-' . $serviceRequest->id,
+            ],
+            [
+                'action' => 'finalize-non-viable',
+                'route' => 'finalize-non-viable-modal',
+                'icon' => 'ban',
+                'method' => 'MODAL',
+                'label' => 'Finalizar (No viable)',
+                'condition' => true,
+                'appearance' => 'warning-soft',
+                'modal_id' => 'finalize-non-viable-modal-' . $serviceRequest->id,
             ],
         ],
         'RESUELTA' => [
@@ -146,6 +176,30 @@
                 'appearance' => 'soft',
                 'modal_id' => 'reopen-modal-' . $serviceRequest->id,
             ],
+            [
+                'action' => 'create-service',
+                'route' => 'service-requests.create',
+                'icon' => 'plus-circle',
+                'method' => 'GET',
+                'label' => 'Crear Nuevo Servicio',
+                'condition' => true,
+                'appearance' => 'soft',
+                'route_params' => [],
+            ],
+            [
+                'action' => 'download-pdf',
+                'route' => 'service-requests.download-report',
+                'icon' => 'download',
+                'method' => 'GET',
+                'label' => 'Descargar PDF',
+                'condition' => true,
+                'appearance' => 'soft',
+                'route_params' => $serviceRequest,
+            ],
+        ],
+        // Estado final e irreversible: solo lectura + crear una nueva solicitud
+        // (más descarga de PDF), igual que una solicitud CERRADA.
+        'NO_VIABLE' => [
             [
                 'action' => 'create-service',
                 'route' => 'service-requests.create',
@@ -337,6 +391,11 @@
     {{-- ✅ AGREGAR START-MODAL --}}
     @if ($currentStatus === 'ACEPTADA')
         @include('components.service-requests.show.header.start-modal', [
+            'serviceRequest' => $serviceRequest,
+        ])
+    @endif
+    @if (in_array($currentStatus, ['ACEPTADA', 'EN_PROCESO', 'PAUSADA']))
+        @include('components.service-requests.show.header.finalize-non-viable-modal', [
             'serviceRequest' => $serviceRequest,
         ])
     @endif

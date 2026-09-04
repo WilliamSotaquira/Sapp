@@ -122,7 +122,7 @@
                 <span>{{ $evidence->user->name }}</span>
             </div>
             @endif
-            @if(in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true))
+            @if(in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'], true))
             <button
                 type="button"
                 class="text-red-600 hover:text-red-700 font-semibold delete-evidence-btn"

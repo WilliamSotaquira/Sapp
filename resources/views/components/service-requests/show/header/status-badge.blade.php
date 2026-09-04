@@ -37,6 +37,11 @@
             'color' => 'bg-gray-100 text-gray-800 border-gray-300',
             'icon' => 'lock',
             'text' => 'Rechazada'
+        ],
+        'NO_VIABLE' => [
+            'color' => 'bg-amber-100 text-amber-800 border-amber-300',
+            'icon' => 'ban',
+            'text' => 'No viable'
         ]
     ];
 

@@ -33,6 +33,10 @@
         'RECHAZADA' => [
             'class' => 'bg-gray-100 text-gray-800',
             'icon' => 'fa-lock'
+        ],
+        'NO_VIABLE' => [
+            'class' => 'bg-amber-100 text-amber-800',
+            'icon' => 'fa-ban'
         ]
     ];
 

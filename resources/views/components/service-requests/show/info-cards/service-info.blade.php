@@ -3,9 +3,9 @@
 @php
     $entryChannelOptions = \App\Models\ServiceRequest::getEntryChannelOptions();
     $selectedEntryChannel = $serviceRequest->entry_channel;
-    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
     $hasDueDate = $serviceRequest->hasRequestDueDate();
-    $isFinalForDueDate = in_array(strtoupper((string) $serviceRequest->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'], true);
+    $isFinalForDueDate = in_array(strtoupper((string) $serviceRequest->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE'], true);
     $dueDays = $serviceRequest->daysUntilRequestDue();
     $dueTone = 'bg-slate-50 text-slate-700 border-slate-200';
     $dueLabel = 'Sin vencimiento';

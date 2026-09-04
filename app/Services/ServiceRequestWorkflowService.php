@@ -70,26 +70,10 @@ class ServiceRequestWorkflowService
                     ]);
                 });
 
-                $tasksToCancel = $serviceRequest->tasks()
-                    ->whereNotIn('status', ['completed', 'cancelled'])
-                    ->get();
-
-                $cancelledTasks = $tasksToCancel->count();
-
-                foreach ($tasksToCancel as $task) {
-                    $task->update([
-                        'status' => 'cancelled',
-                        'completed_at' => null,
-                        'actual_duration_minutes' => null,
-                        'actual_hours' => null,
-                    ]);
-
-                    $task->addHistory(
-                        'cancelled',
-                        auth()->id(),
-                        'Tarea cancelada automáticamente porque la solicitud asociada fue rechazada.'
-                    );
-                }
+                $cancelledTasks = $this->cancelPendingTasks(
+                    $serviceRequest,
+                    'Tarea cancelada automáticamente porque la solicitud asociada fue rechazada.'
+                );
             });
 
             $this->createSystemEvidence($serviceRequest, [
@@ -106,6 +90,68 @@ class ServiceRequestWorkflowService
         } catch (\Exception $e) {
             Log::error('Error al rechazar solicitud: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Error al rechazar la solicitud: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Finalizar una solicitud ACEPTADA por NO VIABILIDAD.
+     *
+     * A diferencia del rechazo (solo desde PENDIENTE) o la cancelación, esta
+     * finalización aplica cuando una solicitud ya fue aceptada y, tras la
+     * validación correspondiente, se identifica que no cumple las
+     * características necesarias para ser ejecutada. Representa gestión
+     * realizada: se procesó y se emitió un concepto, aunque no se complete.
+     */
+    public function finalizeNonViable(ServiceRequest $serviceRequest, string $reason): array
+    {
+        $allowedStatuses = [
+            ServiceRequest::STATUS_ACCEPTED,
+            ServiceRequest::STATUS_IN_PROGRESS,
+            ServiceRequest::STATUS_PAUSED,
+        ];
+
+        if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
+            return [
+                'success' => false,
+                'message' => 'Solo se puede finalizar por no viabilidad una solicitud ACEPTADA, EN PROCESO o PAUSADA. Estado actual: ' . $serviceRequest->status,
+            ];
+        }
+
+        $previousStatus = $serviceRequest->status;
+
+        try {
+            $cancelledTasks = 0;
+
+            DB::transaction(function () use ($serviceRequest, $reason, &$cancelledTasks) {
+                ServiceRequest::withoutEvents(function () use ($serviceRequest, $reason) {
+                    $serviceRequest->update([
+                        'status' => ServiceRequest::STATUS_NON_VIABLE,
+                        'non_viable_reason' => $reason,
+                        'non_viable_at' => now(),
+                        'non_viable_by' => auth()->id(),
+                    ]);
+                });
+
+                $cancelledTasks = $this->cancelPendingTasks(
+                    $serviceRequest,
+                    'Tarea cancelada automáticamente porque la solicitud asociada se finalizó por no viabilidad.'
+                );
+            });
+
+            $this->createSystemEvidence($serviceRequest, [
+                'title' => 'Solicitud Finalizada por No Viabilidad',
+                'description' => $reason,
+                'action' => 'FINALIZED_NON_VIABLE',
+                'previous_status' => $previousStatus,
+                'new_status' => ServiceRequest::STATUS_NON_VIABLE,
+                'non_viable_reason' => $reason,
+                'cancelled_tasks' => $cancelledTasks,
+            ]);
+
+            return ['success' => true, 'message' => 'Solicitud finalizada por no viabilidad correctamente.'];
+        } catch (\Exception $e) {
+            Log::error('Error al finalizar solicitud por no viabilidad: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Error al finalizar la solicitud por no viabilidad: ' . $e->getMessage()];
         }
     }
 
@@ -299,6 +345,26 @@ class ServiceRequestWorkflowService
                 'performed_at' => now()->toISOString(),
             ], $data),
         ]);
+    }
+
+    /**
+     * Cancelar en cascada las tareas (y sus subtareas) no completadas de una
+     * solicitud. Reutiliza Task::cancel para dejar tareas y subtareas en un
+     * estado final coherente y registrar el historial de cada tarea.
+     *
+     * @return int Número de tareas canceladas.
+     */
+    private function cancelPendingTasks(ServiceRequest $serviceRequest, string $reason): int
+    {
+        $tasksToCancel = $serviceRequest->tasks()
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->get();
+
+        foreach ($tasksToCancel as $task) {
+            $task->cancel($reason, auth()->id());
+        }
+
+        return $tasksToCancel->count();
     }
 
     /**

@@ -302,6 +302,7 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
             'PAUSADA',
             'REABIERTO',
             'RECHAZADA',
+            'NO_VIABLE',
         ];
 
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';

@@ -1,7 +1,7 @@
 @props(['serviceRequest'])
 
 @php
-    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
     $assigneeCompanyEmail = $serviceRequest->assignee
         ? $serviceRequest->assignee->getEmailForCompany((int) $serviceRequest->company_id)
         : '';

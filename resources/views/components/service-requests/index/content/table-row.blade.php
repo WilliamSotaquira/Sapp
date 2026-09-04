@@ -22,7 +22,7 @@
     $responseDetail = 'Sin plazo';
     $responseProgress = 0;
     $hasDueDate = $request->hasRequestDueDate();
-    $isFinalForDueDate = in_array(strtoupper((string) $request->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'], true);
+    $isFinalForDueDate = in_array(strtoupper((string) $request->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE'], true);
     $dueClasses = 'bg-slate-100 text-slate-700';
 
     if ($hasDueDate) {

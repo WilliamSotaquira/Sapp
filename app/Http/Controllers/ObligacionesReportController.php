@@ -788,6 +788,7 @@ class ObligacionesReportController extends Controller
             'PAUSADA',
             'REABIERTO',
             'RECHAZADA',
+            'NO_VIABLE',
         ];
 
         $pattern = '/^.+?\s-\s(' . implode('|', $statuses) . ')\s-\s/i';

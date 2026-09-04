@@ -2,7 +2,7 @@
 
 @php
     $status = $serviceRequest->status;
-    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
     $viewService = app(\App\Services\ServiceRequestViewService::class);
 
     // Determine pending requirements (what's blocking the next transition)
@@ -35,14 +35,17 @@
         'ACEPTADA' => [
             ['label' => 'Iniciar Servicio', 'icon' => 'fa-play', 'modal' => 'start-modal-'.$serviceRequest->id],
             ['label' => 'Reasignar', 'icon' => 'fa-user-cog', 'url' => route('service-requests.reassign', $serviceRequest)],
+            ['label' => 'Finalizar (No viable)', 'icon' => 'fa-ban', 'modal' => 'finalize-non-viable-modal-'.$serviceRequest->id],
         ],
         'EN_PROCESO' => [
             ['label' => 'Resolver Solicitud', 'icon' => 'fa-check-circle', 'modal' => 'resolve-modal-'.$serviceRequest->id],
             ['label' => 'Pausar Trabajo', 'icon' => 'fa-pause', 'modal' => 'pause-modal-'.$serviceRequest->id],
+            ['label' => 'Finalizar (No viable)', 'icon' => 'fa-ban', 'modal' => 'finalize-non-viable-modal-'.$serviceRequest->id],
         ],
         'PAUSADA' => [
             ['label' => 'Reanudar Trabajo', 'icon' => 'fa-play', 'modal' => 'resume-modal-'.$serviceRequest->id],
             ['label' => 'Cerrar por Vencimiento', 'icon' => 'fa-clock', 'modal' => 'vencimiento-modal-'.$serviceRequest->id],
+            ['label' => 'Finalizar (No viable)', 'icon' => 'fa-ban', 'modal' => 'finalize-non-viable-modal-'.$serviceRequest->id],
         ],
         'RESUELTA' => [
             ['label' => 'Cerrar Solicitud', 'icon' => 'fa-lock', 'modal' => 'close-modal-'.$serviceRequest->id],

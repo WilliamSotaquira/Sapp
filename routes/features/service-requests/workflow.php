@@ -17,6 +17,9 @@ Route::prefix('service-requests')
         // Rechazar solicitud
         Route::post('/{service_request}/reject', [ServiceRequestController::class, 'reject'])->name('reject');
 
+        // Finalizar solicitud aceptada por no viabilidad
+        Route::post('/{service_request}/finalize-non-viable', [ServiceRequestController::class, 'finalizeNonViable'])->name('finalize-non-viable');
+
         // Iniciar trabajo
         Route::patch('/{service_request}/start', [ServiceRequestController::class, 'start'])->name('start');
 

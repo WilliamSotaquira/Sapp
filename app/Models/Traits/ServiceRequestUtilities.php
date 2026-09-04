@@ -69,6 +69,7 @@ trait ServiceRequestUtilities
             self::STATUS_CLOSED,
             self::STATUS_CANCELLED,
             'RECHAZADA',
+            self::STATUS_NON_VIABLE,
         ], true);
     }
 
@@ -127,6 +128,7 @@ trait ServiceRequestUtilities
             self::STATUS_CANCELLED,
             self::STATUS_CLOSED,
             'RECHAZADA',
+            self::STATUS_NON_VIABLE,
         ];
     }
 

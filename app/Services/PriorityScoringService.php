@@ -194,6 +194,7 @@ class PriorityScoringService
                 ServiceRequest::STATUS_CLOSED,
                 ServiceRequest::STATUS_CANCELLED,
                 'RECHAZADA',
+                ServiceRequest::STATUS_NON_VIABLE,
             ]);
 
         if ($companyId) {

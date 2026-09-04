@@ -136,6 +136,14 @@
         ],
         [
             'field' => 'status',
+            'value' => 'NO_VIABLE',
+            'label' => 'No viables',
+            'icon' => 'fa-ban',
+            'iconClass' => 'text-amber-500',
+            'active' => $status === 'NO_VIABLE',
+        ],
+        [
+            'field' => 'status',
             'value' => 'CERRADA',
             'label' => 'Cerradas',
             'icon' => 'fa-lock',
@@ -494,7 +502,7 @@
                             'BAJA' => 'bg-green-500 text-white'
                         ];
                         $hasDueDate = $request->hasRequestDueDate();
-                        $isFinalForDueDate = in_array(strtoupper((string) $request->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA'], true);
+                        $isFinalForDueDate = in_array(strtoupper((string) $request->status), ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE'], true);
                         $dueDays = $request->daysUntilRequestDue();
                         $dueClasses = 'bg-slate-50 text-slate-700 border-slate-200';
                         $dueLabel = 'Sin vencimiento';

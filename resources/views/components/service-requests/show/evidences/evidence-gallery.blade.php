@@ -1,7 +1,7 @@
 @props(['serviceRequest'])
 
 @php
-    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
 @endphp
 
 <div id="evidences-section" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -24,7 +24,7 @@
             $fileEvidences = $serviceRequest->evidences->where('evidence_type', 'ARCHIVO');
             $linkEvidences = $serviceRequest->evidences->where('evidence_type', 'ENLACE');
             $galleryEvidencesCount = $fileEvidences->count() + $linkEvidences->count();
-            $canUpload = in_array($serviceRequest->status, ['EN_PROCESO', 'RESUELTA', 'CERRADA'], true);
+            $canUpload = in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'], true);
         @endphp
 
         @if($galleryEvidencesCount > 0)
@@ -54,7 +54,7 @@
         @elseif($galleryEvidencesCount === 0)
             <div class="text-center py-6 text-gray-400">
                 <i class="fas fa-images text-2xl mb-2"></i>
-                <p class="text-sm">Sin evidencias. Se pueden agregar cuando esté en proceso.</p>
+                <p class="text-sm">Sin evidencias. Se pueden agregar mientras la solicitud está en gestión.</p>
             </div>
         @endif
     </div>

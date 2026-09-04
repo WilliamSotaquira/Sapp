@@ -74,6 +74,7 @@ class ServiceRequestStatusHistory extends Model
             'RESUELTA' => 'Resuelta',
             'CERRADA' => 'Cerrada',
             'RECHAZADA' => 'Rechazada',
+            'NO_VIABLE' => 'No viable',
             'CANCELADA' => 'Cancelada',
         ];
 
@@ -94,6 +95,7 @@ class ServiceRequestStatusHistory extends Model
             'RESUELTA' => 'teal',
             'CERRADA' => 'gray',
             'RECHAZADA' => 'red',
+            'NO_VIABLE' => 'amber',
             'CANCELADA' => 'red',
         ];
 
@@ -114,6 +116,7 @@ class ServiceRequestStatusHistory extends Model
             'RESUELTA' => 'fa-check-circle',
             'CERRADA' => 'fa-lock',
             'RECHAZADA' => 'fa-times-circle',
+            'NO_VIABLE' => 'fa-ban',
             'CANCELADA' => 'fa-ban',
         ];
 

@@ -195,6 +195,7 @@
                         <th>Canales</th>
                         <th>Rutas</th>
                         <th>Canceladas / rechazadas</th>
+                        <th>No viables</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -203,6 +204,7 @@
                         <td>{{ $analytics['summary']['distinct_channels'] }}</td>
                         <td>{{ $analytics['summary']['distinct_routes'] }}</td>
                         <td>{{ $analytics['summary']['cancelled'] }}</td>
+                        <td>{{ $analytics['summary']['non_viable'] ?? 0 }}</td>
                     </tr>
                 </tbody>
             </table>

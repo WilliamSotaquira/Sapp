@@ -66,10 +66,18 @@
                     {{ $task->title }}
                 </h4>
 
-                @if($subtasks->count() > 0)
-                    @php $completedSubtasks = $subtasks->where('is_completed', true)->count(); @endphp
+                @php
+                    // Las subtareas canceladas no cuentan en el total ni como pendientes.
+                    $countableSubtasks = $subtasks->where('status', '!=', 'cancelled');
+                    $completedSubtasks = $countableSubtasks->where('status', 'completed')->count();
+                    $cancelledSubtasks = $subtasks->where('status', 'cancelled')->count();
+                @endphp
+                @if($countableSubtasks->count() > 0)
                     <p class="text-xs text-gray-500 mt-1">
-                        {{ $completedSubtasks }}/{{ $subtasks->count() }} subtareas completadas
+                        {{ $completedSubtasks }}/{{ $countableSubtasks->count() }} subtareas completadas
+                        @if($cancelledSubtasks > 0)
+                            <span class="text-gray-400">· {{ $cancelledSubtasks }} cancelada(s)</span>
+                        @endif
                     </p>
                 @endif
             </div>

@@ -3,7 +3,7 @@
 @php
     $status = $serviceRequest->status;
     $viewService = app(\App\Services\ServiceRequestViewService::class);
-    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
 
     // Don't show checklist for dead states
     if ($isDeadState) {
