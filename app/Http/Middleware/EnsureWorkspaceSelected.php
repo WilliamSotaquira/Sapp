@@ -22,7 +22,8 @@ class EnsureWorkspaceSelected
         }
 
         $user = $request->user();
-        $companyIds = $user->companies()->pluck('companies.id');
+        // Entidades accesibles: como usuario (company_user) y como técnico (company_technician).
+        $companyIds = $user->accessibleCompanyIds();
 
         // Contratos activos de las entidades del usuario (unidad de trabajo).
         $contracts = Contract::query()
@@ -49,7 +50,23 @@ class EnsureWorkspaceSelected
                 $this->workspace->switchToContract($currentContractId);
             } else {
                 // Redirigir a selección de contrato.
-                if (!$request->routeIs('workspaces.select', 'workspaces.switch', 'profile.*', 'logout', 'my-space.*')) {
+                // Excepción: la creación de solicitudes puede hacerse sin workspace
+                // seleccionado, porque el formulario permite elegir el contrato
+                // manualmente. Esto habilita el flujo de "captura rápida" desde el
+                // inicio sin obligar a entrar antes a la entidad del contrato.
+                $allowedWithoutWorkspace = $request->routeIs(
+                    'workspaces.select',
+                    'workspaces.switch',
+                    'profile.*',
+                    'logout',
+                    'my-space.*',
+                    'service-requests.create',
+                    'service-requests.store',
+                    'service-requests.prefill-from-text',
+                    'service-requests.interpret-and-store',
+                );
+
+                if (!$allowedWithoutWorkspace) {
                     return redirect()->route('workspaces.select');
                 }
             }

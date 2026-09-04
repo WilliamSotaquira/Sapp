@@ -385,7 +385,7 @@ class ServiceRequestService
             $query->whereNotNull('accepted_at')
                 ->where('status', 'ACEPTADA');
         } elseif (!empty($filters['open'])) {
-            $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA']);
+            $query->whereNotIn('status', ['RESUELTA', 'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
         } elseif (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
@@ -458,6 +458,15 @@ class ServiceRequestService
         }
         if ($companyId > 0) {
             $query->where('company_id', $companyId);
+        }
+
+        // Contrato (filtro opcional): permite separar el histórico por contrato
+        // dentro de la misma entidad (p. ej. ver solo el contrato 2025 o el 2026).
+        if (!empty($filters['contract_id'])) {
+            $contractId = (int) $filters['contract_id'];
+            if ($contractId > 0) {
+                $query->where('contract_id', $contractId);
+            }
         }
 
         // Rango de fechas (solicitud o solución)
@@ -703,6 +712,24 @@ class ServiceRequestService
         // 1. Fuente de verdad: derivar entidad/contrato reales del subservicio.
         $derived = $this->deriveEntityFromSubService($subServiceId);
         $companyId = $derived['company_id'];
+
+        // 1.b Frontera dura del contrato elegido:
+        //     Si el usuario eligió explícitamente un contrato (contract_id) y el
+        //     subservicio resuelto NO pertenece a ese contrato, se RECHAZA con un
+        //     mensaje claro en lugar de crear silenciosamente en otra entidad.
+        //     Esto evita el caso "elijo Cultura pero se crea en Movilidad".
+        $requestedContractId = (int) ($data['contract_id'] ?? 0);
+        if ($requestedContractId > 0 && (int) $derived['contract_id'] !== $requestedContractId) {
+            Log::warning('El subservicio no pertenece al contrato elegido; se rechaza la creación.', [
+                'requested_contract_id' => $requestedContractId,
+                'derived_contract_id' => $derived['contract_id'],
+                'sub_service_id' => $subServiceId,
+            ]);
+
+            throw ValidationException::withMessages([
+                'sub_service_id' => 'El servicio detectado no pertenece al contrato seleccionado. Verifica que el texto corresponda al contrato elegido o cámbialo.',
+            ]);
+        }
 
         // 2. Guarda dura: si el formulario envió una entidad distinta a la del subservicio,
         //    se alinea a la del catálogo (evita el mismatch multi-entidad).
@@ -1050,8 +1077,25 @@ class ServiceRequestService
 
         // Contratos activos agrupados por entidad, para el selector de creación.
         // El contrato es la unidad de cumplimiento: define la entidad y el catálogo de la solicitud.
+        // Se limita a las entidades del usuario para que pueda elegir manualmente el
+        // contrato destino sin haber seleccionado antes un workspace, pero sin exponer
+        // contratos de entidades a las que no pertenece.
+        $user = auth()->user();
+        $userCompanyIds = $user
+            ? $user->companies()->pluck('companies.id')
+            : collect();
+
+        // Solo se ofrecen los contratos VIGENTES de cada entidad (el active_contract_id),
+        // no los históricos. Crear una solicitud siempre debe apuntar al contrato vigente;
+        // los contratos anteriores quedan solo para consulta e informes.
         $activeContracts = \App\Models\Contract::query()
             ->where('is_active', true)
+            ->whereIn('id', function ($q) {
+                $q->select('active_contract_id')
+                    ->from('companies')
+                    ->whereNotNull('active_contract_id');
+            })
+            ->when($user && !$user->isAdmin(), fn($q) => $q->whereIn('company_id', $userCompanyIds))
             ->with('company:id,name')
             ->orderBy('company_id')
             ->orderBy('number')

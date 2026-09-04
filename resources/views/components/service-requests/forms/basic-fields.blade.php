@@ -72,26 +72,41 @@
     <!-- Espacio de trabajo -->
     @php
         $currentCompanyId = old('company_id', $serviceRequest->company_id ?? (session('current_company_id') ?? null));
+
+        // La entidad y el contrato mostrados deben reflejar el company_id/contract_id
+        // REALES del formulario (los que se van a crear), NO el workspace en sesión.
+        // Así, si se eligió un contrato de otra entidad, aquí se ve esa entidad y no
+        // la de la sesión (evita crear en una entidad distinta a la mostrada).
+        $formCompany = null;
+        if ($currentCompanyId) {
+            $formCompany = collect($companies)->firstWhere('id', (int) $currentCompanyId)
+                ?? \App\Models\Company::with('activeContract')->find((int) $currentCompanyId);
+        }
+
+        $selectedContractId = (int) old('contract_id', 0);
+        $formContract = $selectedContractId > 0
+            ? \App\Models\Contract::find($selectedContractId)
+            : ($formCompany?->activeContract);
     @endphp
     <input type="hidden" name="company_id" id="company_id" value="{{ $currentCompanyId }}">
+    @if($selectedContractId > 0)
+        <input type="hidden" name="contract_id" value="{{ $selectedContractId }}">
+    @endif
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Espacio de trabajo</label>
         <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
-            {{ $currentWorkspace->name ?? 'Sin espacio seleccionado' }}
+            {{ $formCompany->name ?? ($currentWorkspace->name ?? 'Sin espacio seleccionado') }}
         </div>
         @error('company_id')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </div>
 
-    <!-- Contrato activo (solo lectura) -->
-    @php
-        $activeContract = $currentCompany?->activeContract;
-    @endphp
+    <!-- Contrato (derivado del formulario, solo lectura) -->
     <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Contrato activo</label>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Contrato</label>
         <div class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700">
-            {{ $activeContract ? ($activeContract->number . ($activeContract->name ? ' - ' . $activeContract->name : '')) : 'Sin contrato activo' }}
+            {{ $formContract ? ($formContract->number . ($formContract->name ? ' - ' . $formContract->name : '')) : 'Sin contrato activo' }}
         </div>
     </div>
 

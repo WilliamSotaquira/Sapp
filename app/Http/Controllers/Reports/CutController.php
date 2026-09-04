@@ -33,6 +33,11 @@ class CutController extends Controller
         $currentCompany = $currentCompanyId
             ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
             : null;
+        // Los cortes se listan por ENTIDAD (todos sus contratos), no solo el vigente,
+        // para poder consultar el histórico (p. ej. cortes del contrato 2025 y del 2026).
+        // Se puede acotar a un contrato específico con ?contract_id=.
+        $filterContractId = (int) request('contract_id', 0);
+
         $cuts = Cut::query()
             ->with('contract:id,number,name,company_id')
             ->withCount('serviceRequests')
@@ -41,13 +46,20 @@ class CutController extends Controller
                     $q->where('company_id', $currentCompanyId);
                 });
             })
-            ->when($currentCompany?->active_contract_id, function ($query) use ($currentCompany) {
-                $query->where('contract_id', $currentCompany->active_contract_id);
+            ->when($filterContractId > 0, function ($query) use ($filterContractId) {
+                $query->where('contract_id', $filterContractId);
             })
             ->orderByDesc('start_date')
             ->paginate(15);
 
-        return view('reports.cuts.index', compact('cuts'));
+        // Contratos de la entidad para permitir filtrar los cortes por contrato.
+        $contracts = \App\Models\Contract::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderByDesc('is_active')
+            ->orderByDesc('id')
+            ->get(['id', 'number', 'name', 'is_active']);
+
+        return view('reports.cuts.index', compact('cuts', 'contracts', 'filterContractId'));
     }
 
     public function create(): View
@@ -97,12 +109,8 @@ class CutController extends Controller
         $currentCompany = $currentCompanyId
             ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
             : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Edición: solo el corte del contrato vigente.
+        $this->authorizeCutWrite($cut);
 
         return view('reports.cuts.edit', compact('cut', 'currentCompany'));
     }
@@ -301,12 +309,8 @@ class CutController extends Controller
         $currentCompany = $currentCompanyId
             ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
             : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Consulta: cualquier corte de la entidad (incluye históricos).
+        $this->authorizeCutRead($cut);
 
         $families = ServiceFamily::query()
             ->where(function ($q) use ($cut) {
@@ -376,7 +380,8 @@ class CutController extends Controller
                     WHEN 'CERRADA' THEN 6
                     WHEN 'CANCELADA' THEN 7
                     WHEN 'RECHAZADA' THEN 8
-                    ELSE 9
+                    WHEN 'NO_VIABLE' THEN 9
+                    ELSE 10
                 END
             ")
             ->orderByDesc('technician_assigned_at')
@@ -432,16 +437,8 @@ class CutController extends Controller
 
     public function update(Cut $cut, Request $request): RedirectResponse
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Actualización: solo el corte del contrato vigente.
+        $this->authorizeCutWrite($cut);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -541,16 +538,9 @@ class CutController extends Controller
 
     public function requests(Cut $cut, Request $request): View
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Editar la composición de solicitudes es una operación de escritura:
+        // solo sobre el corte del contrato vigente.
+        $this->authorizeCutWrite($cut);
 
         $search = trim((string) $request->get('q', ''));
         [$start, $end] = $cut->getDateRangeForQuery();
@@ -601,16 +591,8 @@ class CutController extends Controller
 
     public function associatedRequests(Cut $cut, Request $request): View
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Consulta de solicitudes asociadas: permitido para históricos.
+        $this->authorizeCutRead($cut);
 
         $search = trim((string) $request->query('q', ''));
         $familyId = (int) $request->query('family_id', 0);
@@ -726,17 +708,8 @@ class CutController extends Controller
      */
     public function close(Cut $cut, Request $request): RedirectResponse
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Cierre: solo el corte del contrato vigente.
+        $this->authorizeCutWrite($cut);
 
         if ($cut->isClosed()) {
             return back()->with('error', 'Este corte ya está cerrado.');
@@ -792,14 +765,8 @@ class CutController extends Controller
      */
     public function destroy(Cut $cut): RedirectResponse
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
+        // Eliminar es escritura: solo cortes del contrato vigente (protege históricos).
+        $this->authorizeCutWrite($cut);
 
         // Only allow deleting cuts with no service requests
         if ($cut->serviceRequests()->count() > 0) {
@@ -837,16 +804,8 @@ class CutController extends Controller
 
     public function export(Request $request, Cut $cut)
     {
-        $currentCompanyId = (int) session('current_company_id');
-        $currentCompany = $currentCompanyId
-            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
-            : null;
-        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
-            abort(403);
-        }
+        // Exportar informes: permitido para cortes históricos (consulta).
+        $this->authorizeCutRead($cut);
 
         $validated = $request->validate([
             'format' => ['nullable', 'in:pdf,zip'],
@@ -1030,6 +989,39 @@ class CutController extends Controller
         return response($vbsContent)
             ->header('Content-Type', 'application/octet-stream')
             ->header('Content-Disposition', 'attachment; filename="abrir_carpeta.vbs"');
+    }
+
+    /**
+     * Autorización de LECTURA de un corte: se permite consultar/exportar cortes
+     * de CUALQUIER contrato de la entidad activa (incluido el histórico), no solo
+     * el vigente. Solo valida que el corte pertenezca a la entidad del usuario.
+     */
+    private function authorizeCutRead(Cut $cut): void
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+    }
+
+    /**
+     * Autorización de ESCRITURA de un corte: editar/cerrar/actualizar solo se
+     * permite sobre el contrato VIGENTE de la entidad. Los cortes de contratos
+     * anteriores quedan protegidos como histórico de solo lectura.
+     */
+    private function authorizeCutWrite(Cut $cut): void
+    {
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::find($currentCompanyId)
+            : null;
+
+        if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
+            abort(403);
+        }
+        if ($currentCompany?->active_contract_id && (int) $cut->contract_id !== (int) $currentCompany->active_contract_id) {
+            abort(403, 'Este corte pertenece a un contrato anterior y es de solo consulta.');
+        }
     }
 
     private function syncCutServiceRequests(Cut $cut): void

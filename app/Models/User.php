@@ -97,6 +97,32 @@ class User extends Authenticatable
     }
 
     /**
+     * IDs de TODAS las entidades a las que el usuario tiene acceso.
+     *
+     * Une dos fuentes, porque una persona puede acceder a una entidad por ser
+     * usuario de ella (pivote company_user) o por atenderla como técnico
+     * (pivote company_technician). Antes solo se miraba company_user, lo que
+     * impedía a un técnico alternar a los contratos que atiende cuando su
+     * usuario no estaba vinculado a esa entidad.
+     *
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    public function accessibleCompanyIds(): \Illuminate\Support\Collection
+    {
+        $fromUser = $this->companies()->pluck('companies.id');
+
+        $technician = $this->relationLoaded('technician')
+            ? $this->technician
+            : $this->technician()->first();
+
+        $fromTechnician = $technician
+            ? $technician->companies()->pluck('companies.id')
+            : collect();
+
+        return $fromUser->merge($fromTechnician)->unique()->values();
+    }
+
+    /**
      * Verificar si el usuario es técnico
      */
     public function isTechnician()

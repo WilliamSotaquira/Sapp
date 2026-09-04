@@ -30,7 +30,7 @@ class ServiceRequestPlainTextImportService
     ) {
     }
 
-    public function parseToFormData(string $plainText, int $companyId, ?int $requestedBy = null, ?string $operatorNotes = null): array
+    public function parseToFormData(string $plainText, int $companyId, ?int $requestedBy = null, ?string $operatorNotes = null, ?int $preferredContractId = null): array
     {
         $text = trim($plainText);
         $this->operatorNotes = $operatorNotes;
@@ -55,7 +55,24 @@ class ServiceRequestPlainTextImportService
         }
 
         $company = Company::query()->with('activeContract')->find($companyId);
-        $activeContractId = (int) ($company?->active_contract_id ?? 0);
+
+        // Fuente de verdad del contrato para resolver el subservicio:
+        // 1) el contrato elegido explícitamente en el selector (si es válido y pertenece a la company),
+        // 2) el contrato activo de la company (compatibilidad),
+        // 3) cualquier contrato activo de la company.
+        $activeContractId = 0;
+
+        if ($preferredContractId && $preferredContractId > 0) {
+            $activeContractId = (int) (Contract::query()
+                ->where('id', $preferredContractId)
+                ->where('company_id', $companyId)
+                ->where('is_active', true)
+                ->value('id') ?? 0);
+        }
+
+        if ($activeContractId <= 0) {
+            $activeContractId = (int) ($company?->active_contract_id ?? 0);
+        }
 
         if ($company && $activeContractId <= 0) {
             $activeContractId = (int) (Contract::query()
@@ -77,8 +94,11 @@ class ServiceRequestPlainTextImportService
 
         // Detectar si el texto sigue el formato estructurado
         if (!$this->formatDetector->isStructuredFormat($text)) {
-            // Try LLM interpretation first (if enabled)
-            $llmResult = $this->tryLlmInterpretation($text, $company, $requestedBy);
+            // Try LLM interpretation first (if enabled).
+            // Se pasa $activeContractId (ya resuelto respetando el contrato elegido)
+            // para que la resolución del subservicio use ese contrato y no el del
+            // workspace en sesión.
+            $llmResult = $this->tryLlmInterpretation($text, $company, $requestedBy, $activeContractId);
             if ($llmResult !== null) {
                 return $this->enrichDescriptionWithAI($llmResult, $text);
             }
@@ -716,7 +736,7 @@ class ServiceRequestPlainTextImportService
      * If the LLM returns valid structured text, parses it with the existing algorithm.
      * Returns null if LLM is unavailable, disabled, or returns invalid output.
      */
-    private function tryLlmInterpretation(string $text, Company $company, ?int $requestedBy = null): ?array
+    private function tryLlmInterpretation(string $text, Company $company, ?int $requestedBy = null, ?int $preferredContractId = null): ?array
     {
         if (! config('services.llm.enabled', false)) {
             return null;
@@ -751,11 +771,11 @@ class ServiceRequestPlainTextImportService
 
             // First try: check if LLM output passes the strict structured format detector
             if ($this->formatDetector->isStructuredFormat($structuredText)) {
-                return $this->parseToFormData($structuredText, (int) $company->id, $requestedBy);
+                return $this->parseToFormData($structuredText, (int) $company->id, $requestedBy, null, $preferredContractId);
             }
 
             // Second try: parse the LLM ITIL output directly (more flexible)
-            $parsed = $this->parseLlmItilOutput($structuredText, $company, $requestedBy);
+            $parsed = $this->parseLlmItilOutput($structuredText, $company, $requestedBy, $preferredContractId);
             if ($parsed !== null) {
                 return $parsed;
             }
@@ -1007,7 +1027,7 @@ class ServiceRequestPlainTextImportService
      *
      * Lines are separated by blank lines between each field.
      */
-    private function parseLlmItilOutput(string $llmOutput, Company $company, ?int $requestedBy): ?array
+    private function parseLlmItilOutput(string $llmOutput, Company $company, ?int $requestedBy, ?int $preferredContractId = null): ?array
     {
         // Split by blank lines to get logical blocks
         $blocks = preg_split('/\n\s*\n/', trim($llmOutput));
@@ -1173,7 +1193,23 @@ class ServiceRequestPlainTextImportService
         $familyId = null;
         $slaId = null;
         if ($subServiceName !== '') {
-            $activeContractId = (int) (\App\Models\Company::find((int) session('current_company_id'))?->active_contract_id ?? 0);
+            // Fuente de verdad del contrato para resolver el subservicio:
+            // el contrato elegido en el selector (si es válido y pertenece a la
+            // company), NO el active_contract_id del workspace en sesión. Esto
+            // permite crear en un contrato distinto al workspace activo.
+            $activeContractId = 0;
+            if ($preferredContractId && $preferredContractId > 0) {
+                $activeContractId = (int) (\App\Models\Contract::query()
+                    ->where('id', $preferredContractId)
+                    ->where('company_id', (int) $company->id)
+                    ->where('is_active', true)
+                    ->value('id') ?? 0);
+            }
+            if ($activeContractId <= 0) {
+                $activeContractId = (int) ($company->active_contract_id
+                    ?? \App\Models\Company::find((int) session('current_company_id'))?->active_contract_id
+                    ?? 0);
+            }
 
             $subService = SubService::query()
                 ->where('is_active', true)
@@ -1233,6 +1269,8 @@ class ServiceRequestPlainTextImportService
         return [
             'payload' => [
                 'company_id' => (int) $company->id,
+                // Contrato elegido, para que la creación lo respete como frontera dura.
+                'contract_id' => $preferredContractId ?: null,
                 'requester_id' => $requesterId,
                 'title' => mb_substr($title, 0, 255),
                 'description' => mb_substr($description, 0, 5000),

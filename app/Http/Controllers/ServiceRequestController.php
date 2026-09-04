@@ -7,6 +7,7 @@ use App\Http\Requests\ReassignServiceRequestRequest;
 use App\Http\Requests\StoreServiceRequestRequest;
 use App\Http\Requests\UpdateServiceRequestRequest;
 use App\Http\Requests\RejectServiceRequestRequest;
+use App\Http\Requests\FinalizeNonViableRequest;
 use App\Http\Requests\PauseServiceRequestRequest;
 use App\Http\Requests\UploadEvidenceRequest;
 use App\Models\ServiceRequest;
@@ -84,6 +85,7 @@ class ServiceRequestController extends Controller
             'requester' => $request->get('requester'), // nombre o email parcial
             'service_id' => $request->get('service_id'),
             'company_id' => $request->get('company_id'),
+            'contract_id' => $request->get('contract_id'),
             'start_date' => $request->get('start_date'),
             'end_date' => $request->get('end_date'),
             'open' => $request->boolean('open'),
@@ -139,13 +141,18 @@ class ServiceRequestController extends Controller
             ->get(['id', 'name', 'filters']);
 
         $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
+        // El scope de consulta ahora es por entidad; estos contadores se acotan
+        // explícitamente a la entidad activa para reflejar solo su realidad.
+        $scopeCompany = fn($q) => $q->when($currentCompanyId, fn($qq) => $qq->where('company_id', $currentCompanyId));
         $slaAlerts = [
             'overdue' => ServiceRequest::query()
+                ->tap($scopeCompany)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('resolution_deadline')
                 ->where('resolution_deadline', '<', now())
                 ->count(),
             'dueSoon' => ServiceRequest::query()
+                ->tap($scopeCompany)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('resolution_deadline')
                 ->whereBetween('resolution_deadline', [now(), now()->addHours(24)])
@@ -154,11 +161,13 @@ class ServiceRequestController extends Controller
 
         $dueAlerts = [
             'overdue' => ServiceRequest::query()
+                ->tap($scopeCompany)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('due_date')
                 ->whereDate('due_date', '<', now()->toDateString())
                 ->count(),
             'dueSoon' => ServiceRequest::query()
+                ->tap($scopeCompany)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('due_date')
                 ->whereBetween('due_date', [now()->toDateString(), now()->addDays(3)->toDateString()])
@@ -176,8 +185,16 @@ class ServiceRequestController extends Controller
             ->where('status', 'EN_PROCESO')
             ->count();
 
+        // Contratos de la entidad activa, para el filtro por contrato del listado
+        // (permite separar el histórico: p. ej. contrato 2025 vs 2026).
+        $contracts = \App\Models\Contract::query()
+            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->orderByDesc('is_active')
+            ->orderByDesc('id')
+            ->get(['id', 'number', 'name', 'is_active']);
+
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount', 'dateView'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount', 'dateView', 'contracts'),
             $stats
         );
 
@@ -489,8 +506,14 @@ class ServiceRequestController extends Controller
         $contractId = (int) $request->input('contract_id', 0);
 
         if ($contractId > 0) {
+            $user = auth()->user();
+            $userCompanyIds = $user ? $user->companies()->pluck('companies.id') : collect();
+
             $companyId = (int) (\App\Models\Contract::where('id', $contractId)
                 ->where('is_active', true)
+                // El contrato debe pertenecer a una entidad del usuario (salvo admin),
+                // coherente con los contratos que se ofrecen en el selector de creación.
+                ->when($user && !$user->isAdmin(), fn($q) => $q->whereIn('company_id', $userCompanyIds))
                 ->value('company_id') ?? 0);
 
             if ($companyId > 0) {
@@ -524,11 +547,16 @@ class ServiceRequestController extends Controller
             'plain_text.min' => 'El texto es demasiado corto para identificar una solicitud.',
         ]);
 
+        // Contrato elegido por el usuario en el selector. Se preserva en TODOS los
+        // redirects para que el selector no vuelva al contrato del workspace en sesión.
+        $selectedContractId = (string) $request->input('contract_id', '');
+
         if ($validator->fails()) {
             return redirect()
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => (string) $request->input('plain_text', ''),
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', $validator->errors()->first('plain_text'));
@@ -541,6 +569,7 @@ class ServiceRequestController extends Controller
         if ($companyId <= 0) {
             return redirect()
                 ->route('service-requests.create')
+                ->withInput(['contract_id' => $selectedContractId])
                 ->with('error', 'Selecciona un contrato válido para interpretar el texto pegado.');
         }
 
@@ -550,6 +579,7 @@ class ServiceRequestController extends Controller
                 $companyId,
                 auth()->id(),
                 $operatorNotes ?: null,
+                $selectedContractId !== '' ? (int) $selectedContractId : null,
             );
 
             $meta = $result['meta'];
@@ -560,7 +590,7 @@ class ServiceRequestController extends Controller
 
             return redirect()
                 ->route('service-requests.create')
-                ->withInput($result['payload'])
+                ->withInput(array_merge($result['payload'], ['contract_id' => $selectedContractId]))
                 ->with('success', $message);
         } catch (ValidationException $e) {
             $message = collect($e->errors())
@@ -572,6 +602,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', $message);
@@ -585,6 +616,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', 'La interpretación excedió el tiempo límite permitido. Intenta con un texto más corto.');
@@ -600,6 +632,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', 'Ocurrió un problema durante la interpretación del texto. Intenta de nuevo más tarde.');
@@ -633,10 +666,14 @@ class ServiceRequestController extends Controller
         $validated = $validator->validated();
         $operatorNotes = trim($validated['operator_notes'] ?? '');
 
+        // Contrato elegido por el usuario; se preserva en los redirects de error.
+        $selectedContractId = (string) $request->input('contract_id', '');
+
         $companyId = $this->resolveCompanyForInterpretation($request);
         if ($companyId <= 0) {
             return redirect()
                 ->route('service-requests.create')
+                ->withInput(['contract_id' => $selectedContractId])
                 ->with('error', 'Selecciona un contrato válido para interpretar el texto pegado.');
         }
 
@@ -646,6 +683,7 @@ class ServiceRequestController extends Controller
                 $companyId,
                 auth()->id(),
                 $operatorNotes ?: null,
+                $selectedContractId !== '' ? (int) $selectedContractId : null,
             );
 
             $payload = $result['payload'];
@@ -690,7 +728,7 @@ class ServiceRequestController extends Controller
                 // Fallback: redirect to prefill mode so user can complete missing fields
                 return redirect()
                     ->route('service-requests.create')
-                    ->withInput($payload)
+                    ->withInput(array_merge($payload, ['contract_id' => $selectedContractId]))
                     ->with('success', 'Texto interpretado, pero faltan campos obligatorios. Completa el formulario.');
             }
 
@@ -711,6 +749,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', $message);
@@ -720,6 +759,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', 'La interpretación excedió el tiempo límite. Intenta con "Interpretar" para revisar manualmente.');
@@ -735,6 +775,7 @@ class ServiceRequestController extends Controller
                 ->route('service-requests.create')
                 ->withInput([
                     'plain_text_import_text' => $validated['plain_text'],
+                    'contract_id' => $selectedContractId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', 'Error al crear la solicitud automáticamente. Intenta con "Interpretar" para revisar.');
@@ -1026,6 +1067,39 @@ class ServiceRequestController extends Controller
         $result = $this->workflowService->rejectRequest(
             $serviceRequest,
             $request->validated()['rejection_reason']
+        );
+
+        return redirect()
+            ->route('service-requests.show', $serviceRequest)
+            ->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * Finalizar una solicitud ACEPTADA por no viabilidad.
+     *
+     * No es un rechazo ni una cancelación: la solicitud se procesó (se emitió
+     * un concepto tras la validación) pero no se completó porque no cumple las
+     * características necesarias. Cuenta como gestión realizada en las métricas.
+     */
+    public function finalizeNonViable(FinalizeNonViableRequest $request, ServiceRequest $serviceRequest)
+    {
+        $validated = $request->validated();
+
+        // El soporte se registra en la sección de Evidencias de la solicitud.
+        // Aquí solo se exige que exista al menos una evidencia como respaldo.
+        $hasSupportEvidence = $serviceRequest->evidences()
+            ->whereIn('evidence_type', ['ARCHIVO', 'PASO_A_PASO', 'ENLACE'])
+            ->exists();
+
+        if (!$hasSupportEvidence) {
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('error', 'Para finalizar por no viabilidad debes registrar al menos una evidencia de soporte en la sección Evidencias.');
+        }
+
+        $result = $this->workflowService->finalizeNonViable(
+            $serviceRequest,
+            $validated['non_viable_reason']
         );
 
         return redirect()
@@ -1502,17 +1576,9 @@ class ServiceRequestController extends Controller
                     ->get();
 
                 foreach ($tasksToCancel as $task) {
-                    $task->update([
-                        'status' => 'cancelled',
-                        'completed_at' => null,
-                        'actual_duration_minutes' => null,
-                        'actual_hours' => null,
-                    ]);
-
-                    $task->addHistory(
-                        'cancelled',
-                        auth()->id(),
-                        'Tarea cancelada automáticamente por cierre por vencimiento de la solicitud asociada.'
+                    $task->cancel(
+                        'Tarea cancelada automáticamente por cierre por vencimiento de la solicitud asociada.',
+                        auth()->id()
                     );
                 }
             }
@@ -1717,13 +1783,40 @@ class ServiceRequestController extends Controller
             'resolution_notes' => 'required|string|min:10',
         ]);
 
-        $serviceRequest->update([
-            'status' => 'CANCELADA',
-            'resolution_notes' => $validated['resolution_notes'],
-            'closed_at' => now(),
-        ]);
+        try {
+            \DB::beginTransaction();
 
-        return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud cancelada exitosamente.');
+            $serviceRequest->update([
+                'status' => 'CANCELADA',
+                'resolution_notes' => $validated['resolution_notes'],
+                'closed_at' => now(),
+            ]);
+
+            // Cancelar en cascada las tareas (y sus subtareas) no completadas.
+            $tasksToCancel = $serviceRequest->tasks()
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->get();
+
+            foreach ($tasksToCancel as $task) {
+                $task->cancel(
+                    'Tarea cancelada automáticamente porque la solicitud asociada fue cancelada.',
+                    auth()->id()
+                );
+            }
+
+            \DB::commit();
+
+            return redirect()->route('service-requests.show', $serviceRequest)->with('success', 'Solicitud cancelada exitosamente.');
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Error al cancelar solicitud: ' . $e->getMessage(), [
+                'service_request_id' => $serviceRequest->id,
+            ]);
+
+            return redirect()
+                ->route('service-requests.show', $serviceRequest)
+                ->with('error', 'Error al cancelar la solicitud: ' . $e->getMessage());
+        }
     }
 
     /**
