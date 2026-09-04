@@ -18,14 +18,20 @@ class WorkspaceController extends Controller
     {
         $user = $request->user();
 
-        // IDs de las entidades a las que el usuario tiene acceso.
-        $companyIds = $user->companies()->pluck('companies.id');
+        // IDs de las entidades a las que el usuario tiene acceso (usuario + técnico).
+        $companyIds = $user->accessibleCompanyIds();
 
-        // Contratos activos de esas entidades, agrupados por entidad.
-        // El contrato es la unidad de trabajo; la entidad es el agrupador.
+        // Solo se ofrece el contrato VIGENTE de cada entidad (su active_contract_id).
+        // El histórico (contratos anteriores) ya no se "selecciona" para trabajar en él:
+        // se consulta desde los listados y reportes, que muestran toda la entidad.
         $contracts = Contract::query()
             ->where('is_active', true)
             ->whereIn('company_id', $companyIds)
+            ->whereIn('id', function ($q) {
+                $q->select('active_contract_id')
+                    ->from('companies')
+                    ->whereNotNull('active_contract_id');
+            })
             ->with('company:id,name,logo_path,primary_color,alternate_color')
             ->orderBy('company_id')
             ->orderBy('number')
@@ -48,7 +54,7 @@ class WorkspaceController extends Controller
             'company_id' => 'nullable|integer',
         ]);
 
-        $companyIds = $user->companies()->pluck('companies.id');
+        $companyIds = $user->accessibleCompanyIds();
         $contractId = (int) $request->input('contract_id', 0);
 
         // Compatibilidad: si llega company_id (selectores legacy), resolver su contrato activo.
@@ -65,11 +71,17 @@ class WorkspaceController extends Controller
                 ?? 0);
         }
 
-        // El contrato debe estar activo y pertenecer a una entidad del usuario.
+        // El contrato debe estar activo, pertenecer a una entidad del usuario y
+        // ser el VIGENTE de esa entidad (no se trabaja dentro de contratos históricos).
         $contract = Contract::query()
             ->where('id', $contractId)
             ->where('is_active', true)
             ->whereIn('company_id', $companyIds)
+            ->whereIn('id', function ($q) {
+                $q->select('active_contract_id')
+                    ->from('companies')
+                    ->whereNotNull('active_contract_id');
+            })
             ->first();
 
         if (!$contract) {

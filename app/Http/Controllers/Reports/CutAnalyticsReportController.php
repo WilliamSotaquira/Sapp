@@ -81,11 +81,11 @@ class CutAnalyticsReportController extends Controller
 
     private function authorizeCut(Cut $cut, int $currentCompanyId, ?int $activeContractId): void
     {
+        // Reportes analíticos = consulta. Se permite cualquier corte de la entidad
+        // (incluidos los de contratos anteriores), no solo el vigente. El parámetro
+        // $activeContractId se conserva por compatibilidad de firma pero ya no
+        // restringe: los históricos deben poder consultarse y reportarse.
         if ($currentCompanyId && $cut->contract && (int) $cut->contract->company_id !== $currentCompanyId) {
-            abort(403);
-        }
-
-        if ($activeContractId && (int) $cut->contract_id !== $activeContractId) {
             abort(403);
         }
     }
@@ -134,6 +134,9 @@ class CutAnalyticsReportController extends Controller
             'completed' => $requests->whereIn('status', ['RESUELTA', 'CERRADA'])->count(),
             'active' => $requests->whereIn('status', ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'])->count(),
             'cancelled' => $requests->whereIn('status', ['CANCELADA', 'RECHAZADA'])->count(),
+            // Gestión realizada que no se completó por no cumplir características.
+            // Cuenta como gestión, en su propia clasificación (no es completed ni cancelled).
+            'non_viable' => $requests->where('status', 'NO_VIABLE')->count(),
             'distinct_areas' => $requests->map(fn ($request) => $this->resolveDepartment($request))->unique()->count(),
             'distinct_channels' => $requests->map(fn ($request) => $this->entryChannelLabel($request->entry_channel))->unique()->count(),
             'distinct_routes' => $requests->map(fn ($request) => $this->resolveMainRoute($request))->unique()->count(),

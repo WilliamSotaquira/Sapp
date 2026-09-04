@@ -23,10 +23,12 @@ class ServiceRequest extends Model
     use ServiceRequestConstants, ServiceRequestScopes, ServiceRequestWorkflow, ServiceRequestAccessors, ServiceRequestUtilities;
 
     /**
-     * La solicitud es la unidad de cumplimiento: se scopea por CONTRATO, no por entidad.
-     * (Requester/Department/Project siguen por company_id.)
+     * La solicitud se CONSULTA por ENTIDAD (company_id): al entrar a una entidad
+     * se ven todas sus solicitudes (de todos sus contratos), con filtro opcional
+     * por contrato. La CREACIÓN sigue fijando el contrato vigente (ver el hook
+     * 'creating' en boot()), de modo que cada solicitud queda ligada a su contrato.
      */
-    protected static string $workspaceScopeColumn = 'contract_id';
+    protected static string $workspaceScopeColumn = 'company_id';
 
     public const ENTRY_CHANNEL_CORPORATE_EMAIL = 'email_corporativo';
     public const ENTRY_CHANNEL_DIGITAL_EMAIL = 'email_digital';
@@ -34,7 +36,7 @@ class ServiceRequest extends Model
     public const ENTRY_CHANNEL_PHONE = 'telefono';
     public const ENTRY_CHANNEL_MEETING = 'reunion';
 
-    protected $fillable = ['company_id', 'contract_id', 'project_id', 'request_type_id', 'service_request_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'requester_id', 'created_at'];
+    protected $fillable = ['company_id', 'contract_id', 'project_id', 'request_type_id', 'service_request_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'non_viable_reason', 'non_viable_at', 'non_viable_by', 'requester_id', 'created_at'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -62,6 +64,7 @@ class ServiceRequest extends Model
         'web_routes' => 'array',
         'status' => 'string',
         'rejected_at' => 'datetime',
+        'non_viable_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'technician_assigned_at' => 'datetime',
@@ -140,6 +143,8 @@ class ServiceRequest extends Model
             self::STATUS_RESOLVED => 'Resuelta',
             self::STATUS_CLOSED => 'Cerrada',
             self::STATUS_CANCELLED => 'Cancelada',
+            self::STATUS_REJECTED => 'Rechazada',
+            self::STATUS_NON_VIABLE => 'No viable',
             self::STATUS_PAUSED => 'Pausada',
             self::STATUS_REOPENED => 'Reabierto',
             self::STATUS_ARCHIVED => 'Archivada',
@@ -211,6 +216,26 @@ class ServiceRequest extends Model
 
         // El global scope 'workspace' y auto-asignación de company_id
         // los provee el trait BelongsToWorkspace automáticamente.
+
+        // Asegurar el contrato al crear. El scope de consulta es por entidad
+        // (company_id), pero cada solicitud debe quedar ligada a un contrato:
+        //  1) el contract_id explícito (si vino en el payload),
+        //  2) el contrato activo del contexto (WorkspaceContext),
+        //  3) el contrato vigente (active_contract_id) de la entidad.
+        static::creating(function ($model) {
+            if (empty($model->contract_id)) {
+                $contractId = app(\App\Services\WorkspaceContext::class)->contractId();
+
+                if (empty($contractId) && !empty($model->company_id)) {
+                    $contractId = \App\Models\Company::where('id', $model->company_id)
+                        ->value('active_contract_id');
+                }
+
+                if (!empty($contractId)) {
+                    $model->contract_id = $contractId;
+                }
+            }
+        });
 
         // Generar ticket_number automáticamente al crear
         static::creating(function ($model) {
@@ -417,6 +442,9 @@ class ServiceRequest extends Model
         return [
             self::STATUS_RESOLVED,
             self::STATUS_CLOSED,
+            // Las no viables representan gestión realizada y deben poder
+            // asociarse al corte para contarse en las métricas del período.
+            self::STATUS_NON_VIABLE,
         ];
     }
 
@@ -425,7 +453,8 @@ class ServiceRequest extends Model
         return $query
             ->where(function ($q) {
                 $q->whereNotNull('closed_at')
-                  ->orWhereNotNull('resolved_at');
+                  ->orWhereNotNull('resolved_at')
+                  ->orWhereNotNull('non_viable_at');
             })
             ->whereIn('status', self::getCutEligibleStatuses());
     }
@@ -433,7 +462,7 @@ class ServiceRequest extends Model
     public function canBeAssociatedToCut(): bool
     {
         return in_array((string) $this->status, self::getCutEligibleStatuses(), true)
-            && ($this->closed_at !== null || $this->resolved_at !== null);
+            && ($this->closed_at !== null || $this->resolved_at !== null || $this->non_viable_at !== null);
     }
 
     /**
@@ -455,7 +484,11 @@ class ServiceRequest extends Model
             return $resolved->lt($closed) ? $resolved : $closed;
         }
 
-        return $resolved ?? $closed;
+        // Para solicitudes finalizadas por no viabilidad se usa la fecha de
+        // finalización como referencia de ubicación en el corte.
+        $nonViable = $this->non_viable_at ? Carbon::parse($this->non_viable_at) : null;
+
+        return $resolved ?? $closed ?? $nonViable;
     }
 
     /**
@@ -463,7 +496,7 @@ class ServiceRequest extends Model
      */
     public function updateStatusFromTasks()
     {
-        if (in_array($this->status, ['RECHAZADA', self::STATUS_CANCELLED, self::STATUS_CLOSED], true)) {
+        if (in_array($this->status, ['RECHAZADA', self::STATUS_CANCELLED, self::STATUS_CLOSED, self::STATUS_NON_VIABLE], true)) {
             return;
         }
 
@@ -766,5 +799,32 @@ class ServiceRequest extends Model
     public function isRejected()
     {
         return $this->status === 'RECHAZADA';
+    }
+
+    /**
+     * Scope para solicitudes finalizadas por no viabilidad.
+     *
+     * Representan gestión realizada (se hizo la validación/concepto) que no se
+     * completó porque la solicitud no cumple las características necesarias.
+     */
+    public function scopeNonViable($query)
+    {
+        return $query->where('status', self::STATUS_NON_VIABLE);
+    }
+
+    /**
+     * Verificar si la solicitud fue finalizada por no viabilidad.
+     */
+    public function isNonViable(): bool
+    {
+        return $this->status === self::STATUS_NON_VIABLE;
+    }
+
+    /**
+     * Usuario que finalizó la solicitud por no viabilidad.
+     */
+    public function nonViableByUser()
+    {
+        return $this->belongsTo(User::class, 'non_viable_by');
     }
 }

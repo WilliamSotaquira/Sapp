@@ -20,9 +20,18 @@
                         <i class="far fa-calendar mr-1"></i>
                         {{ now()->translatedFormat('l, d \d\e F Y') }}
                     </p>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
-                        Centro de Gestión
-                    </h1>
+                    <div class="flex items-center gap-3 mt-1">
+                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">
+                            Centro de Gestión
+                        </h1>
+                        {{-- Captura rápida: crear solicitud sin salir del inicio (modo alta demanda) --}}
+                        <a href="{{ route('service-requests.create') }}"
+                           class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:bg-red-700 active:bg-red-800 transition focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
+                           title="Registrar una nueva solicitud">
+                            <i class="fas fa-plus"></i>
+                            <span>Nueva solicitud</span>
+                        </a>
+                    </div>
                     <p class="text-sm text-gray-600 mt-1">
                         @if($stats['today_tasks'] > 0)
                             {{ $stats['today_tasks'] }} {{ $stats['today_tasks'] === 1 ? 'tarea programada' : 'tareas programadas' }} para hoy.
@@ -61,6 +70,14 @@
             </div>
         </div>
     </div>
+
+    {{-- Botón flotante de captura rápida (solo móvil/tablet, siempre accesible tras el scroll) --}}
+    <a href="{{ route('service-requests.create') }}"
+       class="lg:hidden fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 pl-4 pr-5 py-3.5 bg-red-600 text-white text-sm font-semibold rounded-full shadow-lg hover:bg-red-700 active:bg-red-800 transition focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
+       aria-label="Registrar una nueva solicitud" title="Nueva solicitud">
+        <i class="fas fa-plus text-base"></i>
+        <span>Nueva solicitud</span>
+    </a>
 
     {{-- ===== TABS ===== --}}
     <div class="mb-6 border-b border-gray-200">

@@ -33,6 +33,22 @@
         @endif
 
         <div class="p-6">
+            {{-- Filtro por contrato: permite consultar cortes históricos (contrato anterior) --}}
+            @if(isset($contracts) && $contracts->count() > 1)
+                <form method="GET" class="mb-5 flex items-center gap-2">
+                    <label for="contract_id" class="text-sm text-gray-600">Contrato:</label>
+                    <select name="contract_id" id="contract_id" onchange="this.form.submit()"
+                            class="rounded-lg border-gray-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos los contratos</option>
+                        @foreach($contracts as $c)
+                            <option value="{{ $c->id }}" {{ (int)($filterContractId ?? 0) === $c->id ? 'selected' : '' }}>
+                                {{ $c->number }}{{ $c->name ? ' · ' . $c->name : '' }}{{ $c->is_active ? '' : ' (histórico)' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            @endif
+
             @if($cuts->count() === 0)
                 <div class="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p class="text-sm text-yellow-800">Aún no hay cortes. Crea el primero para asociar solicitudes por fecha de asignación aceptada del técnico.</p>
