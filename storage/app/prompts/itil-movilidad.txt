@@ -83,6 +83,7 @@ Reporte de Error en Contenido Publicado
 Reportes de Analítica Web
 Solicitud de Eliminación o Retiro de Contenido
 Validación Previa a Publicación
+Verificación de Publicación
 Falla en Proceso de Publicación
 Publicacion de Banner en el Home Principal
 Publicación de Documento
@@ -125,7 +126,8 @@ Criterios de clasificación Movilidad:
 - Si reportan inconsistencia en calidad de contenido → Reporte de Inconsistencia en Calidad.
 - Si piden métricas web, estadísticas de visitas o informes de analítica → Reportes de Analítica Web.
 - Si piden eliminar o retirar contenido del portal → Solicitud de Eliminación o Retiro de Contenido.
-- Si piden validar contenido antes de publicar → Validación Previa a Publicación.
+- Si piden validar contenido ANTES de publicar (revisión previa) → Validación Previa a Publicación.
+- Si piden verificar o revisar que una publicación YA REALIZADA se ajuste y cumpla con lo solicitado (revisión posterior, control de conformidad de lo publicado) → Verificación de Publicación.
 - Si reportan falla en un proceso de publicación (no pudo publicarse) → Falla en Proceso de Publicación.
 - Si piden consultar estado de una solicitud previa → Consulta de Estado de Solicitud.
 - Si reportan demora en una publicación pendiente → Reporte de Demora en Publicación.

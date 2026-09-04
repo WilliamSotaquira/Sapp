@@ -200,6 +200,8 @@ Informe de cumplimiento de confidencialidad
 
 Correcciones y ajustes de último momento
 
+Verificación de Publicación
+
 Tareas administrativas e informes
 
 Capacitaciones y sesiones de formación
@@ -415,6 +417,16 @@ Utilízalo cuando soliciten:
 * cambios rápidos no planificados;
 * correcciones inmediatas solicitadas directamente por supervisión.
 
+### Verificación de Publicación
+
+Utilízalo cuando soliciten verificar o revisar que una publicación YA REALIZADA se ajuste y cumpla con lo solicitado (revisión posterior / control de conformidad de lo publicado), por ejemplo:
+
+* revisar que un contenido publicado por un compañero cumpla lo pedido;
+* verificar la conformidad de una publicación ya hecha;
+* controlar la calidad de lo publicado después de su ejecución.
+
+No lo uses para revisiones ANTES de publicar; ese caso corresponde a otras categorías de validación previa.
+
 ### Tareas administrativas e informes
 
 Utilízalo cuando soliciten:
@@ -566,8 +578,9 @@ Prioriza en este orden lógico:
 12. Mesa técnica de renovación → Mesas técnicas para renovación de contenidos.
 13. Cambio de contenido existente del portal principal → Actualización de Contenidos en Portal Principal.
 14. Corrección urgente del supervisor → Correcciones y ajustes de último momento.
-15. Capacitación → Capacitaciones y sesiones de formación.
-16. Si ninguna categoría anterior aplica → Asignación de tarea no especificada.
+15. Verificación de una publicación ya realizada (control de conformidad posterior) → Verificación de Publicación.
+16. Capacitación → Capacitaciones y sesiones de formación.
+17. Si ninguna categoría anterior aplica → Asignación de tarea no especificada.
 
 ## VALIDACIÓN INTERNA OBLIGATORIA
 
