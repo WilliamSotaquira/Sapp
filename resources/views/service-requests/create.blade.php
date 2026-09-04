@@ -199,6 +199,9 @@
                     <form action="{{ route('service-requests.prefill-from-text') }}" method="POST" id="aiInterpreterForm" x-on:submit="interpreting = true">
                         @csrf
                         <input type="hidden" name="contract_id" :value="selectedContractId">
+                        @if(!empty($parentRequestId))
+                            <input type="hidden" name="service_request_id" value="{{ $parentRequestId }}">
+                        @endif
 
                         @if (session('plain_text_import_error'))
                             <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -305,6 +308,9 @@
                         <input type="hidden" name="plain_text" :value="pasteText">
                         <input type="hidden" name="operator_notes" :value="operatorNotes">
                         <input type="hidden" name="contract_id" :value="selectedContractId">
+                        @if(!empty($parentRequestId))
+                            <input type="hidden" name="service_request_id" value="{{ $parentRequestId }}">
+                        @endif
                     </form>
 
                     {{-- Manual link --}}
@@ -514,6 +520,18 @@
 
                 {{-- Hidden input for request_type_id --}}
                 <input type="hidden" name="request_type_id" :value="selectedTypeId">
+
+                {{-- Solicitud padre (derivación): conserva el vínculo con la principal --}}
+                @if(!empty($parentRequestId))
+                    <input type="hidden" name="service_request_id" value="{{ old('service_request_id', $parentRequestId) }}">
+                    <div class="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-violet-50 border border-violet-200 text-sm text-violet-800">
+                        <i class="fas fa-code-branch"></i>
+                        <span>
+                            Esta será una <strong>solicitud derivada</strong> de
+                            <strong>{{ $parentRequest->ticket_number ?? ('#' . $parentRequestId) }}</strong>@if(!empty($parentRequest?->title)) — {{ \Illuminate\Support\Str::limit($parentRequest->title, 60) }}@endif.
+                        </span>
+                    </div>
+                @endif
 
                 <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">

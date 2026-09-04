@@ -191,13 +191,13 @@
         @endif
 
         <!-- Derived Requests (child requests) -->
-        @if($childRequests->isNotEmpty() || ($serviceRequest->requestType && $serviceRequest->requestType->slug !== null))
-            <section class="sr-section sr-collapsible scroll-mt-16"
-                     data-section-key="derived"
-                     data-priority="0">
-                @include('service-requests.partials._derive-request')
-            </section>
-        @endif
+        {{-- Se muestra siempre: cualquier solicitud puede tener/crear derivadas,
+             sin depender de que tenga un tipo especial. Si ya hay derivadas, se listan. --}}
+        <section class="sr-section sr-collapsible scroll-mt-16"
+                 data-section-key="derived"
+                 data-priority="0">
+            @include('service-requests.partials._derive-request')
+        </section>
 
         <!-- Assignment History -->
         @if($assignmentHistory->isNotEmpty())
