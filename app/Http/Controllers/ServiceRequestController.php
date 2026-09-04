@@ -534,6 +534,19 @@ class ServiceRequestController extends Controller
 
         $data = $this->serviceRequestService->getCreateFormData($selectedSubServiceId);
 
+        // Solicitud padre (derivación): se acepta por query string o por old input.
+        // Se conserva para vincular la nueva solicitud como derivada, sin importar
+        // el estado del padre (puede estar abierto/en curso).
+        $parentRequestId = (int) $request->old('service_request_id', $request->query('service_request_id', 0));
+        $parentRequest = null;
+        if ($parentRequestId > 0) {
+            $parentRequest = ServiceRequest::withoutGlobalScopes()
+                ->select(['id', 'ticket_number', 'title', 'company_id'])
+                ->find($parentRequestId);
+        }
+        $data['parentRequestId'] = $parentRequest?->id;
+        $data['parentRequest'] = $parentRequest;
+
         return view('service-requests.create', $data);
     }
 
@@ -550,13 +563,16 @@ class ServiceRequestController extends Controller
         // Contrato elegido por el usuario en el selector. Se preserva en TODOS los
         // redirects para que el selector no vuelva al contrato del workspace en sesión.
         $selectedContractId = (string) $request->input('contract_id', '');
+        // Solicitud padre (derivación): se preserva para no perder el vínculo al interpretar.
+        $parentRequestId = (string) $request->input('service_request_id', '');
 
         if ($validator->fails()) {
             return redirect()
-                ->route('service-requests.create')
+                ->route('service-requests.create', $parentRequestId !== '' ? ['service_request_id' => $parentRequestId] : [])
                 ->withInput([
                     'plain_text_import_text' => (string) $request->input('plain_text', ''),
                     'contract_id' => $selectedContractId,
+                    'service_request_id' => $parentRequestId,
                     '__open_plain_text_import' => '1',
                 ])
                 ->with('plain_text_import_error', $validator->errors()->first('plain_text'));
@@ -589,8 +605,11 @@ class ServiceRequestController extends Controller
             }
 
             return redirect()
-                ->route('service-requests.create')
-                ->withInput(array_merge($result['payload'], ['contract_id' => $selectedContractId]))
+                ->route('service-requests.create', $parentRequestId !== '' ? ['service_request_id' => $parentRequestId] : [])
+                ->withInput(array_merge($result['payload'], [
+                    'contract_id' => $selectedContractId,
+                    'service_request_id' => $parentRequestId,
+                ]))
                 ->with('success', $message);
         } catch (ValidationException $e) {
             $message = collect($e->errors())
@@ -668,6 +687,8 @@ class ServiceRequestController extends Controller
 
         // Contrato elegido por el usuario; se preserva en los redirects de error.
         $selectedContractId = (string) $request->input('contract_id', '');
+        // Solicitud padre (derivación por IA): vincula la nueva solicitud a la principal.
+        $parentRequestId = (int) $request->input('service_request_id', 0);
 
         $companyId = $this->resolveCompanyForInterpretation($request);
         if ($companyId <= 0) {
@@ -715,6 +736,14 @@ class ServiceRequestController extends Controller
                 $payload['is_reportable'] = true;
             }
 
+            // Vincular a la solicitud padre si se está derivando (padre válido y no eliminado).
+            if ($parentRequestId > 0) {
+                $parentExists = ServiceRequest::withoutGlobalScopes()->whereKey($parentRequestId)->whereNull('deleted_at')->exists();
+                if ($parentExists) {
+                    $payload['service_request_id'] = $parentRequestId;
+                }
+            }
+
             // Validate essential fields are present before attempting creation
             $requiredFields = ['title', 'description', 'sub_service_id', 'service_id', 'family_id', 'sla_id', 'requester_id'];
             $missingFields = [];
@@ -727,8 +756,11 @@ class ServiceRequestController extends Controller
             if (!empty($missingFields)) {
                 // Fallback: redirect to prefill mode so user can complete missing fields
                 return redirect()
-                    ->route('service-requests.create')
-                    ->withInput(array_merge($payload, ['contract_id' => $selectedContractId]))
+                    ->route('service-requests.create', $parentRequestId > 0 ? ['service_request_id' => $parentRequestId] : [])
+                    ->withInput(array_merge($payload, [
+                        'contract_id' => $selectedContractId,
+                        'service_request_id' => $parentRequestId > 0 ? $parentRequestId : null,
+                    ]))
                     ->with('success', 'Texto interpretado, pero faltan campos obligatorios. Completa el formulario.');
             }
 

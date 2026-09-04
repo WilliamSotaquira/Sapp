@@ -32,6 +32,51 @@
     $canResolveInTasksPanel = $isInProgress && $canResolveByEvidence && $hasCompletedSubtask;
     $completedTasksCount = $tasks->filter(fn($task) => strtolower((string) $task->status) === 'completed')->count();
     $allTasksCompleted = $tasks->isNotEmpty() && $completedTasksCount === $tasks->count();
+
+    // =========================================================================
+    // Texto funcional de tareas para copiar (ej. pegar en un asistente de IA).
+    // Formato claro y accionable: contexto de la solicitud + tareas + subtareas
+    // como pasos concretos, con estado. Pensado para ejecutar el trabajo técnico.
+    // =========================================================================
+    $familyName = $serviceRequest->subService?->service?->family?->name;
+    $serviceName = $serviceRequest->subService?->service?->name;
+    $subServiceName = $serviceRequest->subService?->name;
+    $webRoutes = is_array($serviceRequest->web_routes) ? array_filter($serviceRequest->web_routes) : [];
+
+    $copyLines = [];
+    $copyLines[] = "Solicitud {$serviceRequest->ticket_number}: {$serviceRequest->title}";
+    if ($subServiceName) {
+        $copyLines[] = "Servicio: " . trim(($familyName ? $familyName . ' › ' : '') . ($serviceName ? $serviceName . ' › ' : '') . $subServiceName);
+    }
+    if (!empty($serviceRequest->description)) {
+        $copyLines[] = "Contexto: " . trim(preg_replace('/\s+/', ' ', $serviceRequest->description));
+    }
+    if (!empty($webRoutes)) {
+        $copyLines[] = "Rutas web: " . implode(', ', $webRoutes);
+    }
+    $copyLines[] = "";
+    $copyLines[] = "Tareas a realizar para completar la solicitud:";
+
+    if ($tasks->isEmpty()) {
+        $copyLines[] = "(sin tareas registradas)";
+    } else {
+        $taskIndex = 0;
+        foreach ($tasks as $task) {
+            $taskIndex++;
+            $done = strtolower((string) $task->status) === 'completed';
+            $mark = $done ? '[x]' : '[ ]';
+            $copyLines[] = "";
+            $copyLines[] = "{$taskIndex}. {$mark} {$task->title}";
+            if (!empty($task->description)) {
+                $copyLines[] = "   " . trim(preg_replace('/\s+/', ' ', $task->description));
+            }
+            foreach ($task->subtasks as $subtask) {
+                $subMark = $subtask->is_completed ? '[x]' : '[ ]';
+                $copyLines[] = "   - {$subMark} {$subtask->title}";
+            }
+        }
+    }
+    $copyText = implode("\n", $copyLines);
 @endphp
 
 <div id="tasks-panel-{{ $serviceRequest->id }}" tabindex="-1" class="bg-white shadow rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2" data-service-request-id="{{ $serviceRequest->id }}" data-tasks-panel="1">
@@ -51,6 +96,18 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-3 xl:justify-end">
+                {{-- Copiar las tareas como texto funcional (para pegar en un asistente de IA) --}}
+                @if($tasks->isNotEmpty())
+                    <button type="button"
+                            data-copy-tasks
+                            data-copy-target="tasks-copy-text-{{ $serviceRequest->id }}"
+                            title="Copiar las tareas como texto listo para pegar en un asistente de IA."
+                            class="inline-flex max-w-full items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-2xl font-semibold text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all duration-150 min-h-[3rem]">
+                        <i class="fas fa-copy flex-shrink-0" aria-hidden="true"></i>
+                        <span data-copy-label>Copiar tareas</span>
+                    </button>
+                    <textarea id="tasks-copy-text-{{ $serviceRequest->id }}" class="sr-only" aria-hidden="true" tabindex="-1" readonly>{{ $copyText }}</textarea>
+                @endif
                 @if($isInProgress && $canResolveByEvidence)
                     <div id="tasks-resolve-action-{{ $serviceRequest->id }}"
                          data-tasks-resolve-action
@@ -173,13 +230,45 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const hash = window.location.hash || '';
-    if (!hash.startsWith('#tasks-panel-')) return;
+    if (hash.startsWith('#tasks-panel-')) {
+        const target = document.querySelector(hash);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => target.focus({ preventScroll: true }), 250);
+        }
+    }
 
-    const target = document.querySelector(hash);
-    if (!target) return;
+    // Copiar tareas como texto funcional al portapapeles
+    document.querySelectorAll('[data-copy-tasks]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const targetId = btn.getAttribute('data-copy-target');
+            const source = document.getElementById(targetId);
+            if (!source) return;
+            const text = source.value;
+            const label = btn.querySelector('[data-copy-label]');
+            const original = label ? label.textContent : '';
 
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => target.focus({ preventScroll: true }), 250);
+            const markCopied = () => {
+                if (label) label.textContent = '¡Copiado!';
+                btn.classList.add('bg-green-50', 'border-green-300', 'text-green-700');
+                setTimeout(() => {
+                    if (label) label.textContent = original;
+                    btn.classList.remove('bg-green-50', 'border-green-300', 'text-green-700');
+                }, 1800);
+            };
+
+            try {
+                await navigator.clipboard.writeText(text);
+                markCopied();
+            } catch (e) {
+                // Fallback para navegadores sin permiso de clipboard
+                source.classList.remove('sr-only');
+                source.select();
+                try { document.execCommand('copy'); markCopied(); } catch (_) {}
+                source.classList.add('sr-only');
+            }
+        });
+    });
 });
 
 function areAllTasksCompleted(tasksPanel) {
