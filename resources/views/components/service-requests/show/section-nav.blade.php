@@ -7,8 +7,8 @@
         ['id' => 'sr-section-description', 'label' => 'Descripción', 'icon' => 'fa-align-left', 'short' => 'Desc.'],
         ['id' => 'sr-section-service-info', 'label' => 'Servicio', 'icon' => 'fa-concierge-bell', 'short' => 'Serv.'],
         ['id' => 'sr-section-timelines', 'label' => 'Tiempos', 'icon' => 'fa-clock', 'short' => 'Tiem.'],
-        ['id' => 'sr-section-evidences', 'label' => 'Evidencias', 'icon' => 'fa-images', 'short' => 'Evid.'],
         ['id' => 'sr-section-tasks', 'label' => 'Tareas', 'icon' => 'fa-tasks', 'short' => 'Tareas'],
+        ['id' => 'sr-section-evidences', 'label' => 'Evidencias', 'icon' => 'fa-images', 'short' => 'Evid.'],
         ['id' => 'sr-section-actions', 'label' => 'Acciones', 'icon' => 'fa-cog', 'short' => 'Acc.'],
     ];
 
