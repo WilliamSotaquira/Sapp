@@ -74,7 +74,7 @@
                 </div>
             </form>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="text-xs uppercase tracking-wide text-slate-500">Total</p>
                     <p class="mt-2 text-3xl font-bold text-slate-900">{{ $analytics['summary']['total'] }}</p>
@@ -89,6 +89,11 @@
                     <p class="text-xs uppercase tracking-wide text-amber-600">Activas</p>
                     <p class="mt-2 text-3xl font-bold text-amber-900">{{ $analytics['summary']['active'] }}</p>
                     <p class="mt-1 text-sm text-amber-700">Pendientes, aceptadas, en proceso o pausadas</p>
+                </div>
+                <div class="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                    <p class="text-xs uppercase tracking-wide text-orange-600">No viables</p>
+                    <p class="mt-2 text-3xl font-bold text-orange-900">{{ $analytics['summary']['non_viable'] ?? 0 }}</p>
+                    <p class="mt-1 text-sm text-orange-700">Gestionadas sin ejecución por no cumplir características</p>
                 </div>
                 <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
                     <p class="text-xs uppercase tracking-wide text-indigo-600">Cobertura del dato</p>

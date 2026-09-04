@@ -2,7 +2,7 @@
 
 @php
     $headerGradient = match($serviceRequest->status) {
-        'CERRADA', 'CANCELADA', 'RECHAZADA' => 'from-gray-50 to-gray-100',
+        'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE' => 'from-gray-50 to-gray-100',
         default => 'from-white to-slate-50',
     };
 @endphp

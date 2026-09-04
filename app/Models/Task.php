@@ -524,6 +524,52 @@ class Task extends Model
         $this->addHistory('unblocked', auth()->id());
     }
 
+    /**
+     * Cancelar la tarea y, en cascada, sus subtareas no completadas.
+     *
+     * Las subtareas ya completadas se conservan como evidencia del trabajo
+     * realizado; las pendientes o en progreso pasan a 'cancelled'. Deja la
+     * tarea en un estado final coherente (sin tiempos de ejecución).
+     *
+     * @param  string|null  $reason   Motivo de la cancelación (para el historial).
+     * @param  int|null     $userId   Usuario que ejecuta la acción; usa el autenticado si es null.
+     * @return int  Número de subtareas canceladas.
+     */
+    public function cancel(?string $reason = null, ?int $userId = null): int
+    {
+        if (in_array($this->status, ['completed', 'cancelled'], true)) {
+            return 0;
+        }
+
+        $userId = $userId ?? auth()->id();
+
+        $cancelledSubtasks = $this->subtasks()
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->update([
+                'status' => 'cancelled',
+                'completed_at' => null,
+            ]);
+
+        $this->update([
+            'status' => 'cancelled',
+            'completed_at' => null,
+            'actual_duration_minutes' => null,
+            'actual_hours' => null,
+        ]);
+
+        // El historial de tarea requiere un usuario; solo se registra si existe.
+        if ($userId !== null) {
+            $this->addHistory(
+                'cancelled',
+                $userId,
+                $reason,
+                ['cancelled_subtasks' => $cancelledSubtasks]
+            );
+        }
+
+        return $cancelledSubtasks;
+    }
+
     public function addHistory($action, $userId, $notes = null, $metadata = null)
     {
         return $this->history()->create([
@@ -630,7 +676,9 @@ class Task extends Model
 
     public function getSubtasksProgressAttribute()
     {
-        $total = $this->subtasks()->count();
+        // Las subtareas canceladas no cuentan ni en el total ni como pendientes:
+        // representan trabajo que ya no aplica.
+        $total = $this->subtasks()->where('status', '!=', 'cancelled')->count();
         if ($total === 0) {
             return 100;
         }

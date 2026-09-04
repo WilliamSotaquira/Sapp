@@ -195,6 +195,7 @@ class Subtask extends Model
             'pending' => 'gray',
             'in_progress' => 'blue',
             'completed' => 'green',
+            'cancelled' => 'gray',
             default => 'gray',
         };
     }

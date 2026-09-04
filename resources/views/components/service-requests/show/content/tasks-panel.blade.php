@@ -10,7 +10,7 @@
     $canConfirmTaskProgress = in_array($serviceRequest->status, ['ACEPTADA', 'EN_PROCESO', 'RESUELTA']);
     $hasTechnicianAssigned = (bool) $serviceRequest->assigned_to;
     $quickTaskEnabled = $canManageTasks && $hasTechnicianAssigned;
-    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
     $isInProgress = $serviceRequest->status === 'EN_PROCESO';
     $tasksActionMode = $quickTaskEnabled
         ? 'tasks'

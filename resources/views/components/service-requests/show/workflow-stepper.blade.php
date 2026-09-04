@@ -21,15 +21,17 @@
         'CERRADA' => 4,
         'CANCELADA' => -1,
         'RECHAZADA' => -1,
+        'NO_VIABLE' => -1,
         'REABIERTO' => 1,
         default => 0,
     };
 
     $isCancelled = $status === 'CANCELADA';
     $isRejected = $status === 'RECHAZADA';
+    $isNonViable = $status === 'NO_VIABLE';
     $isPaused = $status === 'PAUSADA';
     $isReopened = $status === 'REABIERTO';
-    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDeadState = in_array($status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
 
     // Timestamps for completed steps
     $stepTimestamps = [
@@ -62,6 +64,14 @@
             <span>Rechazada</span>
             @if ($serviceRequest->rejection_reason)
                 <span class="sr-stepper-badge__reason">— {{ Str::limit($serviceRequest->rejection_reason, 40) }}</span>
+            @endif
+        </div>
+    @elseif ($isNonViable)
+        <div class="sr-stepper-badge sr-stepper-badge--rejected">
+            <i class="fas fa-ban" aria-hidden="true"></i>
+            <span>No viable</span>
+            @if ($serviceRequest->non_viable_reason)
+                <span class="sr-stepper-badge__reason">— {{ Str::limit($serviceRequest->non_viable_reason, 40) }}</span>
             @endif
         </div>
     @elseif ($isReopened)

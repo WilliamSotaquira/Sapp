@@ -1,7 +1,7 @@
 @props(['serviceRequest'])
 
 @php
-    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA']);
+    $isDead = in_array($serviceRequest->status, ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE']);
 @endphp
 
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -74,6 +74,7 @@
                     'RESUELTA' => 'Resuelta',
                     'CERRADA' => 'Cerrada',
                     'RECHAZADA' => 'Rechazada',
+                    'NO_VIABLE' => 'No viable',
                     'PENDIENTE' => 'Pendiente',
                     'EN_PROCESO' => 'En Proceso',
                     'CANCELADA' => 'Cancelada'

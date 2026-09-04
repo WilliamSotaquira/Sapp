@@ -1070,6 +1070,7 @@
                     pause:   { modal: 'pause-modal-' + srId,   validStatus: ['EN_PROCESO'] },
                     reject:  { modal: 'reject-modal-' + srId,  validStatus: ['PENDIENTE'] },
                     reopen:  { modal: 'reopen-modal-' + srId,  validStatus: ['RESUELTA','CERRADA'] },
+                    'finalize-non-viable': { modal: 'finalize-non-viable-modal-' + srId, validStatus: ['ACEPTADA','EN_PROCESO','PAUSADA'] },
                 };
 
                 // "Cerrar" usa modal distinto según el estado: RESUELTA → close, PAUSADA → vencimiento

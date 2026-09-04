@@ -10,6 +10,8 @@ trait ServiceRequestConstants
     const STATUS_RESOLVED = 'RESUELTA';
     const STATUS_CLOSED = 'CERRADA';
     const STATUS_CANCELLED = 'CANCELADA';
+    const STATUS_REJECTED = 'RECHAZADA';
+    const STATUS_NON_VIABLE = 'NO_VIABLE';
     const STATUS_PAUSED = 'PAUSADA';
     const STATUS_REOPENED = 'REABIERTO';
     const STATUS_ARCHIVED = 'ARCHIVADA';

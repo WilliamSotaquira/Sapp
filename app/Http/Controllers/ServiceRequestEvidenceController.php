@@ -18,13 +18,13 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function create(ServiceRequest $serviceRequest)
     {
-        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
+        $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
-        // Permitir agregar evidencias en proceso y también después de cerrada
+        // Permitir agregar evidencias mientras la solicitud está en gestión o cerrada
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
+                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en gestión (aceptada, en proceso o pausada) o cerrada.');
         }
 
         // Obtener el siguiente número de paso
@@ -38,13 +38,13 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function store(Request $request, ServiceRequest $serviceRequest)
     {
-        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
+        $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
-        // Permitir carga en proceso y cerrada
+        // Permitir carga mientras la solicitud está en gestión o cerrada
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
-                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en proceso o cerrada.');
+                ->with('evidence_error', 'Solo se pueden agregar evidencias cuando la solicitud está en gestión (aceptada, en proceso o pausada) o cerrada.');
         }
 
         try {
@@ -193,7 +193,7 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function storeQuickNote(Request $request, ServiceRequest $serviceRequest)
     {
-        $deadStatuses = ['CERRADA', 'CANCELADA', 'RECHAZADA'];
+        $deadStatuses = ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE'];
 
         if (in_array($serviceRequest->status, $deadStatuses, true)) {
             $message = 'No se pueden agregar notas de seguimiento a solicitudes cerradas, canceladas o rechazadas.';
@@ -262,9 +262,9 @@ class ServiceRequestEvidenceController extends Controller
             abort(404);
         }
 
-        $allowedStatuses = ['EN_PROCESO', 'RESUELTA', 'CERRADA'];
+        $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
-        // Permitir eliminar solo en proceso y cerrada
+        // Permitir eliminar mientras la solicitud está en gestión o cerrada/no viable
         if (!in_array($serviceRequest->status, $allowedStatuses, true)) {
             $message = 'No se pueden eliminar evidencias en el estado actual de la solicitud.';
 

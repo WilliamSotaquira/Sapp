@@ -18,7 +18,7 @@
         'EN_PROCESO' => 'sr-section-evidences',
         'PAUSADA' => 'sr-section-timelines',
         'RESUELTA' => 'sr-section-actions',
-        'CERRADA', 'CANCELADA', 'RECHAZADA' => 'sr-section-description',
+        'CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE' => 'sr-section-description',
         default => 'sr-section-description',
     };
 @endphp

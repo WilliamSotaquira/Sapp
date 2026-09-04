@@ -24,7 +24,8 @@
                             'RESUELTA' => 'bg-green-100 text-green-800',
                             'CERRADA' => 'bg-gray-100 text-gray-800',
                             'CANCELADA' => 'bg-red-100 text-red-800',
-                            'RECHAZADA' => 'bg-gray-100 text-gray-800'
+                            'RECHAZADA' => 'bg-gray-100 text-gray-800',
+                            'NO_VIABLE' => 'bg-amber-100 text-amber-800'
                         ];
                         @endphp
                         <span class="px-2 py-1 text-xs font-semibold rounded {{ $oldStatusColors[$statusChange->old_status] ?? 'bg-gray-100 text-gray-800' }}">
@@ -49,7 +50,8 @@
                             'RESUELTA' => 'bg-green-100 text-green-800',
                             'CERRADA' => 'bg-gray-100 text-gray-800',
                             'CANCELADA' => 'bg-red-100 text-red-800',
-                            'RECHAZADA' => 'bg-gray-100 text-gray-800'
+                            'RECHAZADA' => 'bg-gray-100 text-gray-800',
+                            'NO_VIABLE' => 'bg-amber-100 text-amber-800'
                         ];
                         @endphp
                         <span class="px-2 py-1 text-xs font-semibold rounded {{ $newStatusColors[$statusChange->new_status] ?? 'bg-gray-100 text-gray-800' }}">
@@ -94,7 +96,8 @@
                         'RESUELTA' => 'bg-green-100 text-green-800',
                         'CERRADA' => 'bg-gray-100 text-gray-800',
                         'CANCELADA' => 'bg-red-100 text-red-800',
-                        'RECHAZADA' => 'bg-gray-100 text-gray-800'
+                        'RECHAZADA' => 'bg-gray-100 text-gray-800',
+                        'NO_VIABLE' => 'bg-amber-100 text-amber-800'
                     ];
                     @endphp
                     <span class="px-2 py-1 text-xs font-semibold rounded {{ $initialStatusColors[$serviceRequest->status] ?? 'bg-gray-100 text-gray-800' }}">
