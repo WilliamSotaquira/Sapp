@@ -30,6 +30,9 @@ class ServiceRequest extends Model
      */
     protected static string $workspaceScopeColumn = 'company_id';
 
+    /** Bandera en memoria: evita registrar dos veces la clasificación inicial en la misma petición. */
+    public bool $classificationAuditRecorded = false;
+
     public const ENTRY_CHANNEL_CORPORATE_EMAIL = 'email_corporativo';
     public const ENTRY_CHANNEL_DIGITAL_EMAIL = 'email_digital';
     public const ENTRY_CHANNEL_WHATSAPP = 'whatsapp';
@@ -250,6 +253,29 @@ class ServiceRequest extends Model
             }
         });
 
+        // Auditoría de clasificación (servicio/familia/subservicio).
+        // Registra como evidencia SISTEMA la clasificación inicial al crear y
+        // cada reclasificación posterior de sub_service_id (quién, de qué a qué, cuándo).
+        // Es un requisito de trazabilidad para procesos de auditoría.
+        static::saved(function ($model) {
+            try {
+                // Clasificación inicial: solo una vez por instancia recién creada.
+                if ($model->wasRecentlyCreated && !$model->classificationAuditRecorded) {
+                    static::recordClassificationAudit($model, null, (int) $model->sub_service_id, 'CLASSIFIED');
+                    $model->classificationAuditRecorded = true;
+                } elseif ($model->wasChanged('sub_service_id')) {
+                    // Reclasificación posterior (incluye cambios tras la creación inicial).
+                    $previous = $model->getOriginal('sub_service_id');
+                    static::recordClassificationAudit($model, $previous ? (int) $previous : null, (int) $model->sub_service_id, 'RECLASSIFIED');
+                }
+            } catch (\Throwable $e) {
+                // La auditoría nunca debe romper la operación principal.
+                \Log::warning('No se pudo registrar auditoría de clasificación: ' . $e->getMessage(), [
+                    'service_request_id' => $model->id,
+                ]);
+            }
+        });
+
         static::saving(function ($model) {
             // Type immutability guard: prevent request_type_id changes after initial creation
             if (!$model->wasRecentlyCreated && $model->exists && $model->isDirty('request_type_id')) {
@@ -308,6 +334,72 @@ class ServiceRequest extends Model
                 app(ServiceRequestService::class)->syncCutAssociationByCompletionDate($model);
             }
         });
+    }
+
+    /**
+     * Registrar en la trazabilidad (evidencia SISTEMA) la clasificación de la solicitud.
+     * Deja constancia auditable de la clasificación inicial y de las reclasificaciones
+     * de subservicio: quién, desde qué servicio/familia/subservicio, hacia cuál y cuándo.
+     */
+    protected static function recordClassificationAudit(self $model, ?int $fromSubServiceId, int $toSubServiceId, string $action): void
+    {
+        $describe = function (?int $subServiceId): array {
+            if (!$subServiceId) {
+                return ['sub_service' => null, 'service' => null, 'family' => null];
+            }
+            $sub = SubService::with('service.family')->find($subServiceId);
+            return [
+                'sub_service_id' => $subServiceId,
+                'sub_service' => $sub?->name,
+                'service' => $sub?->service?->name,
+                'family' => $sub?->service?->family?->name,
+            ];
+        };
+
+        $to = $describe($toSubServiceId);
+        $from = $action === 'RECLASSIFIED' ? $describe($fromSubServiceId) : null;
+
+        $userId = auth()->id();
+        $userName = auth()->user()?->name ?? 'Sistema';
+
+        if ($action === 'CLASSIFIED') {
+            $title = 'Clasificación inicial';
+            $description = sprintf(
+                'Clasificada por %s: %s › %s › %s',
+                $userName,
+                $to['family'] ?? 'Sin familia',
+                $to['service'] ?? 'Sin servicio',
+                $to['sub_service'] ?? 'Sin subservicio'
+            );
+        } else {
+            $title = 'Reclasificación de servicio';
+            $description = sprintf(
+                'Reclasificada por %s: de «%s › %s › %s» a «%s › %s › %s»',
+                $userName,
+                $from['family'] ?? 'Sin familia',
+                $from['service'] ?? 'Sin servicio',
+                $from['sub_service'] ?? 'Sin subservicio',
+                $to['family'] ?? 'Sin familia',
+                $to['service'] ?? 'Sin servicio',
+                $to['sub_service'] ?? 'Sin subservicio'
+            );
+        }
+
+        ServiceRequestEvidence::create([
+            'service_request_id' => $model->id,
+            'title' => $title,
+            'description' => $description,
+            'evidence_type' => 'SISTEMA',
+            'user_id' => $userId,
+            'evidence_data' => [
+                'action' => $action,
+                'performed_by' => $userId,
+                'performed_by_name' => $userName,
+                'performed_at' => now()->toISOString(),
+                'from' => $from,
+                'to' => $to,
+            ],
+        ]);
     }
 
     // ==================== RELACIONES ====================

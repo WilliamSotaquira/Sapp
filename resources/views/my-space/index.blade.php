@@ -83,16 +83,16 @@
     <div class="mb-6 border-b border-gray-200">
         <nav class="flex space-x-0.5 overflow-x-auto pb-px scrollbar-hide" aria-label="Secciones de Mi Espacio">
             @php
+                // Navegación consolidada a 5 secciones. Cada una agrupa lo que antes
+                // estaba disperso, sin perder ninguna colección:
+                //  - Tareas   = Mi Día + Pendientes/Vencidas + Semana
+                //  - Alertas  = Alertas + Recordatorios + Actividad reciente
                 $tabs = [
-                    ['key' => 'today', 'icon' => 'fa-bolt', 'label' => 'Mi Día', 'color' => 'indigo', 'count' => $stats['today_tasks']],
+                    ['key' => 'today', 'icon' => 'fa-bolt', 'label' => 'Tareas', 'color' => 'indigo', 'count' => $stats['today_tasks'] + $stats['pending_tasks'] + $stats['overdue_tasks'] ?: null],
+                    ['key' => 'requests', 'icon' => 'fa-headset', 'label' => 'Solicitudes', 'color' => 'purple', 'count' => $stats['my_srs'] ?: null],
                     ['key' => 'meetings', 'icon' => 'fa-users', 'label' => 'Reuniones', 'color' => 'teal', 'count' => $stats['upcoming_meetings'] + $stats['pending_commitments'] ?: null],
-                    ['key' => 'pending', 'icon' => 'fa-inbox', 'label' => 'Pendientes', 'color' => 'amber', 'count' => $stats['pending_tasks'] + $stats['overdue_tasks']],
-                    ['key' => 'requests', 'icon' => 'fa-headset', 'label' => 'Solicitudes', 'color' => 'purple', 'count' => $stats['my_srs']],
-                    ['key' => 'sla', 'icon' => 'fa-shield-halved', 'label' => 'SLA', 'color' => 'cyan', 'count' => null],
-                    ['key' => 'alerts', 'icon' => 'fa-bell', 'label' => 'Alertas', 'color' => 'rose', 'count' => $stats['active_alerts']],
-                    ['key' => 'activity', 'icon' => 'fa-clock-rotate-left', 'label' => 'Actividad', 'color' => 'emerald', 'count' => null],
-                    ['key' => 'week', 'icon' => 'fa-calendar-week', 'label' => 'Semana', 'color' => 'blue', 'count' => $stats['week_tasks']],
-                    ['key' => 'reminders', 'icon' => 'fa-sticky-note', 'label' => 'Recordatorios', 'color' => 'violet', 'count' => $stats['reminders_due']],
+                    ['key' => 'sla', 'icon' => 'fa-shield-halved', 'label' => 'SLA / Cobertura', 'color' => 'cyan', 'count' => null],
+                    ['key' => 'alerts', 'icon' => 'fa-bell', 'label' => 'Alertas', 'color' => 'rose', 'count' => $stats['active_alerts'] + $stats['reminders_due'] ?: null],
                 ];
             @endphp
             @foreach($tabs as $tab)
@@ -159,9 +159,9 @@
                                 </a>
                             @endif
                             @if($stats['pending_tasks'] > 0)
-                                <button type="button" @click="activeTab = 'pending'" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg border border-amber-200 hover:bg-amber-100 transition">
+                                <a href="#pendientes-tareas" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg border border-amber-200 hover:bg-amber-100 transition">
                                     <i class="fas fa-inbox"></i> {{ $stats['pending_tasks'] }} pendientes
-                                </button>
+                                </a>
                             @endif
                         </div>
                     </div>
@@ -228,8 +228,8 @@
         </div>
     </div>
 
-    {{-- ===== TAB: PENDIENTES ===== --}}
-    <div x-show="activeTab === 'pending'" x-cloak x-transition.opacity>
+    {{-- ===== TAREAS: Pendientes y vencidas (dentro de la sección Tareas) ===== --}}
+    <div id="pendientes-tareas" x-show="activeTab === 'today'" x-cloak x-transition.opacity class="mt-6">
         @if($pendingTasks->isEmpty() && $overdueTasks->isEmpty())
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                 <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-green-50 flex items-center justify-center"><i class="fas fa-check-double text-xl text-green-400"></i></div>
@@ -516,8 +516,8 @@
         @endif
     </div>
 
-    {{-- ===== TAB: ACTIVIDAD RECIENTE ===== --}}
-    <div x-show="activeTab === 'activity'" x-cloak x-transition.opacity>
+    {{-- ===== ALERTAS: Actividad reciente (dentro de la sección Alertas) ===== --}}
+    <div x-show="activeTab === 'alerts'" x-cloak x-transition.opacity class="mt-6">
         @if($recentActivity->isEmpty())
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                 <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-50 flex items-center justify-center"><i class="fas fa-clock-rotate-left text-xl text-emerald-400"></i></div>
@@ -822,8 +822,8 @@
         @endif
     </div>
 
-    {{-- ===== TAB: SEMANA ===== --}}
-    <div x-show="activeTab === 'week'" x-cloak x-transition.opacity>
+    {{-- ===== TAREAS: Próximos 7 días (dentro de la sección Tareas) ===== --}}
+    <div x-show="activeTab === 'today'" x-cloak x-transition.opacity class="mt-6">
         @if($weekTasks->isEmpty())
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                 <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center"><i class="fas fa-calendar-week text-xl text-blue-400"></i></div>
@@ -858,8 +858,8 @@
         @endif
     </div>
 
-    {{-- ===== TAB: RECORDATORIOS ===== --}}
-    <div x-show="activeTab === 'reminders'" x-cloak x-transition.opacity>
+    {{-- ===== ALERTAS: Recordatorios (dentro de la sección Alertas) ===== --}}
+    <div x-show="activeTab === 'alerts'" x-cloak x-transition.opacity class="mt-6">
         @if($reminders->isEmpty() && $upcomingReminders->isEmpty())
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                 <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-violet-50 flex items-center justify-center"><i class="fas fa-sticky-note text-xl text-violet-400"></i></div>
@@ -949,24 +949,6 @@
             @endif
         </div>
     </div>
-
-    {{-- ===== WORKSPACES ===== --}}
-    @if($userCompanies->count() > 1)
-        <div class="mt-5">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mis Entidades</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                @foreach($userCompanies as $company)
-                    <form action="{{ route('workspaces.switch') }}" method="POST">@csrf<input type="hidden" name="company_id" value="{{ $company->id }}">
-                        <button type="submit" class="w-full flex items-center gap-3 p-3 rounded-xl border {{ ($currentWorkspace?->id === $company->id) ? 'border-indigo-300 bg-indigo-50/50' : 'border-gray-200 bg-white hover:border-gray-300' }} transition text-left">
-                            <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0"><i class="fas fa-building text-gray-500 text-sm"></i></div>
-                            <div class="min-w-0"><p class="text-sm font-medium text-gray-900 truncate">{{ $company->name }}</p>@if($company->pivot->entity_position)<p class="text-xs text-gray-500 truncate">{{ $company->pivot->entity_position }}</p>@endif</div>
-                            @if($currentWorkspace?->id === $company->id)<i class="fas fa-check-circle text-indigo-600 ml-auto shrink-0"></i>@endif
-                        </button>
-                    </form>
-                @endforeach
-            </div>
-        </div>
-    @endif
 
     {{-- ===== MENÚ CONTEXTUAL (clic derecho / botón ⋮ sobre solicitudes) ===== --}}
     <div x-show="contextMenu.open"
@@ -1157,6 +1139,19 @@
             <span x-text="taskMenu.copied ? 'Copiado' : 'Copiar código'"></span>
         </button>
     </div>
+
+    {{-- ===== MENÚ CONTEXTUAL GLOBAL (clic derecho en cualquier parte del inicio) ===== --}}
+    {{-- Reutiliza el mismo componente del listado de solicitudes. Los menús de --}}
+    {{-- tarjeta (solicitud/tarea) usan @contextmenu.prevent y tienen prioridad --}}
+    {{-- sobre este; este aparece al hacer clic derecho fuera de una tarjeta. --}}
+    <x-context-menu :items="[
+        ['label' => 'Nueva solicitud', 'icon' => 'fa-plus-circle', 'iconColor' => 'text-red-500', 'href' => route('service-requests.create'), 'bold' => true, 'kbd' => 'Tab'],
+        ['divider' => true],
+        ['label' => 'Ver todas las solicitudes', 'icon' => 'fa-list', 'href' => route('service-requests.index')],
+        ['label' => 'Mi Agenda', 'icon' => 'fa-calendar-alt', 'href' => route('technician-schedule.my-agenda')],
+        ['divider' => true],
+        ['label' => 'Actualizar', 'icon' => 'fa-sync-alt', 'action' => 'reload'],
+    ]" />
 </div>
 
 @push('styles')
@@ -1182,7 +1177,14 @@
 <script>
 function mySpaceApp() {
     return {
-        activeTab: new URLSearchParams(window.location.search).get('tab') || 'today',
+        activeTab: (function () {
+            // Mapear claves antiguas a las 5 secciones consolidadas y validar.
+            const requested = new URLSearchParams(window.location.search).get('tab') || 'today';
+            const alias = { pending: 'today', week: 'today', activity: 'alerts', reminders: 'alerts' };
+            const valid = ['today', 'requests', 'meetings', 'sla', 'alerts'];
+            const resolved = alias[requested] || requested;
+            return valid.includes(resolved) ? resolved : 'today';
+        })(),
         stats: {
             today_tasks: {{ $stats['today_tasks'] }},
             today_completed: {{ $stats['today_completed'] }},
@@ -1413,12 +1415,10 @@ function mySpaceApp() {
             items[index].focus();
         },
         init() {
-            @if($stats['today_tasks'] === 0 && $stats['overdue_tasks'] > 0)
-                this.activeTab = 'pending';
-            @elseif($stats['today_tasks'] === 0 && $stats['active_alerts'] > 0)
+            // Si no hay tareas de hoy pero sí alertas, abrir Alertas; en otro caso,
+            // Tareas (que ahora incluye hoy, pendientes/vencidas y la semana).
+            @if($stats['today_tasks'] === 0 && $stats['pending_tasks'] === 0 && $stats['overdue_tasks'] === 0 && $stats['active_alerts'] > 0)
                 this.activeTab = 'alerts';
-            @elseif($stats['today_tasks'] === 0 && $stats['pending_tasks'] > 0)
-                this.activeTab = 'pending';
             @endif
             setInterval(() => this.refreshStats(), 300000);
         },
@@ -1430,5 +1430,12 @@ function mySpaceApp() {
         }
     };
 }
+
+// Acciones del menú contextual global del inicio.
+document.addEventListener('context-menu-action', function (e) {
+    if (e.detail && e.detail.action === 'reload') {
+        window.location.reload();
+    }
+});
 </script>
 @endsection

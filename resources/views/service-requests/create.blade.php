@@ -107,8 +107,13 @@
         $confirmCriticality = old('criticality_level', 'MEDIA');
         $confirmSubServiceId = old('sub_service_id', '');
         $confirmSubServiceName = '';
+        $confirmFamilyName = '';
+        $confirmServiceName = '';
         if ($confirmSubServiceId) {
-            $confirmSubServiceName = \App\Models\SubService::find($confirmSubServiceId)?->name ?? '';
+            $confirmSub = \App\Models\SubService::with('service.family')->find($confirmSubServiceId);
+            $confirmSubServiceName = $confirmSub?->name ?? '';
+            $confirmServiceName = $confirmSub?->service?->name ?? '';
+            $confirmFamilyName = $confirmSub?->service?->family?->name ?? '';
         }
         $confirmRequesterName = '';
         if (old('requester_id')) {
@@ -339,16 +344,41 @@
                             <p class="text-sm font-semibold text-gray-900">{{ $confirmTitle }}</p>
                         </div>
 
-                        {{-- Grid de datos --}}
-                        <div class="grid grid-cols-2 divide-x divide-gray-100">
-                            <div class="px-5 py-3">
-                                <p class="text-xs font-medium text-gray-400 mb-1">Subservicio</p>
-                                <p class="text-xs font-semibold text-indigo-700">{{ $confirmSubServiceName }}</p>
+                        {{-- Clasificación completa (Familia → Servicio → Subservicio) --}}
+                        {{-- Es lo que se audita y reporta: se muestra explícita para verificar antes de crear. --}}
+                        <div class="px-5 py-4 border-b border-gray-100 bg-indigo-50/30">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">Clasificación</p>
+                                <button type="button" @click="step = 2"
+                                        class="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1">
+                                    <i class="fas fa-pen"></i> Corregir
+                                </button>
                             </div>
-                            <div class="px-5 py-3">
-                                <p class="text-xs font-medium text-gray-400 mb-1">Solicitante</p>
-                                <p class="text-xs font-semibold text-gray-800">{{ $confirmRequesterName ?: 'Pendiente de creación' }}</p>
+                            <div class="flex items-center flex-wrap gap-1.5 text-xs">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-100 font-medium">
+                                    {{ $confirmFamilyName ?: 'Familia sin resolver' }}
+                                </span>
+                                <i class="fas fa-chevron-right text-[9px] text-gray-300"></i>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-100 font-medium">
+                                    {{ $confirmServiceName ?: 'Servicio sin resolver' }}
+                                </span>
+                                <i class="fas fa-chevron-right text-[9px] text-gray-300"></i>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold">
+                                    {{ $confirmSubServiceName ?: 'Subservicio sin resolver' }}
+                                </span>
                             </div>
+                            @if(!$confirmFamilyName || !$confirmServiceName || !$confirmSubServiceName)
+                                <p class="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                    <i class="fas fa-triangle-exclamation mr-1"></i>
+                                    La IA no pudo clasificar completamente. Pulsa «Corregir» y elige el servicio correcto antes de crear.
+                                </p>
+                            @endif
+                        </div>
+
+                        {{-- Solicitante --}}
+                        <div class="px-5 py-3">
+                            <p class="text-xs font-medium text-gray-400 mb-1">Solicitante</p>
+                            <p class="text-xs font-semibold text-gray-800">{{ $confirmRequesterName ?: 'Pendiente de creación' }}</p>
                         </div>
 
                         <div class="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100">
@@ -416,17 +446,24 @@
                     </div>
 
                     {{-- Acciones --}}
+                    @php $confirmClassificationComplete = $confirmFamilyName && $confirmServiceName && $confirmSubServiceName; @endphp
                     <div class="flex items-center justify-between mt-5">
                         <button type="button"
                                 @click="step = 2"
-                                class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition">
-                            <i class="fas fa-edit"></i>
-                            Editar
+                                class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition
+                                    {{ $confirmClassificationComplete
+                                        ? 'text-gray-600 bg-white border border-gray-300 hover:bg-gray-50'
+                                        : 'text-white bg-amber-500 hover:bg-amber-600 shadow-md' }}">
+                            <i class="fas fa-pen"></i>
+                            {{ $confirmClassificationComplete ? 'Revisar / Editar' : 'Corregir clasificación' }}
                         </button>
 
                         <button type="button"
                                 id="confirmCreateBtn"
-                                class="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-md hover:shadow-lg transition-all">
+                                class="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white rounded-xl shadow-md hover:shadow-lg transition-all
+                                    {{ $confirmClassificationComplete ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed' }}"
+                                {{ $confirmClassificationComplete ? '' : 'disabled' }}
+                                title="{{ $confirmClassificationComplete ? 'Crear la solicitud' : 'Completa la clasificación antes de crear' }}">
                             <i class="fas fa-check"></i>
                             Crear solicitud
                         </button>
