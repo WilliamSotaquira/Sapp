@@ -188,7 +188,12 @@ class ServiceRequestService
             return null;
         }
 
-        $contractId = (int) ($serviceRequest->subService?->service?->family?->contract_id ?? 0);
+        // El contrato de la propia solicitud es la fuente de verdad (puede diferir del
+        // contrato del subservicio tras fusiones de entidades). Se usa ese primero;
+        // el del subservicio queda como respaldo.
+        $contractId = (int) ($serviceRequest->contract_id
+            ?? $serviceRequest->subService?->service?->family?->contract_id
+            ?? 0);
         $companyId = (int) ($serviceRequest->company_id ?? 0);
 
         if ($contractId <= 0 && $companyId <= 0) {
@@ -235,11 +240,121 @@ class ServiceRequestService
      */
     public function syncCutAssociationByCompletionDate(ServiceRequest $serviceRequest): ?Cut
     {
+        // Override manual: si el técnico fijó el corte a mano, el recálculo
+        // automático por fecha NO debe pisarlo. Se respeta la asignación manual.
+        if ($serviceRequest->hasManualCut()) {
+            return $serviceRequest->cuts()->wherePivot('is_manual', true)->first();
+        }
+
         $cut = $this->resolveCutByCompletionDate($serviceRequest);
 
-        $serviceRequest->cuts()->sync($cut ? [$cut->id] : []);
+        if ($cut) {
+            // Hay un corte que corresponde por fecha: se asigna (reemplaza el anterior).
+            $serviceRequest->cuts()->sync([$cut->id => ['is_manual' => false]]);
+            return $cut;
+        }
+
+        // No se pudo resolver un corte. NO se quita el que ya tuviera: evitar que
+        // editar una solicitud la deje sin corte por un fallo de resolución.
+        // Solo se limpia si la solicitud dejó de ser elegible para corte
+        // (ya no está resuelta/cerrada/no viable).
+        if (!$serviceRequest->canBeAssociatedToCut()) {
+            $serviceRequest->cuts()->sync([]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Fijar manualmente el corte de una solicitud (override).
+     *
+     * - Con $cutId: asocia ese corte marcándolo is_manual=true. El recálculo
+     *   automático por fecha dejará de pisarlo.
+     * - Con $cutId=null: quita el override y vuelve al modo automático,
+     *   recalculando el corte por fecha de compleción.
+     *
+     * Valida que el corte pertenezca al contrato de la solicitud y registra
+     * la acción en la trazabilidad (evidencia SISTEMA).
+     */
+    public function setManualCut(ServiceRequest $serviceRequest, ?int $cutId): ?Cut
+    {
+        $previousCut = $serviceRequest->cuts()->first();
+
+        // Volver a modo automático.
+        if ($cutId === null) {
+            if ($serviceRequest->hasManualCut()) {
+                $this->recordCutOverrideAudit($serviceRequest, $previousCut, null, 'AUTO');
+            }
+            // Quitar cualquier asociación y recalcular por fecha.
+            $serviceRequest->cuts()->sync([]);
+            return $this->syncCutAssociationByCompletionDate($serviceRequest->refresh());
+        }
+
+        $cut = Cut::find($cutId);
+        if (!$cut) {
+            throw new \InvalidArgumentException('El corte indicado no existe.');
+        }
+
+        // El corte debe pertenecer al contrato de la solicitud.
+        $contractId = (int) ($serviceRequest->contract_id
+            ?? $serviceRequest->subService?->service?->family?->contract_id
+            ?? 0);
+        if ($contractId > 0 && (int) $cut->contract_id !== $contractId) {
+            throw new \InvalidArgumentException('El corte no pertenece al contrato de la solicitud.');
+        }
+
+        $serviceRequest->cuts()->sync([$cut->id => ['is_manual' => true]]);
+        $this->recordCutOverrideAudit($serviceRequest, $previousCut, $cut, 'MANUAL');
 
         return $cut;
+    }
+
+    /**
+     * Registrar en la trazabilidad (evidencia SISTEMA) el cambio de corte manual.
+     */
+    protected function recordCutOverrideAudit(ServiceRequest $serviceRequest, ?Cut $fromCut, ?Cut $toCut, string $action): void
+    {
+        try {
+            $userName = auth()->user()?->name ?? 'Sistema';
+            $fromName = $fromCut?->name ?? 'ninguno';
+
+            if ($action === 'MANUAL') {
+                $title = 'Corte asignado manualmente';
+                $description = sprintf(
+                    'Corte fijado manualmente por %s: de «%s» a «%s».',
+                    $userName,
+                    $fromName,
+                    $toCut?->name ?? 'ninguno'
+                );
+            } else {
+                $title = 'Corte devuelto a modo automático';
+                $description = sprintf(
+                    'Override de corte retirado por %s (antes «%s»); el sistema recalcula por fecha.',
+                    $userName,
+                    $fromName
+                );
+            }
+
+            \App\Models\ServiceRequestEvidence::create([
+                'service_request_id' => $serviceRequest->id,
+                'title' => $title,
+                'description' => $description,
+                'evidence_type' => 'SISTEMA',
+                'user_id' => auth()->id(),
+                'evidence_data' => [
+                    'action' => 'CUT_' . $action,
+                    'performed_by' => auth()->id(),
+                    'performed_by_name' => $userName,
+                    'performed_at' => now()->toISOString(),
+                    'from_cut' => $fromCut?->name,
+                    'from_cut_id' => $fromCut?->id,
+                    'to_cut' => $toCut?->name,
+                    'to_cut_id' => $toCut?->id,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo registrar auditoría de corte manual: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -1200,6 +1315,10 @@ class ServiceRequestService
         ]);
 
         try {
+            // Override manual de corte: si el formulario envía 'cut_id', se aplica
+            // tras el update. cut_id vacío/'auto' => volver a modo automático.
+            $hasCutOverride = array_key_exists('cut_id', $data);
+            $cutOverrideValue = $hasCutOverride ? $data['cut_id'] : null;
             unset($data['cut_id']);
 
             if (array_key_exists('created_at', $data)) {
@@ -1224,10 +1343,20 @@ class ServiceRequestService
 
             $previousAssignedTo = $serviceRequest->assigned_to;
 
-            DB::transaction(function () use ($serviceRequest, $data) {
+            DB::transaction(function () use ($serviceRequest, $data, $hasCutOverride, $cutOverrideValue) {
                 $serviceRequest->update($data);
                 $fresh = $serviceRequest->refresh();
-                $this->syncCutAssociationByCompletionDate($fresh);
+
+                if ($hasCutOverride) {
+                    // El formulario decide el corte: manual (id) o automático (vacío/'auto').
+                    $normalized = ($cutOverrideValue === '' || $cutOverrideValue === null || $cutOverrideValue === 'auto')
+                        ? null
+                        : (int) $cutOverrideValue;
+                    $this->setManualCut($fresh, $normalized);
+                } else {
+                    // Flujo normal: recálculo automático (respeta override manual previo).
+                    $this->syncCutAssociationByCompletionDate($fresh);
+                }
             });
 
             Log::info('✅ Solicitud actualizada exitosamente', [

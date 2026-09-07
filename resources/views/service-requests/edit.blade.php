@@ -24,6 +24,48 @@
                     'errors' => $errors,
                     'mode' => 'edit'
                 ])
+
+                {{-- Override manual de corte (solo edición) --}}
+                @php
+                    $cutCurrentValue = old('cut_id', ($currentCutIsManual ?? false) ? ($currentCutId ?? '') : 'auto');
+                @endphp
+                <div class="mt-6 p-4 rounded-lg border border-indigo-200 bg-indigo-50/50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fas fa-scissors text-indigo-500"></i>
+                        <span class="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Asignación de corte</span>
+                    </div>
+                    <label for="cut_id" class="block text-sm font-medium text-gray-700 mb-2">
+                        Corte de la solicitud
+                    </label>
+                    <select name="cut_id" id="cut_id"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                        <option value="auto" {{ $cutCurrentValue === 'auto' ? 'selected' : '' }}>
+                            Automático (por fecha de compromiso)
+                        </option>
+                        @foreach (($availableCuts ?? collect()) as $cut)
+                            <option value="{{ $cut->id }}" {{ (string) $cutCurrentValue === (string) $cut->id ? 'selected' : '' }}>
+                                {{ $cut->name }}
+                                ({{ \Illuminate\Support\Carbon::parse($cut->start_date)->format('d/m/Y') }}
+                                – {{ \Illuminate\Support\Carbon::parse($cut->end_date)->format('d/m/Y') }})
+                                {{ $cut->status === \App\Models\Cut::STATUS_OPEN ? '· abierto' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">
+                        <i class="fas fa-info-circle text-indigo-500 mr-1"></i>
+                        En «Automático» el sistema ubica la solicitud según su fecha de compleción.
+                        Si eliges un corte, quedará fijado manualmente y el recálculo automático no lo cambiará.
+                    </p>
+                    @if ($currentCutIsManual ?? false)
+                        <p class="mt-2 text-xs font-medium text-indigo-700">
+                            <i class="fas fa-thumbtack mr-1"></i>
+                            Actualmente el corte está fijado manualmente.
+                        </p>
+                    @endif
+                    @error('cut_id')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
         </div>
 

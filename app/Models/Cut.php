@@ -120,6 +120,7 @@ class Cut extends Model
     public function serviceRequests()
     {
         return $this->belongsToMany(ServiceRequest::class, 'cut_service_request')
+            ->withPivot('is_manual')
             ->withTimestamps();
     }
 

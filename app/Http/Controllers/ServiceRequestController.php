@@ -978,7 +978,27 @@ class ServiceRequestController extends Controller
 
         $data = $this->serviceRequestService->getEditFormData($selectedSubServiceId);
 
-        return view('service-requests.edit', compact('serviceRequest') + $data);
+        // Cortes disponibles del contrato de la solicitud, para el override manual.
+        $contractId = (int) ($serviceRequest->contract_id
+            ?? $serviceRequest->subService?->service?->family?->contract_id
+            ?? 0);
+        $availableCuts = $contractId > 0
+            ? \App\Models\Cut::where('contract_id', $contractId)
+                ->orderByDesc('start_date')
+                ->get(['id', 'name', 'start_date', 'end_date', 'status'])
+            : collect();
+
+        // Corte actual y si es manual.
+        $currentCut = $serviceRequest->cuts()->first();
+        $currentCutId = $currentCut?->id;
+        $currentCutIsManual = (bool) ($currentCut?->pivot?->is_manual ?? false);
+
+        return view('service-requests.edit', compact(
+            'serviceRequest',
+            'availableCuts',
+            'currentCutId',
+            'currentCutIsManual'
+        ) + $data);
     }
 
     /**
