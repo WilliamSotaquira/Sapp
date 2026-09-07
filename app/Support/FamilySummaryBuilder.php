@@ -95,21 +95,113 @@ class FamilySummaryBuilder
 
     private static function composeResumen(int $obligaciones, int $actividades, array $frases): string
     {
-        // Solo la narrativa de lo realizado. Los conteos ya se muestran aparte.
-        // Se prioriza dejar IDEAS COMPLETAS: nunca se corta una frase a la mitad.
+        // Resumen breve y genérico: describe el TIPO de trabajo realizado en la
+        // familia (acciones y temas recurrentes), sin enumerar cada actividad.
         if (empty($frases)) {
             return '';
         }
 
-        // Numerar las ideas (una por solicitud) para que se lean como lista
-        // continua sin ambigüedad. Cada frase queda completa.
-        $numeradas = [];
-        foreach (array_values($frases) as $i => $frase) {
-            $frase = rtrim(trim($frase), '.');
-            $numeradas[] = ($i + 1) . ') ' . $frase . '.';
+        // Una sola actividad: usar su idea completa tal cual.
+        if (count($frases) === 1) {
+            return rtrim(trim($frases[0]), '.') . '.';
         }
 
-        return implode(' ', $numeradas);
+        $acciones = self::topKeywords($frases, self::ACTION_VERBS, 4);
+        $temas = self::topKeywords($frases, self::TOPIC_TERMS, 4);
+
+        $partes = [];
+        if (!empty($acciones)) {
+            $partes[] = self::joinNatural($acciones);
+        }
+        if (!empty($temas)) {
+            $partes[] = 'principalmente sobre ' . self::joinNatural($temas);
+        }
+
+        if (empty($partes)) {
+            // Sin coincidencias de vocabulario: primera idea + indicador de resto.
+            $primera = rtrim(trim($frases[0]), '.');
+            return $primera . ', entre otras acciones de gestión.';
+        }
+
+        return 'Se realizaron acciones de ' . implode(', ', $partes) . '.';
+    }
+
+    /**
+     * Verbos/acciones típicos del trabajo web para describir el tipo de gestión.
+     */
+    private const ACTION_VERBS = [
+        'publicación' => ['public'],
+        'actualización' => ['actualiz', 'modific', 'editó', 'edición', 'editar'],
+        'carga de archivos' => ['subió', 'subieron', 'cargó', 'cargu', 'carga'],
+        'descarga de recursos' => ['descarg'],
+        'validación' => ['valid', 'verific', 'revis'],
+        'configuración' => ['configur', 'ajust', 'redirec', 'reenvío'],
+        'diseño/maquetación' => ['implement', 'estructur', 'diseñ', 'html', 'maquet'],
+        'recopilación de información' => ['recopil', 'consolid', 'filtr'],
+    ];
+
+    /**
+     * Temas/objetos recurrentes del contenido gestionado.
+     */
+    private const TOPIC_TERMS = [
+        'banners' => ['banner'],
+        'contenidos del portal' => ['portal', 'cms', 'gestor de contenidos', 'micrositio', 'sitio'],
+        'noticias' => ['noticia'],
+        'videos' => ['video'],
+        'documentos' => ['documento', 'acta', 'resolución', 'calendario'],
+        'imágenes/gráficos' => ['gráfic', 'imagen', 'imágen'],
+        'intranet' => ['intranet'],
+        'menús/enlaces' => ['menú', 'enlace', 'url'],
+    ];
+
+    /**
+     * Devuelve las etiquetas cuyos términos aparecen más veces en las frases,
+     * ordenadas por frecuencia, hasta $limit.
+     *
+     * @param  array<int, string>  $frases
+     * @param  array<string, array<int, string>>  $dictionary
+     * @return array<int, string>
+     */
+    private static function topKeywords(array $frases, array $dictionary, int $limit): array
+    {
+        $texto = mb_strtolower(implode(' ', $frases));
+        $conteo = [];
+
+        foreach ($dictionary as $label => $needles) {
+            $n = 0;
+            foreach ($needles as $needle) {
+                $n += substr_count($texto, mb_strtolower($needle));
+            }
+            if ($n > 0) {
+                $conteo[$label] = $n;
+            }
+        }
+
+        arsort($conteo);
+
+        return array_slice(array_keys($conteo), 0, $limit);
+    }
+
+    /**
+     * Une una lista con comas y "y" antes del último elemento.
+     *
+     * @param  array<int, string>  $items
+     */
+    private static function joinNatural(array $items): string
+    {
+        $items = array_values(array_filter($items));
+        $count = count($items);
+
+        if ($count === 0) {
+            return '';
+        }
+        if ($count === 1) {
+            return $items[0];
+        }
+
+        $last = array_pop($items);
+
+        return implode(', ', $items) . ' y ' . $last;
     }
 
     private static function cleanResolutionNotes(string $notes): string
