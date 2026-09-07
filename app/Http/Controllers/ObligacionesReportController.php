@@ -107,17 +107,24 @@ class ObligacionesReportController extends Controller
             ->map(function ($items, $serviceName) {
                 $family = $items->first()?->subService?->service?->family;
 
+                // Enlace OBLIGATORIO solo si la familia tiene archivos físicos.
+                // Para las demás (solo enlaces/sistema) el enlace es OPCIONAL pero
+                // igual se muestra: el sistema genera un archivo de evidencia por familia.
+                $hasFile = $items->contains(function ($serviceRequest) {
+                    return $this->serviceRequestHasFileEvidence($serviceRequest);
+                });
+
                 return [
                     'id' => (int) ($family?->id ?? 0),
                     'name' => $serviceName,
                     'sort_order' => (int) ($family?->sort_order ?? 0),
-                    'requires_link' => $items->contains(function ($serviceRequest) {
-                        return $this->serviceRequestHasFileEvidence($serviceRequest);
-                    }),
+                    'requires_link' => $hasFile,
                     'stored_link' => $storedFamilyLinks[(int) ($family?->id ?? 0)] ?? '',
                 ];
             })
-            ->filter(fn ($family) => $family['id'] > 0 && ($family['requires_link'] ?? false))
+            // Mostrar TODAS las familias con actividad en el reporte, no solo las que
+            // tienen archivo físico. El enlace es obligatorio donde requires_link=true.
+            ->filter(fn ($family) => $family['id'] > 0)
             ->sortBy('sort_order')
             ->values();
 
@@ -800,34 +807,39 @@ class ObligacionesReportController extends Controller
     {
         $familyLinks = $this->resolveFamilyCloudLinks($request);
 
-        $requiredFamilies = $serviceRequests
-            ->map(function (ServiceRequest $serviceRequest) {
-                $family = $serviceRequest->subService?->service?->family;
+        // Agrupar por familia: si CUALQUIER solicitud de la familia tiene archivo
+        // físico, el enlace es obligatorio para esa familia.
+        $families = $serviceRequests
+            ->groupBy(fn (ServiceRequest $sr) => (int) ($sr->subService?->service?->family?->id ?? 0))
+            ->map(function ($items, $familyId) {
                 return [
-                    'id' => (int) ($family?->id ?? 0),
-                    'label' => $family?->name ?? 'Sin Familia',
-                    'requires_link' => $this->serviceRequestHasFileEvidence($serviceRequest),
+                    'id' => (int) $familyId,
+                    'label' => $items->first()?->subService?->service?->family?->name ?? 'Sin Familia',
+                    'requires_link' => $items->contains(fn ($sr) => $this->serviceRequestHasFileEvidence($sr)),
                 ];
             })
-            ->filter(fn ($family) => $family['id'] > 0 && ($family['requires_link'] ?? false))
-            ->unique('id')
+            ->filter(fn ($family) => $family['id'] > 0)
             ->values();
 
-        if ($requiredFamilies->isEmpty()) {
+        if ($families->isEmpty()) {
             return null;
         }
 
         $missingFamilies = [];
         $invalidFamilies = [];
 
-        foreach ($requiredFamilies as $family) {
+        foreach ($families as $family) {
             $rawLink = trim((string) ($familyLinks[$family['id']] ?? ''));
 
+            // Enlace vacío: solo es error si la familia tiene archivos (obligatorio).
             if ($rawLink === '') {
-                $missingFamilies[] = $family['label'];
+                if ($family['requires_link']) {
+                    $missingFamilies[] = $family['label'];
+                }
                 continue;
             }
 
+            // Si se llenó (obligatorio u opcional), debe ser una URL absoluta válida.
             if (!$this->isValidAbsoluteUrl($rawLink)) {
                 $invalidFamilies[] = $family['label'];
             }

@@ -23,7 +23,7 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
     private string $contrastColor;
     private int $headerRowIndex = 0;
     private array $familyRowIndexes = [];
-    private array $familyLinkRowIndexes = [];
+    private array $summaryRowIndexes = [];
     private int $summaryStartRow = 1;
     private int $summaryEndRow = 0;
     private array $familyLinks;
@@ -85,25 +85,39 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
             $familyTotal = $items->count();
             $familyId = (int) ($items->first()?->subService?->service?->family?->id ?? 0);
             $familyCloudLink = $this->familyLinks[$familyId] ?? '';
+            $familySummary = \App\Support\FamilySummaryBuilder::build($items->values());
+            // La fila de familia muestra la descripción y el total de actividades.
             $rows[] = [
                 $serviceName,
-                $familyCloudLink !== '' ? $familyCloudLink : $familyDescription,
-                'Total acciones',
-                $familyTotal
+                $familyDescription,
+                'Total actividades',
+                $familySummary['actividades']
             ];
             $rowIndex++;
             $this->familyRowIndexes[] = $rowIndex;
 
-            if ($familyCloudLink !== '') {
-                $rows[] = [
-                    '',
-                    'Directorio en la nube',
-                    $familyCloudLink,
-                    '',
-                ];
-                $rowIndex++;
-                $this->familyLinkRowIndexes[$rowIndex] = $familyCloudLink;
+            // Fila de resumen del corte para la familia (<=100 palabras).
+            // Un solo bloque de texto listo para copiar: la narrativa de lo realizado
+            // + el enlace del directorio al final. La etiqueta va en A (subordinada a
+            // la familia) y el texto ocupa B:D combinado.
+            $resumenNarrativa = trim((string) $familySummary['resumen']);
+            $resumenTexto = 'Acciones realizadas (' . $familySummary['actividades'] . '):';
+            if ($resumenNarrativa !== '') {
+                $resumenTexto .= ' ' . $resumenNarrativa;
             }
+            if ($familyCloudLink !== '') {
+                $resumenTexto .= ' ' . $familyCloudLink;
+            }
+            $rows[] = [
+                'Resumen del corte',
+                $resumenTexto,
+                '',
+                '',
+            ];
+            $rowIndex++;
+            // Guardar el texto para calcular la altura de la fila (las celdas
+            // combinadas no ajustan su alto automáticamente en PhpSpreadsheet).
+            $this->summaryRowIndexes[$rowIndex] = $resumenTexto;
 
             $first = true;
             foreach ($items as $sr) {
@@ -191,15 +205,32 @@ class ObligacionesExport implements FromArray, WithStyles, WithColumnWidths, Wit
                         ->getStartColor()->setARGB($this->hexToArgb($this->primaryColor));
                 }
 
-                foreach ($this->familyLinkRowIndexes as $row => $url) {
-                    $sheet->mergeCells("C{$row}:D{$row}");
-                    $sheet->getCell("C{$row}")->getHyperlink()->setUrl($url);
-                    $sheet->getStyle("B{$row}:D{$row}")
+                // Estilo de las filas de resumen del corte por familia.
+                // Ancho combinado B:D en unidades de columna (B=55, C=70, D=45).
+                $mergedWidth = $this->columnWidths()['B']
+                    + $this->columnWidths()['C']
+                    + $this->columnWidths()['D'];
+                // Aproximación: ~1.05 caracteres por unidad de ancho de columna.
+                $charsPerLine = max(1, (int) floor($mergedWidth * 1.05));
+
+                foreach ($this->summaryRowIndexes as $row => $texto) {
+                    $sheet->mergeCells("B{$row}:D{$row}");
+                    $sheet->getStyle("A{$row}:D{$row}")
                         ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                        ->getStartColor()->setARGB('FFD9F99D');
-                    $sheet->getStyle("B{$row}:D{$row}")->getFont()->setBold(true);
-                    $sheet->getStyle("C{$row}")->getFont()->setUnderline(true);
-                    $sheet->getStyle("C{$row}")->getFont()->getColor()->setARGB('FF166534');
+                        ->getStartColor()->setARGB('FFEFF6FF');
+                    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
+                    $sheet->getStyle("B{$row}")->getFont()->setItalic(true);
+                    $sheet->getStyle("B{$row}")->getAlignment()->setWrapText(true);
+
+                    // Calcular alto: nº de líneas (por saltos de línea y por wrap) * alto de línea.
+                    $lineas = 0;
+                    foreach (preg_split('/\r\n|\r|\n/', (string) $texto) as $parrafo) {
+                        $len = max(1, mb_strlen($parrafo));
+                        $lineas += (int) ceil($len / $charsPerLine);
+                    }
+                    $lineas = max(1, $lineas);
+                    // ~15 pt por línea; margen extra para que no corte.
+                    $sheet->getRowDimension($row)->setRowHeight($lineas * 15 + 4);
                 }
 
             },

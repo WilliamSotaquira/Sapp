@@ -161,20 +161,27 @@
                 </div>
 
                 @forelse($familyExportRequirements as $familyRequirement)
+                    @php $isRequired = (bool) ($familyRequirement['requires_link'] ?? false); @endphp
                     <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                         <label for="family-link-{{ $familyRequirement['id'] }}" class="block text-sm font-semibold text-gray-900">
                             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold mr-1">{{ $familyRequirement['sort_order'] }}</span>
                             {{ $familyRequirement['name'] }}
+                            @if($isRequired)
+                                <span class="ml-1 text-xs font-semibold text-red-600">(obligatorio)</span>
+                            @else
+                                <span class="ml-1 text-xs font-medium text-gray-400">(opcional)</span>
+                            @endif
                         </label>
                         <p class="mt-1 text-xs text-gray-500">Directorio en la nube donde reposará la información de esta familia.</p>
                         <input type="url"
                                id="family-link-{{ $familyRequirement['id'] }}"
                                name="family_links[{{ $familyRequirement['id'] }}]"
                                value="{{ $familyRequirement['stored_link'] ?? '' }}"
+                               data-required="{{ $isRequired ? '1' : '0' }}"
                                class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                placeholder="https://..."
                                inputmode="url"
-                               required>
+                               {{ $isRequired ? 'required' : '' }}>
                     </div>
                 @empty
                     <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -634,20 +641,25 @@
             familyRequirements.forEach(function (family) {
                 const input = form.querySelector(`[name="family_links[${family.id}]"]`);
                 const value = input ? input.value.trim() : '';
+                const isRequired = input ? input.dataset.required === '1' : false;
 
                 if (input) {
                     input.setCustomValidity('');
                 }
 
                 if (!value) {
-                    hasInvalidUrl = true;
-                    if (input) {
-                        input.setCustomValidity('Este enlace es obligatorio para exportar el informe.');
-                        input.reportValidity();
+                    // Vacío: solo bloquea si es obligatorio (familia con archivos).
+                    if (isRequired) {
+                        hasInvalidUrl = true;
+                        if (input) {
+                            input.setCustomValidity('Este enlace es obligatorio para exportar el informe.');
+                            input.reportValidity();
+                        }
                     }
                     return;
                 }
 
+                // Si se llenó (obligatorio u opcional), debe ser URL absoluta válida.
                 try {
                     const parsed = new URL(value);
                     if (!['http:', 'https:'].includes(parsed.protocol)) {

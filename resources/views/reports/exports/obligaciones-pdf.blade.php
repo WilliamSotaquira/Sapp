@@ -134,6 +134,7 @@
             @endphp
             @php
                 $familyTotal = $obligaciones->count();
+                $familySummary = \App\Support\FamilySummaryBuilder::build($obligaciones->values());
             @endphp
             <table class="table">
                 <thead>
@@ -146,8 +147,13 @@
                                 </div>
                             @endif
                             <div style="font-weight: normal; color: {{ $pdfContrastColor }}; opacity: 0.9; font-size: 10px; margin-top: 2px;">
-                                Total acciones: {{ $familyTotal }}
+                                Total actividades: {{ $familySummary['actividades'] }}
                             </div>
+                            @if(!empty($familySummary['resumen']))
+                                <div style="font-weight: normal; color: {{ $pdfContrastColor }}; opacity: 0.95; font-size: 10px; margin-top: 4px; line-height: 1.35; text-align: justify;">
+                                    <strong>Acciones realizadas ({{ $familySummary['actividades'] }}):</strong> {{ $familySummary['resumen'] }}
+                                </div>
+                            @endif
                             @if(!empty($familyCloudLink))
                                 <div class="cloud-link-box">
                                     <span class="cloud-link-label">DIRECTORIO EN LA NUBE</span>
