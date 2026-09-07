@@ -518,7 +518,19 @@ class ServiceRequest extends Model
     public function cuts()
     {
         return $this->belongsToMany(Cut::class, 'cut_service_request')
+            ->withPivot('is_manual')
             ->withTimestamps();
+    }
+
+    /**
+     * ¿La solicitud tiene un corte fijado manualmente (override)?
+     * Si es así, el recálculo automático por fecha no debe pisarlo.
+     */
+    public function hasManualCut(): bool
+    {
+        return $this->cuts()
+            ->wherePivot('is_manual', true)
+            ->exists();
     }
 
     /**

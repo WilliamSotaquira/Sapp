@@ -72,6 +72,8 @@ class UpdateServiceRequestRequest extends FormRequest
             'due_date' => 'nullable|date',
             'created_at' => 'sometimes|required|date|before_or_equal:now',
             'resolved_at' => 'nullable|date|before_or_equal:now',
+            // Override manual de corte: id del corte, o vacío/'auto' para modo automático.
+            'cut_id' => 'sometimes|nullable',
         ];
     }
 

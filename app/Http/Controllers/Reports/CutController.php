@@ -594,6 +594,8 @@ class CutController extends Controller
         // Consulta de solicitudes asociadas: permitido para históricos.
         $this->authorizeCutRead($cut);
 
+        $currentCompanyId = (int) session('current_company_id');
+
         $search = trim((string) $request->query('q', ''));
         $familyId = (int) $request->query('family_id', 0);
 
@@ -711,6 +713,11 @@ class CutController extends Controller
         // Cierre: solo el corte del contrato vigente.
         $this->authorizeCutWrite($cut);
 
+        $currentCompanyId = (int) session('current_company_id');
+        $currentCompany = $currentCompanyId
+            ? \App\Models\Company::with('activeContract')->find($currentCompanyId)
+            : null;
+
         if ($cut->isClosed()) {
             return back()->with('error', 'Este corte ya está cerrado.');
         }
@@ -806,6 +813,8 @@ class CutController extends Controller
     {
         // Exportar informes: permitido para cortes históricos (consulta).
         $this->authorizeCutRead($cut);
+
+        $currentCompanyId = (int) session('current_company_id');
 
         $validated = $request->validate([
             'format' => ['nullable', 'in:pdf,zip'],
@@ -1030,9 +1039,21 @@ class CutController extends Controller
 
         $query = ServiceRequest::query()
             ->eligibleForCutAssignment()
+            // Excluir las no reportables (p.ej. cerradas por vencimiento / no resueltas):
+            // no deben re-entrar al corte por un recálculo masivo.
+            ->reportable()
+            // El contrato de la propia solicitud es la fuente de verdad (puede diferir
+            // del contrato del subservicio tras fusiones de entidades). Se filtra por
+            // ese contrato; si es nulo, se cae al del subservicio como respaldo.
             ->when($cut->contract_id, function ($q) use ($cut) {
-                $q->whereHas('subService.service.family', function ($fq) use ($cut) {
-                    $fq->where('contract_id', $cut->contract_id);
+                $q->where(function ($inner) use ($cut) {
+                    $inner->where('contract_id', $cut->contract_id)
+                        ->orWhere(function ($fallback) use ($cut) {
+                            $fallback->whereNull('contract_id')
+                                ->whereHas('subService.service.family', function ($fq) use ($cut) {
+                                    $fq->where('contract_id', $cut->contract_id);
+                                });
+                        });
                 });
             });
 
@@ -1047,7 +1068,16 @@ class CutController extends Controller
             });
         }
 
-        $requestIds = $query->pluck('id')->all();
+        $candidateIds = $query->pluck('id')->all();
+
+        // Respetar override manual: las solicitudes con corte fijado a mano no se
+        // reubican por el recálculo automático. Se excluyen de los candidatos.
+        $manualIds = DB::table('cut_service_request')
+            ->whereIn('service_request_id', $candidateIds ?: [0])
+            ->where('is_manual', true)
+            ->pluck('service_request_id')
+            ->all();
+        $requestIds = array_values(array_diff($candidateIds, $manualIds));
 
         if ($cut->contract_id && !empty($requestIds)) {
             $siblingCutIds = Cut::query()
@@ -1056,9 +1086,11 @@ class CutController extends Controller
                 ->pluck('id');
 
             if ($siblingCutIds->isNotEmpty()) {
+                // Solo mover asociaciones automáticas de cortes hermanos; nunca las manuales.
                 DB::table('cut_service_request')
                     ->whereIn('cut_id', $siblingCutIds)
                     ->whereIn('service_request_id', $requestIds)
+                    ->where('is_manual', false)
                     ->delete();
             }
         }
@@ -1067,7 +1099,22 @@ class CutController extends Controller
         $currentRequestIds = $cut->serviceRequests()->pluck('service_requests.id')->all();
         $newRequestIds = array_diff($requestIds, $currentRequestIds);
 
-        $cut->serviceRequests()->sync($requestIds);
+        // Conservar las asociaciones manuales que ya tenga este corte (no borrarlas con sync).
+        $manualForThisCut = DB::table('cut_service_request')
+            ->where('cut_id', $cut->id)
+            ->where('is_manual', true)
+            ->pluck('service_request_id')
+            ->all();
+
+        $syncPayload = [];
+        foreach ($requestIds as $id) {
+            $syncPayload[$id] = ['is_manual' => false];
+        }
+        foreach ($manualForThisCut as $id) {
+            $syncPayload[$id] = ['is_manual' => true];
+        }
+
+        $cut->serviceRequests()->sync($syncPayload);
 
         // Relocate evidence files for newly added requests to this cut's folder
         if (!empty($newRequestIds) && !empty($cut->folder_path)) {
