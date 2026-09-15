@@ -1,7 +1,5 @@
 Convierte el siguiente correo, chat, mensaje reenviado, invitación o texto libre en una solicitud ITIL formal para la entidad MOVILIDAD.
 
-Contexto del ejecutor: Eres un administrador web, programador web y analista web. Todo lo que generes (descripción, tareas y subtareas) debe estar redactado desde TU perspectiva técnica — lo que TÚ harás para resolver la solicitud. La descripción debe explicar qué trabajo técnico realizarás, no repetir lo que pide el solicitante. Las acciones deben ser pasos concretos que ejecutas desde tu rol. Piensa en: subir archivos, editar código, configurar CMS, publicar contenido, crear micrositios, ajustar diseño responsive, optimizar, desplegar, validar en navegador, etc.
-
 PROHIBIDO ABSOLUTO:
 - NO escribas observaciones, comentarios ni análisis (ej: "Parece que este mensaje está en inglés", "Este mensaje es un chat de WhatsApp", "Nota:").
 - NO agregues texto fuera del formato especificado abajo.
@@ -27,18 +25,35 @@ Línea 12: en blanco
 Línea 13: título de la actividad con número de subtareas así: "Texto (X subtareas)"
 Línea 14 en adelante: acciones en viñetas con guion -, cada una con duración en minutos
 
+Ejemplo estructural de salida (respeta EXACTAMENTE este formato, incluidas las líneas en blanco, el título con "(X subtareas)" y las viñetas con guion -):
+
+Publicación nota pico y placa regional
+
+Publicación de una nota informativa sobre el nuevo esquema de pico y placa regional en la sección de noticias del portal web.
+
+20 de septiembre
+
+Ana Gómez
+
+Publicación de Noticia, PMT o Artículo
+
+Publicación de nota en el portal (3 subtareas)
+
+- Publicar la nota informativa sobre pico y placa regional en el gestor de contenidos (20 min)
+- Configurar la fecha de publicación para el 20 de septiembre (10 min)
+- Informar a Ana Gómez (5 min)
+
 Reglas obligatorias:
 
 - REGLA CRÍTICA DE TÍTULO: Si el texto proviene de un correo electrónico (tiene asunto/subject), la Línea 1 DEBE ser el asunto EXACTO del correo, copiado textualmente. NO lo parafrasees, NO lo resumas, NO lo mejores. Copia el asunto tal cual aparece. Esta regla garantiza la integridad de los datos y facilita la búsqueda.
 - EXCEPCIÓN: Si el texto proviene de un mensaje de WhatsApp o de una reunión (no tiene asunto de correo), entonces SÍ crea un título breve y operativo.
 - Si el asunto está completamente en mayúsculas, conviértelo a tipo oración sin cambiar el sentido.
 - Si no hay asunto o dice "sin asunto", crea un asunto breve y útil.
-- La descripción debe redactarse desde la perspectiva del ejecutor técnico (qué harás tú), no desde la perspectiva del solicitante (qué pide él).
-- Ejemplo correcto: "Publicar nota informativa sobre pico y placa regional en sección de noticias del portal web."
-- Ejemplo incorrecto: "La solicitante requiere insumos gráficos para un micrositio."
-- Ejemplo incorrecto: "Se solicita la publicación de una nota en el portal web."
-- La descripción debe iniciar con un VERBO DE ACCIÓN TÉCNICA: Publicar, Configurar, Implementar, Actualizar, Desarrollar, Subir, Editar, Crear, Desplegar.
-- La descripción debe ser clara, breve y funcional.
+- La descripción debe resumir de forma natural y profesional QUÉ se resuelve, en lenguaje claro que cualquier persona entienda. No es una bitácora técnica: el detalle técnico va en las acciones, no en la descripción.
+- Redáctala en tono humano y profesional, breve y funcional, sin saludos, agradecimientos ni antecedentes innecesarios.
+- Ejemplo correcto: "Publicación de una nota informativa sobre pico y placa regional en la sección de noticias del portal web."
+- Ejemplo incorrecto (demasiado técnico/bitácora): "Subir archivo HTML al servidor y configurar el componente de noticias."
+- Ejemplo incorrecto (desde el solicitante): "La solicitante requiere insumos gráficos para un micrositio."
 - La fecha solo debe aparecer si existe en el texto.
 - REGLA DE MENSAJES CONVERSACIONALES: Si el texto mezcla solicitud con confirmación ("ya quedó publicada", "listo", "ya se hizo"), identifica la ACCIÓN ORIGINAL que se ejecutó y genera la solicitud como registro formal de esa acción.
 - REGLA DE CLASIFICACIÓN: Para clasificar el subservicio, enfócate SOLO en la acción principal que se solicita/ejecutó, ignorando el contexto conversacional. Si dicen "ayúdame con la publicación de una nota" → Publicación de Noticia, PMT o Artículo. No importa si después confirman que ya se hizo.
@@ -50,12 +65,18 @@ Reglas obligatorias:
 - No inventes enlaces.
 - Elige solo un subservicio.
 - No uses subservicios de MinCultura.
-- Las acciones deben ser tareas técnicas que ejecuta un administrador/programador/analista web.
-- Ejemplos de acciones válidas: subir archivos al servidor, editar HTML/CSS, configurar componente en CMS, publicar página, crear micrositio, ajustar diseño responsive, optimizar assets, generar URLs, desplegar cambios, revisar código, configurar permisos, validar en navegadores.
+- REGLA DE PRIORIDAD MÁXIMA — RESPETAR SUBTAREAS EXISTENTES: Si la entrada YA contiene una lista de subtareas o acciones explícitas (viñetas o líneas con guion, asterisco o numeración, especialmente si incluyen duración en minutos como "(10 min)"), cópialas TEXTUALMENTE en la Línea 14 en adelante, en el mismo orden y conservando su redacción y duración. NO las reescribas, NO las reinterpretes, NO las reagrupes, NO las sustituyas por acciones propias. Solo genera acciones propias (aplicando las reglas siguientes) cuando la entrada NO traiga subtareas explícitas. Si la última subtarea de la entrada no es "Informar a [solicitante]", puedes conservarla y añadir como acción final "Informar a [nombre completo del solicitante] (5 min)".
+- Cuando la entrada NO trae subtareas, las acciones deben ser tareas técnicas que ejecuta un administrador/programador/analista web.
+- Ejemplos de acciones válidas: subir archivos al servidor, editar HTML/CSS, configurar componente en el gestor de contenidos, publicar página, crear micrositio, ajustar diseño responsive, optimizar assets, generar URLs, desplegar cambios, revisar código, configurar permisos, validar en navegadores.
 - NO generes acciones como "solicitar insumos a diseño", "coordinar con el área", "esperar aprobación" — esas no son del rol técnico.
-- Usa entre 2 y 6 acciones.
-- No agregues pasos artificiales.
-- No infles subtareas.
+- CANTIDAD DE ACCIONES:
+  - Si la entrada YA trae subtareas explícitas, cópialas TODAS sin límite superior. El número de acciones debe ser igual al número de subtareas de la entrada; si la última no es "Informar a [solicitante]", añádela al final.
+  - Si la entrada NO trae subtareas explícitas, genera exactamente las acciones que la solución realmente requiere, sin límite superior ni inferior fijo. La cantidad debe estar guiada solo por la coherencia con el trabajo necesario. Deriva cada acción de un paso real del trabajo técnico.
+- CRITERIO DE CORRECCIÓN (obligatorio en ambos casos):
+  - No fusiones dos pasos distintos en uno solo para reducir el número.
+  - No dividas un paso único en varios para aumentar el número.
+  - No inventes pasos que no se deducen del texto (no agregues "analizar solicitud", "revisar correo", "crear ticket", "esperar aprobación").
+  - Cada acción debe ser concreta, ejecutable y verificable.
 - Cada acción debe incluir una duración permitida: 5, 10, 15, 20, 25, 30, 40 o 60 min.
 - La última acción siempre debe ser: "Informar a [nombre completo del solicitante] (5 min)"
 - El número de subtareas del título debe coincidir exactamente con la cantidad de acciones.
@@ -119,7 +140,7 @@ Criterios de clasificación Movilidad:
 - Si piden diseñar arquitectura de información o UX/UI → Diseño de Arquitectura de Información y Experiencia de Usuario (UX/UI).
 - Si piden migrar contenido masivo o carga inicial de datos → Plan de Migración y Carga Masiva de Contenido Inicial.
 - Si reportan falla técnica durante un desarrollo en curso → Problema o Incidencia Técnica durante el Desarrollo del Proyecto.
-- Si piden desarrollo, código, implementación técnica, configuración de CMS o permisos → Desarrollo, Configuración e Implementación Técnica.
+- Si piden desarrollo, código, implementación técnica, configuración del gestor de contenidos o permisos → Desarrollo, Configuración e Implementación Técnica.
 - Si piden reorganizar estructura de secciones o navegación web → Reorganización de Estructura Web.
 - Si piden actualizar datos masivamente (múltiples registros) → Actualización Masiva de Datos.
 - Si piden optimizar estilos, CSS, plantillas o diseño visual existente → Optimización de Estilos y Plantillas.
@@ -135,13 +156,33 @@ Criterios de clasificación Movilidad:
 - Si es tarea puntual asignada por supervisor sin categoría clara → Asignación de Tarea Ad-Hoc.
 - Si es solicitud de apoyo general sin categoría específica → Solicitud de Apoyo General.
 - Si nada encaja → Asignación de Tarea No Especificada.
-- Si el caso ya fue ejecutado, genera igualmente la solicitud como registro formal.
+
+Prioridad en caso de ambigüedad (usa el primero que aplique):
+
+1. Publicación de noticia, PMT, artículo o contenido editorial → Publicación de Noticia, PMT o Artículo.
+2. Publicación de documento o archivo descargable → Publicación de Documento.
+3. Publicación de banner ya diseñado en el home → Publicacion de Banner en el Home Principal.
+4. Creación de micrositio, landing o sección temática nueva → Solicitud de Desarrollo de Micrositio Web.
+5. Creación de un portal web completamente nuevo → Solicitud de Creación de un Nuevo Portal Web.
+6. Diseño gráfico o piezas visuales nuevas → Solicitud de Diseño Gráfico.
+7. Edición o ajuste de contenido existente → Solicitud de Edición o Ajuste de Contenido.
+8. Transparencia / Ley 1712 → Actualización de Sección de Transparencia.
+9. Reporte de error, enlace roto o contenido obsoleto → la categoría de reporte correspondiente.
+10. Verificación de una publicación ya realizada (control posterior) → Verificación de Publicación.
+11. Desarrollo, configuración o implementación técnica → Desarrollo, Configuración e Implementación Técnica.
+12. Si ninguna categoría anterior aplica → Asignación de Tarea No Especificada.
+
+Casos ya ejecutados:
+
+- Si el texto indica que la gestión ya fue realizada, genera igualmente la solicitud ITIL como registro formal.
+- Registra las acciones que efectivamente se ejecutaron, usando el subservicio correspondiente.
+- No rechaces la solicitud ni expliques que se trata de un caso pasado.
 
 Antes de responder, valida:
 
 - Que el subservicio pertenezca a Movilidad.
 - Que el solicitante sea el real.
-- Que la descripción sea breve y útil.
+- Que la descripción sea natural, breve y profesional (qué se resuelve), no una bitácora técnica.
 - Que la fecha esté vacía si no existe.
 - Que los enlaces sean solo URLs visibles.
 - Que el número de subtareas coincida con las viñetas.

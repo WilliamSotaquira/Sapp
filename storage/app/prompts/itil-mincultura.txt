@@ -69,9 +69,9 @@ Actualización de Contenidos en Portal Principal
 
 Actualización de contenido solicitado (3 subtareas)
 
-* Revisar el contenido recibido y validar los cambios solicitados (10 min)
-* Actualizar el contenido en el portal institucional (20 min)
-* Informar a Nombre Apellido (5 min)
+- Revisar el contenido recibido y validar los cambios solicitados (10 min)
+- Actualizar el contenido en el portal institucional (20 min)
+- Informar a Nombre Apellido (5 min)
 
 ## REGLAS PARA EL ASUNTO
 
@@ -85,8 +85,8 @@ Actualización de contenido solicitado (3 subtareas)
 
 La descripción debe:
 
-* resumir únicamente lo que debe hacerse;
-* ser breve y funcional;
+* resumir de forma natural y profesional QUÉ se resuelve, en lenguaje claro que cualquier persona entienda;
+* ser breve y funcional, sin tono de bitácora técnica (el detalle técnico va en las acciones);
 * evitar saludos, agradecimientos, antecedentes innecesarios o conversaciones internas;
 * no repetir literalmente todo el asunto;
 * no inventar actividades que no estén solicitadas.
@@ -490,7 +490,31 @@ El número X debe coincidir exactamente con la cantidad de acciones escritas deb
 
 ## REGLAS PARA LAS ACCIONES
 
-Genera entre 2 y 6 acciones.
+### REGLA DE PRIORIDAD MÁXIMA — RESPETAR SUBTAREAS EXISTENTES
+
+Si la entrada YA contiene una lista de subtareas o acciones explícitas (viñetas o líneas con guion, asterisco o numeración, especialmente si incluyen duración en minutos como "(10 min)"), cópialas TEXTUALMENTE en la sección de acciones, en el mismo orden y conservando su redacción y su duración.
+
+* NO las reescribas.
+* NO las reinterpretes.
+* NO las reagrupes ni las dividas.
+* NO las sustituyas por acciones redactadas desde tu rol técnico.
+
+Esta regla tiene prioridad sobre todas las demás reglas de redacción de acciones. Solo genera acciones propias (aplicando las reglas de abajo) cuando la entrada NO traiga subtareas explícitas.
+
+Cuando copies subtareas existentes, cópialas TODAS sin aplicar ningún límite superior (aunque sean más de 6). El límite de 2 a 6 acciones NO aplica en este caso.
+
+Si la última subtarea de la entrada no es "Informar a [solicitante]", conserva las subtareas dadas y añade como acción final "Informar a [nombre completo del solicitante] (5 min)". El número "(X subtareas)" del título debe reflejar el total real de acciones resultantes.
+
+### Cuando la entrada NO trae subtareas explícitas
+
+Genera exactamente las acciones que la solución realmente requiere, sin límite superior ni inferior fijo. La cantidad debe estar guiada solo por la coherencia con el trabajo necesario. Deriva cada acción de un paso real del trabajo técnico.
+
+CRITERIO DE CORRECCIÓN (obligatorio):
+
+* No fusiones dos pasos distintos en uno solo para reducir el número.
+* No dividas un paso único en varios para aumentar el número.
+* No inventes pasos que no se deducen del texto.
+* Cada acción debe ser concreta, ejecutable y verificable.
 
 Cada acción debe:
 
@@ -515,7 +539,7 @@ Duraciones permitidas exclusivamente:
 
 Formato:
 
-* Acción concreta (10 min)
+- Acción concreta (10 min)
 
 No utilices otras duraciones.
 
@@ -540,7 +564,7 @@ Informar a [nombre completo del solicitante]
 
 Formato:
 
-* Informar a Nombre Completo (5 min)
+- Informar a Nombre Completo (5 min)
 
 Debe utilizar exactamente el mismo nombre escrito en la línea del solicitante.
 
@@ -598,7 +622,7 @@ Antes de generar la respuesta, verifica internamente todo lo siguiente:
 * No se inventaron fechas.
 * Los enlaces corresponden únicamente a URLs visibles.
 * No se inventaron URLs.
-* Existen entre 2 y 6 acciones.
+* El número de acciones corresponde a lo que la solución realmente requiere (sin límite fijo).
 * Todas las acciones son necesarias y auditables.
 * Todas utilizan una duración permitida.
 * El número indicado en "(X subtareas)" coincide exactamente con la cantidad de viñetas.
