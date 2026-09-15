@@ -372,33 +372,54 @@ class ServiceRequestController extends Controller
             $linksSection = "\n\nENLACES DE EVIDENCIA DISPONIBLES (incluir en el correo como referencia):\n{$linksList}";
         }
 
-        $prompt = "Eres el webmaster del Ministerio de Cultura de Colombia. Redacta un correo profesional para responder a quien solicitó esta gestión. El texto será copiado y pegado directamente como cuerpo de un correo electrónico.\n\n";
+        // Semilla de variación: rota el enfoque de redacción para que las respuestas
+        // no salgan siempre con la misma fórmula. Ligera variación en el saludo/cierre,
+        // sin perder exactitud ni el tono profesional e institucional.
+        $variationSeed = (int) $serviceRequest->id;
+
+        // Nombre del solicitante para dirigir el saludo. Se usa SOLO el primer nombre
+        // (no el nombre completo); si no hay, el saludo va sin nombre.
+        $requesterFullName = trim((string) ($serviceRequest->requester?->name ?? ''));
+        $requesterFirstName = $requesterFullName !== ''
+            ? preg_split('/\s+/', $requesterFullName)[0]
+            : '';
+        $greetingInstruction = $requesterFirstName !== ''
+            ? "Inicia con un saludo formal dirigido a la persona SOLO por su primer nombre. Usa exactamente este nombre: \"{$requesterFirstName}\". Ejemplos de forma (elige una y varía): \"Cordial saludo, {$requesterFirstName}:\" o \"Estimado(a) {$requesterFirstName}, cordial saludo:\". No uses el apellido, no uses el nombre completo, no inventes ni cambies el nombre."
+            : "Inicia con un saludo formal breve (por ejemplo, \"Cordial saludo,\").";
+
+        $prompt = "Eres el webmaster del Ministerio de Cultura de Colombia. Redacta el cuerpo de un correo para responder a quien solicitó esta gestión. El texto se copiará y pegará directamente como cuerpo del correo.\n\n";
         $prompt .= "SOLICITUD ORIGINAL:\n";
         $prompt .= "Asunto: {$serviceRequest->title}\n";
         $prompt .= "Detalle: " . Str::limit($serviceRequest->description, 300) . "\n";
-        $prompt .= "Solicitante: " . ($serviceRequest->requester?->name ?? 'N/A') . "\n\n";
+        $prompt .= "Solicitante: " . ($requesterFullName !== '' ? $requesterFullName : 'N/A') . " (en el saludo usa SOLO el primer nombre)\n\n";
         $prompt .= "GESTIÓN REALIZADA (información interna para contexto, NO copiar textualmente):\n{$tasksSummary}\n";
         $prompt .= $linksSection . "\n\n";
-        $prompt .= "ESTRUCTURA OBLIGATORIA DEL CORREO:\n\n";
-        $prompt .= "1. SALUDO: 'Cordial saludo,' (siempre así, sin nombre del destinatario)\n\n";
-        $prompt .= "2. CONTEXTO (1 oración): Mencionar brevemente qué se solicitó, referenciando el tema sin repetir literalmente el asunto.\n";
-        $prompt .= "   Ejemplo: 'En atención a su solicitud relacionada con la publicación del documento X en la sección de transparencia...'\n\n";
-        $prompt .= "3. RESULTADO (2-3 oraciones): Describir qué se hizo y cuál es el resultado concreto. Usar verbos en pasado impersonal.\n";
-        $prompt .= "   - Qué acción se ejecutó: 'se realizó la actualización...', 'fue publicado el documento...', 'se configuró el acceso...'\n";
-        $prompt .= "   - Dónde queda disponible o cuál es el resultado visible para el solicitante.\n\n";
-        $prompt .= "4. ENLACES (si hay): Incluir los URLs como referencia para verificación.\n";
-        $prompt .= "   Usar frases como: 'La publicación puede consultarse en:', 'El contenido se encuentra disponible en el siguiente enlace:'\n";
-        $prompt .= "   Los enlaces van como URLs completas, cada uno en su propia línea.\n\n";
-        $prompt .= "5. CIERRE: Una oración de disponibilidad + despedida.\n";
-        $prompt .= "   Ejemplo: 'Quedo atento ante cualquier observación o ajuste adicional que se requiera.'\n\n";
-        $prompt .= "REGLAS DE REDACCIÓN:\n";
-        $prompt .= "- Tono: profesional, institucional, cordial. Como un funcionario público serio y eficiente.\n";
-        $prompt .= "- Persona gramatical: impersonal o tercera persona para las acciones ('se realizó', 'fue actualizado'). Primera persona singular para el cierre ('quedo atento').\n";
-        $prompt .= "- Extensión: entre 6 y 10 oraciones en total. Ni telegráfico ni extenso.\n";
-        $prompt .= "- PROHIBIDO: nombres de personas, jerga técnica, mencionar sistemas internos (SAPP, tickets), frases coloquiales, emojis.\n";
-        $prompt .= "- PROHIBIDO: la palabra 'evidencia'. Usar 'soporte', 'referencia', 'enlace de consulta'.\n";
-        $prompt .= "- PROHIBIDO: incluir firma, cargo, teléfono o datos del remitente.\n";
+        $prompt .= "OBJETIVO:\n";
+        $prompt .= "Comunicar con precisión y de forma natural que la gestión se realizó, qué resultó y dónde puede verificarse. Debe sonar como un funcionario serio y cercano que escribe con soltura, no como una plantilla automática ni como un informe acartonado, y sin caer en familiaridad excesiva.\n\n";
+        $prompt .= "QUÉ DEBE CONTENER (en este orden lógico):\n";
+        $prompt .= "1. Saludo dirigido al solicitante. {$greetingInstruction}\n";
+        $prompt .= "2. Referencia clara a lo solicitado, sin copiar el asunto literalmente.\n";
+        $prompt .= "3. Qué se hizo y el resultado concreto, con exactitud, en pasado impersonal ('se realizó', 'fue actualizado'). No inventes acciones que no estén en la gestión realizada.\n";
+        $prompt .= "4. Si hay enlaces, inclúyelos como URLs completas, cada uno en su propia línea, introducidos de forma natural.\n";
+        $prompt .= "5. Cierre de disponibilidad y despedida formal.\n\n";
+        $prompt .= "NATURALIDAD CONTROLADA (para que no suene forzado ni acartonado, sin perder formalidad):\n";
+        $prompt .= "- Escribe como un funcionario que redacta con soltura, no como quien rellena un formato. Debe sonar humano y directo.\n";
+        $prompt .= "- EVITA muletillas y fórmulas burocráticas de relleno que suenan artificiales, por ejemplo: 'Con relación a su solicitud', 'En atención a su solicitud', 'conforme al texto suministrado', 'según lo solicitado', 'Los cambios fueron verificados y publicados', 'de acuerdo a lo requerido'. No las uses de forma mecánica.\n";
+        $prompt .= "- Ve directo al punto: di qué se hizo y qué queda disponible, con naturalidad. No agregues frases-relleno solo para sonar formal.\n";
+        $prompt .= "- Ejemplo de tono FORZADO (evítalo): 'Con relación a su solicitud, se actualizó el perfil conforme al texto suministrado. Los cambios fueron verificados y publicados.'\n";
+        $prompt .= "- Ejemplo de tono NATURAL y formal (imítalo): 'Ya está actualizado el perfil del coordinador en la página del grupo, con su descripción profesional, formación y experiencia. Puede consultarlo en el siguiente enlace:'\n";
+        $prompt .= "- Varía la longitud de las oraciones y evita que todas empiecen igual.\n";
+        $prompt .= "- Prioriza la EXACTITUD: no adornes, no exageres, no agregues información que no consta en la gestión realizada.\n\n";
+        $prompt .= "REGLAS FIJAS (no negociables):\n";
+        $prompt .= "- Tono: profesional, institucional y cordial, sin coloquialismos ni familiaridad excesiva.\n";
+        $prompt .= "- Acciones en pasado impersonal o tercera persona; el cierre puede ir en primera persona singular.\n";
+        $prompt .= "- Extensión: entre 5 y 9 oraciones. Ni telegráfico ni extenso.\n";
+        $prompt .= "- El ÚNICO nombre de persona permitido es el primer nombre del solicitante en el saludo. No uses su apellido ni nombre completo, y no menciones ningún otro nombre de persona en el cuerpo.\n";
+        $prompt .= "- PROHIBIDO: jerga técnica, mencionar sistemas internos (SAPP, tickets), frases coloquiales, emojis.\n";
+        $prompt .= "- PROHIBIDO: la palabra 'evidencia'. Usa 'soporte', 'referencia' o 'enlace de consulta'.\n";
+        $prompt .= "- PROHIBIDO: incluir firma, cargo, teléfono o datos del remitente. Simplemente OMITE la firma: NO escribas marcadores como '[Sin firma]', '[Firma]', '[Nombre]' ni ningún texto entre corchetes. El correo termina en la despedida (por ejemplo, 'Atentamente,') y nada más después.\n";
         $prompt .= "- PROHIBIDO: incluir asunto, RE:, FW: o encabezados de correo.\n";
+        $prompt .= "- PROHIBIDO: cualquier placeholder o texto entre corchetes [ ]. No dejes campos por completar.\n";
         $prompt .= "- Formato: texto plano, sin Markdown, sin viñetas, sin negritas. Solo texto corrido con saltos de párrafo.\n";
         $prompt .= "- Idioma: español colombiano formal.\n";
 
@@ -419,9 +440,14 @@ class ServiceRequestController extends Controller
                     'model' => $model,
                     'messages' => [
                         ['role' => 'system', 'content' => $prompt],
-                        ['role' => 'user', 'content' => 'Redacta el cuerpo del correo explicando qué se hizo para resolver la solicitud.'],
+                        ['role' => 'user', 'content' => 'Redacta el cuerpo del correo explicando con exactitud qué se hizo para resolver la solicitud. Dirígete al solicitante por su nombre en el saludo. Mantén el tono formal e institucional.'],
                     ],
-                    'temperature' => 0.3,
+                    // Punto medio-alto: suficiente soltura para no sonar acartonado,
+                    // manteniendo exactitud y registro formal.
+                    'temperature' => 0.55,
+                    // Penalización leve para evitar repetir las mismas frases hechas sin
+                    // sacrificar precisión.
+                    'frequency_penalty' => 0.25,
                     'max_tokens' => 800,
                 ]);
 
@@ -439,7 +465,15 @@ class ServiceRequestController extends Controller
 
             $content = data_get($response->json(), 'choices.0.message.content', '');
 
-            if (empty(trim($content))) {
+            // Red de seguridad: eliminar marcadores/placeholders que el modelo pudiera
+            // colar pese a la instrucción (p. ej. "[Sin firma]", "[Firma]", "[Nombre]").
+            // Quita cualquier línea cuyo contenido sea únicamente un texto entre corchetes.
+            $content = preg_replace('/^\s*\[[^\]\n]*\]\s*$/mu', '', (string) $content);
+            // Compactar saltos de línea sobrantes que queden tras la limpieza.
+            $content = preg_replace("/\n{3,}/", "\n\n", $content);
+            $content = trim($content);
+
+            if ($content === '') {
                 return response()->json([
                     'success' => false,
                     'message' => 'La IA no generó una respuesta válida.',
@@ -448,7 +482,7 @@ class ServiceRequestController extends Controller
 
             return response()->json([
                 'success' => true,
-                'resolution_text' => trim($content),
+                'resolution_text' => $content,
                 'tasks_analyzed' => $tasks->count(),
                 'completed_count' => $tasks->where('status', 'completed')->count(),
             ]);

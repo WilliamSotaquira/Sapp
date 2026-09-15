@@ -1105,10 +1105,11 @@ class ServiceRequestPlainTextImportService
         foreach ($blocks as $block) {
             $blockLines = array_filter(array_map('trim', explode("\n", $block)), fn ($l) => $l !== '');
 
-            // Check if this block contains task lines (starts with -)
+            // Check if this block contains task lines (bullets with -, *, • or numbered like "1.")
+            $bulletPattern = '/^\s*(?:[-*•]|\d+[.)])\s+/u';
             $hasTaskLines = false;
             foreach ($blockLines as $bl) {
-                if (str_starts_with($bl, '- ') || str_starts_with($bl, '-')) {
+                if (preg_match($bulletPattern, $bl)) {
                     $hasTaskLines = true;
                     break;
                 }
@@ -1116,10 +1117,11 @@ class ServiceRequestPlainTextImportService
 
             if ($hasTaskLines) {
                 foreach ($blockLines as $bl) {
-                    if (str_starts_with($bl, '- ') || str_starts_with($bl, '-')) {
-                        $taskLines[] = $bl;
-                    } elseif (preg_match('/\(\d+\s*subtareas?\)/iu', $bl)) {
+                    if (preg_match('/\(\d+\s*subtareas?\)/iu', $bl)) {
                         $taskTitleLine = $bl;
+                    } elseif (preg_match($bulletPattern, $bl)) {
+                        // Normalizar cualquier viñeta a "- " para el parser de subtareas
+                        $taskLines[] = preg_replace($bulletPattern, '- ', $bl);
                     }
                 }
                 continue;
