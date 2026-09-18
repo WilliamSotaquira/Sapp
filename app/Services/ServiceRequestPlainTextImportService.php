@@ -1570,6 +1570,11 @@ class ServiceRequestPlainTextImportService
             return $exactParsed;
         }
 
+        $itilParsed = $this->extractStructuredDataByItilFormat($normalizedText);
+        if ($itilParsed !== null) {
+            return $itilParsed;
+        }
+
         $emailThreadParsed = $this->extractStructuredDataFromEmailThread($normalizedText);
         if ($emailThreadParsed !== null) {
             return $emailThreadParsed;
@@ -1638,6 +1643,139 @@ class ServiceRequestPlainTextImportService
             'sub_service_name' => $subServiceName,
             'entry_channel' => $this->normalizeEntryChannelLine($entryChannel, $normalizedText),
             'criticality_level' => $this->normalizeCriticalityLine($criticalityLevel, $normalizedText),
+            'web_routes' => $linksLine !== '' && !$this->isUnavailableMarker($linksLine)
+                ? collect(preg_split('/\s*,\s*/u', $linksLine) ?: [])
+                    ->flatMap(fn (string $part) => $this->extractUrls($part))
+                    ->unique()
+                    ->slice(0, 8)
+                    ->values()
+                    ->all()
+                : [],
+            'tasks' => $tasks,
+        ];
+    }
+
+    /**
+     * Parsea el formato ITIL compacto de 7 campos que producen los prompts ITIL:
+     *   0: Asunto
+     *   1: Descripción
+     *   2: Fecha (opcional)
+     *   3: Solicitante
+     *   4: Subservicio
+     *   5: Enlaces (opcional)
+     *   6+: Título "(X subtareas)" + acciones con guion
+     *
+     * Los campos canal de entrada y criticidad no vienen en este formato: se
+     * infieren automáticamente (entry_channel por detección, criticidad MEDIA).
+     */
+    private function extractStructuredDataByItilFormat(string $normalizedText): ?array
+    {
+        $lines = array_values(array_filter(
+            array_map(
+                fn ($line) => trim($this->normalizeMarkdownLinks((string) $line)),
+                $this->extractExactLines($normalizedText)
+            ),
+            fn (string $line) => $line !== ''
+        ));
+
+        if (!$this->formatDetector->isItilStructuredFormat($lines)) {
+            return null;
+        }
+
+        // Localiza la línea del título de actividad "(X subtareas)".
+        $taskTitleIndex = null;
+        foreach ($lines as $index => $line) {
+            if (preg_match('/\(\s*\d+\s*subtareas?\s*\)/iu', (string) $line) === 1) {
+                $taskTitleIndex = $index;
+                break;
+            }
+        }
+
+        if ($taskTitleIndex === null) {
+            return null;
+        }
+
+        // Estrategia de anclaje robusta para TODOS los formatos ITIL:
+        //
+        //   Cabecera (índices 0..taskTitleIndex-1) en orden fijo:
+        //     0: Asunto
+        //     1: Descripción
+        //     2: Fecha        (OPCIONAL)
+        //     n-1: Solicitante
+        //     n:   Subservicio   <- inmediatamente antes del título de actividad
+        //     (Enlaces van integrados y se extraen aparte por contenido URL)
+        //
+        // En lugar de adivinar campo por campo desde el inicio (frágil cuando la
+        // "fecha" no parece fecha, p. ej. una hora "8:21", o cuando falta), se
+        // ancla desde el FINAL de la cabecera: el subservicio es el último bloque
+        // de cabecera y el solicitante el penúltimo. Así solicitante y subservicio
+        // nunca se desalinean, sin importar si la fecha viene, falta o es rara.
+        $header = array_slice($lines, 0, $taskTitleIndex);
+
+        $subject = $this->normalizeUnavailableLine($this->cleanSubject((string) ($header[0] ?? '')));
+        $description = $this->normalizeUnavailableLine(trim((string) ($header[1] ?? '')));
+
+        // Enlaces: cualquier línea de cabecera (a partir de la descripción) que
+        // contenga URLs. Se extrae por contenido, no por posición.
+        $linksLine = '';
+        foreach (array_slice($header, 2) as $headerLine) {
+            if (preg_match('/https?:\/\//iu', (string) $headerLine) === 1) {
+                $linksLine = trim((string) $headerLine);
+                break;
+            }
+        }
+
+        // Bloques de cabecera que NO son asunto, descripción ni enlaces: quedan
+        // fecha (opcional), solicitante y subservicio, en ese orden.
+        $middle = [];
+        for ($i = 2; $i < $taskTitleIndex; $i++) {
+            $value = trim((string) ($lines[$i] ?? ''));
+            if ($value === '' || ($linksLine !== '' && $value === $linksLine)) {
+                continue;
+            }
+            $middle[] = $value;
+        }
+
+        // Anclaje desde el final: subservicio = último, solicitante = penúltimo.
+        $subServiceName = '';
+        $requesterName = '';
+        $createdAt = null;
+
+        $count = count($middle);
+        if ($count >= 1) {
+            $subServiceName = (string) $middle[$count - 1];
+        }
+        if ($count >= 2) {
+            $requesterName = $this->cleanPersonLine((string) $middle[$count - 2]);
+        }
+        // Lo que quede antes del solicitante es la fecha (si es parseable).
+        if ($count >= 3) {
+            $createdAt = $this->parseFlexibleDate((string) $middle[0]);
+        }
+
+        $requesterName = $this->isUnavailableMarker($requesterName) ? '' : $requesterName;
+        $subServiceName = $this->isUnavailableMarker($subServiceName) ? '' : Str::limit($subServiceName, 255, '');
+
+        $taskTitle = $this->normalizeUnavailableLine($this->cleanTaskTitle((string) ($lines[$taskTitleIndex] ?? '')));
+
+        // El bloque de acciones empieza en el título de actividad.
+        $taskBlock = trim(implode("\n", array_slice($lines, $taskTitleIndex)));
+        $tasks = $this->extractTasksFromBlocks([$taskBlock], 0, $taskTitle, $subject);
+
+        return [
+            'title' => $subject !== '' && !$this->isUnavailableMarker($subject)
+                ? $subject
+                : ($taskTitle !== '' && !$this->isUnavailableMarker($taskTitle)
+                    ? $taskTitle
+                    : Str::limit($description !== '' ? $description : 'Nueva solicitud', 255, '')),
+            'description' => $description,
+            'created_at' => $createdAt,
+            'due_date' => null,
+            'requester_name' => $requesterName,
+            'requester_email' => $this->extractEmail($normalizedText),
+            'sub_service_name' => $subServiceName,
+            'entry_channel' => $this->normalizeEntryChannelLine('', $normalizedText),
+            'criticality_level' => $this->normalizeCriticalityLine('', $normalizedText),
             'web_routes' => $linksLine !== '' && !$this->isUnavailableMarker($linksLine)
                 ? collect(preg_split('/\s*,\s*/u', $linksLine) ?: [])
                     ->flatMap(fn (string $part) => $this->extractUrls($part))
@@ -2147,7 +2285,7 @@ class ServiceRequestPlainTextImportService
             'dic' => 12, 'diciembre' => 12,
         ];
 
-        if (preg_match('/^(\d{1,2})\s+([[:alpha:]áéíóúñ]+)(?:\s+(\d{4}))?$/iu', $clean, $shortMatch)) {
+        if (preg_match('/^(\d{1,2})\s+(?:de\s+)?([[:alpha:]áéíóúñ]+)(?:\s+(?:de\s+)?(\d{4}))?$/iu', $clean, $shortMatch)) {
             $monthKey = $this->normalizeForComparison($shortMatch[2]);
             $month = $shortMonths[$monthKey] ?? null;
             if ($month) {
