@@ -29,25 +29,62 @@ return new class extends Migration
             });
         }
 
-        // 1. Poblar contract_id desde la cadena del catálogo (sub_service -> family -> contract)
-        DB::statement("
-            UPDATE service_requests sr
-            JOIN sub_services ss ON ss.id = sr.sub_service_id
-            JOIN services s ON s.id = ss.service_id
-            JOIN service_families sf ON sf.id = s.service_family_id
-            SET sr.contract_id = sf.contract_id
-            WHERE sr.contract_id IS NULL
-        ");
+        // El UPDATE ... JOIN ... SET es sintaxis de MySQL y SQLite no la soporta.
+        // Se ramifica por driver, igual que las migraciones hermanas del modelo
+        // orientado a contrato (ver 2026_02_06_000003..000007), para que las
+        // migraciones frescas y el bootstrap de tests (SQLite) no fallen.
+        $driver = DB::getDriverName();
 
-        // 2. Corregir company_id de solicitudes con mismatch:
-        //    alinear al company dueño del contrato del subservicio (fuente de verdad del catálogo).
-        DB::statement("
-            UPDATE service_requests sr
-            JOIN contracts ct ON ct.id = sr.contract_id
-            SET sr.company_id = ct.company_id
-            WHERE sr.contract_id IS NOT NULL
-              AND sr.company_id <> ct.company_id
-        ");
+        if ($driver === 'sqlite') {
+            // 1. Poblar contract_id desde la cadena del catálogo con subconsulta correlacionada.
+            DB::statement("
+                UPDATE service_requests
+                SET contract_id = (
+                    SELECT sf.contract_id
+                    FROM sub_services ss
+                    JOIN services s ON s.id = ss.service_id
+                    JOIN service_families sf ON sf.id = s.service_family_id
+                    WHERE ss.id = service_requests.sub_service_id
+                )
+                WHERE contract_id IS NULL
+            ");
+
+            // 2. Corregir company_id con mismatch respecto al dueño del contrato.
+            DB::statement("
+                UPDATE service_requests
+                SET company_id = (
+                    SELECT ct.company_id
+                    FROM contracts ct
+                    WHERE ct.id = service_requests.contract_id
+                )
+                WHERE contract_id IS NOT NULL
+                  AND company_id <> (
+                    SELECT ct.company_id
+                    FROM contracts ct
+                    WHERE ct.id = service_requests.contract_id
+                  )
+            ");
+        } else {
+            // 1. Poblar contract_id desde la cadena del catálogo (sub_service -> family -> contract)
+            DB::statement("
+                UPDATE service_requests sr
+                JOIN sub_services ss ON ss.id = sr.sub_service_id
+                JOIN services s ON s.id = ss.service_id
+                JOIN service_families sf ON sf.id = s.service_family_id
+                SET sr.contract_id = sf.contract_id
+                WHERE sr.contract_id IS NULL
+            ");
+
+            // 2. Corregir company_id de solicitudes con mismatch:
+            //    alinear al company dueño del contrato del subservicio (fuente de verdad del catálogo).
+            DB::statement("
+                UPDATE service_requests sr
+                JOIN contracts ct ON ct.id = sr.contract_id
+                SET sr.company_id = ct.company_id
+                WHERE sr.contract_id IS NOT NULL
+                  AND sr.company_id <> ct.company_id
+            ");
+        }
     }
 
     public function down(): void
