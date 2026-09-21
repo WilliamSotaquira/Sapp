@@ -75,6 +75,11 @@ class ServiceRequestController extends Controller
             $dateView = 'created_at';
         }
 
+        // Alcance del listado: 'all' = todas mis entidades (cross-entidad),
+        // 'current' (o vacío) = entidad activa en sesión. Un company_id explícito
+        // acota a esa entidad concreta independientemente del alcance.
+        $scope = $request->get('scope') === 'all' ? 'all' : 'current';
+
         $filters = [
             'search' => $globalSearch,
             'status' => $request->get('status'),
@@ -94,6 +99,7 @@ class ServiceRequestController extends Controller
             'in_process' => $request->boolean('in_process'),
             'sort_by' => $sortBy,
             'date_view' => $dateView,
+            'scope' => $scope,
         ];
 
         if (!in_array($filters['due_status'], ['with_due', 'without_due', 'overdue', 'due_soon'], true)) {
@@ -116,14 +122,47 @@ class ServiceRequestController extends Controller
         // Estadísticas ajustadas a los mismos filtros de la tabla
         $stats = $this->serviceRequestService->getFilteredStats($filters);
 
-        // Servicios para filtro avanzado
+        // Resolución del alcance para servicios, contadores y alertas.
+        //
+        // En modo "todas mis entidades" (scope=all) los contadores y catálogos ya no
+        // se acotan a una sola entidad de sesión, sino al conjunto de entidades del
+        // usuario (o a ninguna restricción si es admin). Se calcula una lista de IDs
+        // reutilizable ($scopeCompanyIds): null = sin restricción (admin en 'all').
         $currentCompanyId = (int) session('current_company_id');
+        $user = Auth::user();
+
+        if ($scope === 'all') {
+            // Admin ve todo (sin restricción); no-admin ve solo sus entidades.
+            $scopeCompanyIds = ($user && $user->isAdmin())
+                ? null
+                : ($user ? $user->accessibleCompanyIds()->all() : [0]);
+        } else {
+            // Entidad activa en sesión (comportamiento clásico).
+            $scopeCompanyIds = $currentCompanyId > 0 ? [$currentCompanyId] : null;
+        }
+
+        // Closure reutilizable para acotar cualquier query de contador al alcance.
+        // - null  => sin restricción (admin en modo todas)
+        // - lista => whereIn (usa [0] para "ninguna" y no traer nada)
+        $applyScope = function ($q) use ($scope, $scopeCompanyIds) {
+            if ($scope === 'all') {
+                $q->withoutGlobalScope('workspace');
+                if (is_array($scopeCompanyIds)) {
+                    $q->whereIn('company_id', $scopeCompanyIds ?: [0]);
+                }
+            } elseif (is_array($scopeCompanyIds)) {
+                $q->whereIn('company_id', $scopeCompanyIds);
+            }
+            return $q;
+        };
+
+        // Servicios para filtro avanzado
         $services = Service::active()
             ->ordered()
             ->with('family:id,name')
-            ->when($currentCompanyId, function ($query) use ($currentCompanyId) {
-                $query->whereHas('family.contract', function ($q) use ($currentCompanyId) {
-                    $q->where('company_id', $currentCompanyId);
+            ->when(is_array($scopeCompanyIds), function ($query) use ($scopeCompanyIds) {
+                $query->whereHas('family.contract', function ($q) use ($scopeCompanyIds) {
+                    $q->whereIn('company_id', $scopeCompanyIds ?: [0]);
                 });
             })
             ->get(['id', 'name', 'service_family_id']);
@@ -141,18 +180,18 @@ class ServiceRequestController extends Controller
             ->get(['id', 'name', 'filters']);
 
         $openStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'REABIERTO'];
-        // El scope de consulta ahora es por entidad; estos contadores se acotan
-        // explícitamente a la entidad activa para reflejar solo su realidad.
-        $scopeCompany = fn($q) => $q->when($currentCompanyId, fn($qq) => $qq->where('company_id', $currentCompanyId));
+        // Los contadores/alertas respetan el mismo alcance que la tabla ($applyScope):
+        // en modo "todas mis entidades" agregan sobre todas las entidades del usuario;
+        // en modo clásico, solo la entidad activa.
         $slaAlerts = [
             'overdue' => ServiceRequest::query()
-                ->tap($scopeCompany)
+                ->tap($applyScope)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('resolution_deadline')
                 ->where('resolution_deadline', '<', now())
                 ->count(),
             'dueSoon' => ServiceRequest::query()
-                ->tap($scopeCompany)
+                ->tap($applyScope)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('resolution_deadline')
                 ->whereBetween('resolution_deadline', [now(), now()->addHours(24)])
@@ -161,13 +200,13 @@ class ServiceRequestController extends Controller
 
         $dueAlerts = [
             'overdue' => ServiceRequest::query()
-                ->tap($scopeCompany)
+                ->tap($applyScope)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('due_date')
                 ->whereDate('due_date', '<', now()->toDateString())
                 ->count(),
             'dueSoon' => ServiceRequest::query()
-                ->tap($scopeCompany)
+                ->tap($applyScope)
                 ->whereIn('status', $openStatuses)
                 ->whereNotNull('due_date')
                 ->whereBetween('due_date', [now()->toDateString(), now()->addDays(3)->toDateString()])
@@ -175,26 +214,35 @@ class ServiceRequestController extends Controller
         ];
 
         $inCourseCount = ServiceRequest::query()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->tap($applyScope)
             ->whereNotNull('accepted_at')
             ->where('status', 'ACEPTADA')
             ->count();
 
         $inProcessCount = ServiceRequest::query()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->tap($applyScope)
             ->where('status', 'EN_PROCESO')
             ->count();
 
-        // Contratos de la entidad activa, para el filtro por contrato del listado
-        // (permite separar el histórico: p. ej. contrato 2025 vs 2026).
+        // Contratos disponibles para el filtro por contrato del listado.
+        // En modo "todas mis entidades" se ofrecen los de todas las entidades del
+        // usuario; en modo clásico, solo los de la entidad activa.
         $contracts = \App\Models\Contract::query()
-            ->when($currentCompanyId, fn($q) => $q->where('company_id', $currentCompanyId))
+            ->when(is_array($scopeCompanyIds), fn($q) => $q->whereIn('company_id', $scopeCompanyIds ?: [0]))
             ->orderByDesc('is_active')
             ->orderByDesc('id')
             ->get(['id', 'number', 'name', 'is_active']);
 
+        // Datos del selector de alcance para la vista.
+        // $scopeEntities: entidades entre las que el usuario puede alternar el listado.
+        $scopeEntities = $user
+            ? \App\Models\Company::whereIn('id', $user->accessibleCompanyIds()->all() ?: [0])
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : collect();
+
         $data = array_merge(
-            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount', 'dateView', 'contracts'),
+            compact('serviceRequests', 'services', 'savedFilters', 'slaAlerts', 'dueAlerts', 'inCourseCount', 'inProcessCount', 'dateView', 'contracts', 'scope', 'scopeEntities'),
             $stats
         );
 
@@ -1215,6 +1263,61 @@ class ServiceRequestController extends Controller
         );
     }
 
+    /**
+     * Cola de trabajo: siguiente solicitud pendiente del usuario actual.
+     *
+     * Devuelve la próxima solicitud asignada al usuario que todavía requiere
+     * gestión (excluye estados muertos y la solicitud recién cerrada/resuelta),
+     * ordenada igual que "Mi Espacio": primero por estado operativo (lo que está
+     * en proceso antes que lo pendiente) y luego por criticidad. Es cross-entidad,
+     * porque el trabajo del técnico atraviesa varias entidades.
+     *
+     * @return ServiceRequest|null
+     */
+    private function nextPendingForUser(ServiceRequest $current): ?ServiceRequest
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return null;
+        }
+
+        return ServiceRequest::withoutGlobalScope('workspace')
+            ->where('assigned_to', $userId)
+            ->where('id', '!=', $current->id)
+            ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA', 'ARCHIVADA', 'NO_VIABLE', 'RESUELTA'])
+            ->orderByRaw("FIELD(status, 'EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO')")
+            ->orderByRaw("FIELD(criticality_level, 'CRITICA', 'ALTA', 'MEDIA', 'BAJA')")
+            ->orderBy('created_at')
+            ->first();
+    }
+
+    /**
+     * Redirección tras resolver/cerrar cuando se opera en modo "cola de trabajo".
+     *
+     * Si la petición trae queue=1, en vez de volver a la misma solicitud lleva al
+     * usuario directo a la siguiente pendiente de su cola. Si la cola quedó vacía,
+     * regresa a Mi Espacio con un aviso. Sin queue=1 devuelve null (el llamador
+     * conserva su redirección normal).
+     */
+    private function queueRedirect(Request $request, ServiceRequest $current, string $doneMessage): ?\Illuminate\Http\RedirectResponse
+    {
+        if (!$request->boolean('queue')) {
+            return null;
+        }
+
+        $next = $this->nextPendingForUser($current);
+
+        if ($next) {
+            return redirect()
+                ->route('service-requests.show', ['service_request' => $next->id, 'queue' => 1])
+                ->with('success', $doneMessage . ' Siguiente en tu cola: ' . $next->ticket_number . '.');
+        }
+
+        return redirect()
+            ->route('my-space.index')
+            ->with('success', $doneMessage . ' No quedan solicitudes pendientes en tu cola. ¡Cola al día!');
+    }
+
     public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
         $validated = $request->validate([
@@ -1282,6 +1385,10 @@ class ServiceRequestController extends Controller
                     ]);
                 }
 
+                if ($queued = $this->queueRedirect($request, $serviceRequest, 'Solicitud resuelta y cerrada correctamente.')) {
+                    return $queued;
+                }
+
                 return redirect()
                     ->route('service-requests.show', $serviceRequest)
                     ->with('success', 'Solicitud resuelta y cerrada correctamente.');
@@ -1292,6 +1399,10 @@ class ServiceRequestController extends Controller
                     ->with('success', $result['message'])
                     ->with('error', 'La solicitud fue resuelta pero no se pudo cerrar: ' . $e->getMessage());
             }
+        }
+
+        if ($result['success'] && ($queued = $this->queueRedirect($request, $serviceRequest, $result['message']))) {
+            return $queued;
         }
 
         return redirect()
@@ -1769,6 +1880,10 @@ class ServiceRequestController extends Controller
             $serviceRequest->refresh();
 
             $message = $isVencimiento ? 'Solicitud cerrada correctamente por vencimiento' : 'Solicitud cerrada correctamente';
+
+            if ($queued = $this->queueRedirect($request, $serviceRequest, $message)) {
+                return $queued;
+            }
 
             return redirect()->route('service-requests.show', $serviceRequest->id)->with('success', $message);
         } catch (\Exception $e) {
