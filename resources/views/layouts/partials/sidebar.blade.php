@@ -42,6 +42,7 @@
                 <a href="{{ route($section['route']) }}"
                    class="app-sidebar__item {{ $sectionActive ? 'app-sidebar__item--active' : '' }}"
                    @if($sectionActive) aria-current="page" @endif
+                   @click="mobileOpen = false"
                    title="{{ $section['label'] }}">
                     <i class="{{ $section['icon'] }} app-sidebar__icon"></i>
                     <span class="app-sidebar__label" x-show="!collapsed" x-cloak>{{ $section['label'] }}</span>
@@ -73,7 +74,8 @@
                             @php $linkActive = $isSectionActive($link['match'] ?? []); @endphp
                             <a href="{{ route($link['route']) }}"
                                class="app-sidebar__subitem {{ $linkActive ? 'app-sidebar__subitem--active' : '' }}"
-                               @if($linkActive) aria-current="page" @endif>
+                               @if($linkActive) aria-current="page" @endif
+                               @click="mobileOpen = false">
                                 <i class="{{ $link['icon'] }} app-sidebar__subicon"></i>
                                 <span>{{ $link['label'] }}</span>
                             </a>
@@ -91,7 +93,8 @@
                             @php $linkActive = $isSectionActive($link['match'] ?? []); @endphp
                             <a href="{{ route($link['route']) }}"
                                class="app-sidebar__subitem {{ $linkActive ? 'app-sidebar__subitem--active' : '' }}"
-                               @if($linkActive) aria-current="page" @endif>
+                               @if($linkActive) aria-current="page" @endif
+                               @click="mobileOpen = false">
                                 <i class="{{ $link['icon'] }} app-sidebar__subicon"></i>
                                 <span>{{ $link['label'] }}</span>
                             </a>
