@@ -38,10 +38,24 @@
                             @if($stats['overdue_tasks'] > 0)
                                 <span class="text-red-600 font-medium">{{ $stats['overdue_tasks'] }} vencida{{ $stats['overdue_tasks'] > 1 ? 's' : '' }}.</span>
                             @endif
-                        @elseif($stats['pending_tasks'] > 0)
-                            {{ $stats['pending_tasks'] }} tareas pendientes por organizar.
                         @else
-                            Sin tareas programadas hoy.
+                            {{-- Sin tareas de hoy: el subtítulo refleja el trabajo pendiente real
+                                 (solicitudes, evidencias, vencidas), coherente con el empty state. --}}
+                            @php
+                                $head = [];
+                                if (($stats['my_srs'] ?? 0) > 0) $head[] = $stats['my_srs'] . ' ' . ($stats['my_srs'] === 1 ? 'solicitud activa' : 'solicitudes activas');
+                                if (($stats['needs_evidence'] ?? 0) > 0) $head[] = $stats['needs_evidence'] . ' ' . ($stats['needs_evidence'] === 1 ? 'evidencia por subir' : 'evidencias por subir');
+                                if (($stats['pending_tasks'] ?? 0) > 0) $head[] = $stats['pending_tasks'] . ' por organizar';
+                            @endphp
+                            Sin tareas para hoy.
+                            @if($stats['overdue_tasks'] > 0)
+                                <span class="text-red-600 font-medium">{{ $stats['overdue_tasks'] }} {{ $stats['overdue_tasks'] === 1 ? 'tarea vencida' : 'tareas vencidas' }}.</span>
+                            @endif
+                            @if(count($head) > 0)
+                                <span class="text-gray-700 font-medium">{{ implode(' · ', $head) }}.</span>
+                            @elseif(($stats['overdue_tasks'] ?? 0) === 0)
+                                <span class="text-gray-400">Sin trabajo pendiente.</span>
+                            @endif
                         @endif
                     </p>
                 </div>
@@ -146,24 +160,67 @@
 
                 {{-- Lista de tareas de hoy --}}
                 @if($todayTasks->isEmpty())
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
-                        <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-indigo-50 flex items-center justify-center">
-                            <i class="fas fa-coffee text-xl text-indigo-400"></i>
+                    @php
+                        // Empty state HONESTO: "sin tareas hoy" no significa "sin trabajo".
+                        // Se reconoce lo que realmente está pendiente (solicitudes activas,
+                        // evidencias por subir, tareas pendientes/vencidas) y se dirige a ello.
+                        $hasPending = ($stats['my_srs'] ?? 0) > 0
+                            || ($stats['needs_evidence'] ?? 0) > 0
+                            || ($stats['pending_tasks'] ?? 0) > 0
+                            || ($stats['overdue_tasks'] ?? 0) > 0;
+                    @endphp
+                    <div class="bg-white rounded-2xl border {{ $hasPending ? 'border-amber-200' : 'border-gray-100' }} shadow-sm p-8 text-center">
+                        <div class="w-14 h-14 mx-auto mb-3 rounded-full {{ $hasPending ? 'bg-amber-50' : 'bg-green-50' }} flex items-center justify-center">
+                            <i class="fas {{ $hasPending ? 'fa-clipboard-check text-amber-500' : 'fa-mug-hot text-green-400' }} text-xl"></i>
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Sin tareas programadas hoy</h3>
-                        <p class="text-sm text-gray-500 mb-3">Organiza tareas pendientes o revisa la semana.</p>
-                        <div class="flex flex-wrap justify-center gap-2">
+
+                        @if($hasPending)
+                            <h3 class="text-base font-semibold text-gray-900 mb-1">Sin tareas programadas para hoy</h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Pero aún tienes trabajo pendiente:
+                                @php
+                                    $bits = [];
+                                    if (($stats['my_srs'] ?? 0) > 0) $bits[] = $stats['my_srs'] . ' ' . ($stats['my_srs'] === 1 ? 'solicitud activa' : 'solicitudes activas');
+                                    if (($stats['needs_evidence'] ?? 0) > 0) $bits[] = $stats['needs_evidence'] . ' ' . ($stats['needs_evidence'] === 1 ? 'evidencia por subir' : 'evidencias por subir');
+                                    if (($stats['overdue_tasks'] ?? 0) > 0) $bits[] = $stats['overdue_tasks'] . ' ' . ($stats['overdue_tasks'] === 1 ? 'tarea vencida' : 'tareas vencidas');
+                                    if (($stats['pending_tasks'] ?? 0) > 0) $bits[] = $stats['pending_tasks'] . ' por organizar';
+                                @endphp
+                                <span class="font-medium text-gray-800">{{ implode(' · ', $bits) }}.</span>
+                            </p>
+                            <div class="flex flex-wrap justify-center gap-2">
+                                @if(($stats['my_srs'] ?? 0) > 0)
+                                    <button type="button" @click="activeTab = 'requests'"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs font-semibold rounded-lg hover:bg-purple-700 transition">
+                                        <i class="fas fa-headset"></i> Ver mis solicitudes ({{ $stats['my_srs'] }})
+                                    </button>
+                                @endif
+                                @if(($stats['needs_evidence'] ?? 0) > 0)
+                                    <button type="button" @click="activeTab = 'today'"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-lg hover:bg-amber-600 transition">
+                                        <i class="fas fa-camera"></i> Subir evidencia ({{ $stats['needs_evidence'] }})
+                                    </button>
+                                @endif
+                                @if(($stats['pending_tasks'] ?? 0) > 0 || ($stats['overdue_tasks'] ?? 0) > 0)
+                                    <a href="#pendientes-tareas" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-gray-700 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition">
+                                        <i class="fas fa-inbox"></i> Tareas pendientes
+                                    </a>
+                                @endif
+                                @if($currentWorkspace)
+                                    <a href="{{ route('technician-schedule.my-agenda') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-indigo-700 text-xs font-medium rounded-lg border border-indigo-200 hover:bg-indigo-50 transition">
+                                        <i class="fas fa-calendar-plus"></i> Mi Agenda
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            {{-- Aquí sí es honesto el descanso: no hay nada pendiente. --}}
+                            <h3 class="text-base font-semibold text-gray-900 mb-1">Todo al día</h3>
+                            <p class="text-sm text-gray-500 mb-3">No tienes tareas de hoy ni trabajo pendiente. Buen momento para planear.</p>
                             @if($currentWorkspace)
                                 <a href="{{ route('technician-schedule.my-agenda') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition">
                                     <i class="fas fa-calendar-plus"></i> Mi Agenda
                                 </a>
                             @endif
-                            @if($stats['pending_tasks'] > 0)
-                                <a href="#pendientes-tareas" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg border border-amber-200 hover:bg-amber-100 transition">
-                                    <i class="fas fa-inbox"></i> {{ $stats['pending_tasks'] }} pendientes
-                                </a>
-                            @endif
-                        </div>
+                        @endif
                     </div>
                 @else
                     <div class="space-y-2">
@@ -198,25 +255,15 @@
                     </div>
                 @endif
 
-                {{-- Resumen rápido --}}
+                {{-- Resumen rápido: solo métricas que NO están ya en la cabecera-KPI
+                     (Hoy/Hechas/Cobertura/Alertas/SRs) ni en el bloque "Evidencia
+                     pendiente". Se evita repetir SRs, Cobertura y Sin evidencia. --}}
                 <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Resumen</h3>
                     <dl class="space-y-2">
                         <div class="flex justify-between items-center">
                             <dt class="text-sm text-gray-600">Tareas bloqueadas</dt>
                             <dd class="text-base font-bold {{ $stats['blocked_tasks'] > 0 ? 'text-red-600' : 'text-gray-400' }}">{{ $stats['blocked_tasks'] }}</dd>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-600">Sin evidencia</dt>
-                            <dd class="text-base font-bold {{ $stats['needs_evidence'] > 0 ? 'text-amber-600' : 'text-gray-400' }}">{{ $stats['needs_evidence'] }}</dd>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-600">Solicitudes activas</dt>
-                            <dd class="text-base font-bold text-purple-600">{{ $stats['my_srs'] }}</dd>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <dt class="text-sm text-gray-600">Cobertura familias</dt>
-                            <dd class="text-base font-bold {{ $stats['at_risk_families'] > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $coverageGlobal['covered_families'] }}/{{ $coverageGlobal['total_families'] }}</dd>
                         </div>
                         <div class="flex justify-between items-center">
                             <dt class="text-sm text-gray-600">Próximos 7 días</dt>
