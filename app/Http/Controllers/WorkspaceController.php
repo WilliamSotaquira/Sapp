@@ -100,9 +100,14 @@ class WorkspaceController extends Controller
                     'plain_text_import_text' => $preserveText,
                     '__open_plain_text_import' => '1',
                 ]);
+
+                // Mensaje específico del intérprete de texto (hay texto que reinterpretar).
+                return redirect($redirectTo)->with('success', 'Contrato cambiado. Interpreta el texto de nuevo.');
             }
 
-            return redirect($redirectTo)->with('success', 'Contrato cambiado. Interpreta el texto de nuevo.');
+            // Cambio desde el selector del navbar (u otra pantalla): se preserva la
+            // página actual, así que basta con confirmar el cambio de entidad.
+            return redirect($redirectTo)->with('success', 'Entidad activa actualizada.');
         }
 
         return redirect()->intended(route('dashboard'))->with('success', 'Contrato activo actualizado.');
