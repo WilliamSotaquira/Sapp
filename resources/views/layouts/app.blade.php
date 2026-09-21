@@ -136,7 +136,8 @@
             right: 0;
         }
 
-        .dropdown-menu a {
+        .dropdown-menu a,
+        .dropdown-menu form > button {
             display: flex;
             align-items: flex-start;
             gap: 0.5rem;
@@ -155,6 +156,13 @@
         .dropdown-menu a:hover,
         .dropdown-menu a.bg-red-700 {
             background-color: #b91c1c;
+        }
+
+        /* El selector de workspace usa <button> dentro de <form>; su color lo
+           manejan clases Tailwind. Solo se refuerza el hover neutro para que no
+           tome el rojo de los enlaces de navegación. */
+        .dropdown-menu form > button:hover {
+            background-color: #f3f4f6;
         }
 
         /* Estilos mejorados para los logos */
@@ -631,22 +639,68 @@
                 <div class="flex items-center space-x-1 sm:space-x-2 lg:space-x-4">
                     @auth
                         @if(isset($currentWorkspace))
-                            {{-- Workspace badge compacto --}}
-                            <a href="{{ route('workspaces.select') }}"
-                               class="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-                               title="{{ $workspaceDisplayName }} - {{ $activeContractLabel }}">
-                                @if ($workspaceLogo)
-                                    <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white shrink-0">
-                                        <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.75rem] max-h-[1.75rem] object-contain">
+                            @php
+                                $switchableContracts = isset($userContracts) ? $userContracts : collect();
+                                $currentContractId = $currentContract->id ?? null;
+                                $currentRedirect = request()->fullUrl();
+                            @endphp
+                            {{-- Selector de workspace: dropdown para cambiar de entidad/contrato --}}
+                            {{-- SIN salir de la pantalla actual (preserva redirect_to = URL actual). --}}
+                            <div class="relative hidden md:block" data-dropdown="workspace">
+                                <button type="button"
+                                        class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
+                                        data-dropdown-toggle="workspace" aria-expanded="false" aria-haspopup="true"
+                                        title="{{ $workspaceDisplayName }} - {{ $activeContractLabel }}">
+                                    @if ($workspaceLogo)
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white shrink-0">
+                                            <img src="{{ $workspaceLogo }}" alt="{{ $workspaceDisplayName }}" class="max-w-[1.75rem] max-h-[1.75rem] object-contain">
+                                        </div>
+                                    @else
+                                        <i class="fas fa-building text-base text-white/80"></i>
+                                    @endif
+                                    <div class="min-w-0 hidden lg:block text-left">
+                                        <p class="text-sm font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
+                                        <p class="text-xs text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
                                     </div>
-                                @else
-                                    <i class="fas fa-building text-base text-white/80"></i>
-                                @endif
-                                <div class="min-w-0 hidden lg:block">
-                                    <p class="text-sm font-semibold text-white leading-tight truncate">{{ $workspaceDisplayName }}</p>
-                                    <p class="text-xs text-white/70 leading-none truncate">{{ $activeContractLabel }}</p>
+                                    <i class="fas fa-chevron-down text-xs text-white/70 ml-0.5"></i>
+                                </button>
+
+                                <div class="dropdown-menu" data-dropdown-menu="workspace">
+                                    <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                        Cambiar de entidad
+                                    </div>
+                                    @forelse ($switchableContracts as $contract)
+                                        @php
+                                            $isCurrent = (int) $contract->id === (int) $currentContractId;
+                                            $entityName = $contract->company->name ?? 'Entidad';
+                                            $contractLabel = $contract->number ?: $contract->name;
+                                        @endphp
+                                        <form method="POST" action="{{ route('workspaces.switch') }}" class="block">
+                                            @csrf
+                                            <input type="hidden" name="contract_id" value="{{ $contract->id }}">
+                                            <input type="hidden" name="redirect_to" value="{{ $currentRedirect }}">
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-2 text-left {{ $isCurrent ? 'bg-red-50' : '' }}"
+                                                    @if($isCurrent) aria-current="true" @endif>
+                                                <i class="fas fa-building text-gray-400 w-4 text-center"></i>
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block text-sm text-gray-800 truncate">{{ $entityName }}</span>
+                                                    <span class="block text-xs text-gray-400 truncate">{{ $contractLabel }}</span>
+                                                </span>
+                                                @if($isCurrent)
+                                                    <i class="fas fa-check text-red-600 text-xs"></i>
+                                                @endif
+                                            </button>
+                                        </form>
+                                    @empty
+                                        <div class="px-3 py-2 text-sm text-gray-500">Sin entidades disponibles</div>
+                                    @endforelse
+                                    <a href="{{ route('workspaces.select') }}" class="border-t border-gray-100 text-gray-500">
+                                        <i class="fas fa-sliders-h"></i>
+                                        Ver todas / pantalla completa
+                                    </a>
                                 </div>
-                            </a>
+                            </div>
                         @endif
 
                         {{-- Campana de alertas con dropdown --}}
@@ -709,15 +763,45 @@
                     class="mobile-menu lg:hidden bg-red-700 mt-2 rounded-2xl shadow-xl overflow-hidden hidden">
                     <div class="py-4 px-4 space-y-3">
                         @if(isset($currentWorkspace))
-                            <a href="{{ route('workspaces.select') }}" class="block bg-white/10 rounded-2xl p-3 hover:bg-white/20 transition">
-                                <div class="flex items-center justify-between gap-3">
+                            @php
+                                $mobileContracts = isset($userContracts) ? $userContracts : collect();
+                                $mobileCurrentContractId = $currentContract->id ?? null;
+                                $mobileRedirect = request()->fullUrl();
+                            @endphp
+                            <div class="bg-white/10 rounded-2xl p-3">
+                                <div class="flex items-center justify-between gap-3 mb-1">
                                     <div class="min-w-0">
                                         <p class="text-base text-white font-semibold truncate">{{ $workspaceDisplayName }}</p>
                                         <p class="text-sm text-white/80 truncate">{{ $activeContractLabel }}</p>
                                     </div>
-                                    <i class="fas fa-chevron-right text-white/80 text-xs"></i>
+                                    <i class="fas fa-building text-white/70"></i>
                                 </div>
-                            </a>
+                                @if($mobileContracts->count() > 1)
+                                    <p class="text-[11px] uppercase tracking-wide text-white/60 mt-2 mb-1">Cambiar de entidad</p>
+                                    <div class="space-y-1">
+                                        @foreach($mobileContracts as $contract)
+                                            @php
+                                                $isCurrent = (int) $contract->id === (int) $mobileCurrentContractId;
+                                                $entityName = $contract->company->name ?? 'Entidad';
+                                            @endphp
+                                            @if(!$isCurrent)
+                                                <form method="POST" action="{{ route('workspaces.switch') }}">
+                                                    @csrf
+                                                    <input type="hidden" name="contract_id" value="{{ $contract->id }}">
+                                                    <input type="hidden" name="redirect_to" value="{{ $mobileRedirect }}">
+                                                    <button type="submit" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-white/90 hover:bg-white/15 transition">
+                                                        <i class="fas fa-arrow-right-arrow-left text-xs text-white/60"></i>
+                                                        <span class="truncate">{{ $entityName }} · {{ $contract->number ?: $contract->name }}</span>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                @endif
+                                <a href="{{ route('workspaces.select') }}" class="mt-2 flex items-center gap-2 text-xs text-white/70 hover:text-white transition">
+                                    <i class="fas fa-sliders-h"></i> Ver todas / pantalla completa
+                                </a>
+                            </div>
                         @endif
 
                         @foreach ($navSections as $section)
