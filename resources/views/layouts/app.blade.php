@@ -332,10 +332,209 @@
                 opacity: 0;
             }
         }
+
+        /* ===================================================================
+           APP SHELL + SIDEBAR (navegación lateral)
+           =================================================================== */
+        :root {
+            --sidebar-w: 240px;
+            --sidebar-w-collapsed: 64px;
+            --sidebar-accent: {{ $workspaceAccent ?? '#DC2626' }};
+        }
+
+        /* Ocultar el navbar superior legacy (se retira en la fase 8). */
+        .app-legacy-nav { display: none !important; }
+
+        /* Sidebar fijo a la izquierda. */
+        .app-sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w);
+            background: #7f1d1d; /* rojo oscuro SAPP */
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+            transition: width 0.2s ease, transform 0.2s ease;
+            border-right: 3px solid var(--sidebar-accent);
+        }
+        .app-shell--collapsed .app-sidebar { width: var(--sidebar-w-collapsed); }
+
+        /* Columna de contenido: deja espacio para el sidebar. */
+        .app-main {
+            margin-left: var(--sidebar-w);
+            min-height: 100vh;
+            transition: margin-left 0.2s ease;
+        }
+        .app-shell--collapsed .app-main { margin-left: var(--sidebar-w-collapsed); }
+
+        /* Marca / logo */
+        .app-sidebar__brand {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 0.5rem; padding: 0.85rem 0.9rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .app-sidebar__brand-link { display: flex; align-items: center; gap: 0.6rem; color: #fff; font-weight: 700; }
+        .app-sidebar__brand-logo { width: 2rem; height: 2rem; border-radius: 0.375rem; }
+        .app-sidebar__brand-text { font-size: 1.05rem; letter-spacing: 0.05em; }
+        .app-sidebar__collapse-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
+            color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08);
+        }
+        .app-sidebar__collapse-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        .app-shell--collapsed .app-sidebar__collapse-btn { margin: 0 auto; }
+
+        /* Navegación */
+        .app-sidebar__nav { flex: 1; overflow-y: auto; padding: 0.5rem 0.5rem; }
+        .app-sidebar__nav::-webkit-scrollbar { width: 6px; }
+        .app-sidebar__nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .app-sidebar__item {
+            display: flex; align-items: center; gap: 0.75rem;
+            width: 100%; padding: 0.6rem 0.7rem; border-radius: 0.5rem;
+            color: rgba(255,255,255,0.85); font-size: 0.9rem; font-weight: 500;
+            text-align: left; transition: background 0.15s ease, color 0.15s ease;
+        }
+        .app-sidebar__item:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .app-sidebar__item--active {
+            background: rgba(255,255,255,0.16); color: #fff;
+            box-shadow: inset 3px 0 0 var(--sidebar-accent);
+        }
+        .app-sidebar__icon { width: 1.25rem; text-align: center; flex-shrink: 0; }
+        .app-sidebar__label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-sidebar__chevron { font-size: 0.7rem; transition: transform 0.2s ease; }
+        .app-sidebar__chevron--open { transform: rotate(180deg); }
+        .app-sidebar__group-toggle { cursor: pointer; }
+
+        /* Submenú (modo expandido) */
+        .app-sidebar__submenu { padding: 0.15rem 0 0.25rem 0.5rem; }
+        .app-sidebar__subitem {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.45rem 0.7rem; border-radius: 0.45rem;
+            color: rgba(255,255,255,0.75); font-size: 0.85rem;
+        }
+        .app-sidebar__subitem:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .app-sidebar__subitem--active { color: #fff; font-weight: 600; background: rgba(255,255,255,0.12); }
+        .app-sidebar__subicon { width: 1rem; text-align: center; flex-shrink: 0; opacity: 0.85; }
+
+        /* En modo colapsado, centrar íconos y ocultar textos/chevron. */
+        .app-shell--collapsed .app-sidebar__item { justify-content: center; padding: 0.6rem 0; }
+        .app-shell--collapsed .app-sidebar__nav { padding: 0.5rem 0.35rem; }
+
+        /* Flyout (modo rail): panel lateral con los sub-ítems. */
+        .app-sidebar__group { position: relative; }
+        .app-sidebar__flyout {
+            position: absolute; left: 100%; top: 0; margin-left: 0.4rem;
+            min-width: 200px; background: #fff; color: #374151;
+            border-radius: 0.6rem; box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            padding: 0.4rem; z-index: 60;
+        }
+        .app-sidebar__flyout-title {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #9ca3af; padding: 0.3rem 0.6rem; font-weight: 700;
+        }
+        .app-sidebar__flyout .app-sidebar__subitem { color: #374151; }
+        .app-sidebar__flyout .app-sidebar__subitem:hover { background: #f3f4f6; color: #b91c1c; }
+        .app-sidebar__flyout .app-sidebar__subitem--active { background: #fef2f2; color: #b91c1c; }
+
+        /* Footer del sidebar (context: workspace/alertas/usuario). */
+        .app-sidebar__footer { border-top: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; }
+        .app-footer { display: flex; flex-direction: column; gap: 0.25rem; }
+        .app-footer__block { position: relative; }
+        .app-footer__btn {
+            display: flex; align-items: center; gap: 0.6rem; width: 100%;
+            padding: 0.5rem 0.6rem; border-radius: 0.5rem;
+            color: rgba(255,255,255,0.85); font-size: 0.85rem; text-align: left;
+        }
+        .app-footer__btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .app-shell--collapsed .app-footer__btn { justify-content: center; padding: 0.5rem 0; }
+        .app-footer__icon { width: 1.25rem; text-align: center; }
+        .app-footer__icon-wrap { position: relative; display: inline-flex; }
+        .app-footer__badge {
+            position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 9999px; background: #fff; color: #b91c1c;
+            font-size: 9px; font-weight: 700; padding: 0 3px;
+        }
+        .app-footer__ws-logo {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.9rem; height: 1.9rem; border-radius: 0.4rem; background: #fff; flex-shrink: 0;
+        }
+        .app-footer__ws-logo img { max-width: 1.4rem; max-height: 1.4rem; object-fit: contain; }
+        .app-footer__ws-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+        .app-footer__ws-name { font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-footer__ws-contract { font-size: 0.7rem; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-footer__chevron { font-size: 0.65rem; color: rgba(255,255,255,0.6); }
+        .app-footer__label { flex: 1; }
+
+        /* Menús emergentes del footer (workspace/alertas): salen hacia arriba. */
+        .app-footer__menu {
+            position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 0.4rem;
+            background: #fff; color: #374151; border-radius: 0.6rem;
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.2); padding: 0.35rem; z-index: 60;
+            max-height: 60vh; overflow-y: auto;
+        }
+        .app-footer__menu--alerts { width: 20rem; left: 0; }
+        .app-shell--collapsed .app-footer__menu { left: 100%; right: auto; bottom: 0; margin-bottom: 0; margin-left: 0.4rem; width: 20rem; }
+        .app-footer__menu-title {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #9ca3af; padding: 0.35rem 0.6rem; font-weight: 700;
+        }
+        .app-footer__menu-item {
+            display: flex; align-items: center; gap: 0.5rem; width: 100%;
+            padding: 0.5rem 0.6rem; border-radius: 0.45rem; text-align: left; font-size: 0.85rem; color: #374151;
+        }
+        .app-footer__menu-item:hover { background: #f3f4f6; }
+        .app-footer__menu-item--current { background: #fef2f2; }
+        .app-footer__menu-empty { padding: 0.5rem 0.6rem; color: #9ca3af; font-size: 0.85rem; }
+        .app-footer__menu-link {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem;
+            border-top: 1px solid #f3f4f6; color: #6b7280; font-size: 0.8rem;
+        }
+        .app-footer__menu-link:hover { color: #b91c1c; }
+        .app-footer__user {
+            display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem;
+            color: rgba(255,255,255,0.85); font-size: 0.85rem;
+        }
+        .app-shell--collapsed .app-footer__user { justify-content: center; padding: 0.5rem 0; }
+        .app-footer__user-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-footer__logout button {
+            width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 0.4rem; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85);
+        }
+        .app-footer__logout button:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* Topbar mínima (hamburguesa en móvil). */
+        .app-topbar { display: none; }
+        .app-topbar__hamburger {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.5rem; height: 2.5rem; border-radius: 0.5rem;
+            color: #7f1d1d; background: #fff; border: 1px solid #e5e7eb;
+        }
+        .app-shell__backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 45;
+        }
+
+        /* ---------- Responsive: drawer en < lg ---------- */
+        @media (max-width: 1023px) {
+            .app-sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-w);
+            }
+            .app-sidebar--mobile-open { transform: translateX(0); }
+            .app-shell--collapsed .app-sidebar { width: var(--sidebar-w); } /* en móvil siempre expandido */
+            .app-main, .app-shell--collapsed .app-main { margin-left: 0; }
+            .app-topbar {
+                display: flex; align-items: center; gap: 0.75rem;
+                padding: 0.6rem 0.9rem; background: #fff;
+                border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 40;
+            }
+        }
     </style>
 </head>
 
-<body class="bg-gray-100 overflow-x-hidden">
+<body class="bg-gray-100 overflow-x-hidden" x-data="appShell()" x-init="init()" :class="{ 'app-shell--collapsed': collapsed }">
     @php
         // $navSections y $isSectionActive los provee App\View\Composers\NavigationComposer
         // (registrado en AppServiceProvider). Aquí solo se derivan las variables de
@@ -362,8 +561,15 @@
             $workspaceLogo = asset('cultura.png');
         }
     @endphp
-    <!-- Navigation -->
-    <nav class="bg-red-600 text-white shadow-lg border-b-4" id="mainNavigation"
+    {{-- ===== SIDEBAR (nueva navegación lateral) ===== --}}
+    @auth
+        @include('layouts.partials.sidebar')
+        {{-- Backdrop del drawer móvil --}}
+        <div class="app-shell__backdrop" x-show="mobileOpen" x-cloak @click="mobileOpen = false"></div>
+    @endauth
+
+    {{-- Navegación superior LEGACY: oculta por CSS (.app-legacy-nav). Se retira en la fase 8. --}}
+    <nav class="bg-red-600 text-white shadow-lg border-b-4 app-legacy-nav" id="mainNavigation"
         style="border-bottom-color: {{ $workspaceAccent }};">
         <div class="w-full px-2 sm:px-4 lg:px-6">
             <div class="flex justify-between items-center py-2 sm:py-3 md:py-4">
@@ -491,24 +697,26 @@
                             </div>
                         @endif
 
-                        {{-- Campana de alertas con dropdown --}}
-                        <div class="relative" id="alertBellWrapper">
+                        {{-- Campana de alertas con dropdown (LEGACY: ids renombrados para no
+                             colisionar con la campana del sidebar-footer, que es la activa.
+                             Este bloque se elimina en la fase 8.) --}}
+                        <div class="relative" id="alertBellWrapper-legacy">
                             <button type="button"
                                class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 transition"
                                title="Alertas operativas"
-                               id="navAlertBell">
+                               id="navAlertBell-legacy">
                                 <i class="fas fa-bell text-base text-white/90"></i>
-                                <span id="navAlertBadge" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-0.5">
+                                <span id="navAlertBadge-legacy" class="hidden absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-white text-red-600 text-[9px] font-bold leading-none px-0.5">
                                 </span>
                             </button>
 
                             {{-- Dropdown de alertas recientes --}}
-                            <div id="alertDropdown" class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                            <div id="alertDropdown-legacy" class="hidden absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
                                 <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
                                     <span class="text-sm font-semibold text-gray-800">Alertas recientes</span>
                                     <a href="{{ route('operational-alerts.index') }}" class="text-xs text-red-600 hover:text-red-700 font-medium">Ver todas</a>
                                 </div>
-                                <div id="alertDropdownList" class="max-h-[300px] overflow-y-auto">
+                                <div id="alertDropdownList-legacy" class="max-h-[300px] overflow-y-auto">
                                     <div class="px-4 py-6 text-center text-xs text-gray-400">
                                         <i class="fas fa-spinner fa-spin mr-1"></i> Cargando...
                                     </div>
@@ -634,7 +842,21 @@
     </nav>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
+    <div class="app-main" @auth :class="{ 'app-main--has-sidebar': true }" @endauth>
+        {{-- Topbar mínima: hamburguesa (móvil) + accesos de contexto. --}}
+        @auth
+            <header class="app-topbar">
+                <button type="button" class="app-topbar__hamburger" @click="mobileOpen = !mobileOpen"
+                        aria-label="Abrir menú" :aria-expanded="mobileOpen.toString()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <a href="{{ route('my-space.index') }}" class="app-topbar__brand" title="Inicio">
+                    <img src="/logo_sapp_xs.png" alt="SAPP" class="h-7 w-7 rounded">
+                </a>
+            </header>
+        @endauth
+
+        <div class="app-main__inner max-w-7xl mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 lg:px-8">
         <!-- Flash Messages (toast flotante para evitar salto de layout) -->
         @if (!($__env->hasSection('disableGlobalFlash')) && (session('success') || session('error') || session('info')))
             <div class="fixed top-20 right-4 z-50 w-[calc(100%-2rem)] sm:w-auto sm:max-w-md space-y-2">
@@ -700,7 +922,8 @@
 
         <!-- Page Content -->
         @yield('content')
-    </div>
+        </div>{{-- /app-main__inner --}}
+    </div>{{-- /app-main --}}
 
     <!-- Scripts -->
     <script>
@@ -1063,6 +1286,63 @@
         updateAlertBadge();
         setInterval(updateAlertBadge, 60000);
     })();
+    </script>
+
+    {{-- Estado del app-shell (sidebar): colapso, grupos, flyouts y drawer móvil. --}}
+    <script>
+        function appShell() {
+            return {
+                collapsed: false,
+                mobileOpen: false,
+                openGroup: null,   // grupo expandido en modo expandido
+                flyout: null,      // grupo con flyout abierto en modo rail
+
+                init() {
+                    // Restaurar preferencia de colapso (solo navegador).
+                    try {
+                        this.collapsed = localStorage.getItem('sapp_sidebar_collapsed') === '1';
+                    } catch (e) {
+                        this.collapsed = false;
+                    }
+                    // Abrir por defecto el grupo de la sección activa (dato inyectado abajo).
+                    if (window.__sappActiveGroup) {
+                        this.openGroup = window.__sappActiveGroup;
+                    }
+                    // Cerrar el drawer móvil al cambiar de tamaño a desktop.
+                    window.addEventListener('resize', () => {
+                        if (window.innerWidth >= 1024) this.mobileOpen = false;
+                    });
+                },
+
+                toggleCollapsed() {
+                    this.collapsed = !this.collapsed;
+                    try {
+                        localStorage.setItem('sapp_sidebar_collapsed', this.collapsed ? '1' : '0');
+                    } catch (e) {}
+                    // Al colapsar, cerrar grupos expandidos; al expandir, cerrar flyouts.
+                    if (this.collapsed) { this.openGroup = null; }
+                    else { this.flyout = null; }
+                },
+
+                toggleGroup(key) {
+                    this.openGroup = this.openGroup === key ? null : key;
+                },
+
+                isGroupOpen(key) {
+                    return this.openGroup === key;
+                },
+            };
+        }
+    </script>
+    {{-- Sección activa para abrir su grupo por defecto en el sidebar. --}}
+    <script>
+        @php
+            $activeGroupKey = null;
+            foreach ($navSections as $s) {
+                if ($isSectionActive($s['match'] ?? [])) { $activeGroupKey = $s['key']; break; }
+            }
+        @endphp
+        window.__sappActiveGroup = @json($activeGroupKey);
     </script>
 
     <script src="//unpkg.com/alpinejs" defer></script>
