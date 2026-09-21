@@ -21,7 +21,7 @@
             <img src="/logo_sapp_xs.png" alt="Sistema Sapp" class="app-sidebar__brand-logo">
             <span class="app-sidebar__brand-text" x-show="!collapsed" x-cloak>SAPP</span>
         </a>
-        {{-- Toggle de colapso (solo desktop) --}}
+        {{-- Toggle de colapso/expansión (siempre visible en desktop) --}}
         <button type="button"
                 class="app-sidebar__collapse-btn"
                 @click="toggleCollapsed()"
@@ -48,15 +48,14 @@
                     <span class="app-sidebar__label" x-show="!collapsed" x-cloak>{{ $section['label'] }}</span>
                 </a>
             @else
-                {{-- Sección con sub-ítems: grupo expandible (expanded) / flyout (rail) --}}
+                {{-- Sección con sub-ítems: grupo expandible (expanded) / flyout por CLIC (rail) --}}
                 <div class="app-sidebar__group"
                      data-group="{{ $section['key'] }}"
-                     @mouseenter="collapsed && (flyout = '{{ $section['key'] }}')"
-                     @mouseleave="collapsed && (flyout = null)">
+                     @click.outside="flyout === '{{ $section['key'] }}' && (flyout = null)">
                     <button type="button"
                             class="app-sidebar__item app-sidebar__group-toggle {{ $sectionActive ? 'app-sidebar__item--active' : '' }}"
-                            @click="collapsed ? null : toggleGroup('{{ $section['key'] }}')"
-                            :aria-expanded="(isGroupOpen('{{ $section['key'] }}') && !collapsed).toString()"
+                            @click="collapsed ? (flyout = (flyout === '{{ $section['key'] }}' ? null : '{{ $section['key'] }}')) : toggleGroup('{{ $section['key'] }}')"
+                            :aria-expanded="(collapsed ? flyout === '{{ $section['key'] }}' : isGroupOpen('{{ $section['key'] }}')).toString()"
                             aria-haspopup="true"
                             title="{{ $section['label'] }}">
                         <i class="{{ $section['icon'] }} app-sidebar__icon"></i>
@@ -82,12 +81,10 @@
                         @endforeach
                     </div>
 
-                    {{-- Flyout lateral (modo rail): aparece al hover sobre el ícono --}}
+                    {{-- Flyout lateral (modo rail): aparece al hacer CLIC sobre el ícono --}}
                     <div class="app-sidebar__flyout"
                          x-show="collapsed && flyout === '{{ $section['key'] }}'"
-                         x-cloak
-                         @mouseenter="flyout = '{{ $section['key'] }}'"
-                         @mouseleave="flyout = null">
+                         x-cloak x-transition>
                         <div class="app-sidebar__flyout-title">{{ $section['label'] }}</div>
                         @foreach ($section['links'] as $link)
                             @php $linkActive = $isSectionActive($link['match'] ?? []); @endphp
