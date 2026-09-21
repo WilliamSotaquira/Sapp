@@ -566,13 +566,41 @@ class ServiceRequestService
             });
         }
 
-        // Empresa
-        $companyId = !empty($filters['company_id']) ? (int) $filters['company_id'] : null;
-        if (!$companyId) {
+        // Alcance por entidad.
+        //
+        // Modo "todas mis entidades" (scope=all): el técnico administra portales de
+        // varias entidades, así que el listado deja de estar amarrado a la entidad
+        // activa en sesión y muestra el trabajo de TODAS las entidades a las que el
+        // usuario tiene acceso. Por seguridad se acota a accessibleCompanyIds(): un
+        // usuario no-admin nunca ve entidades ajenas, aunque no haya muro de sesión.
+        //
+        // Modo entidad concreta: si llega company_id explícito, filtra a esa entidad;
+        // si no, cae al comportamiento clásico (entidad activa en sesión).
+        $scopeAll = ($filters['scope'] ?? null) === 'all';
+        $explicitCompanyId = !empty($filters['company_id']) ? (int) $filters['company_id'] : null;
+
+        if ($explicitCompanyId) {
+            // Un filtro de entidad explícito siempre manda.
+            $query->where('company_id', $explicitCompanyId);
+        } elseif ($scopeAll) {
+            // Sin muro de sesión, pero acotado a las entidades del usuario.
+            // Se rompe el global scope 'workspace' para no re-aplicar la entidad activa.
+            $query->withoutGlobalScope('workspace');
+
+            $user = auth()->user();
+            if ($user && !$user->isAdmin()) {
+                $accessibleIds = $user->accessibleCompanyIds();
+                // whereIn con lista vacía => sin resultados (correcto: el usuario no
+                // tiene entidades asignadas, no debe ver nada global).
+                $query->whereIn('company_id', $accessibleIds->all() ?: [0]);
+            }
+            // Admin en scope=all: ve todas las entidades (sin restricción adicional).
+        } else {
+            // Comportamiento clásico: entidad activa en sesión.
             $companyId = (int) session('current_company_id');
-        }
-        if ($companyId > 0) {
-            $query->where('company_id', $companyId);
+            if ($companyId > 0) {
+                $query->where('company_id', $companyId);
+            }
         }
 
         // Contrato (filtro opcional): permite separar el histórico por contrato

@@ -269,6 +269,24 @@
                 <p class="text-sm text-gray-500">No tienes solicitudes activas asignadas.</p>
             </div>
         @else
+            {{-- Cola de trabajo: abre la primera solicitud en modo cola. Al resolver/cerrar --}}
+            {{-- cada una, el sistema salta directo a la siguiente sin volver al listado. --}}
+            @php
+                $queueFirst = $myServiceRequests->first(fn($s) => in_array($s->status, ['EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO'], true));
+            @endphp
+            @if($queueFirst && $currentWorkspace)
+                <div class="mb-3 flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-indigo-900"><i class="fas fa-stream mr-1.5"></i>Cola de trabajo</p>
+                        <p class="text-xs text-indigo-700/80 mt-0.5">Atiende tus solicitudes una tras otra. Al resolver o cerrar cada una, saltas directo a la siguiente.</p>
+                    </div>
+                    <a href="{{ route('service-requests.show', ['service_request' => $queueFirst->id, 'queue' => 1]) }}"
+                       class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow-sm hover:bg-indigo-700 transition">
+                        <i class="fas fa-play"></i>
+                        <span>Trabajar mi cola</span>
+                    </a>
+                </div>
+            @endif
             <div class="space-y-2">
                 @foreach($myServiceRequests as $sr)
                     @php

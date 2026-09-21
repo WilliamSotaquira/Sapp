@@ -38,6 +38,18 @@
         }
     @endphp
 
+    @php $queueMode = request()->boolean('queue'); @endphp
+    @if ($queueMode)
+        {{-- Modo cola activo: al resolver/cerrar esta solicitud se salta a la siguiente. --}}
+        <div class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm">
+            <span class="flex items-center gap-2 font-semibold text-indigo-800">
+                <i class="fas fa-stream"></i>
+                Trabajando tu cola — al resolver o cerrar saltarás a la siguiente pendiente.
+            </span>
+            <a href="{{ route('my-space.index') }}?tab=requests" class="text-xs font-semibold text-indigo-700 hover:text-indigo-900">Salir de la cola</a>
+        </div>
+    @endif
+
     <div class="sr-view space-y-4 sm:space-y-6 {{ $isDeadState ? 'sr-dead-state' : '' }}">
         <div class="flex items-center justify-between gap-2 rounded-md border {{ $isDeadState ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-slate-100 bg-white text-slate-600' }} px-3 py-1.5 text-xs"
             id="requestNavigation"
@@ -1124,7 +1136,30 @@
             }, true);
 
             setupNavigationInteractions();
+            setupQueueMode();
         });
+
+        // Modo cola: si la solicitud se abrió con ?queue=1, propagar queue=1 en los
+        // formularios de resolver/cerrar para que el backend salte a la siguiente
+        // pendiente en lugar de volver a esta misma solicitud.
+        function setupQueueMode() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('queue') !== '1') {
+                return;
+            }
+            // Marcar cualquier formulario cuyo action apunte a resolve/close/close-vencimiento.
+            var forms = document.querySelectorAll('form[action*="/resolve"], form[action*="/close"]');
+            forms.forEach(function (form) {
+                if (form.querySelector('input[name="queue"]')) {
+                    return;
+                }
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'queue';
+                input.value = '1';
+                form.appendChild(input);
+            });
+        }
 
         function setupNavigationInteractions() {
             const navContainer = document.getElementById('requestNavigation');

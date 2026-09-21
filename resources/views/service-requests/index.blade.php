@@ -20,7 +20,7 @@
 
 @section('content')
     <!-- Header Principal -->
-    <x-service-requests.index.header.main-header />
+    <x-service-requests.index.header.main-header :scope="$scope ?? 'current'" :scopeEntities="$scopeEntities ?? null" />
 
     <div class="space-y-3 md:space-y-6" id="resultsContainer">
         @if(($slaAlerts['overdue'] ?? 0) > 0 || ($slaAlerts['dueSoon'] ?? 0) > 0 || ($dueAlerts['overdue'] ?? 0) > 0 || ($dueAlerts['dueSoon'] ?? 0) > 0)
@@ -339,6 +339,13 @@
         if (endDate) params.append('end_date', endDate);
         if (dateView) params.append('date_view', dateView);
         if (el.open && el.open.value) params.append('open', el.open.value);
+        // Preservar el alcance activo (todas mis entidades / entidad concreta) al
+        // filtrar por AJAX. Sin esto, buscar tras elegir "Todas mis entidades"
+        // volvería al modo clásico (entidad activa en sesión).
+        var currentUrl = new URLSearchParams(window.location.search);
+        if (currentUrl.get('scope') === 'all') params.append('scope', 'all');
+        var currentCompanyId = currentUrl.get('company_id');
+        if (currentCompanyId) params.append('company_id', currentCompanyId);
         return params;
     }
 
