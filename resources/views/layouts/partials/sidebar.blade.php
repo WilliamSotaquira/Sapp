@@ -13,23 +13,24 @@
 <aside id="appSidebar"
        class="app-sidebar"
        :class="{ 'app-sidebar--collapsed': collapsed, 'app-sidebar--mobile-open': mobileOpen }"
+       @mouseenter="expandOnHover()"
+       @mouseleave="collapseOnLeave()"
        aria-label="Navegación principal">
 
     {{-- ===== Logo / marca ===== --}}
+    {{-- Logo alargado (con nombre) cuando está expandido; logo cuadrado cuando
+         está colapsado. El menú se expande al pasar el mouse y se colapsa al salir. --}}
     <div class="app-sidebar__brand">
         <a href="{{ route('my-space.index') }}" class="app-sidebar__brand-link" title="Ir al inicio">
-            <img src="/logo_sapp_xs.png" alt="Sistema Sapp" class="app-sidebar__brand-logo">
-            <span class="app-sidebar__brand-text" x-show="!collapsed" x-cloak>SAPP</span>
+            <img src="/sapp_logo_lg.png" alt="Sistema Sapp" class="app-sidebar__brand-logo-full"
+                 x-show="!collapsed" x-cloak
+                 x-transition:enter="app-logo-fade-enter" x-transition:enter-start="app-logo-fade-start" x-transition:enter-end="app-logo-fade-end"
+                 x-transition:leave="app-logo-fade-leave" x-transition:leave-start="app-logo-fade-end" x-transition:leave-end="app-logo-fade-start">
+            <img src="/logo_sapp_xs.png" alt="Sistema Sapp" class="app-sidebar__brand-logo-mark"
+                 x-show="collapsed" x-cloak
+                 x-transition:enter="app-logo-fade-enter" x-transition:enter-start="app-logo-fade-start" x-transition:enter-end="app-logo-fade-end"
+                 x-transition:leave="app-logo-fade-leave" x-transition:leave-start="app-logo-fade-end" x-transition:leave-end="app-logo-fade-start">
         </a>
-        {{-- Toggle de colapso/expansión (siempre visible en desktop) --}}
-        <button type="button"
-                class="app-sidebar__collapse-btn"
-                @click="toggleCollapsed()"
-                :aria-expanded="(!collapsed).toString()"
-                aria-label="Contraer o expandir el menú"
-                title="Contraer / expandir">
-            <i class="fas" :class="collapsed ? 'fa-angles-right' : 'fa-angles-left'"></i>
-        </button>
     </div>
 
     {{-- ===== Navegación ===== --}}

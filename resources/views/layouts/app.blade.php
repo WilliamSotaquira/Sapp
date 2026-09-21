@@ -339,9 +339,9 @@
         :root {
             --sidebar-w: 240px;
             --sidebar-w-collapsed: 64px;
-            /* Base sobria en gris oscuro */
-            --sidebar-bg: #1f2937;          /* gris oscuro (slate-800) */
-            --sidebar-bg-elev: #111827;     /* gris más oscuro para brand/footer */
+            /* Base sobria en gris oscuro NEUTRO (sin tinte azulado) */
+            --sidebar-bg: #262626;          /* neutral-800 */
+            --sidebar-bg-elev: #171717;     /* neutral-900 para brand/footer */
             /* Rojo original de la marca: efectos, hover y estado activo */
             --sidebar-brand: #DC2626;       /* red-600 */
             --sidebar-brand-soft: rgba(220,38,38,0.16);
@@ -383,19 +383,28 @@
             border-bottom: 2px solid var(--sidebar-accent); /* detalle de entidad */
             min-height: 60px;
         }
-        .app-sidebar__brand-link { display: flex; align-items: center; gap: 0.6rem; color: #fff; font-weight: 700; min-width: 0; }
-        /* Logo con tamaño fijo: no se comprime ni deforma al colapsar. */
-        .app-sidebar__brand-logo {
-            width: 2rem; height: 2rem; border-radius: 0.375rem;
+        .app-sidebar__brand-link { position: relative; display: flex; align-items: center; justify-content: center; color: #fff; min-width: 0; height: 2.2rem; width: 100%; }
+        /* Los dos logos se superponen en el mismo punto (posición absoluta) para que
+           el cruce de opacidad no altere el ancho/alto y NO se produzca salto. */
+        .app-sidebar__brand-logo-full,
+        .app-sidebar__brand-logo-mark {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        /* Transición (fade) entre logo alargado y cuadrado. */
+        .app-logo-fade-enter, .app-logo-fade-leave { transition: opacity 0.25s ease; }
+        .app-logo-fade-start { opacity: 0; }
+        .app-logo-fade-end { opacity: 1; }
+        /* Logo alargado (expandido): proporcional (sin deformar) y redondeado. */
+        .app-sidebar__brand-logo-full {
+            height: 2.2rem; width: auto; max-width: 100%;
+            object-fit: contain; border-radius: 0.5rem;
+        }
+        /* Logo cuadrado (colapsado): proporcional, tamaño fijo y redondeado. */
+        .app-sidebar__brand-logo-mark {
+            width: 2.2rem; height: 2.2rem; border-radius: 0.5rem;
             object-fit: contain; flex-shrink: 0;
         }
-        .app-sidebar__brand-text { font-size: 1.05rem; letter-spacing: 0.05em; white-space: nowrap; }
-        /* En colapsado: apilar logo + botón de expandir, centrados. El botón
-           permanece visible para poder volver a expandir. */
-        .app-shell--collapsed .app-sidebar__brand {
-            flex-direction: column; justify-content: center; gap: 0.5rem; padding: 0.7rem 0;
-        }
-        .app-shell--collapsed .app-sidebar__brand-link { justify-content: center; }
+        .app-shell--collapsed .app-sidebar__brand { justify-content: center; padding: 0.7rem 0; }
         .app-sidebar__collapse-btn {
             display: inline-flex; align-items: center; justify-content: center;
             width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
@@ -407,9 +416,20 @@
         .app-shell--collapsed .app-sidebar__collapse-btn { margin: 0 auto; }
 
         /* Navegación */
-        .app-sidebar__nav { flex: 1; overflow-y: auto; padding: 0.5rem 0.5rem; }
+        .app-sidebar__nav {
+            flex: 1; overflow-y: auto; padding: 0.6rem 0.5rem;
+            display: flex; flex-direction: column; gap: 0.35rem; /* separación entre ítems */
+        }
         .app-sidebar__nav::-webkit-scrollbar { width: 6px; }
         .app-sidebar__nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        /* Divisor sutil entre secciones de nivel superior. */
+        .app-sidebar__nav > .app-sidebar__group,
+        .app-sidebar__nav > .app-sidebar__item { position: relative; }
+        .app-sidebar__nav > .app-sidebar__group:not(:last-child)::after,
+        .app-sidebar__nav > .app-sidebar__item:not(:last-child)::after {
+            content: ""; position: absolute; left: 0.6rem; right: 0.6rem; bottom: -0.2rem;
+            height: 1px; background: rgba(255,255,255,0.07);
+        }
 
         .app-sidebar__item {
             display: flex; align-items: center; gap: 0.75rem;
@@ -886,7 +906,8 @@
         {{-- Topbar mínima: hamburguesa (móvil) + accesos de contexto. --}}
         @auth
             <header class="app-topbar">
-                <button type="button" class="app-topbar__hamburger" @click="mobileOpen = !mobileOpen"
+                <button type="button" class="app-topbar__hamburger"
+                        @click="mobileOpen = !mobileOpen; if (mobileOpen) collapsed = false"
                         aria-label="Abrir menú" :aria-expanded="mobileOpen.toString()">
                     <i class="fas fa-bars"></i>
                 </button>
@@ -1334,18 +1355,14 @@
     <script>
         function appShell() {
             return {
-                collapsed: false,
+                // En reposo el sidebar está colapsado (rail de íconos). Se expande
+                // al pasar el mouse (desktop) y se vuelve a colapsar al salir.
+                collapsed: true,
                 mobileOpen: false,
-                openGroup: null,   // grupo expandido en modo expandido
+                openGroup: null,   // grupo expandido (cuando está expandido)
                 flyout: null,      // grupo con flyout abierto en modo rail
 
                 init() {
-                    // Restaurar preferencia de colapso (solo navegador).
-                    try {
-                        this.collapsed = localStorage.getItem('sapp_sidebar_collapsed') === '1';
-                    } catch (e) {
-                        this.collapsed = false;
-                    }
                     // Abrir por defecto el grupo de la sección activa (dato inyectado abajo).
                     if (window.__sappActiveGroup) {
                         this.openGroup = window.__sappActiveGroup;
@@ -1356,14 +1373,19 @@
                     });
                 },
 
-                toggleCollapsed() {
-                    this.collapsed = !this.collapsed;
-                    try {
-                        localStorage.setItem('sapp_sidebar_collapsed', this.collapsed ? '1' : '0');
-                    } catch (e) {}
-                    // Al colapsar, cerrar grupos expandidos; al expandir, cerrar flyouts.
-                    if (this.collapsed) { this.openGroup = null; }
-                    else { this.flyout = null; }
+                // Expandir al pasar el mouse (solo desktop; en móvil manda el drawer).
+                expandOnHover() {
+                    if (window.innerWidth >= 1024) {
+                        this.collapsed = false;
+                    }
+                },
+
+                // Colapsar al salir el mouse (solo desktop). Cierra flyouts abiertos.
+                collapseOnLeave() {
+                    if (window.innerWidth >= 1024) {
+                        this.collapsed = true;
+                        this.flyout = null;
+                    }
                 },
 
                 toggleGroup(key) {
