@@ -82,11 +82,17 @@ return new class extends Migration
             ],
         ];
 
-        foreach ($ss190Tasks as $task) {
-            DB::table('standard_tasks')->updateOrInsert(
-                ['sub_service_id' => $task['sub_service_id'], 'title' => $task['title']],
-                array_merge($task, ['created_at' => now(), 'updated_at' => now()])
-            );
+        // Solo sembrar si el subservicio existe. Esta migración asume datos de un
+        // entorno concreto (SS#190); en una BD sin ese subservicio (p. ej. migraciones
+        // frescas o el bootstrap de tests) el insert violaría la FK a sub_services y
+        // abortaría la migración. La guarda la hace segura en cualquier entorno.
+        if (DB::table('sub_services')->where('id', 190)->exists()) {
+            foreach ($ss190Tasks as $task) {
+                DB::table('standard_tasks')->updateOrInsert(
+                    ['sub_service_id' => $task['sub_service_id'], 'title' => $task['title']],
+                    array_merge($task, ['created_at' => now(), 'updated_at' => now()])
+                );
+            }
         }
 
         // =====================================================================
@@ -143,11 +149,14 @@ return new class extends Migration
             ],
         ];
 
-        foreach ($ss182Tasks as $task) {
-            DB::table('standard_tasks')->updateOrInsert(
-                ['sub_service_id' => $task['sub_service_id'], 'title' => $task['title']],
-                array_merge($task, ['created_at' => now(), 'updated_at' => now()])
-            );
+        // Misma guarda que SS#190: sembrar solo si el subservicio existe.
+        if (DB::table('sub_services')->where('id', 182)->exists()) {
+            foreach ($ss182Tasks as $task) {
+                DB::table('standard_tasks')->updateOrInsert(
+                    ['sub_service_id' => $task['sub_service_id'], 'title' => $task['title']],
+                    array_merge($task, ['created_at' => now(), 'updated_at' => now()])
+                );
+            }
         }
 
         // =====================================================================
