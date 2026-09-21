@@ -339,6 +339,13 @@
         :root {
             --sidebar-w: 240px;
             --sidebar-w-collapsed: 64px;
+            /* Base sobria en gris oscuro */
+            --sidebar-bg: #1f2937;          /* gris oscuro (slate-800) */
+            --sidebar-bg-elev: #111827;     /* gris más oscuro para brand/footer */
+            /* Rojo original de la marca: efectos, hover y estado activo */
+            --sidebar-brand: #DC2626;       /* red-600 */
+            --sidebar-brand-soft: rgba(220,38,38,0.16);
+            /* Detalles finos según la entidad activa */
             --sidebar-accent: {{ $workspaceAccent ?? '#DC2626' }};
         }
 
@@ -350,13 +357,13 @@
             position: fixed;
             top: 0; left: 0; bottom: 0;
             width: var(--sidebar-w);
-            background: #7f1d1d; /* rojo oscuro SAPP */
+            background: var(--sidebar-bg); /* gris oscuro sobrio */
             color: #fff;
             display: flex;
             flex-direction: column;
             z-index: 50;
             transition: width 0.2s ease, transform 0.2s ease;
-            border-right: 3px solid var(--sidebar-accent);
+            border-right: 3px solid var(--sidebar-accent); /* detalle: color de la entidad */
         }
         .app-shell--collapsed .app-sidebar { width: var(--sidebar-w-collapsed); }
 
@@ -372,17 +379,31 @@
         .app-sidebar__brand {
             display: flex; align-items: center; justify-content: space-between;
             gap: 0.5rem; padding: 0.85rem 0.9rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: var(--sidebar-bg-elev);
+            border-bottom: 2px solid var(--sidebar-accent); /* detalle de entidad */
+            min-height: 60px;
         }
-        .app-sidebar__brand-link { display: flex; align-items: center; gap: 0.6rem; color: #fff; font-weight: 700; }
-        .app-sidebar__brand-logo { width: 2rem; height: 2rem; border-radius: 0.375rem; }
-        .app-sidebar__brand-text { font-size: 1.05rem; letter-spacing: 0.05em; }
+        .app-sidebar__brand-link { display: flex; align-items: center; gap: 0.6rem; color: #fff; font-weight: 700; min-width: 0; }
+        /* Logo con tamaño fijo: no se comprime ni deforma al colapsar. */
+        .app-sidebar__brand-logo {
+            width: 2rem; height: 2rem; border-radius: 0.375rem;
+            object-fit: contain; flex-shrink: 0;
+        }
+        .app-sidebar__brand-text { font-size: 1.05rem; letter-spacing: 0.05em; white-space: nowrap; }
+        /* En colapsado: apilar logo + botón de expandir, centrados. El botón
+           permanece visible para poder volver a expandir. */
+        .app-shell--collapsed .app-sidebar__brand {
+            flex-direction: column; justify-content: center; gap: 0.5rem; padding: 0.7rem 0;
+        }
+        .app-shell--collapsed .app-sidebar__brand-link { justify-content: center; }
         .app-sidebar__collapse-btn {
             display: inline-flex; align-items: center; justify-content: center;
             width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
             color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.08);
+            transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
         }
-        .app-sidebar__collapse-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+        /* Efecto en rojo de marca */
+        .app-sidebar__collapse-btn:hover { background: var(--sidebar-brand); color: #fff; transform: scale(1.08); }
         .app-shell--collapsed .app-sidebar__collapse-btn { margin: 0 auto; }
 
         /* Navegación */
@@ -393,14 +414,22 @@
         .app-sidebar__item {
             display: flex; align-items: center; gap: 0.75rem;
             width: 100%; padding: 0.6rem 0.7rem; border-radius: 0.5rem;
-            color: rgba(255,255,255,0.85); font-size: 0.9rem; font-weight: 500;
-            text-align: left; transition: background 0.15s ease, color 0.15s ease;
+            color: rgba(255,255,255,0.82); font-size: 0.9rem; font-weight: 500;
+            text-align: left; position: relative;
+            transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
         }
-        .app-sidebar__item:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        /* Efecto hover en rojo de marca */
+        .app-sidebar__item:hover { background: var(--sidebar-brand-soft); color: #fff; }
+        /* Estado activo: rojo de marca + indicador lateral con el color de la entidad */
         .app-sidebar__item--active {
-            background: rgba(255,255,255,0.16); color: #fff;
+            background: var(--sidebar-brand); color: #fff; font-weight: 600;
             box-shadow: inset 3px 0 0 var(--sidebar-accent);
         }
+        .app-sidebar__item--active:hover { background: var(--sidebar-brand); }
+        /* El ícono del ítem activo/hover toma el color de la entidad como detalle
+           (salvo cuando el fondo ya es rojo pleno del activo, donde va en blanco). */
+        .app-sidebar__item:hover .app-sidebar__icon { color: var(--sidebar-accent); }
+        .app-sidebar__item--active .app-sidebar__icon { color: #fff; }
         .app-sidebar__icon { width: 1.25rem; text-align: center; flex-shrink: 0; }
         .app-sidebar__label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .app-sidebar__chevron { font-size: 0.7rem; transition: transform 0.2s ease; }
@@ -414,9 +443,14 @@
             padding: 0.45rem 0.7rem; border-radius: 0.45rem;
             color: rgba(255,255,255,0.75); font-size: 0.85rem;
         }
-        .app-sidebar__subitem:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .app-sidebar__subitem--active { color: #fff; font-weight: 600; background: rgba(255,255,255,0.12); }
+        .app-sidebar__subitem { transition: background 0.15s ease, color 0.15s ease; }
+        .app-sidebar__subitem:hover { background: var(--sidebar-brand-soft); color: #fff; }
+        .app-sidebar__subitem--active {
+            color: #fff; font-weight: 600; background: var(--sidebar-brand-soft);
+            box-shadow: inset 2px 0 0 var(--sidebar-accent); /* detalle de entidad */
+        }
         .app-sidebar__subicon { width: 1rem; text-align: center; flex-shrink: 0; opacity: 0.85; }
+        .app-sidebar__subitem--active .app-sidebar__subicon { color: var(--sidebar-accent); opacity: 1; }
 
         /* En modo colapsado, centrar íconos y ocultar textos/chevron. */
         .app-shell--collapsed .app-sidebar__item { justify-content: center; padding: 0.6rem 0; }
@@ -439,7 +473,10 @@
         .app-sidebar__flyout .app-sidebar__subitem--active { background: #fef2f2; color: #b91c1c; }
 
         /* Footer del sidebar (context: workspace/alertas/usuario). */
-        .app-sidebar__footer { border-top: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; }
+        .app-sidebar__footer {
+            border-top: 1px solid rgba(255,255,255,0.12);
+            background: var(--sidebar-bg-elev); padding: 0.5rem;
+        }
         .app-footer { display: flex; flex-direction: column; gap: 0.25rem; }
         .app-footer__block { position: relative; }
         .app-footer__btn {
@@ -447,15 +484,17 @@
             padding: 0.5rem 0.6rem; border-radius: 0.5rem;
             color: rgba(255,255,255,0.85); font-size: 0.85rem; text-align: left;
         }
-        .app-footer__btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .app-footer__btn { transition: background 0.15s ease, color 0.15s ease; }
+        .app-footer__btn:hover { background: var(--sidebar-brand-soft); color: #fff; }
         .app-shell--collapsed .app-footer__btn { justify-content: center; padding: 0.5rem 0; }
         .app-footer__icon { width: 1.25rem; text-align: center; }
         .app-footer__icon-wrap { position: relative; display: inline-flex; }
         .app-footer__badge {
             position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px;
             display: flex; align-items: center; justify-content: center;
-            border-radius: 9999px; background: #fff; color: #b91c1c;
+            border-radius: 9999px; background: var(--sidebar-brand); color: #fff;
             font-size: 9px; font-weight: 700; padding: 0 3px;
+            box-shadow: 0 0 0 2px var(--sidebar-bg-elev);
         }
         .app-footer__ws-logo {
             display: inline-flex; align-items: center; justify-content: center;
@@ -486,7 +525,7 @@
             padding: 0.5rem 0.6rem; border-radius: 0.45rem; text-align: left; font-size: 0.85rem; color: #374151;
         }
         .app-footer__menu-item:hover { background: #f3f4f6; }
-        .app-footer__menu-item--current { background: #fef2f2; }
+        .app-footer__menu-item--current { background: #fef2f2; box-shadow: inset 2px 0 0 var(--sidebar-accent); }
         .app-footer__menu-empty { padding: 0.5rem 0.6rem; color: #9ca3af; font-size: 0.85rem; }
         .app-footer__menu-link {
             display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem;
@@ -503,14 +542,15 @@
             width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center;
             border-radius: 0.4rem; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85);
         }
-        .app-footer__logout button:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .app-footer__logout button { transition: background 0.15s ease, color 0.15s ease; }
+        .app-footer__logout button:hover { background: var(--sidebar-brand); color: #fff; }
 
         /* Topbar mínima (hamburguesa en móvil). */
         .app-topbar { display: none; }
         .app-topbar__hamburger {
             display: inline-flex; align-items: center; justify-content: center;
             width: 2.5rem; height: 2.5rem; border-radius: 0.5rem;
-            color: #7f1d1d; background: #fff; border: 1px solid #e5e7eb;
+            color: var(--sidebar-brand); background: #fff; border: 1px solid #e5e7eb;
         }
         .app-shell__backdrop {
             position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 45;
@@ -1288,7 +1328,9 @@
     })();
     </script>
 
-    {{-- Estado del app-shell (sidebar): colapso, grupos, flyouts y drawer móvil. --}}
+    {{-- Estado del app-shell (sidebar): colapso, grupos, flyouts y drawer móvil.
+         Se registra con alpine:init (forma canónica, a prueba del orden de carga)
+         y además se expone como función global por compatibilidad. --}}
     <script>
         function appShell() {
             return {
@@ -1333,6 +1375,12 @@
                 },
             };
         }
+
+        // Registro canónico: garantiza que el componente exista antes de que
+        // Alpine procese el x-data del <body>, sin depender del orden de <script>.
+        document.addEventListener('alpine:init', () => {
+            window.Alpine && window.Alpine.data('appShell', appShell);
+        });
     </script>
     {{-- Sección activa para abrir su grupo por defecto en el sidebar. --}}
     <script>
