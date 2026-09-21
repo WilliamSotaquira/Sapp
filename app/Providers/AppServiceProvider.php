@@ -5,9 +5,11 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use App\Models\ServiceRequest;
 use App\Observers\ServiceRequestObserver;
 use App\Services\WorkspaceContext;
+use App\View\Composers\NavigationComposer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +25,14 @@ class AppServiceProvider extends ServiceProvider
     {
         // Registrar Observer para ServiceRequest
         ServiceRequest::observe(ServiceRequestObserver::class);
+
+        // Fuente única de la navegación principal (navbar/sidebar y sus partials).
+        // Comparte $navSections y $isSectionActive con el layout y los partials de
+        // navegación, evitando duplicar el arreglo de secciones en varias vistas.
+        View::composer(
+            ['layouts.app', 'layouts.partials.sidebar', 'layouts.partials.topbar'],
+            NavigationComposer::class
+        );
 
         // ========== DEFINICIÓN DE GATES/POLÍTICAS ==========
 
