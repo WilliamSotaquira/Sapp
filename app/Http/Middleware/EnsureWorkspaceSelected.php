@@ -60,11 +60,21 @@ class EnsureWorkspaceSelected
                     'profile.*',
                     'logout',
                     'my-space.*',
+                    // Flujos de cuenta/seguridad: confirmar contraseña, verificar
+                    // email, restablecer contraseña. No deben desviarse a "selecciona
+                    // entorno" — el usuario está gestionando su sesión, no navegando.
+                    'password.*',
+                    'verification.*',
+                    // Configuración del sistema (settings): es administración global,
+                    // no depende de una entidad/contrato activo.
+                    'settings.*',
                     'service-requests.create',
                     'service-requests.store',
                     'service-requests.prefill-from-text',
                     'service-requests.interpret-and-store',
-                );
+                )
+                // El POST de confirm-password no tiene nombre de ruta; se exime por URI.
+                || $request->is('confirm-password');
 
                 if (!$allowedWithoutWorkspace) {
                     return redirect()->route('workspaces.select');
