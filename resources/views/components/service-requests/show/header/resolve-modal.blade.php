@@ -214,9 +214,17 @@
                         class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition">
                     Cancelar
                 </button>
+                {{-- Vía rápida (D): resolver y cerrar en 1 clic desde el paso 1, con los
+                     valores por defecto (canal Correo, cierre incluido). Solo visible en el paso 1. --}}
+                <button type="button" id="resolve-quick-{{ $serviceRequest->id }}"
+                        class="px-5 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
+                        title="Resolver y cerrar usando los valores por defecto">
+                    <i class="fas fa-bolt mr-1"></i> Resolver y cerrar
+                </button>
+                {{-- Opción con detalle: elegir canal / observaciones antes de cerrar. --}}
                 <button type="button" id="resolve-next-{{ $serviceRequest->id }}"
-                        class="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition">
-                    Siguiente <i class="fas fa-arrow-right ml-1"></i>
+                        class="px-4 py-2 text-sm font-medium text-green-700 bg-white border border-green-300 rounded-lg hover:bg-green-50 transition">
+                    Detallar cierre <i class="fas fa-arrow-right ml-1"></i>
                 </button>
                 <button type="submit" id="resolve-submit-{{ $serviceRequest->id }}"
                         class="px-5 py-2 text-sm font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition hidden">
@@ -320,23 +328,44 @@
     const step1 = document.getElementById(`resolve-step1-${id}`);
     const step2 = document.getElementById(`resolve-step2-${id}`);
     const nextBtn = document.getElementById(`resolve-next-${id}`);
+    const quickBtn = document.getElementById(`resolve-quick-${id}`);
     const backBtn = document.getElementById(`resolve-back-${id}`);
     const submitBtn = document.getElementById(`resolve-submit-${id}`);
     const stepsEl = document.getElementById(`resolve-steps-${id}`);
     const textarea = document.getElementById(`resolution_description_${id}`);
     const summary = document.getElementById(`resolve-summary-${id}`);
+    const form = document.getElementById(`resolve-wizard-form-${id}`);
 
     if (!step1 || !step2 || !nextBtn || !backBtn || !submitBtn) return;
+
+    // Validación de la descripción (compartida por vía rápida y wizard).
+    function validateResolution() {
+        if (!textarea || textarea.value.trim().length < 10) {
+            if (textarea) {
+                textarea.focus();
+                textarea.classList.add('border-red-300', 'ring-1', 'ring-red-300');
+                setTimeout(() => textarea.classList.remove('border-red-300', 'ring-1', 'ring-red-300'), 2000);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // Vía rápida (D): resolver y cerrar con los valores por defecto del paso 2
+    // (canal=Correo, also_close=1), sin obligar a recorrer el wizard.
+    if (quickBtn) {
+        quickBtn.addEventListener('click', () => {
+            if (!validateResolution()) return;
+            quickBtn.disabled = true;
+            quickBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Completando...';
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+    }
 
     function goToStep(step) {
         if (step === 2) {
             // Validate step 1
-            if (!textarea || textarea.value.trim().length < 10) {
-                textarea.focus();
-                textarea.classList.add('border-red-300', 'ring-1', 'ring-red-300');
-                setTimeout(() => textarea.classList.remove('border-red-300', 'ring-1', 'ring-red-300'), 2000);
-                return;
-            }
+            if (!validateResolution()) return;
 
             // Update summary
             const desc = textarea.value.trim();
@@ -347,6 +376,7 @@
             step1.classList.add('hidden');
             step2.classList.remove('hidden');
             nextBtn.classList.add('hidden');
+            if (quickBtn) quickBtn.classList.add('hidden');
             submitBtn.classList.remove('hidden');
             backBtn.classList.remove('hidden');
 
@@ -363,6 +393,7 @@
             step2.classList.add('hidden');
             step1.classList.remove('hidden');
             nextBtn.classList.remove('hidden');
+            if (quickBtn) quickBtn.classList.remove('hidden');
             submitBtn.classList.add('hidden');
             backBtn.classList.add('hidden');
 
