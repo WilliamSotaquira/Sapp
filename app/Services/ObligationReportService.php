@@ -151,11 +151,11 @@ class ObligationReportService
         // Open cuts capture everything from start_date onward
         if ($cut->isOpen()) {
             $query->where(function ($q) use ($start) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' >= ?', [$start]);
             });
         } else {
             $query->where(function ($q) use ($start, $end) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
             });
         }
 
@@ -223,3 +223,4 @@ class ObligationReportService
         ];
     }
 }
+

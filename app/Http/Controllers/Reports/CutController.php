@@ -153,7 +153,7 @@ class CutController extends Controller
                 $fq->where('contract_id', $activeContract->id);
             })
             ->where(function ($q) use ($startDate, $endDate) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$startDate, $endDate]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$startDate, $endDate]);
             })
             ->count();
 
@@ -552,16 +552,16 @@ class CutController extends Controller
         // Open cuts: no end_date limit
         if ($cut->isOpen()) {
             $serviceRequestsQuery->where(function ($q) use ($start) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' >= ?', [$start]);
             });
         } else {
             $serviceRequestsQuery->where(function ($q) use ($start, $end) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
             });
         }
 
         $serviceRequestsQuery
-            ->orderByRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) DESC')
+            ->orderByRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' DESC')
             ->orderByDesc('created_at');
         if ($cut->contract_id) {
             $serviceRequestsQuery->whereHas('subService.service.family', function ($q) use ($cut) {
@@ -1060,11 +1060,11 @@ class CutController extends Controller
         // Open cuts capture everything from start_date onward (no end_date limit)
         if ($cut->isOpen()) {
             $query->where(function ($q) use ($start) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) >= ?', [$start]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' >= ?', [$start]);
             });
         } else {
             $query->where(function ($q) use ($start, $end) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
             });
         }
 
@@ -1477,3 +1477,4 @@ class CutController extends Controller
         rmdir($buildDir);
     }
 }
+

@@ -20,6 +20,12 @@ class RequesterResolverTest extends TestCase
     {
         parent::setUp();
         $this->resolver = new RequesterResolver();
+
+        // Los casos de prueba referencian company_id 1 y 2 con ids fijos.
+        // Se crean explícitamente para satisfacer la FK requesters.company_id
+        // (con RefreshDatabase la BD arranca vacía).
+        \App\Models\Company::factory()->create(['id' => 1]);
+        \App\Models\Company::factory()->create(['id' => 2]);
     }
 
     // --- Email exact match (case-insensitive) ---
