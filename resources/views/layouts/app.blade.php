@@ -359,8 +359,11 @@
             display: flex;
             flex-direction: column;
             z-index: 50;
-            transition: width 0.2s ease, transform 0.2s ease;
+            /* Misma duración/curva que el contenido para animar sincronizado.
+               Curva suave (ease-in-out) para que el cierre no se sienta brusco. */
+            transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
             border-right: 3px solid var(--sidebar-accent); /* detalle: color de la entidad */
+            overflow: hidden; /* evita que el contenido ancho desborde durante la animación */
         }
         .app-shell--collapsed .app-sidebar { width: var(--sidebar-w-collapsed); }
 
@@ -368,17 +371,17 @@
         .app-main {
             margin-left: var(--sidebar-w);
             min-height: 100vh;
-            transition: margin-left 0.2s ease;
+            transition: margin-left 0.3s ease-in-out;
         }
         .app-shell--collapsed .app-main { margin-left: var(--sidebar-w-collapsed); }
 
-        /* Marca / logo */
+        /* Marca / logo. Altura FIJA e igual en ambos estados para que no salte. */
         .app-sidebar__brand {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 0.5rem; padding: 0.85rem 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.5rem; padding: 0 0.9rem;
             background: var(--sidebar-bg-elev);
             border-bottom: 2px solid var(--sidebar-accent); /* detalle de entidad */
-            min-height: 60px;
+            height: 60px; flex-shrink: 0;
         }
         .app-sidebar__brand-link { position: relative; display: flex; align-items: center; justify-content: center; color: #fff; min-width: 0; height: 2.2rem; width: 100%; }
         /* Los dos logos se superponen en el mismo punto (posición absoluta) para que
@@ -401,7 +404,7 @@
             width: 2.2rem; height: 2.2rem; border-radius: 0.5rem;
             object-fit: contain; flex-shrink: 0;
         }
-        .app-shell--collapsed .app-sidebar__brand { justify-content: center; padding: 0.7rem 0; }
+        .app-shell--collapsed .app-sidebar__brand { padding: 0; }
         .app-sidebar__collapse-btn {
             display: inline-flex; align-items: center; justify-content: center;
             width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
@@ -443,12 +446,21 @@
             box-shadow: inset 3px 0 0 var(--sidebar-accent);
         }
         .app-sidebar__item--active:hover { background: var(--sidebar-brand); }
-        /* El ícono del ítem activo/hover toma el color de la entidad como detalle
-           (salvo cuando el fondo ya es rojo pleno del activo, donde va en blanco). */
-        .app-sidebar__item:hover .app-sidebar__icon { color: var(--sidebar-accent); }
+        /* En hover y activo el ícono va BLANCO para contrastar con el fondo rojo
+           (antes tomaba el color de acento y se mimetizaba con el fondo). */
+        .app-sidebar__item:hover .app-sidebar__icon { color: #fff; }
         .app-sidebar__item--active .app-sidebar__icon { color: #fff; }
         .app-sidebar__icon { width: 1.25rem; text-align: center; flex-shrink: 0; }
-        .app-sidebar__label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-sidebar__label {
+            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            opacity: 1; transition: opacity 0.15s ease;
+        }
+        /* En colapsado la etiqueta colapsa su ancho a 0 (además del fade) para que
+           los íconos queden CENTRADOS en el rail, sin espacio fantasma a la derecha. */
+        .app-shell--collapsed .app-sidebar__label {
+            opacity: 0; flex: 0; width: 0; margin: 0; pointer-events: none;
+        }
+        .app-shell--collapsed .app-sidebar__chevron { display: none; }
         .app-sidebar__chevron { font-size: 0.7rem; transition: transform 0.2s ease; }
         .app-sidebar__chevron--open { transform: rotate(180deg); }
         .app-sidebar__group-toggle { cursor: pointer; }
@@ -469,9 +481,22 @@
         .app-sidebar__subicon { width: 1rem; text-align: center; flex-shrink: 0; opacity: 0.85; }
         .app-sidebar__subitem--active .app-sidebar__subicon { color: var(--sidebar-accent); opacity: 1; }
 
-        /* En modo colapsado, centrar íconos y ocultar textos/chevron. */
-        .app-shell--collapsed .app-sidebar__item { justify-content: center; padding: 0.6rem 0; }
-        .app-shell--collapsed .app-sidebar__nav { padding: 0.5rem 0.35rem; }
+        /* En modo colapsado: íconos como botones cuadrados centrados. El fondo del
+           hover/activo no llega a los bordes (se ve como una pastilla centrada) y se
+           reemplaza la barra lateral del acento por un anillo, más limpio en el rail. */
+        .app-shell--collapsed .app-sidebar__nav { padding: 0.5rem 0; align-items: center; }
+        .app-shell--collapsed .app-sidebar__item,
+        .app-shell--collapsed .app-sidebar__group-toggle {
+            justify-content: center; padding: 0; gap: 0;
+            width: 2.6rem; height: 2.6rem; border-radius: 0.6rem;
+        }
+        .app-shell--collapsed .app-sidebar__group { display: flex; justify-content: center; }
+        .app-shell--collapsed .app-sidebar__item--active {
+            box-shadow: 0 0 0 2px var(--sidebar-accent); /* anillo de entidad en vez de barra lateral */
+        }
+        /* Ocultar los divisores entre secciones cuando está colapsado (se ven sueltos). */
+        .app-shell--collapsed .app-sidebar__nav > .app-sidebar__group::after,
+        .app-shell--collapsed .app-sidebar__nav > .app-sidebar__item::after { display: none; }
 
         /* Flyout (modo rail): panel lateral con los sub-ítems. */
         .app-sidebar__group { position: relative; }
@@ -866,19 +891,29 @@
                     });
                 },
 
-                // Expandir al pasar el mouse (solo desktop; en móvil manda el drawer).
+                // Timers para el hover (evita expandir al rozar el borde sin querer).
+                _hoverTimer: null,
+                _leaveTimer: null,
+                hoverDelay: 260,   // ms antes de expandir (responde fluido, sin roces accidentales)
+                leaveDelay: 320,   // ms de gracia antes de colapsar (cierre menos brusco)
+
+                // Expandir al pasar el mouse, tras una breve espera (solo desktop).
                 expandOnHover() {
-                    if (window.innerWidth >= 1024) {
-                        this.collapsed = false;
-                    }
+                    if (window.innerWidth < 1024) return;
+                    clearTimeout(this._leaveTimer);
+                    clearTimeout(this._hoverTimer);
+                    this._hoverTimer = setTimeout(() => { this.collapsed = false; }, this.hoverDelay);
                 },
 
-                // Colapsar al salir el mouse (solo desktop). Cierra flyouts abiertos.
+                // Colapsar al salir el mouse, con un pequeño margen de gracia (solo desktop).
                 collapseOnLeave() {
-                    if (window.innerWidth >= 1024) {
+                    if (window.innerWidth < 1024) return;
+                    clearTimeout(this._hoverTimer);
+                    clearTimeout(this._leaveTimer);
+                    this._leaveTimer = setTimeout(() => {
                         this.collapsed = true;
                         this.flyout = null;
-                    }
+                    }, this.leaveDelay);
                 },
 
                 toggleGroup(key) {
