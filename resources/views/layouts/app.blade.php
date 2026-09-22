@@ -349,6 +349,15 @@
             --sidebar-accent: {{ $workspaceAccent ?? '#DC2626' }};
         }
 
+        /* Durante el primer render (antes de que la página esté lista) se anulan las
+           transiciones del shell, para que el estado colapsado inicial NO se anime
+           (evita el parpadeo "abierto → cerrado" al cambiar de página). */
+        .app-preload .app-sidebar,
+        .app-preload .app-main,
+        .app-preload .app-sidebar__label,
+        .app-preload .app-sidebar__brand-logo-full,
+        .app-preload .app-sidebar__brand-logo-mark { transition: none !important; }
+
         /* Sidebar fijo a la izquierda. */
         .app-sidebar {
             position: fixed;
@@ -616,7 +625,7 @@
     </style>
 </head>
 
-<body class="bg-gray-100 overflow-x-hidden" x-data="appShell()" x-init="init()" :class="{ 'app-shell--collapsed': collapsed }">
+<body class="bg-gray-100 overflow-x-hidden app-shell--collapsed app-preload" x-data="appShell()" x-init="init()" :class="{ 'app-shell--collapsed': collapsed }">
     @php
         // $navSections y $isSectionActive los provee App\View\Composers\NavigationComposer
         // (registrado en AppServiceProvider). Aquí solo se derivan las variables de
@@ -885,6 +894,12 @@
                     if (window.__sappActiveGroup) {
                         this.openGroup = window.__sappActiveGroup;
                     }
+                    // Reactivar transiciones tras el primer pintado: quita 'app-preload'
+                    // en el siguiente frame, de modo que el estado colapsado inicial no
+                    // se anima, pero las interacciones posteriores sí.
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => document.body.classList.remove('app-preload'));
+                    });
                     // Cerrar el drawer móvil al cambiar de tamaño a desktop.
                     window.addEventListener('resize', () => {
                         if (window.innerWidth >= 1024) this.mobileOpen = false;
@@ -930,6 +945,14 @@
         // Alpine procese el x-data del <body>, sin depender del orden de <script>.
         document.addEventListener('alpine:init', () => {
             window.Alpine && window.Alpine.data('appShell', appShell);
+        });
+
+        // Respaldo: si Alpine no arrancara, quitar 'app-preload' igualmente al
+        // cargar el DOM para no dejar las transiciones desactivadas para siempre.
+        document.addEventListener('DOMContentLoaded', function () {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () { document.body.classList.remove('app-preload'); });
+            });
         });
     </script>
     {{-- Sección activa para abrir su grupo por defecto en el sidebar. --}}
