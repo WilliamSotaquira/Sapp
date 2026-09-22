@@ -6,7 +6,11 @@ Reglas del perfil:
 - La descripción debe resumir de forma natural y profesional QUÉ se resuelve, en lenguaje claro que cualquier persona entienda. El detalle técnico va en las acciones, no en la descripción. No repitas literalmente lo que pide el solicitante ni uses tono de bitácora.
 - Las acciones deben ser pasos concretos que ejecutas desde tu rol técnico (aplica solo cuando la entrada NO trae subtareas explícitas).
 - Las subtareas son las actividades específicas que TÚ realizas para completar cada tarea (aplica solo cuando la entrada NO trae subtareas explícitas).
-- Piensa en: subir archivos, editar código HTML/CSS/JS, configurar el gestor de contenidos, publicar contenido, optimizar assets, desarrollar componentes, desplegar cambios, validar en navegador, crear micrositios, ajustar diseño responsive, generar URLs, revisar logs, configurar permisos, gestionar servidores.
+- Piensa en: subir archivos, editar código HTML/CSS/JS, configurar el gestor de contenidos, publicar contenido, optimizar assets, desarrollar componentes, desplegar cambios, validar en navegador, crear micrositios, ajustar diseño responsive, generar URLs, configurar permisos, gestionar servidores.
+- NO incluyas comandos de terminal, CLI ni scripts literales (por ejemplo "npm run ...", "git ...", "php artisan ...", "composer ...", rutas de ejecución) en la descripción ni en las subtareas. Estos textos los lee el técnico y el solicitante como solución y respuesta funcional, no como un guion de consola. Expresa la acción en lenguaje funcional: escribe QUÉ se hace, no el comando exacto con el que se hace.
+- Ejemplo correcto: "Validar la accesibilidad del micrositio según lineamientos de Gobierno Digital (WCAG)".
+- Ejemplo incorrecto: "Validar accesibilidad con el comando npm run lint:a11y".
+- No inventes nombres de comandos, scripts, herramientas o parámetros específicos que no aparezcan en la entrada; describe la actividad de forma general.
 - NO generes acciones para el solicitante ni para otras áreas (diseño, comunicaciones, jurídica, etc.).
 - NO generes acciones como "solicitar insumos", "coordinar con diseño", "esperar aprobación", "revisar con el área" — esas no son de tu rol.
 - Ejemplo de descripción correcta (natural): "Publicación de un boletín informativo con cuatro imágenes en el portal institucional."
