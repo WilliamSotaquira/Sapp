@@ -53,7 +53,7 @@ class CheckCutHealth extends Command
                         $q->whereHas('subService.service.family', fn($fq) => $fq->where('contract_id', $contractId));
                     })
                     ->where(function ($q) use ($start, $end) {
-                        $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                        $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
                     })
                     ->count();
 
@@ -157,7 +157,7 @@ class CheckCutHealth extends Command
                 $q->whereHas('subService.service.family', fn($fq) => $fq->where('contract_id', $contractId));
             })
             ->where(function ($q) use ($start, $end) {
-                $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
             })
             ->pluck('id')
             ->all();
@@ -165,3 +165,4 @@ class CheckCutHealth extends Command
         $cut->serviceRequests()->sync($requestIds);
     }
 }
+

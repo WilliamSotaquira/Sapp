@@ -115,7 +115,7 @@ class DiagnoseCutAssociation extends Command
                     $fq->where('contract_id', $cut->contract_id);
                 })
                 ->where(function ($q) use ($start, $end) {
-                    $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                    $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
                 })
                 ->count();
             $this->info("  [4] Filtro fecha (LEAST entre {$start->format('Y-m-d H:i:s')} y {$end->format('Y-m-d H:i:s')}): {$afterDateFilter}");
@@ -153,7 +153,7 @@ class DiagnoseCutAssociation extends Command
                     $fq->where('contract_id', $cut->contract_id);
                 })
                 ->where(function ($q) use ($start, $end) {
-                    $q->whereRaw('LEAST(COALESCE(resolved_at, closed_at), COALESCE(closed_at, resolved_at)) BETWEEN ? AND ?', [$start, $end]);
+                    $q->whereRaw('' . \App\Support\SqlExpr::effectiveCloseDate() . ' BETWEEN ? AND ?', [$start, $end]);
                 })
                 ->whereNotIn('id', $associatedIds)
                 ->take(10)
@@ -191,3 +191,4 @@ class DiagnoseCutAssociation extends Command
         return 0;
     }
 }
+
