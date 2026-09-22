@@ -46,7 +46,7 @@
                    @click="mobileOpen = false"
                    title="{{ $section['label'] }}">
                     <i class="{{ $section['icon'] }} app-sidebar__icon"></i>
-                    <span class="app-sidebar__label" x-show="!collapsed" x-cloak>{{ $section['label'] }}</span>
+                    <span class="app-sidebar__label">{{ $section['label'] }}</span>
                 </a>
             @else
                 {{-- Sección con sub-ítems: grupo expandible (expanded) / flyout por CLIC (rail) --}}
@@ -60,7 +60,7 @@
                             aria-haspopup="true"
                             title="{{ $section['label'] }}">
                         <i class="{{ $section['icon'] }} app-sidebar__icon"></i>
-                        <span class="app-sidebar__label" x-show="!collapsed" x-cloak>{{ $section['label'] }}</span>
+                        <span class="app-sidebar__label">{{ $section['label'] }}</span>
                         <i class="fas fa-chevron-down app-sidebar__chevron"
                            x-show="!collapsed" x-cloak
                            :class="{ 'app-sidebar__chevron--open': isGroupOpen('{{ $section['key'] }}') }"></i>
