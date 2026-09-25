@@ -1365,7 +1365,19 @@ class ServiceRequestController extends Controller
 
                 $serviceRequest->status = 'CERRADA';
                 $serviceRequest->closed_at = now();
+                // Cierre = el líder verificó el contenido del técnico (autoría dual).
+                $serviceRequest->verified_by = auth()->id();
+                $serviceRequest->verified_at = now();
                 $serviceRequest->save();
+
+                // La tarea de control del líder queda cumplida al cerrar.
+                $serviceRequest->tasks()
+                    ->where('type', \App\Models\Task::TYPE_CONTROL)
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->get()
+                    ->each(function ($controlTask) {
+                        $controlTask->complete('Contenido verificado y solicitud cerrada por el líder.');
+                    });
 
                 // Record history
                 if (class_exists('App\Models\ServiceRequestHistory')) {
@@ -1582,7 +1594,24 @@ class ServiceRequestController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('service-requests.reassign', compact('service_request', 'technicians'));
+        // Subservicio de control sugerido para el contrato (Opción B) y catálogo
+        // de subservicios del mismo contrato, para que el líder confirme o cambie.
+        $suggestedControl = \App\Models\SubService::controlForContract((int) $service_request->contract_id);
+        $contractSubServices = \App\Models\SubService::query()
+            ->where('is_active', true)
+            ->whereHas('service.family', function ($q) use ($service_request) {
+                $q->where('contract_id', $service_request->contract_id);
+            })
+            ->with('service:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'service_id']);
+
+        return view('service-requests.reassign', compact(
+            'service_request',
+            'technicians',
+            'suggestedControl',
+            'contractSubServices'
+        ));
     }
 
     /**
@@ -1608,30 +1637,38 @@ class ServiceRequestController extends Controller
 
         try {
             $previousTechnician = $service_request->assigned_to;
+            $controlSubServiceId = isset($validated['control_sub_service_id'])
+                ? (int) $validated['control_sub_service_id']
+                : null;
 
-            $service_request->update([
-                'assigned_to' => $validated['assigned_to'],
-            ]);
+            \DB::transaction(function () use ($service_request, $validated, $previousTechnician, $controlSubServiceId, $assignmentHistoryService) {
+                $service_request->update([
+                    'assigned_to' => $validated['assigned_to'],
+                ]);
 
-            // Record assignment history and create system evidence
-            $assignmentHistoryService->recordAssignment(
-                $service_request,
-                $previousTechnician,
-                (int) $validated['assigned_to'],
-                $validated['reassignment_reason'],
-                auth()->id()
-            );
-
-            // Transfer active tasks from previous technician to new technician
-            if ($previousTechnician) {
-                $assignmentHistoryService->transferTasks(
+                // Registrar historial de asignación + evidencia de sistema.
+                $assignmentHistoryService->recordAssignment(
                     $service_request,
-                    (int) $previousTechnician,
-                    (int) $validated['assigned_to']
+                    $previousTechnician,
+                    (int) $validated['assigned_to'],
+                    $validated['reassignment_reason'],
+                    auth()->id()
                 );
-            }
 
-            return redirect()->route('service-requests.show', $service_request)->with('success', 'Técnico reasignado correctamente.');
+                // Delegar a un técnico pasa la solicitud al dominio de control:
+                // reclasifica al subservicio de control (SLA recalculado), retira
+                // las tareas de ejecución del enfoque previo a nombre del líder
+                // (conservando las completadas) y asegura la tarea de control.
+                // NOTA: se reemplaza la antigua transferencia de tareas al nuevo
+                // técnico (que causaba dualidad de información).
+                $this->serviceRequestService->syncTasksTechnician(
+                    $service_request,
+                    (int) $validated['assigned_to'],
+                    $controlSubServiceId
+                );
+            });
+
+            return redirect()->route('service-requests.show', $service_request)->with('success', 'Técnico reasignado correctamente. La solicitud pasó a control del líder.');
         } catch (\Exception $e) {
             return redirect()
                 ->back()

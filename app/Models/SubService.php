@@ -16,12 +16,14 @@ class SubService extends Model
         'code',
         'description',
         'is_active',
+        'is_control',
         'cost',
         'order'
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_control' => 'boolean',
         'cost' => 'decimal:2'
     ];
 
@@ -29,6 +31,35 @@ class SubService extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Subservicios marcados como de control/verificación del líder.
+     */
+    public function scopeControl($query)
+    {
+        return $query->where('is_control', true);
+    }
+
+    /**
+     * Resuelve el subservicio de CONTROL de un contrato dado.
+     *
+     * Sube por service -> family (service_families.contract_id) para encontrar
+     * el subservicio marcado is_control dentro de ese contrato. Devuelve null si
+     * el contrato aún no tiene uno configurado (en ese caso el líder debe elegirlo).
+     */
+    public static function controlForContract(?int $contractId): ?self
+    {
+        if (!$contractId) {
+            return null;
+        }
+
+        return static::query()
+            ->where('is_control', true)
+            ->whereHas('service.family', function ($q) use ($contractId) {
+                $q->where('contract_id', $contractId);
+            })
+            ->first();
     }
 
     public function scopeOrdered($query)
