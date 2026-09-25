@@ -107,7 +107,11 @@ class Task extends Model
                 };
                 $dateStr = $date->format('Ymd');
 
-                $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
+                // Incluir tareas soft-deleted (withTrashed): el índice único de
+                // task_code también cubre las eliminadas, así que el correlativo no
+                // debe reutilizar un código ya ocupado por una tarea borrada.
+                $lastTask = static::withTrashed()
+                    ->where('task_code', 'like', "{$prefix}-{$dateStr}-%")
                     ->lockForUpdate()
                     ->orderBy('task_code', 'desc')
                     ->first();
