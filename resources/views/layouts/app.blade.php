@@ -559,13 +559,15 @@
         .app-footer__label { flex: 1; }
 
         /* Menús emergentes del footer (workspace/alertas): salen hacia arriba. */
+        .app-footer__menu, .app-footer__menu * { box-sizing: border-box; }
         .app-footer__menu {
             position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 0.4rem;
             background: #fff; color: #374151; border-radius: 0.6rem;
             box-shadow: 0 -8px 30px rgba(0,0,0,0.2); padding: 0.35rem; z-index: 60;
             max-height: 60vh; overflow-y: auto;
         }
-        .app-footer__menu--alerts { width: 20rem; left: 0; }
+        .app-footer__menu--alerts { width: 20rem; left: 0; right: auto; max-width: calc(100vw - 2rem); }
+        .app-footer__menu--alerts .app-footer__menu-title { padding-top: 0.6rem; padding-bottom: 0.5rem; }
         .app-shell--collapsed .app-footer__menu { left: 100%; right: auto; bottom: 0; margin-bottom: 0; margin-left: 0.4rem; width: 20rem; }
         .app-footer__menu-title {
             font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
@@ -576,7 +578,15 @@
             padding: 0.5rem 0.6rem; border-radius: 0.45rem; text-align: left; font-size: 0.85rem; color: #374151;
         }
         .app-footer__menu-item:hover { background: #f3f4f6; }
-        .app-footer__menu-item--current { background: #fef2f2; box-shadow: inset 2px 0 0 var(--sidebar-accent); }
+        .app-footer__menu-item--current { background: #fef2f2; }
+        .app-footer__menu-item--current .block:first-child { color: var(--sidebar-accent); font-weight: 700; }
+        .app-footer__menu-logo {
+            display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 1.9rem; height: 1.9rem; border-radius: 0.4rem; background: #fff;
+            border: 1px solid #e5e7eb; overflow: hidden;
+        }
+        .app-footer__menu-logo img { max-width: 1.4rem; max-height: 1.4rem; object-fit: contain; }
+        .app-footer__menu-logo--placeholder { color: #9ca3af; }
         .app-footer__menu-empty { padding: 0.5rem 0.6rem; color: #9ca3af; font-size: 0.85rem; }
         .app-footer__menu-link {
             display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem;
@@ -828,9 +838,9 @@
                 }
                 var html = '';
                 data.alerts.forEach(function(alert) {
-                    html += '<a href="' + (alert.url || '#') + '" class="block px-4 py-3 border-l-4 ' + alert.border_class + ' hover:bg-gray-50 transition border-b border-gray-50">';
-                    html += '<p class="text-sm font-medium text-gray-900 leading-tight">' + alert.title + '</p>';
-                    html += '<p class="text-xs text-gray-500 mt-0.5 line-clamp-1">' + alert.message + '</p>';
+                    html += '<a href="' + (alert.url || '#') + '" class="block w-full px-4 py-3 border-l-4 ' + alert.border_class + ' hover:bg-gray-50 transition border-b border-gray-50 overflow-hidden">';
+                    html += '<p class="text-sm font-medium text-gray-900 leading-snug break-words">' + alert.title + '</p>';
+                    html += '<p class="text-xs text-gray-500 mt-0.5 break-words line-clamp-2">' + alert.message + '</p>';
                     html += '<p class="text-[10px] text-gray-400 mt-1">' + alert.time + '</p>';
                     html += '</a>';
                 });
