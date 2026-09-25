@@ -42,6 +42,20 @@
                         $isCurrent = (int) $contract->id === (int) $footerCurrentContractId;
                         $entityName = $contract->company->name ?? 'Entidad';
                         $contractLabel = $contract->number ?: $contract->name;
+
+                        // Logo de la entidad: mismo criterio que el layout (logo_path
+                        // en storage y, si no existe, fallback por nombre de entidad).
+                        $entityLogo = !empty($contract->company?->logo_path)
+                            ? asset('storage/' . $contract->company->logo_path)
+                            : null;
+                        if (!$entityLogo) {
+                            $entityKey = \Illuminate\Support\Str::lower($entityName);
+                            if (\Illuminate\Support\Str::contains($entityKey, 'movilidad')) {
+                                $entityLogo = asset('movilidad.jpg');
+                            } elseif (\Illuminate\Support\Str::contains($entityKey, 'cultura')) {
+                                $entityLogo = asset('cultura.png');
+                            }
+                        }
                     @endphp
                     <form method="POST" action="{{ route('workspaces.switch') }}">
                         @csrf
@@ -49,7 +63,11 @@
                         <input type="hidden" name="redirect_to" value="{{ $footerRedirect }}">
                         <button type="submit" class="app-footer__menu-item {{ $isCurrent ? 'app-footer__menu-item--current' : '' }}"
                                 @if($isCurrent) aria-current="true" @endif>
-                            <i class="fas fa-building"></i>
+                            @if($entityLogo)
+                                <span class="app-footer__menu-logo"><img src="{{ $entityLogo }}" alt="{{ $entityName }}"></span>
+                            @else
+                                <span class="app-footer__menu-logo app-footer__menu-logo--placeholder"><i class="fas fa-building"></i></span>
+                            @endif
                             <span class="min-w-0">
                                 <span class="block truncate">{{ $entityName }}</span>
                                 <span class="block text-xs text-gray-400 truncate">{{ $contractLabel }}</span>
