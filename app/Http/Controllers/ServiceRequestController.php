@@ -1786,6 +1786,14 @@ class ServiceRequestController extends Controller
                 'updated_at' => now(),
             ];
 
+            // Cierre normal = el líder verificó el contenido publicado por el técnico
+            // y da fe del trabajo (autoría dual). Se deja constancia de quién verificó
+            // y cuándo. En cierre por vencimiento no hubo verificación de contenido.
+            if (!$isVencimiento) {
+                $updateData['verified_by'] = auth()->id();
+                $updateData['verified_at'] = now();
+            }
+
             // Construir notas según el tipo de cierre
             $currentNotes = $serviceRequest->resolution_notes ?? '';
 
@@ -1878,6 +1886,16 @@ class ServiceRequestController extends Controller
 
             \DB::commit();
             $serviceRequest->refresh();
+
+            // Al cerrar, la tarea de control del líder queda cumplida: se completa
+            // para cerrar su ciclo de seguimiento y auto-resolver su alerta.
+            $serviceRequest->tasks()
+                ->where('type', \App\Models\Task::TYPE_CONTROL)
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->get()
+                ->each(function ($controlTask) {
+                    $controlTask->complete('Contenido verificado y solicitud cerrada por el líder.');
+                });
 
             $message = $isVencimiento ? 'Solicitud cerrada correctamente por vencimiento' : 'Solicitud cerrada correctamente';
 

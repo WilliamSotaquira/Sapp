@@ -8,6 +8,7 @@ use App\Http\Controllers\Reports\UnifiedTimelineController;
 use App\Http\Controllers\Reports\ServicesSlaController;
 use App\Http\Controllers\Reports\OperationalOverviewController;
 use App\Http\Controllers\Reports\SearchAnalysisController;
+use App\Http\Controllers\Reports\TeamConsolidatedController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -51,6 +52,14 @@ Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [SearchAnalysisController::class, 'index'])->name('index');
         Route::get('/search', [SearchAnalysisController::class, 'search'])->name('search');
         Route::get('/export/{format}', [SearchAnalysisController::class, 'export'])->name('export');
+    });
+
+    // =========================================================================
+    // Consolidado del equipo: ejecución por técnico vs control del líder
+    // =========================================================================
+    Route::prefix('team-consolidated')->name('team-consolidated.')->group(function () {
+        Route::get('/', [TeamConsolidatedController::class, 'index'])->name('index');
+        Route::get('/export/{format}', [TeamConsolidatedController::class, 'export'])->name('export');
     });
 
     // =========================================================================

@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
-use App\Http\Controllers\PublicTrackingController;
 use App\Services\OpenRouterService;
 
 // =============================================================================
@@ -13,15 +12,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Consulta pública de solicitudes (sin autenticación)
-Route::prefix('consultar')
-    ->name('public.tracking.')
-    ->middleware('throttle:30,1')
-    ->group(function () {
-        Route::get('/', [PublicTrackingController::class, 'index'])->name('index');
-        Route::post('/search', [PublicTrackingController::class, 'search'])->name('search');
-        Route::get('/{ticketNumber}', [PublicTrackingController::class, 'show'])->name('show');
-    });
+// NOTA: La consulta pública de solicitudes (tracking público sin autenticación)
+// se eliminó. El sistema opera como single-user; cuando se requiera compartir el
+// estado de una solicitud se genera un informe/PDF desde la app autenticada.
 
 // =============================================================================
 // RUTAS AUTENTICADAS

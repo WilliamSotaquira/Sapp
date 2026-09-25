@@ -53,8 +53,7 @@
                             </button>
                         </form>
                     @else
-                        <a href="{{ route('login') }}" class="text-gray-600 hover:text-gray-800">Iniciar Sesión</a>
-                        <a href="{{ route('register') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Registrarse</a>
+                        <a href="{{ route('login') }}" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Iniciar Sesión</a>
                     @endauth
                 </div>
             </div>
@@ -71,9 +70,6 @@
                         Plataforma integral para la administración y seguimiento de servicios, solicitudes y acuerdos de nivel de servicio.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <a href="{{ route('public.tracking.index') }}" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition text-center shadow-lg">
-                            <i class="fas fa-search mr-2"></i>Consultar mi Solicitud
-                        </a>
                         @auth
                             <a href="{{ route('dashboard') }}" class="bg-white text-gray-600 px-6 py-3 rounded-lg font-semibold hover:bg-red-50 transition text-center">
                                 <i class="fas fa-tachometer-alt mr-2"></i>Ir a Dashboard
