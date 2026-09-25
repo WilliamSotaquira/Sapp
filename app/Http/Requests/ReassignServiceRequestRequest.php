@@ -22,6 +22,9 @@ class ReassignServiceRequestRequest extends FormRequest
                     ->where(fn ($query) => $query->where('status', 'active')->whereNull('deleted_at')),
             ],
             'reassignment_reason' => 'required|string|min:10|max:500',
+            // Subservicio de control confirmado por el líder (opcional: si se omite,
+            // el sistema usa el subservicio de control sugerido del contrato).
+            'control_sub_service_id' => ['nullable', 'integer', 'exists:sub_services,id'],
         ];
     }
 

@@ -1406,7 +1406,7 @@ class ServiceRequestService
         }
     }
 
-    public function syncTasksTechnician(ServiceRequest $serviceRequest, int $assignedToUserId): void
+    public function syncTasksTechnician(ServiceRequest $serviceRequest, int $assignedToUserId, ?int $controlSubServiceId = null): void
     {
         $technicianId = $this->resolveTechnicianId($assignedToUserId);
 
@@ -1414,8 +1414,38 @@ class ServiceRequestService
             return;
         }
 
-        // Propagar el ejecutor SOLO a las tareas de ejecución (impact/regular).
-        // La tarea de control es del líder y nunca debe quedar con technician_id.
+        // ¿La solicitud se está DELEGANDO a un técnico, o el líder se la asigna
+        // a sí mismo? Si es el propio líder (admin), sigue el curso normal: NO se
+        // reclasifica ni se retiran las tareas del enfoque inicial.
+        if ($this->isLeaderUser($assignedToUserId)) {
+            // El líder asume la ejecución: propaga técnico a sus tareas y listo.
+            $this->assignTechnicianToExecutionTasks($serviceRequest, $technicianId);
+            return;
+        }
+
+        // --- Delegación a un técnico: pasar la solicitud al dominio de CONTROL ---
+
+        // 1) Reclasificar al subservicio de control del contrato (recalcula SLA).
+        //    $controlSubServiceId es lo que el líder confirmó en la UI (o null = sugerido).
+        $this->reclassifyToControl($serviceRequest, $controlSubServiceId);
+        $serviceRequest->refresh();
+
+        // 2) Retirar las tareas de ejecución del enfoque previo a nombre del líder
+        //    (conservando las completadas). El nuevo técnico las aborda a su manera.
+        $leaderId = (int) (auth()->id() ?: 1);
+        $technicianName = User::whereKey($assignedToUserId)->value('name');
+        $this->retireExecutionTasksToLeader($serviceRequest, $leaderId, $technicianName);
+
+        // 3) Asegurar la tarea de control del líder (hereda el SLA ya reclasificado).
+        $this->ensureControlTask($serviceRequest, $assignedToUserId);
+    }
+
+    /**
+     * Propaga el técnico ejecutor a las tareas/bloques de ejecución de la solicitud.
+     * No toca las tareas de control (del líder).
+     */
+    private function assignTechnicianToExecutionTasks(ServiceRequest $serviceRequest, int $technicianId): void
+    {
         Task::where('service_request_id', $serviceRequest->id)
             ->where('type', '!=', Task::TYPE_CONTROL)
             ->update(['technician_id' => $technicianId]);
@@ -1425,9 +1455,16 @@ class ServiceRequestService
             ->where('tasks.service_request_id', $serviceRequest->id)
             ->where('tasks.type', '!=', Task::TYPE_CONTROL)
             ->update(['schedule_blocks.technician_id' => $technicianId]);
+    }
 
-        // Al delegar, generar (si no existe) la tarea de control del líder.
-        $this->ensureControlTask($serviceRequest, $assignedToUserId);
+    /**
+     * ¿El usuario asignado es el líder del proceso (admin), y no un técnico
+     * ejecutor distinto? Si lo es, la asignación no dispara el flujo de control.
+     */
+    private function isLeaderUser(int $userId): bool
+    {
+        $user = User::find($userId);
+        return $user !== null && method_exists($user, 'isAdmin') && $user->isAdmin();
     }
 
     /**
@@ -1492,6 +1529,128 @@ class ServiceRequestService
             'BAJA' => 'low',
             default => 'medium',
         };
+    }
+
+    /**
+     * Reclasifica una solicitud al subservicio de CONTROL de su contrato.
+     *
+     * Al delegar a un técnico, la solicitud deja de estar clasificada según el
+     * conocimiento inicial del líder y pasa a su dominio de control: se cambia el
+     * subservicio (servicio/familia se derivan de él) al marcado como is_control
+     * en ese contrato, y se recalcula el SLA por la criticidad vigente.
+     *
+     * El SLA sigue siendo del contrato: solo se ajusta al del subservicio de
+     * control, no cambia de dueño.
+     *
+     * @param  int|null  $controlSubServiceId  Subservicio de control elegido/confirmado por el líder.
+     *         Si es null, se resuelve automáticamente el del contrato (sugerencia).
+     * @return bool  true si reclasificó; false si no había subservicio de control disponible.
+     */
+    public function reclassifyToControl(ServiceRequest $serviceRequest, ?int $controlSubServiceId = null): bool
+    {
+        // Resolver el subservicio de control: el elegido por el líder o el del contrato.
+        $controlSub = $controlSubServiceId
+            ? SubService::find($controlSubServiceId)
+            : SubService::controlForContract($serviceRequest->contract_id);
+
+        if (!$controlSub) {
+            Log::warning('reclassifyToControl: sin subservicio de control para el contrato', [
+                'service_request_id' => $serviceRequest->id,
+                'contract_id' => $serviceRequest->contract_id,
+            ]);
+            return false;
+        }
+
+        // Si ya está clasificada como el subservicio de control, no hacer nada.
+        if ((int) $serviceRequest->sub_service_id === (int) $controlSub->id) {
+            return true;
+        }
+
+        $criticality = $this->normalizeCriticalityForSlaResolution((string) $serviceRequest->criticality_level);
+        $newSlaId = $this->resolveSlaForSubService((int) $controlSub->id, $criticality);
+
+        $serviceRequest->sub_service_id = $controlSub->id;
+        if ($newSlaId) {
+            $serviceRequest->sla_id = $newSlaId;
+        }
+        $serviceRequest->save();
+
+        return true;
+    }
+
+    /**
+     * Retira las tareas de EJECUCIÓN del enfoque previo cuando la solicitud se
+     * delega a un técnico. No se borra información:
+     *
+     *  - Tareas de ejecución NO completadas (pending/in_progress/blocked/in_review):
+     *    se cancelan (con sus subtareas no completadas) y se mueven al líder
+     *    (owner_id) con una nota de trazabilidad. Dejan de estar activas para el
+     *    nuevo técnico, evitando la dualidad de información.
+     *  - Tareas de ejecución ya COMPLETADAS: se conservan intactas (mérito y
+     *    evidencia del técnico anterior).
+     *  - Tareas de CONTROL (del líder): nunca se tocan.
+     *
+     * @param  int  $leaderId  Usuario líder que asume el control (owner de las retiradas).
+     * @return int  Número de tareas de ejecución retiradas.
+     */
+    public function retireExecutionTasksToLeader(ServiceRequest $serviceRequest, int $leaderId, ?string $technicianName = null): int
+    {
+        $note = 'Reemplazada por delegación'
+            . ($technicianName ? " a {$technicianName}" : '')
+            . ' el ' . now()->format('d/m/Y H:i')
+            . '. La ejecución la aborda el técnico a su manera; esta tarea queda como histórico bajo control del líder.';
+
+        $tasks = $serviceRequest->tasks()
+            ->whereIn('type', [Task::TYPE_IMPACT, Task::TYPE_REGULAR])
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->get();
+
+        $count = 0;
+        foreach ($tasks as $task) {
+            // Cancelar (cascada a subtareas no completadas) y mover al líder.
+            $task->cancel($note, $leaderId);
+            $task->owner_id = $leaderId;
+            $task->saveQuietly();
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Resuelve el SLA activo para un subservicio y criticidad dados.
+     *
+     * Prioriza el SLA atado al pivote service_subservice; si no existe, cae al
+     * SLA de la familia del subservicio. Devuelve null si no hay ninguno.
+     */
+    public function resolveSlaForSubService(int $subServiceId, string $criticality): ?int
+    {
+        $criticality = $this->normalizeCriticalityForSlaResolution($criticality);
+
+        $row = DB::table('sub_services as ss')
+            ->join('services as s', 's.id', '=', 'ss.service_id')
+            ->join('service_families as sf', 'sf.id', '=', 's.service_family_id')
+            ->leftJoin('service_subservices as sss', function ($join) {
+                $join->on('sss.sub_service_id', '=', 'ss.id')
+                    ->on('sss.service_family_id', '=', 'sf.id')
+                    ->where('sss.is_active', '=', 1);
+            })
+            ->leftJoin('service_level_agreements as sla_ss', function ($join) use ($criticality) {
+                $join->on('sla_ss.service_subservice_id', '=', 'sss.id')
+                    ->where('sla_ss.is_active', '=', 1)
+                    ->where('sla_ss.criticality_level', '=', $criticality);
+            })
+            ->leftJoin('service_level_agreements as sla_sf', function ($join) use ($criticality) {
+                $join->on('sla_sf.service_family_id', '=', 'sf.id')
+                    ->where('sla_sf.is_active', '=', 1)
+                    ->where('sla_sf.criticality_level', '=', $criticality);
+            })
+            ->where('ss.id', $subServiceId)
+            ->select([DB::raw('COALESCE(MIN(sla_ss.id), MIN(sla_sf.id)) as sla_id')])
+            ->groupBy('sf.id', 's.id', 'ss.id')
+            ->first();
+
+        return $row && $row->sla_id ? (int) $row->sla_id : null;
     }
 
     protected function resolveTechnicianId(int $userId): ?int
