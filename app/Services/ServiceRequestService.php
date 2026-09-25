@@ -1595,26 +1595,49 @@ class ServiceRequestService
      */
     public function retireExecutionTasksToLeader(ServiceRequest $serviceRequest, int $leaderId, ?string $technicianName = null): int
     {
-        $note = 'Reemplazada por delegación'
-            . ($technicianName ? " a {$technicianName}" : '')
-            . ' el ' . now()->format('d/m/Y H:i')
-            . '. La ejecución la aborda el técnico a su manera; esta tarea queda como histórico bajo control del líder.';
-
+        // Tareas de ejecución NO completadas: eran la clasificación tentativa del
+        // líder, nunca se trabajaron de verdad. Al delegar se ELIMINAN (soft delete)
+        // porque el técnico aborda la ejecución a su manera y esas tareas dejan de
+        // aplicar. Eliminarlas (en vez de cancelarlas) evita que bloqueen el cierre
+        // normal de la solicitud. Las COMPLETADAS se conservan intactas (trabajo real).
         $tasks = $serviceRequest->tasks()
             ->whereIn('type', [Task::TYPE_IMPACT, Task::TYPE_REGULAR])
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->get();
 
-        $count = 0;
-        foreach ($tasks as $task) {
-            // Cancelar (cascada a subtareas no completadas) y mover al líder.
-            $task->cancel($note, $leaderId);
-            $task->owner_id = $leaderId;
-            $task->saveQuietly();
-            $count++;
+        if ($tasks->isEmpty()) {
+            return 0;
         }
 
-        return $count;
+        $removed = [];
+        foreach ($tasks as $task) {
+            // Soft delete de la tarea (reversible y auditable). Las subtareas
+            // quedan asociadas a la tarea oculta; si se restaura la tarea, vuelven
+            // con ella. No se borran por separado porque Subtask no es soft-deletable
+            // (un hard delete rompería la reversibilidad).
+            $removed[] = $task->task_code ?: ('#' . $task->id);
+            $task->delete();
+        }
+
+        // Dejar trazabilidad del reemplazo como evidencia de sistema en la solicitud.
+        ServiceRequestEvidence::create([
+            'service_request_id' => $serviceRequest->id,
+            'title' => 'Tareas de ejecución reemplazadas por control',
+            'description' => 'Al delegar' . ($technicianName ? " a {$technicianName}" : '')
+                . ', se retiraron las tareas de ejecución pendientes del enfoque inicial ('
+                . count($removed) . '): ' . implode(', ', $removed)
+                . '. La solicitud pasó a control del líder.',
+            'evidence_type' => 'SISTEMA',
+            'evidence_data' => [
+                'action' => 'EXECUTION_TASKS_REPLACED_BY_CONTROL',
+                'removed_task_codes' => $removed,
+                'delegated_to' => $technicianName,
+                'by' => $leaderId,
+                'at' => now()->toISOString(),
+            ],
+        ]);
+
+        return count($removed);
     }
 
     /**
