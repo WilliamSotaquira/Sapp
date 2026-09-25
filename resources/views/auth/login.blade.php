@@ -158,17 +158,6 @@
                     </form>
                 </div>
 
-                <!-- Footer del Card -->
-                <div class="px-6 py-4 border-t border-gray-200" style="background-color: #F4F6F8;">
-                    <div class="text-center">
-                        <p class="text-sm text-gray-600">
-                            ¿No tienes una cuenta?
-                            <a href="{{ route('register') }}" class="font-medium hover:underline ml-1" style="color: #D00B1D;">
-                                Regístrate aquí
-                            </a>
-                        </p>
-                    </div>
-                </div>
             </div>
 
             <!-- Link para volver -->

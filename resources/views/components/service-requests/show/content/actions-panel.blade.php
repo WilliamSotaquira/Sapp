@@ -62,8 +62,9 @@
 
             <!-- Compartir por WhatsApp -->
             @php
-                // URL pública para consulta sin autenticación
-                $publicUrl = route('public.tracking.show', $serviceRequest->ticket_number);
+                // Enlace interno de la solicitud (requiere autenticación).
+                // El tracking público fue eliminado; para compartir estado se genera un informe/PDF.
+                $publicUrl = route('service-requests.show', $serviceRequest);
 
                 $statusLabels = [
                     'NUEVA' => 'Nueva',
@@ -87,27 +88,21 @@
                                 "📊 *Estado:* " . $statusText . "\n" .
                                 "🔧 *Servicio:* " . ($serviceRequest->subService->service->name ?? 'No especificado') . "\n" .
                                 "📅 *Fecha solicitud:* " . $serviceRequest->created_at->format('d/m/Y H:i') . "\n\n" .
-                                "🔗 *Consulta el estado aquí:*\n" . $publicUrl . "\n\n" .
-                                "✅ _Sin necesidad de iniciar sesión_\n" .
-                                "👤 _Acceso directo para cualquier persona_";
+                                "🔗 *Detalle de la solicitud:*\n" . $publicUrl;
 
                 $whatsappUrl = "https://wa.me/?text=" . rawurlencode($shareMessage);
 
                 // URL para email
-                $emailSubject = "Consulta de Solicitud - " . $serviceRequest->ticket_number . " (Sin Login)";
+                $emailSubject = "Solicitud de Servicio - " . $serviceRequest->ticket_number;
                 $emailBody = "Hola,\n\n" .
-                            "Te comparto el enlace de consulta de esta solicitud de servicio:\n\n" .
+                            "Te comparto el resumen de esta solicitud de servicio:\n\n" .
                             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" .
                             "📋 Ticket: " . $serviceRequest->ticket_number . "\n" .
                             "📊 Estado Actual: " . $statusText . "\n" .
                             "🔧 Servicio: " . ($serviceRequest->subService->service->name ?? 'No especificado') . "\n" .
                             "📅 Fecha de la solicitud: " . $serviceRequest->created_at->format('d/m/Y H:i') . "\n" .
                             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" .
-                            "🔗 Enlace de consulta pública:\n" . $publicUrl . "\n\n" .
-                            "✅ Este enlace NO requiere iniciar sesión\n" .
-                            "👤 Cualquier persona puede consultar el estado\n" .
-                            "📱 Funciona en móvil, tablet y computadora\n" .
-                            "🔄 El estado se actualiza en tiempo real\n\n" .
+                            "🔗 Detalle de la solicitud:\n" . $publicUrl . "\n\n" .
                             "Saludos cordiales";
                 $emailUrl = "mailto:?subject=" . rawurlencode($emailSubject) . "&body=" . rawurlencode($emailBody);
             @endphp
@@ -117,7 +112,7 @@
                 class="flex flex-col items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition duration-150 text-center">
                 <i class="fab fa-whatsapp text-green-600 text-lg mb-1"></i>
                 <span class="font-medium text-gray-900 text-sm">WhatsApp</span>
-                <span class="text-xs text-gray-500">Link público</span>
+                <span class="text-xs text-gray-500">Compartir</span>
             </a>
 
             <!-- Email -->
@@ -125,7 +120,7 @@
                 class="flex flex-col items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-150 text-center">
                 <i class="fas fa-envelope text-blue-600 text-lg mb-1"></i>
                 <span class="font-medium text-gray-900 text-sm">Email</span>
-                <span class="text-xs text-gray-500">Link público</span>
+                <span class="text-xs text-gray-500">Compartir</span>
             </a>
 
             <!-- Copiar Enlace Público -->
@@ -133,7 +128,7 @@
                 class="flex flex-col items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition duration-150 text-center">
                 <i class="fas fa-copy text-purple-600 text-lg mb-1"></i>
                 <span class="font-medium text-gray-900 text-sm">Copiar Link</span>
-                <span class="text-xs text-gray-500">Link público</span>
+                <span class="text-xs text-gray-500">Enlace interno</span>
             </button>
 
         </div>

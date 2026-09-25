@@ -143,6 +143,20 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Sistema single-user: solo el administrador (líder del proceso) puede
+        // iniciar sesión. Los técnicos y cualquier otro usuario existen como
+        // registros gestionables (para delegación y reportes) pero NUNCA acceden
+        // a la aplicación, ni en local ni cuando se publique en línea.
+        if (! Auth::user()->isAdmin()) {
+            Auth::logout();
+
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'Esta cuenta no tiene acceso a la aplicación.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

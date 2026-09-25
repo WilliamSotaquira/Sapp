@@ -1414,13 +1414,84 @@ class ServiceRequestService
             return;
         }
 
+        // Propagar el ejecutor SOLO a las tareas de ejecución (impact/regular).
+        // La tarea de control es del líder y nunca debe quedar con technician_id.
         Task::where('service_request_id', $serviceRequest->id)
+            ->where('type', '!=', Task::TYPE_CONTROL)
             ->update(['technician_id' => $technicianId]);
 
         DB::table('schedule_blocks')
             ->join('tasks', 'tasks.id', '=', 'schedule_blocks.task_id')
             ->where('tasks.service_request_id', $serviceRequest->id)
+            ->where('tasks.type', '!=', Task::TYPE_CONTROL)
             ->update(['schedule_blocks.technician_id' => $technicianId]);
+
+        // Al delegar, generar (si no existe) la tarea de control del líder.
+        $this->ensureControlTask($serviceRequest, $assignedToUserId);
+    }
+
+    /**
+     * Crea (idempotente) la tarea de CONTROL/verificación del líder para una
+     * solicitud delegada a un técnico. Autoría dual: el técnico ejecuta, el
+     * líder verifica el contenido publicado y cierra.
+     *
+     * El plazo se hereda del SLA del contrato (Opción A): usa el mismo sla_id
+     * de la solicitud y toma como vencimiento su resolution_deadline; si aún no
+     * existe, lo deriva del resolution_time_minutes del SLA.
+     */
+    public function ensureControlTask(ServiceRequest $serviceRequest, int $assignedToUserId): ?Task
+    {
+        // Idempotencia: una sola tarea de control por solicitud.
+        $existing = Task::where('service_request_id', $serviceRequest->id)
+            ->where('type', Task::TYPE_CONTROL)
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        // Responsable = el líder. En operación normal es el usuario autenticado
+        // (único admin); con fallback al admin id=1 para procesos de consola.
+        $ownerId = (int) (auth()->id() ?: 1);
+
+        // Nombre del técnico ejecutor para dar contexto al título.
+        $technicianName = User::whereKey($assignedToUserId)->value('name') ?? 'técnico asignado';
+
+        // Plazo heredado del SLA del contrato.
+        $dueDate = $serviceRequest->resolution_deadline;
+        if (!$dueDate && $serviceRequest->sla_id) {
+            $minutes = (int) optional($serviceRequest->sla)->resolution_time_minutes;
+            if ($minutes > 0) {
+                $dueDate = now()->addMinutes($minutes);
+            }
+        }
+
+        return Task::create([
+            'type' => Task::TYPE_CONTROL,
+            'title' => "Verificar y dar seguimiento al contenido de {$technicianName} — Solicitud #{$serviceRequest->ticket_number}",
+            'description' => 'Tarea de control del líder: recibir el enlace del técnico, verificar que las '
+                . 'actividades se realizaron, conservar evidencias (capturas/enlaces/documentos) y cerrar la solicitud.',
+            'service_request_id' => $serviceRequest->id,
+            'technician_id' => null,      // No la ejecuta un técnico; es del líder.
+            'owner_id' => $ownerId,       // Responsable = líder.
+            'sla_id' => $serviceRequest->sla_id,
+            'priority' => $this->mapCriticalityToTaskPriority($serviceRequest->criticality_level),
+            'status' => 'pending',
+            'due_date' => $dueDate?->toDateString(),
+            'requires_evidence' => true,
+        ]);
+    }
+
+    /**
+     * Mapea la criticidad de la solicitud a la prioridad de la tarea de control.
+     */
+    private function mapCriticalityToTaskPriority(?string $criticality): string
+    {
+        return match (strtoupper((string) $criticality)) {
+            'CRITICA', 'CRÍTICA' => 'critical',
+            'ALTA' => 'high',
+            'BAJA' => 'low',
+            default => 'medium',
+        };
     }
 
     protected function resolveTechnicianId(int $userId): ?int

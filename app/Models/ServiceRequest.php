@@ -39,7 +39,7 @@ class ServiceRequest extends Model
     public const ENTRY_CHANNEL_PHONE = 'telefono';
     public const ENTRY_CHANNEL_MEETING = 'reunion';
 
-    protected $fillable = ['company_id', 'contract_id', 'project_id', 'request_type_id', 'service_request_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'non_viable_reason', 'non_viable_at', 'non_viable_by', 'requester_id', 'created_at'];
+    protected $fillable = ['company_id', 'contract_id', 'project_id', 'request_type_id', 'service_request_id', 'ticket_number', 'sla_id', 'sub_service_id', 'requested_by', 'entry_channel', 'is_reportable', 'assigned_to', 'technician_assigned_at', 'title', 'description', 'web_routes', 'main_web_route', 'criticality_level', 'complexity_level', 'distrust_factor', 'priority_score', 'priority_level', 'antiquity_class', 'thread_count', 'cut_date', 'status', 'due_date', 'acceptance_deadline', 'response_deadline', 'resolution_deadline', 'accepted_at', 'responded_at', 'resolved_at', 'closed_at', 'verified_by', 'verified_at', 'resolution_notes', 'satisfaction_score', 'is_paused', 'pause_reason', 'paused_at', 'paused_by', 'resumed_at', 'total_paused_minutes', 'rejection_reason', 'rejected_at', 'rejected_by', 'non_viable_reason', 'non_viable_at', 'non_viable_by', 'requester_id', 'created_at'];
 
     protected $attributes = [
         'status' => 'PENDIENTE',
@@ -60,6 +60,7 @@ class ServiceRequest extends Model
         'responded_at' => 'datetime',
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
+        'verified_at' => 'datetime',
         'paused_at' => 'datetime',
         'resumed_at' => 'datetime',
         'is_paused' => 'boolean',
@@ -324,9 +325,12 @@ class ServiceRequest extends Model
             }
 
             if ($technician) {
-                // Solo asignar tareas aún sin técnico para no sobreescribir planificación existente.
+                // Solo asignar tareas de EJECUCIÓN aún sin técnico, para no sobreescribir
+                // planificación existente. Se excluyen las tareas de control del líder
+                // (type = control), que deben permanecer sin técnico (technician_id = null).
                 $model->tasks()
                     ->whereNull('technician_id')
+                    ->where('type', '!=', \App\Models\Task::TYPE_CONTROL)
                     ->update(['technician_id' => $technician->id]);
             }
 
@@ -499,6 +503,14 @@ class ServiceRequest extends Model
     public function rejectedByUser()
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    /**
+     * Líder que verificó el contenido publicado por el técnico (autoría de control).
+     */
+    public function verifiedBy()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     // Esta relación se encuentra repetirda, eliminar una de las dos

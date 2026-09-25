@@ -62,6 +62,9 @@ class OperationalAlertService
             // Evaluar tareas bloqueadas
             $this->evaluateBlockedTasks($companyId);
 
+            // Evaluar tareas de control del líder (verificación/seguimiento)
+            $this->evaluateControlTasks($companyId);
+
             // Resolver alertas que ya no aplican
             if ($this->config->autoResolveEnabled()) {
                 $this->autoResolveStaleAlerts();
@@ -420,6 +423,81 @@ class OperationalAlertService
         });
     }
 
+    /**
+     * Evaluar las tareas de CONTROL del líder (verificación/seguimiento).
+     *
+     * Son las tareas que el sistema crea al delegar una solicitud a un técnico.
+     * El líder es responsable de verificar el contenido publicado y cerrar; por
+     * eso hay que recordárselas según su due_date (heredado del SLA del contrato):
+     *  - vencidas  -> alerta de resolución vencida
+     *  - próximas a vencer (<= 1 día) -> alerta de SLA en riesgo
+     */
+    private function evaluateControlTasks(?int $companyId): void
+    {
+        $query = Task::where('type', Task::TYPE_CONTROL)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNotNull('due_date');
+
+        if ($companyId) {
+            $query->whereHas('serviceRequest', function ($q) use ($companyId) {
+                $q->withoutGlobalScopes()->where('company_id', $companyId);
+            });
+        }
+
+        $query->with('serviceRequest')->chunkById(50, function ($tasks) {
+            foreach ($tasks as $task) {
+                $deadline = Carbon::parse($task->due_date)->endOfDay();
+                $ticket = $task->serviceRequest?->ticket_number;
+                $severity = $this->deriveSeverityFromTaskPriority($task->priority);
+
+                if (now()->greaterThan($deadline)) {
+                    $daysOverdue = (int) $deadline->diffInDays(now());
+                    $this->createAlert(
+                        $task,
+                        OperationalAlert::TYPE_OVERDUE_RESOLUTION,
+                        $severity,
+                        "Control pendiente de verificación y cierre: '{$task->title}'"
+                            . ($daysOverdue > 0 ? " (vencido hace {$daysOverdue} día(s))" : ' (vence hoy)'),
+                        [
+                            'task_code' => $task->task_code,
+                            'due_date' => $task->due_date,
+                            'days_overdue' => $daysOverdue,
+                            'service_request_ticket' => $ticket,
+                            'kind' => 'control_task',
+                        ]
+                    );
+                } elseif (now()->greaterThanOrEqualTo($deadline->copy()->subDay())) {
+                    $this->createAlert(
+                        $task,
+                        OperationalAlert::TYPE_SLA_AT_RISK,
+                        $severity,
+                        "Control próximo a vencer: verificar y cerrar '{$task->title}'"
+                            . ($ticket ? " (SR: {$ticket})" : ''),
+                        [
+                            'task_code' => $task->task_code,
+                            'due_date' => $task->due_date,
+                            'service_request_ticket' => $ticket,
+                            'kind' => 'control_task',
+                        ]
+                    );
+                }
+            }
+        });
+    }
+
+    /**
+     * Severidad de alerta a partir de la prioridad de una tarea.
+     */
+    private function deriveSeverityFromTaskPriority(?string $priority): string
+    {
+        return match (strtolower((string) $priority)) {
+            'critical' => OperationalAlert::SEVERITY_CRITICAL,
+            'high' => OperationalAlert::SEVERITY_HIGH,
+            'low' => OperationalAlert::SEVERITY_LOW,
+            default => OperationalAlert::SEVERITY_MEDIUM,
+        };
+    }
+
     // ==================== RESOLUCIÓN AUTOMÁTICA ====================
 
     /**
@@ -461,6 +539,22 @@ class OperationalAlertService
             ]);
 
         $this->alertsResolved += $resolvedTasks;
+
+        // Resolver alertas de tareas de CONTROL ya completadas o canceladas
+        $resolvedControlTasks = OperationalAlert::active()
+            ->whereIn('alert_type', [OperationalAlert::TYPE_OVERDUE_RESOLUTION, OperationalAlert::TYPE_SLA_AT_RISK])
+            ->forTasks()
+            ->whereHasMorph('alertable', [Task::class], function ($query) {
+                $query->where('type', Task::TYPE_CONTROL)
+                    ->whereIn('status', ['completed', 'cancelled']);
+            })
+            ->update([
+                'is_resolved' => true,
+                'resolved_at' => now(),
+                'resolution_notes' => 'Resuelta automáticamente: control verificado/cerrado.',
+            ]);
+
+        $this->alertsResolved += $resolvedControlTasks;
 
         // Resolver alertas de aceptación pendiente para SRs que ya fueron aceptadas
         $resolvedAcceptance = OperationalAlert::active()

@@ -16,6 +16,15 @@ class Task extends Model
      */
     const TIME_BLOCK_MINUTES = 25;
 
+    /**
+     * Tipos de tarea.
+     * IMPACT/REGULAR: tareas de ejecución que realiza el técnico.
+     * CONTROL: tarea de verificación/seguimiento del líder (autoría dual).
+     */
+    const TYPE_IMPACT = 'impact';
+    const TYPE_REGULAR = 'regular';
+    const TYPE_CONTROL = 'control';
+
     protected $fillable = [
         'task_code',
         'type',
@@ -23,6 +32,7 @@ class Task extends Model
         'description',
         'service_request_id',
         'technician_id',
+        'owner_id',
         'project_id',
         'standard_task_id',
         'sla_id',
@@ -89,7 +99,12 @@ class Task extends Model
         static::creating(function ($model) {
             if (empty($model->task_code)) {
                 $date = $model->scheduled_date ? Carbon::parse($model->scheduled_date) : now();
-                $prefix = $model->is_critical ? 'CRI' : ($model->type === 'impact' ? 'IMP' : 'REG');
+                $prefix = match (true) {
+                    $model->type === self::TYPE_CONTROL => 'CTRL',
+                    $model->is_critical => 'CRI',
+                    $model->type === self::TYPE_IMPACT => 'IMP',
+                    default => 'REG',
+                };
                 $dateStr = $date->format('Ymd');
 
                 $lastTask = static::where('task_code', 'like', "{$prefix}-{$dateStr}-%")
@@ -225,6 +240,16 @@ class Task extends Model
         return $this->belongsTo(Technician::class);
     }
 
+    /**
+     * Responsable/supervisor de la tarea (el líder), separado del ejecutor
+     * (technician_id). Apunta a User, no a Technician. Base para las tareas
+     * de control del líder.
+     */
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class);
@@ -322,6 +347,22 @@ class Task extends Model
     public function scopeRegular($query)
     {
         return $query->where('type', 'regular');
+    }
+
+    /**
+     * Tareas de control/verificación del líder (autoría dual).
+     */
+    public function scopeControl($query)
+    {
+        return $query->where('type', self::TYPE_CONTROL);
+    }
+
+    /**
+     * Tareas de ejecución realizadas por técnicos (excluye control del líder).
+     */
+    public function scopeExecution($query)
+    {
+        return $query->whereIn('type', [self::TYPE_IMPACT, self::TYPE_REGULAR]);
     }
 
     public function scopeForDate($query, $date)
