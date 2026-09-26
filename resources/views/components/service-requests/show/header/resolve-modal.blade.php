@@ -129,6 +129,43 @@
                             <p class="text-xs text-gray-400 hidden" id="email-reply-loading-{{ $serviceRequest->id }}">
                                 <i class="fas fa-spinner fa-spin mr-1"></i> Generando respuesta...
                             </p>
+
+                            {{-- Imágenes de evidencia para pegar en el correo --}}
+                            @php
+                                $imageEvidences = $serviceRequest->evidences->filter(fn ($e) => $e->is_image && $e->file_url);
+                            @endphp
+                            @if($imageEvidences->isNotEmpty())
+                                <div class="mt-3 pt-3 border-t border-gray-100">
+                                    <div class="mb-2">
+                                        <span class="text-xs font-medium text-gray-600">
+                                            <i class="fas fa-image mr-1 text-gray-400"></i>
+                                            Imágenes de evidencia ({{ $imageEvidences->count() }})
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mb-2">
+                                        Copia cada imagen y pégala (Ctrl+V) en el cuerpo del correo.
+                                    </p>
+                                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" id="evidence-images-{{ $serviceRequest->id }}">
+                                        @foreach($imageEvidences as $img)
+                                            <div class="relative group">
+                                                <img src="{{ $img->file_url }}"
+                                                     alt="{{ $img->title ?? 'Evidencia' }}"
+                                                     class="w-full h-16 object-cover rounded border border-gray-200"
+                                                     loading="lazy">
+                                                <button type="button"
+                                                        data-image-url="{{ $img->file_url }}"
+                                                        onclick="copyEvidenceImage(this)"
+                                                        class="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 rounded transition"
+                                                        title="Copiar esta imagen">
+                                                    <span class="opacity-0 group-hover:opacity-100 text-white text-[11px] font-medium bg-blue-600 px-2 py-0.5 rounded transition">
+                                                        <i class="fas fa-copy mr-1"></i>Copiar
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -549,4 +586,55 @@ function copyEmailReply(serviceRequestId) {
         document.body.removeChild(ta);
     }
 }
+
+/**
+ * Copia una imagen de evidencia al portapapeles como IMAGEN (no como enlace),
+ * lista para pegar (Ctrl+V) en el cuerpo del correo. Descarga el archivo, lo
+ * normaliza a PNG en un canvas (el portapapeles solo acepta image/png de forma
+ * fiable) y lo escribe con la Clipboard API. Si el navegador no lo soporta,
+ * abre la imagen en una pestaña como alternativa.
+ */
+async function copyEvidenceImageUrl(url) {
+    if (!(navigator.clipboard && window.ClipboardItem && window.isSecureContext)) {
+        throw new Error('unsupported');
+    }
+    const resp = await fetch(url, { credentials: 'same-origin' });
+    const srcBlob = await resp.blob();
+
+    // Convertir a PNG mediante canvas para máxima compatibilidad del portapapeles.
+    const pngBlob = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode')), 'image/png');
+        };
+        img.onerror = () => reject(new Error('decode'));
+        img.src = URL.createObjectURL(srcBlob);
+    });
+
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+}
+
+function copyEvidenceImage(btn) {
+    const url = btn.getAttribute('data-image-url');
+    const label = btn.querySelector('span');
+    const orig = label ? label.innerHTML : '';
+    copyEvidenceImageUrl(url).then(() => {
+        if (label) {
+            label.innerHTML = '<i class="fas fa-check mr-1"></i>Copiada';
+            setTimeout(() => { label.innerHTML = orig; }, 2000);
+        }
+    }).catch((e) => {
+        // Fallback: abrir la imagen para copiarla manualmente (clic derecho > copiar).
+        if (label) {
+            label.innerHTML = '<i class="fas fa-external-link-alt mr-1"></i>Abrir';
+            setTimeout(() => { label.innerHTML = orig; }, 2000);
+        }
+        window.open(url, '_blank');
+    });
+}
+
 </script>
