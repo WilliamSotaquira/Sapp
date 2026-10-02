@@ -16,13 +16,59 @@ class NavigationComposer
 {
     public function compose(View $view): void
     {
-        $view->with('navSections', $this->sections());
+        $view->with('navSections', $this->sectionsFor(auth()->user()));
         $view->with('isSectionActive', $this->activeResolver());
     }
 
     /**
+     * Secciones visibles para un usuario, filtradas por rol (capa 4, §9).
+     *
+     * Sin usuario -> []. El administrador ve todo. El técnico ve solo lo
+     * operativo: se ocultan las secciones admin_only (Reportes, Configuración)
+     * y, en secciones mixtas (Gestión), los links admin_only. El filtrado es
+     * cosmético; la protección real son las capas 2 y 3 (fail-closed via §6/§7).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function sectionsFor($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        if ($user->isAdmin()) {
+            return $this->sections();
+        }
+
+        $visible = [];
+
+        foreach ($this->sections() as $section) {
+            if (!empty($section['admin_only'])) {
+                continue;
+            }
+
+            if (!empty($section['links'])) {
+                $section['links'] = array_values(array_filter(
+                    $section['links'],
+                    fn ($link) => empty($link['admin_only'])
+                ));
+
+                // Una sección mixta que se queda sin links no se muestra.
+                if (empty($section['links'])) {
+                    continue;
+                }
+            }
+
+            $visible[] = $section;
+        }
+
+        return $visible;
+    }
+
+    /**
      * Secciones de navegación. Cada sección: key, label, icon, type, match
-     * (patrones de ruta para marcar activo) y links[].
+     * (patrones de ruta para marcar activo), links[] y la bandera admin_only
+     * (sección o link visible solo para administradores; §9).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -67,6 +113,9 @@ class NavigationComposer
                 'label' => 'Gestión',
                 'icon' => 'fas fa-th-large',
                 'type' => 'dropdown',
+                // Sección mixta: para el técnico se reduce a sus ítems operativos
+                // personales (Tareas scopeadas); todo lo de equipo/administración
+                // va marcado admin_only y se oculta (§9, decisión fail-closed).
                 'match' => ['projects.*', 'operational-alerts.*', 'performance-metrics.*', 'tasks.*', 'standard-tasks.*', 'technician-schedule.*', 'technicians.*'],
                 'links' => [
                     [
@@ -74,24 +123,28 @@ class NavigationComposer
                         'label' => 'Proyectos',
                         'icon' => 'fas fa-project-diagram',
                         'match' => ['projects.*'],
+                        'admin_only' => true,
                     ],
                     [
                         'route' => 'operational-alerts.index',
                         'label' => 'Alertas Operativas',
                         'icon' => 'fas fa-bell',
                         'match' => ['operational-alerts.index'],
+                        'admin_only' => true,
                     ],
                     [
                         'route' => 'operational-alerts.reminders',
                         'label' => 'Recordatorios',
                         'icon' => 'fas fa-clock',
                         'match' => ['operational-alerts.reminders'],
+                        'admin_only' => true,
                     ],
                     [
                         'route' => 'performance-metrics.index',
                         'label' => 'Indicadores',
                         'icon' => 'fas fa-chart-line',
                         'match' => ['performance-metrics.*'],
+                        'admin_only' => true,
                     ],
                     [
                         'route' => 'tasks.index',
@@ -104,6 +157,7 @@ class NavigationComposer
                         'label' => 'Calendario',
                         'icon' => 'fas fa-calendar-alt',
                         'match' => ['technician-schedule.index'],
+                        'admin_only' => true,
                     ],
                 ],
             ],
@@ -112,6 +166,7 @@ class NavigationComposer
                 'label' => 'Reportes',
                 'icon' => 'fas fa-chart-bar',
                 'type' => 'dropdown',
+                'admin_only' => true,
                 'match' => ['reports.*'],
                 'links' => [
                     [
@@ -175,6 +230,7 @@ class NavigationComposer
                 'label' => 'Configuración',
                 'icon' => 'fas fa-cog',
                 'type' => 'dropdown',
+                'admin_only' => true,
                 'match' => ['requester-management.*', 'companies.*', 'service-families.*', 'services.*', 'sub-services.*', 'slas.*', 'users.*'],
                 'links' => [
                     [

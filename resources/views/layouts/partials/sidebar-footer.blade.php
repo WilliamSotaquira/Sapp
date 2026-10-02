@@ -85,7 +85,13 @@
         </div>
     @endif
 
-    {{-- ===== Campana de alertas (conserva ids del polling) ===== --}}
+    {{-- ===== Campana de alertas (conserva ids del polling) =====
+         Solo para administradores (§9). Al ocultar el elemento #navAlertBell,
+         el script del layout corta en `if (!badge || !bell) return;`, por lo que
+         el polling de operational-alerts.api.* nunca se dispara para técnicos y
+         no genera ruido 403. Las APIs del badge siguen alcanzables (red de
+         seguridad ya scopeada por usuario en FEAT-002). --}}
+    @if(auth()->user()->isAdmin())
     <div class="app-footer__block" id="alertBellWrapper">
         <button type="button" class="app-footer__btn" id="navAlertBell" title="Alertas operativas">
             <span class="app-footer__icon-wrap">
@@ -107,6 +113,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     {{-- ===== Usuario ===== --}}
     <div class="app-footer__block app-footer__user">

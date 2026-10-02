@@ -106,7 +106,16 @@ class TechnicianController extends Controller
 
         // Asignar rol al usuario si el usuario actual es admin
         if (auth()->user()->isAdmin() && isset($validated['user_role'])) {
-            $technician->user->update(['role' => $validated['user_role']]);
+            $roleUpdate = ['role' => $validated['user_role']];
+
+            // Onboarding (§4/§8): al dar acceso al panel (admin o técnico) el
+            // usuario queda verificado. Server-side, nunca desde el request.
+            if (in_array($validated['user_role'], ['admin', 'technician'], true)
+                && is_null($technician->user->email_verified_at)) {
+                $roleUpdate['email_verified_at'] = now();
+            }
+
+            $technician->user->update($roleUpdate);
         }
 
         // Agregar habilidades si se proporcionaron
@@ -246,7 +255,16 @@ class TechnicianController extends Controller
 
         // Actualizar rol del usuario si el usuario actual es admin y no está cambiando su propio rol
         if (auth()->user()->isAdmin() && isset($validated['user_role']) && auth()->id() !== $technician->user_id) {
-            $technician->user->update(['role' => $validated['user_role']]);
+            $roleUpdate = ['role' => $validated['user_role']];
+
+            // Onboarding (§4/§8): al dar acceso al panel (admin o técnico) el
+            // usuario queda verificado. Server-side, nunca desde el request.
+            if (in_array($validated['user_role'], ['admin', 'technician'], true)
+                && is_null($technician->user->email_verified_at)) {
+                $roleUpdate['email_verified_at'] = now();
+            }
+
+            $technician->user->update($roleUpdate);
         }
 
         // Actualizar o crear habilidades
@@ -375,6 +393,10 @@ class TechnicianController extends Controller
             $message = "Se han removido los permisos de administrador de {$user->name}.";
         } else {
             $user->role = 'admin';
+            // Onboarding (§4/§8): al promover a admin el usuario queda verificado.
+            if (is_null($user->email_verified_at)) {
+                $user->email_verified_at = now();
+            }
             $message = "{$user->name} ahora es administrador.";
         }
 

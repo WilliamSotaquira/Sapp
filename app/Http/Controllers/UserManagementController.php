@@ -40,6 +40,9 @@ class UserManagementController extends Controller
             'email' => $validated['email'],
             'password' => $validated['password'],
             'role' => $validated['role'],
+            // Onboarding (§4/§8): un usuario con acceso al panel (admin o técnico)
+            // nace verificado. El valor se fija server-side, nunca desde el request.
+            'email_verified_at' => in_array($validated['role'], ['admin', 'technician'], true) ? now() : null,
         ]);
 
         return redirect()->route('users.index')
@@ -70,6 +73,13 @@ class UserManagementController extends Controller
 
         if (!empty($validated['password'])) {
             $payload['password'] = $validated['password'];
+        }
+
+        // Onboarding (§4/§8): si el rol resultante da acceso al panel (admin o
+        // técnico) y el usuario aún no está verificado, verificarlo server-side.
+        // El password en blanco no se toca (comportamiento actual correcto).
+        if (in_array($validated['role'], ['admin', 'technician'], true) && is_null($user->email_verified_at)) {
+            $payload['email_verified_at'] = now();
         }
 
         $user->update($payload);
