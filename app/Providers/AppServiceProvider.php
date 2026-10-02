@@ -36,10 +36,16 @@ class AppServiceProvider extends ServiceProvider
 
         // ========== DEFINICIÓN DE GATES/POLÍTICAS ==========
 
-        // Gate para asignar solicitudes de servicio
-        // Solo administradores y técnicos pueden asignar
+        // Registro explícito de Policies (además del auto-descubrimiento) por robustez.
+        Gate::policy(\App\Models\ServiceRequest::class, \App\Policies\ServiceRequestPolicy::class);
+        Gate::policy(\App\Models\Task::class, \App\Policies\TaskPolicy::class);
+        Gate::policy(\App\Models\Evidence::class, \App\Policies\EvidencePolicy::class);
+        Gate::policy(\App\Models\ServiceRequestEvidence::class, \App\Policies\ServiceRequestEvidencePolicy::class);
+
+        // Gate para asignar solicitudes de servicio.
+        // La asignación/reasignación de solicitudes es exclusiva del administrador.
         Gate::define('assign-service-requests', function ($user) {
-            return $user->isAdmin() || $user->isTechnician();
+            return $user->isAdmin();
         });
 
         // ========== ALIASES PARA COMPATIBILIDAD ==========

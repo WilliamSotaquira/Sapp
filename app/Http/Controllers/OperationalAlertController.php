@@ -143,16 +143,36 @@ class OperationalAlertController extends Controller
     public function unreadCount()
     {
         $companyId = (int) session('current_company_id');
+        $user = auth()->user();
+        $isAdmin = $user && $user->isAdmin();
+        $ownUserId = $user?->id;
+        $ownTechnicianId = $user?->technician?->id;
 
         $baseQuery = OperationalAlert::active()->unread()
-            ->where(function ($q) use ($companyId) {
-                $q->where(function ($sub) use ($companyId) {
+            ->where(function ($q) use ($companyId, $isAdmin, $ownUserId, $ownTechnicianId) {
+                $q->where(function ($sub) use ($companyId, $isAdmin, $ownUserId) {
                     $sub->where('alertable_type', \App\Models\ServiceRequest::class)
-                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
-                })->orWhere(function ($sub) use ($companyId) {
+                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], function ($sr) use ($companyId, $isAdmin, $ownUserId) {
+                            $sr->withoutGlobalScopes()->where('company_id', $companyId);
+                            if (!$isAdmin) {
+                                $sr->where('assigned_to', $ownUserId);
+                            }
+                        });
+                })->orWhere(function ($sub) use ($companyId, $isAdmin, $ownTechnicianId) {
                     $sub->where('alertable_type', \App\Models\Task::class)
-                        ->whereHasMorph('alertable', [\App\Models\Task::class], fn ($t) => $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId)));
-                })->orWhere('alertable_type', \App\Models\User::class);
+                        ->whereHasMorph('alertable', [\App\Models\Task::class], function ($t) use ($companyId, $isAdmin, $ownTechnicianId) {
+                            $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
+                            if (!$isAdmin) {
+                                // Sin perfil técnico, 0 (fail-closed).
+                                $t->where('technician_id', $ownTechnicianId ?? 0);
+                            }
+                        });
+                })->orWhere(function ($sub) use ($isAdmin, $ownUserId) {
+                    $sub->where('alertable_type', \App\Models\User::class);
+                    if (!$isAdmin) {
+                        $sub->where('alertable_id', $ownUserId);
+                    }
+                });
             });
 
         $count = (clone $baseQuery)->count();
@@ -170,18 +190,37 @@ class OperationalAlertController extends Controller
     public function recent()
     {
         $companyId = (int) session('current_company_id');
+        $user = auth()->user();
+        $isAdmin = $user && $user->isAdmin();
+        $ownUserId = $user?->id;
+        $ownTechnicianId = $user?->technician?->id;
 
         $alerts = OperationalAlert::active()
             ->unread()
             ->with('alertable')
-            ->where(function ($q) use ($companyId) {
-                $q->where(function ($sub) use ($companyId) {
+            ->where(function ($q) use ($companyId, $isAdmin, $ownUserId, $ownTechnicianId) {
+                $q->where(function ($sub) use ($companyId, $isAdmin, $ownUserId) {
                     $sub->where('alertable_type', \App\Models\ServiceRequest::class)
-                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
-                })->orWhere(function ($sub) use ($companyId) {
+                        ->whereHasMorph('alertable', [\App\Models\ServiceRequest::class], function ($sr) use ($companyId, $isAdmin, $ownUserId) {
+                            $sr->withoutGlobalScopes()->where('company_id', $companyId);
+                            if (!$isAdmin) {
+                                $sr->where('assigned_to', $ownUserId);
+                            }
+                        });
+                })->orWhere(function ($sub) use ($companyId, $isAdmin, $ownTechnicianId) {
                     $sub->where('alertable_type', \App\Models\Task::class)
-                        ->whereHasMorph('alertable', [\App\Models\Task::class], fn ($t) => $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId)));
-                })->orWhere('alertable_type', \App\Models\User::class);
+                        ->whereHasMorph('alertable', [\App\Models\Task::class], function ($t) use ($companyId, $isAdmin, $ownTechnicianId) {
+                            $t->whereHas('serviceRequest', fn ($sr) => $sr->withoutGlobalScopes()->where('company_id', $companyId));
+                            if (!$isAdmin) {
+                                $t->where('technician_id', $ownTechnicianId ?? 0);
+                            }
+                        });
+                })->orWhere(function ($sub) use ($isAdmin, $ownUserId) {
+                    $sub->where('alertable_type', \App\Models\User::class);
+                    if (!$isAdmin) {
+                        $sub->where('alertable_id', $ownUserId);
+                    }
+                });
             })
             ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
             ->orderBy('alert_at', 'desc')

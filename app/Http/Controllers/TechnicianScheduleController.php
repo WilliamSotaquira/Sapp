@@ -215,6 +215,8 @@ class TechnicianScheduleController extends Controller
      */
     public function moveTask(Request $request, Task $task)
     {
+        $this->authorize('update', $task);
+
         $validated = $request->validate([
             'scheduled_date' => 'required|date',
             'scheduled_time' => 'required|date_format:H:i',

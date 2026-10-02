@@ -18,6 +18,9 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function create(ServiceRequest $serviceRequest)
     {
+        $this->authorize('create', ServiceRequestEvidence::class);
+        $this->authorize('update', $serviceRequest);
+
         $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
         // Permitir agregar evidencias mientras la solicitud está en gestión o cerrada
@@ -38,6 +41,9 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function store(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('create', ServiceRequestEvidence::class);
+        $this->authorize('update', $serviceRequest);
+
         $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
         // Permitir carga mientras la solicitud está en gestión o cerrada
@@ -147,6 +153,8 @@ class ServiceRequestEvidenceController extends Controller
             abort(404);
         }
 
+        $this->authorize('view', $evidence);
+
         return view('service-request-evidences.show', compact('serviceRequest', 'evidence'));
     }
 
@@ -158,6 +166,8 @@ class ServiceRequestEvidenceController extends Controller
         if ($evidence->service_request_id !== $serviceRequest->id || !$evidence->hasFile()) {
             abort(404);
         }
+
+        $this->authorize('view', $evidence);
 
         if (!Storage::disk('public')->exists($evidence->file_path)) {
             abort(404, 'Archivo no encontrado.');
@@ -174,6 +184,8 @@ class ServiceRequestEvidenceController extends Controller
         if ($evidence->service_request_id !== $serviceRequest->id || !$evidence->hasFile()) {
             abort(404);
         }
+
+        $this->authorize('view', $evidence);
 
         if (!Storage::disk('public')->exists($evidence->file_path)) {
             abort(404, 'Archivo no encontrado.');
@@ -193,6 +205,9 @@ class ServiceRequestEvidenceController extends Controller
      */
     public function storeQuickNote(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('create', ServiceRequestEvidence::class);
+        $this->authorize('update', $serviceRequest);
+
         $deadStatuses = ['CERRADA', 'CANCELADA', 'RECHAZADA', 'NO_VIABLE'];
 
         if (in_array($serviceRequest->status, $deadStatuses, true)) {
@@ -261,6 +276,8 @@ class ServiceRequestEvidenceController extends Controller
         if ($evidence->service_request_id !== $serviceRequest->id) {
             abort(404);
         }
+
+        $this->authorize('delete', $evidence);
 
         $allowedStatuses = ['ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'RESUELTA', 'CERRADA', 'NO_VIABLE'];
 
