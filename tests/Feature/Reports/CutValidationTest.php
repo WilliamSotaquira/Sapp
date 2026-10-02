@@ -21,7 +21,7 @@ class CutValidationTest extends TestCase
 
     private function seedCutContext(): array
     {
-        $user = User::factory()->create();
+        $user = User::factory()->admin()->create();
 
         $company = Company::create([
             'name' => 'Movilidad Test',

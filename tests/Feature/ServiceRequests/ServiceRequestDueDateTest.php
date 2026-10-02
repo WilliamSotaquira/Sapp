@@ -23,7 +23,10 @@ class ServiceRequestDueDateTest extends TestCase
 
     private function seedContext(): array
     {
-        $user = User::factory()->create();
+        // El dueño/administrador gestiona las solicitudes. Se fija role=admin
+        // explícitamente para no depender de que este usuario obtenga id=1
+        // (que podría no ocurrir según el orden de ejecución del suite; §10.1/§12).
+        $user = User::factory()->admin()->create();
 
         $company = Company::create([
             'name' => 'Empresa Vencimientos',

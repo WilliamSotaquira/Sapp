@@ -507,6 +507,10 @@ Route::prefix('api')->name('api.')->group(function () {
             });
 
             return response()->json($formattedRequests);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            // No enmascarar el muro fail-closed (abort(403)) ni el 404 de
+            // findOrFail como 500: deben propagarse con su código real.
+            throw $e;
         } catch (\Exception $e) {
             \Log::error('Error cargando solicitudes por técnico: ' . $e->getMessage());
             return response()->json([

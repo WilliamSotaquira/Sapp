@@ -10,6 +10,12 @@ class Evidence extends Model
 {
     use HasFactory;
 
+    // "evidence" es incontable para el pluralizador de Laravel, por lo que el
+    // nombre de tabla inferido sería 'evidence'; la tabla real (migración
+    // create_evidences_table) es 'evidences'. Sin esto el route-model-binding
+    // de evidences.download/destroy no resuelve y la política nunca se evalúa.
+    protected $table = 'evidences';
+
     protected $fillable = [
         'requirement_id', 'file_path', 'file_name', 'file_type',
         'original_name', 'file_size', 'description', 'mime_type', 'is_public'
