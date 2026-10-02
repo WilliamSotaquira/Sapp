@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ServiceRequest;
+use App\Support\SqlExpr;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -17,7 +18,7 @@ class ProjectController extends Controller
 
         $query = Project::withCount(['serviceRequests'])
             ->where('company_id', $companyId)
-            ->orderByRaw("FIELD(status, 'in_progress', 'active', 'on_hold', 'completed', 'cancelled')")
+            ->orderByRaw(SqlExpr::fieldOrder('status', ['in_progress', 'active', 'on_hold', 'completed', 'cancelled']))
             ->orderBy('updated_at', 'desc');
 
         // Filtro por estado
@@ -85,7 +86,7 @@ class ProjectController extends Controller
     {
         $project->load(['serviceRequests' => function ($query) {
             $query->with(['subService', 'assignee', 'requester'])
-                  ->orderByRaw("FIELD(status, 'EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO', 'RESUELTA', 'CERRADA', 'CANCELADA')")
+                  ->orderByRaw(SqlExpr::fieldOrder('status', ['EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO', 'RESUELTA', 'CERRADA', 'CANCELADA']))
                   ->orderBy('priority_score', 'desc');
         }, 'creator']);
 

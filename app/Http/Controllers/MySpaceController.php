@@ -9,6 +9,7 @@ use App\Models\SlaCompliance;
 use App\Models\Task;
 use App\Models\TaskAlert;
 use App\Models\TaskHistory;
+use App\Support\SqlExpr;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -52,7 +53,7 @@ class MySpaceController extends Controller
                       ->orWhereDate('scheduled_date', '<', $today);
                 })
                 ->with(['serviceRequest:id,ticket_number,title,company_id', 'serviceRequest.company:id,name'])
-                ->orderByRaw("FIELD(priority, 'critical', 'high', 'medium', 'low')")
+                ->orderByRaw(SqlExpr::fieldOrder('priority', ['critical', 'high', 'medium', 'low']))
                 ->orderBy('due_date')
                 ->limit(15)
                 ->get();
@@ -104,8 +105,8 @@ class MySpaceController extends Controller
             ->where('assigned_to', $user->id)
             ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA', 'ARCHIVADA'])
             ->with(['subService:id,name,service_id', 'subService.service:id,name,service_family_id', 'subService.service.family:id,name', 'company:id,name'])
-            ->orderByRaw("FIELD(status, 'EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO', 'RESUELTA')")
-            ->orderByRaw("FIELD(criticality_level, 'CRITICA', 'ALTA', 'MEDIA', 'BAJA')")
+            ->orderByRaw(SqlExpr::fieldOrder('status', ['EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO', 'RESUELTA']))
+            ->orderByRaw(SqlExpr::fieldOrder('criticality_level', ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']))
             ->limit(15)
             ->get();
 
@@ -210,7 +211,7 @@ class MySpaceController extends Controller
                     });
                 }
             })
-            ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
+            ->orderByRaw(SqlExpr::fieldOrder('severity', ['critica', 'alta', 'media', 'baja']))
             ->orderBy('alert_at', 'desc')
             ->limit(10)
             ->get();

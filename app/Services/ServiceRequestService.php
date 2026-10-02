@@ -11,6 +11,7 @@ use App\Models\Technician;
 use App\Models\User;
 use App\Models\Cut;
 use App\Models\Requester;
+use App\Support\SqlExpr;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
@@ -394,11 +395,11 @@ class ServiceRequestService
                 $query->orderByRaw($dateSortExpression . ' asc');
                 break;
             case 'priority_high':
-                $query->orderByRaw("FIELD(criticality_level, 'CRITICA','ALTA','MEDIA','BAJA') ASC")
+                $query->orderByRaw(SqlExpr::fieldOrder('criticality_level', ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']) . ' ASC')
                     ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'priority_low':
-                $query->orderByRaw("FIELD(criticality_level, 'BAJA','MEDIA','ALTA','CRITICA') ASC")
+                $query->orderByRaw(SqlExpr::fieldOrder('criticality_level', ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']) . ' ASC')
                     ->orderByRaw($dateSortExpression . ' desc');
                 break;
             case 'status_az':
