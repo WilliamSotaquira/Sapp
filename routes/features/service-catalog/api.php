@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 // Agregar APIs específicas del catálogo de servicios aquí...
 // Estas rutas estarán disponibles bajo /api/...
 
-Route::prefix('catalog')->name('catalog.')->group(function () {
+Route::prefix('catalog')->name('catalog.')->middleware('role:admin')->group(function () {
     // Ejemplo: API para búsqueda de servicios
     // Route::get('/services/search', [ServiceController::class, 'search'])->name('services.search');
 });

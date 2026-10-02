@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Route;
 // CATÁLOGO DE SERVICIOS
 // =============================================================================
 
-Route::resource('service-families', ServiceFamilyController::class);
-Route::resource('companies', CompanyController::class);
-Route::resource('contracts', ContractController::class);
-Route::resource('services', ServiceController::class);
-Route::resource('sub-services', SubServiceController::class);
+Route::middleware('role:admin')->group(function () {
+    Route::resource('service-families', ServiceFamilyController::class);
+    Route::resource('companies', CompanyController::class);
+    Route::resource('contracts', ContractController::class);
+    Route::resource('services', ServiceController::class);
+    Route::resource('sub-services', SubServiceController::class);
+});

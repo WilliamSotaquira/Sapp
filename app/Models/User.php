@@ -82,6 +82,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Fuente única de verdad del acceso al panel.
+     * Acceso = admin (incl. id===1) o técnico autorizado por la columna role.
+     */
+    public function canAccessPanel(): bool
+    {
+        return $this->isAdmin() || $this->isTechnicianRole();
+    }
+
+    /**
      * Relación con perfil de técnico
      */
     public function technician()

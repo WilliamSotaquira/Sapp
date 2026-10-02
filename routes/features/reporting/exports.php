@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 // EXPORTACIONES DE REPORTES
 // =============================================================================
 
-Route::prefix('reports')->name('reports.')->group(function () {
+Route::prefix('reports')->name('reports.')->middleware('role:admin')->group(function () {
 
     // =========================================================================
     // EXPORTACIONES PRINCIPALES

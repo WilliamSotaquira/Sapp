@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 // Agregar APIs específicas de usuarios aquí...
 // Estas rutas estarán disponibles bajo /api/...
 
-Route::prefix('users')->name('users.')->group(function () {
+Route::prefix('users')->name('users.')->middleware('role:admin')->group(function () {
     // Ejemplo: API para gestión de perfiles de usuario
     // Route::get('/profile/{user}', [ProfileController::class, 'apiShow'])->name('profile.show');
 });

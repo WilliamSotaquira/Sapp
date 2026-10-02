@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 // GESTIÓN DE PROYECTOS
 // =============================================================================
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::resource('projects', ProjectController::class);
 
     // Vincular/desvincular solicitudes

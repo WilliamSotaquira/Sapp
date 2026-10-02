@@ -67,7 +67,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 'message' => 'Error al crear el departamento.',
             ], 500);
         }
-    })->name('departments.quick-create');
+    })->middleware('role:admin')->name('departments.quick-create');
 
     // Crear solicitante rápido (para formularios) sin recargar la página
     Route::post('/requesters/quick-create', function (Request $request) {
@@ -120,7 +120,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 'message' => 'Error al crear el solicitante.',
             ], 500);
         }
-    })->name('requesters.quick-create');
+    })->middleware('role:admin')->name('requesters.quick-create');
 
     // =========================================================================
     // CARGAR DATOS JERÁRQUICOS
@@ -370,7 +370,7 @@ Route::prefix('api')->name('api.')->group(function () {
                 'error' => 'Error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
         }
-    })->name('service-subservices.find-or-create');
+    })->middleware('role:admin')->name('service-subservices.find-or-create');
 
     // ServiceSubservice - Obtener por ID
     Route::get('/service-subservices/{id}', function ($id) {
@@ -471,6 +471,13 @@ Route::prefix('api')->name('api.')->group(function () {
             \Log::info("Cargando solicitudes para técnico: " . $technicianId);
 
             $technician = \App\Models\Technician::findOrFail($technicianId);
+
+            // Fail-closed: un técnico solo puede consultar SU propio id; el
+            // admin pasa con cualquier id. Evita la fuga cross-técnico (§6.6).
+            if (!auth()->user()->isAdmin() && (int) $technician->user_id !== (int) auth()->id()) {
+                abort(403);
+            }
+
             $userId = $technician->user_id;
 
             $requests = \App\Models\ServiceRequest::with('sla')

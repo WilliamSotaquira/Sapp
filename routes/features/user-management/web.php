@@ -12,5 +12,7 @@ Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit')
 Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-// CRUD de usuarios
-Route::resource('users', UserManagementController::class)->except(['show']);
+// CRUD de usuarios (administrativo)
+Route::middleware('role:admin')->group(function () {
+    Route::resource('users', UserManagementController::class)->except(['show']);
+});

@@ -5,7 +5,7 @@ use App\Http\Controllers\RequesterManagementController;
 use App\Http\Controllers\DepartmentController;
 
 // Gestión de Solicitantes
-Route::prefix('requester-management')->name('requester-management.')->middleware(['auth'])->group(function () {
+Route::prefix('requester-management')->name('requester-management.')->middleware(['auth', 'role:admin'])->group(function () {
     Route::resource('requesters', RequesterManagementController::class)->except(['create', 'show']);
     Route::get('requesters/create', [RequesterManagementController::class, 'create'])->name('requesters.create');
     Route::get('requesters/{requester}', [RequesterManagementController::class, 'show'])->name('requesters.show');
