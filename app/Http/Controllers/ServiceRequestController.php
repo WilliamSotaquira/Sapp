@@ -25,6 +25,7 @@ use App\Services\EvidenceService;
 use App\Models\RequestType;
 use App\Services\TraceabilityChainService;
 use App\Services\AssignmentHistoryService;
+use App\Support\SqlExpr;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -1299,8 +1300,8 @@ class ServiceRequestController extends Controller
             ->where('assigned_to', $userId)
             ->where('id', '!=', $current->id)
             ->whereNotIn('status', ['CERRADA', 'CANCELADA', 'RECHAZADA', 'ARCHIVADA', 'NO_VIABLE', 'RESUELTA'])
-            ->orderByRaw("FIELD(status, 'EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO')")
-            ->orderByRaw("FIELD(criticality_level, 'CRITICA', 'ALTA', 'MEDIA', 'BAJA')")
+            ->orderByRaw(SqlExpr::fieldOrder('status', ['EN_PROCESO', 'ACEPTADA', 'PENDIENTE', 'PAUSADA', 'REABIERTO']))
+            ->orderByRaw(SqlExpr::fieldOrder('criticality_level', ['CRITICA', 'ALTA', 'MEDIA', 'BAJA']))
             ->orderBy('created_at')
             ->first();
     }

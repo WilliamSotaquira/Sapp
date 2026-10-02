@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\OperationalAlert;
 use App\Services\OperationalAlertService;
+use App\Support\SqlExpr;
 use Illuminate\Http\Request;
 
 class OperationalAlertController extends Controller
@@ -34,7 +35,7 @@ class OperationalAlertController extends Controller
                     $sub->where('alertable_type', \App\Models\User::class);
                 });
             })
-            ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
+            ->orderByRaw(SqlExpr::fieldOrder('severity', ['critica', 'alta', 'media', 'baja']))
             ->orderBy('alert_at', 'desc');
 
         // Filtro por estado
@@ -222,7 +223,7 @@ class OperationalAlertController extends Controller
                     }
                 });
             })
-            ->orderByRaw("FIELD(severity, 'critica', 'alta', 'media', 'baja')")
+            ->orderByRaw(SqlExpr::fieldOrder('severity', ['critica', 'alta', 'media', 'baja']))
             ->orderBy('alert_at', 'desc')
             ->limit(5)
             ->get();
