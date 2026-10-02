@@ -22,7 +22,10 @@ class ServiceRequestDestroyTest extends TestCase
 
     private function seedContext(): array
     {
-        $user = User::factory()->create();
+        // El dueño/administrador elimina solicitudes; se fija role=admin para no
+        // depender de id=1 (el binding endurecido exige admin o asignatario y, en
+        // el suite completo, este usuario podría no ser id=1). §10.1/§12.
+        $user = User::factory()->admin()->create();
         $companyId = $user->companies()->value('companies.id');
         $company = Company::findOrFail($companyId);
 

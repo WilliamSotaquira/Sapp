@@ -30,7 +30,7 @@ class StatusCriticalityPercentagesPropertyTest extends TestCase
 
     private function seedContext(): array
     {
-        $user = User::factory()->create();
+        $user = User::factory()->admin()->create();
 
         $company = Company::create([
             'name' => 'Test Company Prop6',

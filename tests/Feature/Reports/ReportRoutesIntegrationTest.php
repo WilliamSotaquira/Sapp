@@ -20,7 +20,9 @@ class ReportRoutesIntegrationTest extends TestCase
 
     private function seedContext(): array
     {
-        $user = User::factory()->create();
+        // Los reportes son administrativos (role:admin, §6.3). El usuario de
+        // contexto debe ser admin para ejercer estas rutas sin chocar con el muro.
+        $user = User::factory()->admin()->create();
 
         $company = Company::create([
             'name' => 'Integration Test Company',
