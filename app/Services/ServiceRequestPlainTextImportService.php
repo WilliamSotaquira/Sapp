@@ -121,10 +121,17 @@ class ServiceRequestPlainTextImportService
         // Formato estructurado: usar algoritmo original
         $parsed = $this->extractStructuredData($text);
 
-        if ($parsed['requester_name'] === '') {
-            throw ValidationException::withMessages([
-                'plain_text' => 'No se pudo identificar el nombre del solicitante en el texto pegado.',
-            ]);
+        if ($this->requesterNameIsMissing($parsed['requester_name'])) {
+            // Fallback: el desalineamiento del anclaje puede perder el nombre aunque
+            // esté presente en el texto. Intentar recuperarlo antes de fallar.
+            $fallbackName = $this->recoverRequesterName($text);
+            if ($fallbackName !== null) {
+                $parsed['requester_name'] = $fallbackName;
+            } else {
+                throw ValidationException::withMessages([
+                    'plain_text' => 'No se pudo identificar el nombre del solicitante en el texto pegado.',
+                ]);
+            }
         }
 
         if ($parsed['sub_service_name'] === '') {
@@ -632,10 +639,15 @@ class ServiceRequestPlainTextImportService
      */
     private function resolveStructuredParsedData(array $parsed, int $companyId, int $activeContractId, string $text, ?int $requestedBy): array
     {
-        if ($parsed['requester_name'] === '') {
-            throw ValidationException::withMessages([
-                'plain_text' => 'No se pudo identificar el nombre del solicitante en el texto pegado.',
-            ]);
+        if ($this->requesterNameIsMissing($parsed['requester_name'])) {
+            $fallbackName = $this->recoverRequesterName($text);
+            if ($fallbackName !== null) {
+                $parsed['requester_name'] = $fallbackName;
+            } else {
+                throw ValidationException::withMessages([
+                    'plain_text' => 'No se pudo identificar el nombre del solicitante en el texto pegado.',
+                ]);
+            }
         }
 
         if ($parsed['sub_service_name'] === '') {
@@ -997,6 +1009,73 @@ class ServiceRequestPlainTextImportService
     }
 
     /**
+     * Intenta recuperar el nombre del solicitante cuando el parseo estructurado
+     * (o el anclaje del formato ITIL) lo pierde aunque esté presente en el texto.
+     *
+     * Estrategia por orden de fiabilidad:
+     *   1. La acción final del formato ITIL "Informar a [Nombre] (5 min)": el
+     *      prompt garantiza que use exactamente el nombre del solicitante.
+     *   2. Extracción heurística general (remitente de correo, WhatsApp, línea
+     *      que parece nombre de persona) vía extractRequesterNameFromRawText.
+     */
+    private function recoverRequesterName(string $text): ?string
+    {
+        // 1) Acción ITIL "Informar a <Nombre completo> (5 min)".
+        if (preg_match('/-\s*Informar\s+a\s+(.+?)\s*(?:\(\s*\d+\s*min[^\)]*\)\s*)?$/imu', $text, $match)) {
+            $candidate = trim($match[1]);
+            // Quitar posible duración residual y puntuación final.
+            $candidate = trim(preg_replace('/\(\s*\d+\s*min[^\)]*\)/iu', '', $candidate));
+            $candidate = trim($candidate, " \t.,;:");
+            if ($this->looksLikePersonName($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // 2) Heurística general de extracción del texto crudo.
+        $heuristic = $this->extractRequesterNameFromRawText($text);
+        if ($heuristic !== null) {
+            $heuristic = trim($heuristic);
+            if ($this->looksLikePersonName($heuristic)) {
+                return $heuristic;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Indica si el nombre del solicitante debe considerarse ausente: vacío o un
+     * marcador de "No disponible" que el parser dejó pasar.
+     */
+    private function requesterNameIsMissing(string $name): bool
+    {
+        $name = trim($name);
+
+        return $name === '' || $this->isUnavailableMarker($name);
+    }
+
+    /**
+     * Determina si una cadena tiene forma de nombre de persona: entre 2 y 5
+     * palabras, solo letras/espacios (con acentos), sin dígitos ni símbolos, y
+     * con una longitud razonable.
+     */
+    private function looksLikePersonName(string $value): bool
+    {
+        $value = trim($value);
+
+        if (mb_strlen($value) < 5 || mb_strlen($value) > 80) {
+            return false;
+        }
+
+        // Solo letras (incluye acentos y ñ) y espacios.
+        if (! preg_match('/^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+){1,4}$/u', $value)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Normalizes a name for database search: removes accents, lowercases, collapses spaces.
      */
     private function normalizeNameForSearch(string $name): string
@@ -1177,6 +1256,17 @@ class ServiceRequestPlainTextImportService
 
         if (empty($description)) {
             $description = $title;
+        }
+
+        // Fallback: si el análisis por bloques no aisló el nombre del solicitante,
+        // intentar recuperarlo del propio output del LLM (línea de nombre de persona).
+        if ($this->requesterNameIsMissing($requesterName)) {
+            $recovered = $this->recoverRequesterName($llmOutput);
+            if ($recovered !== null) {
+                $requesterName = $recovered;
+            } else {
+                $requesterName = '';
+            }
         }
 
         // Resolve requester
