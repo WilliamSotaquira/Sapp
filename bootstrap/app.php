@@ -22,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\EnsureWorkspaceSelected::class,
         ]);
+
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $expiredSessionRedirect = function (Request $request) {

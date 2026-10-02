@@ -8,4 +8,4 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/requirements', function () {
     return view('requirements.index');
-})->name('requirements.index');
+})->middleware('role:admin')->name('requirements.index');

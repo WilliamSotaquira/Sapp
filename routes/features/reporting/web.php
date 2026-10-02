@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 // MÓDULO DE REPORTES
 // =============================================================================
 
-Route::prefix('reports')->name('reports.')->group(function () {
+Route::prefix('reports')->name('reports.')->middleware('role:admin')->group(function () {
     // Dashboard de reportes
     Route::get('/', [ReportsController::class, 'index'])->name('index');
 

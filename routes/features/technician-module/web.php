@@ -19,7 +19,7 @@ use App\Http\Controllers\TechnicianScheduleController;
 // GESTIÓN DE TÉCNICOS
 // =============================================================================
 
-Route::prefix('technicians')->name('technicians.')->group(function () {
+Route::prefix('technicians')->name('technicians.')->middleware('role:admin')->group(function () {
 
     // CRUD de técnicos
     Route::get('/', [TechnicianController::class, 'index'])->name('index');
@@ -93,20 +93,30 @@ Route::prefix('tasks')->name('tasks.')->group(function () {
 
 Route::prefix('technician-schedule')->name('technician-schedule.')->group(function () {
 
-    // Calendario principal
-    Route::get('/', [TechnicianScheduleController::class, 'index'])->name('index');
+    // -------------------------------------------------------------------------
+    // Vistas/API multi-técnico de todo el equipo (administrativas) — §6.4
+    // -------------------------------------------------------------------------
+    Route::middleware('role:admin')->group(function () {
+        // Calendario principal (todo el equipo)
+        Route::get('/', [TechnicianScheduleController::class, 'index'])->name('index');
 
-    // Mi agenda (vista del técnico)
+        // Capacidad del equipo
+        Route::get('/team-capacity', [TechnicianScheduleController::class, 'teamCapacity'])->name('team-capacity');
+
+        // Vista Gantt multi-técnico
+        Route::get('/gantt', [TechnicianScheduleController::class, 'ganttView'])->name('gantt');
+
+        // API para calendario (multi-técnico)
+        Route::get('/events', [TechnicianScheduleController::class, 'getEvents'])->name('events');
+    });
+
+    // -------------------------------------------------------------------------
+    // Operativo (técnico): autorizado por propiedad vía Policy/scoping — §6.4
+    // -------------------------------------------------------------------------
+    // Mi agenda (vista del técnico; ya resuelve "otro técnico" solo para admin)
     Route::get('/my-agenda', [TechnicianScheduleController::class, 'myAgenda'])->name('my-agenda');
 
-    // Capacidad del equipo
-    Route::get('/team-capacity', [TechnicianScheduleController::class, 'teamCapacity'])->name('team-capacity');
-
-    // Vista Gantt multi-técnico
-    Route::get('/gantt', [TechnicianScheduleController::class, 'ganttView'])->name('gantt');
-
-    // API para calendario
-    Route::get('/events', [TechnicianScheduleController::class, 'getEvents'])->name('events');
+    // Mueve/reordena sobre SU agenda (valida pertenencia; reforzado por Policy)
     Route::post('/tasks/{task}/move', [TechnicianScheduleController::class, 'moveTask'])->name('move-task');
     Route::post('/tasks/reorder-day', [TechnicianScheduleController::class, 'reorderDayTasks'])->name('reorder-day-tasks');
 
