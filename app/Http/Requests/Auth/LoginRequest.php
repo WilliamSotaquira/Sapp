@@ -143,11 +143,13 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // Sistema single-user: solo el administrador (líder del proceso) puede
-        // iniciar sesión. Los técnicos y cualquier otro usuario existen como
-        // registros gestionables (para delegación y reportes) pero NUNCA acceden
-        // a la aplicación, ni en local ni cuando se publique en línea.
-        if (! Auth::user()->isAdmin()) {
+        // Acceso al panel: el administrador (líder del proceso) y los técnicos
+        // autorizados por la columna `role` pueden iniciar sesión. Cualquier otro
+        // usuario (role=user), un rol inesperado o la ausencia de rol quedan
+        // bloqueados de forma fail-closed vía canAccessPanel(). La protección real
+        // de administración vive en el muro de rutas (FEAT-001) y las políticas de
+        // aislamiento (FEAT-002); esto solo abre la puerta a quien debe entrar.
+        if (! Auth::user()->canAccessPanel()) {
             Auth::logout();
 
             RateLimiter::hit($this->throttleKey());
