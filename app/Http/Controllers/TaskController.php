@@ -37,6 +37,15 @@ class TaskController extends Controller
             });
         }
 
+        // Aislamiento del técnico: un no-admin SOLO ve sus propias tareas y no
+        // puede listar la cola de otro técnico vía el parámetro technician_id.
+        $authUser = auth()->user();
+        $forcedTechnicianId = null;
+        if ($authUser && !$authUser->isAdmin()) {
+            $forcedTechnicianId = $authUser->technician?->id ?? 0;
+            $query->where('technician_id', $forcedTechnicianId);
+        }
+
         // Filtros
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -46,7 +55,7 @@ class TaskController extends Controller
             $query->where('type', $request->type);
         }
 
-        if ($request->filled('technician_id')) {
+        if ($forcedTechnicianId === null && $request->filled('technician_id')) {
             $query->where('technician_id', $request->technician_id);
         }
 
@@ -171,6 +180,12 @@ class TaskController extends Controller
             $selectedDate = $request->get('date');
             $selectedTechnicianId = (int) $request->get('technician_id');
 
+            // Para no-admin se fuerza su propio perfil (fail-closed con 0): no
+            // puede inspeccionar la cola manual de otro técnico.
+            if ($forcedTechnicianId !== null) {
+                $selectedTechnicianId = $forcedTechnicianId;
+            }
+
             $availableQuery = Task::with(['serviceRequest'])
                 ->where('technician_id', $selectedTechnicianId)
                 ->where(function ($q) use ($selectedDate) {
@@ -210,6 +225,8 @@ class TaskController extends Controller
 
     public function enqueueDay(Request $request, Task $task)
     {
+        $this->authorize('schedule', $task);
+
         $validated = $request->validate([
             'scheduled_date' => 'required|date',
             'technician_id' => 'required|exists:technicians,id',
@@ -263,6 +280,20 @@ class TaskController extends Controller
             'scheduled_date' => 'required|date',
             'technician_id' => 'required|exists:technicians,id',
         ]);
+
+        // Esta ruta no tiene {task} binding: reordena TODAS las tareas de un
+        // technician_id. Un no-admin solo puede reordenar su propia cola.
+        $authUser = auth()->user();
+        if ($authUser && !$authUser->isAdmin()) {
+            $ownTechnicianId = $authUser->technician?->id;
+            if ($ownTechnicianId === null) {
+                abort(403);
+            }
+            if ((int) $validated['technician_id'] !== (int) $ownTechnicianId) {
+                abort(403);
+            }
+            $validated['technician_id'] = $ownTechnicianId;
+        }
 
         $tasks = Task::whereDate('scheduled_date', $validated['scheduled_date'])
             ->where('technician_id', $validated['technician_id'])
@@ -497,6 +528,29 @@ class TaskController extends Controller
 
                 if ($technician) {
                     $validated['technician_id'] = $technician->id;
+                }
+            }
+        }
+
+        // Aislamiento del técnico: un no-admin solo puede crear tareas para SÍ
+        // mismo y sobre una solicitud asignada a él. Asignar a otro técnico es admin.
+        $authUser = auth()->user();
+        if ($authUser && !$authUser->isAdmin()) {
+            $this->authorize('create', Task::class);
+
+            $ownTechnicianId = $authUser->technician?->id;
+            if ($ownTechnicianId === null) {
+                abort(403);
+            }
+
+            if (!empty($validated['technician_id']) && (int) $validated['technician_id'] !== (int) $ownTechnicianId) {
+                abort(403);
+            }
+
+            if (!empty($validated['service_request_id'])) {
+                $parentSr = ServiceRequest::withoutGlobalScopes()->find($validated['service_request_id']);
+                if (!$parentSr || (int) $parentSr->assigned_to !== (int) $authUser->id) {
+                    abort(403);
                 }
             }
         }
@@ -789,12 +843,10 @@ class TaskController extends Controller
 
     public function quickStoreForServiceRequest(Request $request, ServiceRequest $serviceRequest)
     {
-        if (!auth()->user()->can('assign-service-requests')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes permisos para crear tareas.',
-            ], 403);
-        }
+        // El técnico crea tareas SOLO desde SU solicitud: puede crear tareas
+        // (TaskPolicy::create) y debe poder operar la SR padre (asignada a él).
+        $this->authorize('create', Task::class);
+        $this->authorize('update', $serviceRequest);
 
         $validator = Validator::make(
             $request->all(),
@@ -946,6 +998,8 @@ class TaskController extends Controller
 
     public function unschedule(Task $task)
     {
+        $this->authorize('schedule', $task);
+
         $user = auth()->user();
 
         $canManage = $user->can('assign-service-requests')
@@ -990,6 +1044,8 @@ class TaskController extends Controller
 
     public function scheduleQuick(Request $request, Task $task)
     {
+        $this->authorize('schedule', $task);
+
         $user = auth()->user();
 
         // Cargar la SR sin global scope para evitar filtro de workspace
@@ -1140,6 +1196,8 @@ class TaskController extends Controller
 
     public function clearSchedule(Task $task)
     {
+        $this->authorize('schedule', $task);
+
         $user = auth()->user();
 
         $canManage = $user->can('assign-service-requests')
@@ -1188,6 +1246,8 @@ class TaskController extends Controller
      */
     public function show(Request $request, Task $task)
     {
+        $this->authorize('view', $task);
+
         // Persistir la URL de origen (de dónde llegó el usuario a esta tarea) para el botón "Volver".
         // Solo se actualiza cuando el referrer NO es la propia tarea, para que sobreviva a los
         // redirects de las acciones (completar/iniciar) que devuelven a esta misma página.
@@ -1227,6 +1287,8 @@ class TaskController extends Controller
      */
     public function edit(Task $task)
     {
+        $this->authorize('update', $task);
+
         $technicians = Technician::with('user')
             ->active()
             ->whereHas('user')
@@ -1258,6 +1320,8 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
+        $this->authorize('update', $task);
+
         $validated = $request->validate([
             'type' => 'nullable|in:impact,regular',
             'title' => 'required|string|max:400',
@@ -1398,6 +1462,8 @@ class TaskController extends Controller
      */
     public function assign(Request $request, Task $task)
     {
+        $this->authorize('assign', $task);
+
         $validated = $request->validate([
             'technician_id' => 'required|exists:technicians,id',
             'scheduled_date' => 'nullable|date',
@@ -1445,6 +1511,8 @@ class TaskController extends Controller
      */
     public function suggestAssignment(Task $task)
     {
+        $this->authorize('assign', $task);
+
         $suggestions = $this->assignmentService->suggestTechnicianForTask($task);
 
         return response()->json($suggestions);
@@ -1455,6 +1523,8 @@ class TaskController extends Controller
      */
     public function start(Task $task)
     {
+        $this->authorize('start', $task);
+
         if (!in_array($task->status, ['pending', 'confirmed'])) {
             return back()->with('error', 'Solo se pueden iniciar tareas pendientes o confirmadas');
         }
@@ -1469,6 +1539,8 @@ class TaskController extends Controller
      */
     public function complete(Request $request, Task $task)
     {
+        $this->authorize('complete', $task);
+
         $validated = $request->validate([
             'technical_notes' => 'nullable|string',
             'actual_duration_minutes' => 'nullable|integer',
@@ -1508,6 +1580,8 @@ class TaskController extends Controller
      */
     public function block(Request $request, Task $task)
     {
+        $this->authorize('block', $task);
+
         $validated = $request->validate([
             'block_reason' => 'required|string',
         ]);
@@ -1522,6 +1596,8 @@ class TaskController extends Controller
      */
     public function unblock(Task $task)
     {
+        $this->authorize('unblock', $task);
+
         $task->unblock();
 
         return back()->with('success', 'Tarea desbloqueada');
@@ -1532,6 +1608,8 @@ class TaskController extends Controller
      */
     public function reschedule(Request $request, Task $task)
     {
+        $this->authorize('reschedule', $task);
+
         $validated = $request->validate([
             'scheduled_date' => 'required|date',
             'scheduled_start_time' => ['required', 'regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/'],
@@ -1634,6 +1712,8 @@ class TaskController extends Controller
      */
     public function updateDuration(Request $request, Task $task)
     {
+        $this->authorize('updateDuration', $task);
+
         $validated = $request->validate([
             'estimated_hours' => 'required|numeric|min:0.25|max:24',
         ]);
@@ -1667,6 +1747,8 @@ class TaskController extends Controller
      */
     public function destroy(Task $task)
     {
+        $this->authorize('delete', $task);
+
         try {
             $task->addHistory('deleted', auth()->id(), 'Tarea eliminada', [
                 'ip' => request()->ip(),
@@ -1896,6 +1978,8 @@ class TaskController extends Controller
 
     public function storeSubtask(Request $request, Task $task)
     {
+        $this->authorize('manageSubtasks', $task);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'priority' => 'required|in:high,medium,low',
@@ -1925,6 +2009,8 @@ class TaskController extends Controller
 
     public function reorderSubtasks(Request $request, Task $task)
     {
+        $this->authorize('manageSubtasks', $task);
+
         $validated = $request->validate([
             'subtask_ids' => 'required|array|min:1',
             'subtask_ids.*' => 'integer|distinct|exists:subtasks,id',
@@ -1966,6 +2052,8 @@ class TaskController extends Controller
 
     public function updateSubtask(Request $request, Task $task, Subtask $subtask)
     {
+        $this->authorize('manageSubtasks', $task);
+
         if ($subtask->task_id !== $task->id) {
             abort(403);
         }
@@ -2002,6 +2090,8 @@ class TaskController extends Controller
 
     public function destroySubtask(Task $task, Subtask $subtask)
     {
+        $this->authorize('manageSubtasks', $task);
+
         if ($subtask->task_id !== $task->id) {
             abort(403);
         }
@@ -2017,6 +2107,8 @@ class TaskController extends Controller
 
     public function toggleSubtaskStatus(Task $task, Subtask $subtask)
     {
+        $this->authorize('manageSubtasks', $task);
+
         if ($subtask->task_id !== $task->id) {
             abort(403);
         }
@@ -2066,6 +2158,8 @@ class TaskController extends Controller
 
     public function storeChecklist(Request $request, Task $task)
     {
+        $this->authorize('manageChecklists', $task);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
         ]);
@@ -2078,6 +2172,8 @@ class TaskController extends Controller
 
     public function updateChecklist(Request $request, Task $task, TaskChecklist $checklist)
     {
+        $this->authorize('manageChecklists', $task);
+
         if ($checklist->task_id !== $task->id) {
             abort(403);
         }
@@ -2093,6 +2189,8 @@ class TaskController extends Controller
 
     public function destroyChecklist(Task $task, TaskChecklist $checklist)
     {
+        $this->authorize('manageChecklists', $task);
+
         if ($checklist->task_id !== $task->id) {
             abort(403);
         }
@@ -2108,6 +2206,8 @@ class TaskController extends Controller
 
     public function toggleChecklist(Task $task, TaskChecklist $checklist)
     {
+        $this->authorize('manageChecklists', $task);
+
         if ($checklist->task_id !== $task->id) {
             abort(403);
         }
@@ -2130,6 +2230,8 @@ class TaskController extends Controller
      */
     public function toggleStatus(Task $task, Request $request)
     {
+        $this->authorize('update', $task);
+
         try {
             if (!$this->canConfirmAssociatedTaskProgress($task)) {
                 return response()->json([
@@ -2200,6 +2302,8 @@ class TaskController extends Controller
      */
     public function toggleSubtask(Task $task, Subtask $subtask, Request $request)
     {
+        $this->authorize('update', $task);
+
         try {
             if ($subtask->task_id !== $task->id) {
                 return response()->json([

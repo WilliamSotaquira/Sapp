@@ -492,11 +492,7 @@ class MySpaceController extends Controller
      */
     public function completeTask(Request $request, Task $task)
     {
-        $user = auth()->user();
-
-        if (!$user->technician || $task->technician_id !== $user->technician->id) {
-            abort(403, 'No tienes permiso para completar esta tarea.');
-        }
+        $this->authorize('complete', $task);
 
         $task->update([
             'status' => 'completed',
@@ -515,11 +511,7 @@ class MySpaceController extends Controller
      */
     public function startTask(Request $request, Task $task)
     {
-        $user = auth()->user();
-
-        if (!$user->technician || $task->technician_id !== $user->technician->id) {
-            abort(403, 'No tienes permiso para iniciar esta tarea.');
-        }
+        $this->authorize('start', $task);
 
         if ($task->status === 'pending' || $task->status === 'confirmed') {
             $task->update([

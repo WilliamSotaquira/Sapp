@@ -637,6 +637,15 @@ class ServiceRequestService
             }
         }
 
+        // Aislamiento de datos del técnico (incondicional, al final del método).
+        // Un técnico no-admin SOLO ve sus solicitudes asignadas, sin importar
+        // scope=all ni un company_id ajeno por querystring. Cubre listado y stats
+        // (fuente única de getFilteredServiceRequests y getFilteredStats).
+        $user = auth()->user();
+        if ($user && !$user->isAdmin() && $user->isTechnicianRole()) {
+            $query->where('assigned_to', $user->id);
+        }
+
         return $query;
     }
 

@@ -165,48 +165,40 @@ class ServiceRequest extends Model
     {
         $field = $field ?? $this->getRouteKeyName();
 
-        // 1. Intentar resolver normalmente (con el scope de workspace actual)
-        $model = $this->newQuery()->where($field, $value)->first();
-
-        if ($model) {
-            return $model;
-        }
-
-        // 2. Buscar sin el scope de workspace
-        $model = $this->newQueryWithoutScope('workspace')->where($field, $value)->first();
+        // Resolver con el scope de workspace activo; si no, sin el scope.
+        $model = $this->newQuery()->where($field, $value)->first()
+            ?? $this->newQueryWithoutScope('workspace')->where($field, $value)->first();
 
         if (!$model) {
             abort(404);
         }
 
-        // 3. Verificar que el usuario autenticado tenga acceso a la empresa de la solicitud
         $user = auth()->user();
 
         if (!$user) {
             abort(404);
         }
 
-        // El usuario tiene acceso si pertenece a la empresa dueña
-        // O si es el técnico asignado a la solicitud (su propio trabajo).
         $belongsToCompany = $user->companies()->where('companies.id', $model->company_id)->exists();
         $isAssignee = (int) $model->assigned_to === (int) $user->id;
 
-        if (!$belongsToCompany && !$isAssignee) {
+        // AUTORIZACIÓN SIEMPRE (ambos caminos de resolución). Para un no-admin la
+        // pertenencia a la entidad NO concede binding: solo la asignación lo hace.
+        if (!$user->isAdmin() && !$isAssignee) {
             abort(403, 'No tienes acceso a esta solicitud de servicio.');
         }
 
-        // 4. Auto-switch al CONTRATO de la solicitud, solo si el usuario pertenece a la empresa.
-        // Si es solo el asignado (no pertenece a la empresa), no cambiamos su contexto.
-        if ($belongsToCompany) {
+        // Auto-switch al CONTRATO de la solicitud: solo admin con pertenencia a la empresa.
+        if ($user->isAdmin() && $belongsToCompany) {
             if ($model->contract_id) {
                 app(WorkspaceContext::class)->switchToContract((int) $model->contract_id);
             } else {
                 app(WorkspaceContext::class)->switchTo((int) $model->company_id);
             }
-        }
 
-        $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');
-        session()->flash('info', "Se cambió automáticamente al entorno «{$companyName}» para mostrar esta solicitud.");
+            $companyName = \App\Models\Company::where('id', $model->company_id)->value('name');
+            session()->flash('info', "Se cambió automáticamente al entorno «{$companyName}» para mostrar esta solicitud.");
+        }
 
         return $model;
     }

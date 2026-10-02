@@ -357,6 +357,8 @@ class ServiceRequestController extends Controller
      */
     public function generateResolutionThirdPerson(ServiceRequest $serviceRequest)
     {
+        $this->authorize('generateEmailReply', $serviceRequest);
+
         if (!config('services.openrouter.key')) {
             return response()->json([
                 'success' => false,
@@ -983,6 +985,8 @@ class ServiceRequestController extends Controller
      */
     public function show(ServiceRequest $serviceRequest)
     {
+        $this->authorize('view', $serviceRequest);
+
         $serviceRequest = $this->serviceRequestService->loadServiceRequestForShow($serviceRequest);
 
         $technicians = User::query()
@@ -1047,6 +1051,8 @@ class ServiceRequestController extends Controller
      */
     public function edit(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('update', $serviceRequest);
+
         $editableStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA', 'CERRADA'];
 
         if (!in_array($serviceRequest->status, $editableStatuses)) {
@@ -1151,6 +1157,8 @@ class ServiceRequestController extends Controller
      */
     public function accept(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('accept', $serviceRequest);
+
         $result = $this->workflowService->acceptRequest($serviceRequest);
         $acceptAndStart = $request->boolean('accept_and_start');
         $focusTasks = $request->boolean('focus_tasks');
@@ -1198,6 +1206,8 @@ class ServiceRequestController extends Controller
      */
     public function reject(RejectServiceRequestRequest $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('reject', $serviceRequest);
+
         $result = $this->workflowService->rejectRequest(
             $serviceRequest,
             $request->validated()['rejection_reason']
@@ -1217,6 +1227,8 @@ class ServiceRequestController extends Controller
      */
     public function finalizeNonViable(FinalizeNonViableRequest $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('finalizeNonViable', $serviceRequest);
+
         $validated = $request->validated();
 
         // El soporte se registra en la sección de Evidencias de la solicitud.
@@ -1243,6 +1255,8 @@ class ServiceRequestController extends Controller
 
     public function start(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('start', $serviceRequest);
+
         $useStandardTasks = $request->input('use_standard_tasks', '0') === '1';
         $result = $this->workflowService->startProcessing($serviceRequest, $useStandardTasks);
         $focusTasks = $request->boolean('focus_tasks');
@@ -1320,6 +1334,8 @@ class ServiceRequestController extends Controller
 
     public function resolve(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('resolve', $serviceRequest);
+
         $validated = $request->validate([
             'resolution_description' => 'required|string|min:10|max:8000',
             'resolution_notes' => 'nullable|string|max:8000',
@@ -1428,6 +1444,8 @@ class ServiceRequestController extends Controller
      */
     public function generateResolution(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('generateResolution', $serviceRequest);
+
         if (!config('services.llm.enabled', false) && !config('services.openrouter.key')) {
             return response()->json([
                 'success' => false,
@@ -1565,6 +1583,8 @@ class ServiceRequestController extends Controller
      */
     public function reassign(ServiceRequest $service_request)
     {
+        $this->authorize('reassign', $service_request);
+
         $allowedStatuses = ['PENDIENTE', 'ACEPTADA', 'EN_PROCESO', 'PAUSADA'];
         if (!in_array($service_request->status, $allowedStatuses)) {
             return redirect()
@@ -1619,6 +1639,8 @@ class ServiceRequestController extends Controller
      */
     public function reassignSubmit(ReassignServiceRequestRequest $request, ServiceRequest $service_request, AssignmentHistoryService $assignmentHistoryService)
     {
+        $this->authorize('reassign', $service_request);
+
         $validated = $request->validated();
 
         // Status guard: only allow reassignment in specific statuses
@@ -1679,6 +1701,8 @@ class ServiceRequestController extends Controller
 
     public function pause(ServiceRequest $serviceRequest, PauseServiceRequestRequest $request)
     {
+        $this->authorize('pause', $serviceRequest);
+
         $result = $this->workflowService->pauseRequest(
             $serviceRequest,
             $request->validated()['pause_reason']
@@ -1695,6 +1719,8 @@ class ServiceRequestController extends Controller
 
     public function resume(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('resume', $serviceRequest);
+
         $result = $this->workflowService->resumeRequest($serviceRequest);
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -1708,6 +1734,8 @@ class ServiceRequestController extends Controller
 
     public function close(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('close', $serviceRequest);
+
         // Determinar el tipo de cierre basado en el estado actual
         $isVencimiento = $serviceRequest->status === 'PAUSADA';
         $isCierreNormal = $serviceRequest->status === 'RESUELTA';
@@ -1957,6 +1985,8 @@ class ServiceRequestController extends Controller
 
     public function closeByVencimiento(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('closeVencimiento', $serviceRequest);
+
         if ($serviceRequest->status !== 'PAUSADA') {
             return redirect()
                 ->route('service-requests.show', $serviceRequest->id)
@@ -1971,6 +2001,8 @@ class ServiceRequestController extends Controller
      */
     public function reopen(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('reopen', $serviceRequest);
+
         $allowedStatuses = ['RESUELTA', 'CERRADA'];
 
         if (!in_array($serviceRequest->status, $allowedStatuses)) {
@@ -2028,6 +2060,8 @@ class ServiceRequestController extends Controller
      */
     public function cancel(ServiceRequest $serviceRequest, Request $request)
     {
+        $this->authorize('cancel', $serviceRequest);
+
         $validStatuses = ['PENDIENTE', 'ACEPTADA'];
         $currentStatus = strtoupper(trim($serviceRequest->status));
 
@@ -2108,6 +2142,8 @@ class ServiceRequestController extends Controller
      */
     public function showResolveForm(ServiceRequest $serviceRequest)
     {
+        $this->authorize('resolve', $serviceRequest);
+
         if ($serviceRequest->status !== 'EN_PROCESO') {
             return redirect()
                 ->route('service-requests.show', $serviceRequest)
@@ -2138,6 +2174,8 @@ class ServiceRequestController extends Controller
      */
     public function showTimeline(ServiceRequest $serviceRequest)
     {
+        $this->authorize('view', $serviceRequest);
+
         $serviceRequest->load(['subService.service.family', 'sla', 'requester', 'assignee', 'evidences.user', 'breachLogs']);
 
         $timelineEvents = $serviceRequest->getTimelineEvents();
@@ -2151,6 +2189,8 @@ class ServiceRequestController extends Controller
 
     public function quickAssign(Request $request, ServiceRequest $service_request)
     {
+        $this->authorize('assign', $service_request);
+
         if (!auth()->user()->can('assign-service-requests')) {
             return response()->json(
                 [
@@ -2269,6 +2309,8 @@ class ServiceRequestController extends Controller
 
     public function quickAssignRequester(Request $request, ServiceRequest $service_request)
     {
+        $this->authorize('assign', $service_request);
+
         if (!auth()->user()->can('assign-service-requests')) {
             return response()->json(
                 [
@@ -2357,6 +2399,8 @@ class ServiceRequestController extends Controller
      */
     public function downloadReport(ServiceRequest $serviceRequest)
     {
+        $this->authorize('downloadReport', $serviceRequest);
+
         try {
             $serviceRequest->load(['requester', 'assignee', 'evidences', 'sla', 'subService']);
 
@@ -2441,6 +2485,8 @@ class ServiceRequestController extends Controller
      */
     public function updateCut(Request $request, ServiceRequest $serviceRequest)
     {
+        $this->authorize('updateCut', $serviceRequest);
+
         try {
             $validated = $request->validate([
                 'cut_id' => 'nullable|exists:cuts,id',
