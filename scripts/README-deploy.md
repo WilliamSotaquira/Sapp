@@ -67,6 +67,7 @@ servidor). Solo necesitas pasarlas si cambia algo:
 | `BACKUP_DIR`   | `~/backups`                        |
 | `GIT_BRANCH`   | `main`                             |
 | `BUILD_ASSETS` | `1` (pon `0` para saltar el build) |
+| `PHP_FPM_SERVICE` | `php8.4-fpm` (servicio php-fpm del sitio) |
 
 Ejemplo saltando el build de assets:
 

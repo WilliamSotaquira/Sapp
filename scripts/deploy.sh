@@ -22,6 +22,7 @@ DB_NAME="${DB_NAME:-weirdoware_sapp}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 BUILD_ASSETS="${BUILD_ASSETS:-1}"   # 1 = correr npm ci && npm run build en el server
+PHP_FPM_SERVICE="${PHP_FPM_SERVICE:-php8.4-fpm}"   # servicio php-fpm del sitio (CloudPanel)
 
 # ─────────────────────────────────────────────────────────────
 # Utilidades
@@ -122,6 +123,21 @@ php artisan view:cache
 # ─────────────────────────────────────────────────────────────
 log "Reiniciando queue workers"
 php artisan queue:restart || warn "No se pudo reiniciar la cola (¿no hay workers?)"
+
+# ─────────────────────────────────────────────────────────────
+# 8b. Recargar php-fpm (opcional, solo si hay sudo sin contraseña)
+#     En CloudPanel el usuario del sitio normalmente NO puede reiniciar
+#     servicios: en ese caso se avisa y el deploy continúa sin fallar.
+#     Para un deploy normal de Laravel esto casi nunca es necesario
+#     (optimize:clear + config:cache ya refrescan la app).
+# ─────────────────────────────────────────────────────────────
+if sudo -n systemctl reload "$PHP_FPM_SERVICE" >/dev/null 2>&1; then
+  ok "php-fpm ($PHP_FPM_SERVICE) recargado"
+else
+  warn "No se recargó $PHP_FPM_SERVICE (sin permiso sudo). Normalmente no hace falta."
+  warn "Si lo necesitas, ejecútalo con tu usuario admin:"
+  warn "    sudo systemctl reload $PHP_FPM_SERVICE"
+fi
 
 # ─────────────────────────────────────────────────────────────
 # 9. Salir de mantenimiento
