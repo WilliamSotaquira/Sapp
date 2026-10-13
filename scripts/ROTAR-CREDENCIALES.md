@@ -69,19 +69,33 @@ mysql -u weirdoware_sapp -p weirdoware_sapp -e "SELECT COUNT(*) AS con_token FRO
 # Debe devolver 0
 ```
 
-## Sobre APP_KEY
+## Rotar APP_KEY (NECESARIO — confirmado comprometida)
 
-El `.env` NO estaba en el dump (solo datos de tablas), así que la `APP_KEY` no se
-filtró por esta vía. Confirma que `.env` nunca se versionó:
+El `.env` real nunca se versionó, PERO las plantillas `.env.dev` y `.env.local` SÍ
+contenían una `APP_KEY` real publicada en GitHub, y se confirmó que **es la misma
+que usa producción**. Por tanto la clave de cifrado de la app está comprometida y
+HAY QUE ROTARLA.
+
+Verificación hecha: la app NO usa cifrado de campos en la base de datos (no hay
+casts `encrypted` ni `Crypt::` en el código), y `SESSION_ENCRYPT=false`. Rotar la
+`APP_KEY` por tanto NO corrompe datos persistidos: su único efecto es invalidar
+sesiones y cookies "remember me", que es justo lo deseable tras la exposición.
 
 ```bash
-# En tu máquina, dentro del repo:
-git log --all --oneline -- .env
-# Si no devuelve nada, APP_KEY está a salvo y NO hace falta rotarla.
+sudo -iu weirdoware-sapp
+cd ~/htdocs/sapp.weirdoware.com
+php artisan down
+php artisan key:generate --force    # genera y escribe una APP_KEY nueva en .env
+php artisan config:cache
+php artisan up
 ```
 
-> ⚠️ Rotar `APP_KEY` invalidaría datos cifrados existentes (cookies, valores
-> encriptados). Hazlo solo si confirmas que se filtró.
+> ⚠️ Solo rotar `APP_KEY` sin más es seguro en ESTE proyecto porque no hay datos
+> cifrados en BD. Si en el futuro añades columnas cifradas, rotar la clave exigiría
+> re-cifrar esos datos antes del cambio.
+
+> Tras rotar, limpia también la clave vieja del historial de git si no lo has hecho
+> (ver `scripts/LIMPIAR-HISTORIAL.md`, con `git filter-repo --replace-text`).
 
 ---
 
