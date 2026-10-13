@@ -130,9 +130,12 @@ fi
 log "Estado de migraciones (migrate:status):"
 php artisan migrate:status || true
 
-# Detectar si hay migraciones pendientes
+# Detectar si hay migraciones pendientes.
+# Formato de Laravel 12: cada fila termina en "Ran" o "Pending".
+# Buscamos la palabra "Pending" como token aislado (case-sensitive para no
+# confundir con nombres de migración que contengan "pending").
 PENDING_MIGRATIONS=0
-if php artisan migrate:status 2>/dev/null | grep -qiE '\bPending\b|\bNo\b'; then
+if php artisan migrate:status 2>/dev/null | grep -qE '\bPending\b'; then
   PENDING_MIGRATIONS=1
 fi
 
