@@ -23,6 +23,7 @@
 /storage/pail
 /vendor
 database/sapp.sql
+database/dumps/
 Homestead.json
 Homestead.yaml
 Thumbs.db
